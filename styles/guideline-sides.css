@@ -1,0 +1,6 @@
+/* Both guidelines side by side (F9, 15 Nov 2026): a teaching card whose slide has `sides` shows what Baveno VIII and AASLD 2024 each say, in two
+   plain columns under the words. Two tinted blocks and a small name over each; no rules, no top-edge lines. */
+.pz-sides { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5em, 1fr)); gap: 8px; margin: .6em 0 0; }
+.pz-side { display: grid; align-content: start; gap: .25em; min-width: 0; padding: .55em .7em; border-radius: 10px; background: color-mix(in srgb, var(--text) 6%, transparent); }
+.pz-side-who { font: 650 var(--s-cap)/1.2 var(--font-ui); letter-spacing: .05em; text-transform: uppercase; color: var(--text-3); }
+.pz-side-p { margin: 0; font: 400 var(--s-cap)/1.4 var(--font-ui); color: var(--text); text-wrap: pretty; }

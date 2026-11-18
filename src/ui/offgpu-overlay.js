@@ -13,6 +13,7 @@
 // window.pps.offgpu() returns the totals and the recent sites (for tests and the console).
 import { restPass } from './rest-pass.js';
 import { watchFrames } from './frame.js';
+import { layoutReads } from './layout-snap.js';
 
 const KINDS = ['2d', 'svg', 'layout', 'upload', 'shader'];
 const UPLOAD_RED = 512 * 1024;   // (small row updates every frame are the GPU's normal diet; a big re-upload is the stall)
@@ -23,20 +24,33 @@ let now = zero(), spare = zero();   // (the frame's counts, and the last frame's
 // A set of counts put back to zero, in place.
 function resetCounts(o) { o['2d'] = 0; o.svg = 0; o.layout = 0; o.upload = 0; o.shader = 0; o.bytes = 0; return o; }
 const total = zero(), inMotion = zero(), sites = [];
+const tally = new Map();   // ("kind call ← caller ← caller's caller" → how many times it was made in a moving frame)
+const TALLY_PER_FRAME = 24, TALLY_MAX = 400;
 let quiet = 0;   // >0 while the overlay itself runs (its own work is never counted)
 
-function site() {
-  const s = (new Error().stack || '').split('\n').slice(2).find((l) => !/offgpu-overlay/.test(l)) || '';
-  return s.trim().replace(/^at\s+/, '').replace(/\?v=[0-9a-f]+/g, '').replace(/https?:\/\/[^/]+\//, '').slice(0, 120);
+// The caller of a counted call: the browser's stack, minus its own header and our three frames (site, count, the wrapper). In the built
+// page every function is one minified name, so the first frame that is not this file used to be this file's own `count` (one address for
+// every site, the 2:330 of a 16 Nov report); skipping by depth gives the caller, and two callers up say who asked for it.
+// (Chrome and Safari lay the stack out differently: Chrome has an "Error" line first, Safari starts at the frame.)
+export function callers(stack, n = 2) {
+  const lines = String(stack || '').split('\n');
+  const at = lines.slice(/^Error/.test(lines[0]) ? 4 : 3).filter((l) => l && !/offgpu-overlay/.test(l));
+  const short = (l) => l.trim().replace(/^at\s+/, '').replace(/\?v=[0-9a-f]+/g, '').replace(/https?:\/\/[^/]+/, '').slice(0, 120);
+  return at.slice(0, n).map(short).join(' ← ');
 }
+const site = () => callers(new Error().stack);
 function count(kind, what, bytes = 0) {
   if (quiet) return;
   now[kind]++; total[kind]++;
   if (bytes) { now.bytes += bytes; total.bytes += bytes; }
-  if (moveNow() && now.sitesTaken !== undefined && now.sitesTaken < SITES_PER_FRAME && (kind !== 'upload' || bytes >= UPLOAD_RED)) {
+  if (moveNow() && now.sitesTaken !== undefined && now.sitesTaken < TALLY_PER_FRAME) {
     now.sitesTaken++;
-    sites.push(`${kind} ${what} ← ${site()}`);
-    if (sites.length > 12) sites.shift();
+    const key = `${kind} ${what} ← ${site()}`;
+    if (tally.has(key) || tally.size < TALLY_MAX) tally.set(key, (tally.get(key) || 0) + 1);
+    if (now.sitesTaken <= SITES_PER_FRAME && (kind !== 'upload' || bytes >= UPLOAD_RED)) {
+      sites.push(key);
+      if (sites.length > 12) sites.shift();
+    }
   }
 }
 
@@ -173,5 +187,30 @@ export function startOffGpuOverlay() {
   // (Shown at once and kept current when nothing moves: a timer, never a frame of its own.)
   show(performance.now());
   setInterval(() => { if (performance.now() - shownAt > 1000) { red = performance.now() < redUntil; const t = secShown; secShown = sec; sec = resetCounts(t); secAt = performance.now(); show(performance.now()); } }, 1000);
-  (globalThis.pps ||= {}).offgpu = () => ({ total: { ...total }, inMotion: { ...inMotion }, redFrames, sites: [...sites] });
+  const P = (globalThis.pps ||= {});
+  const top = (n = 20) => [...tally].sort((a, b) => b[1] - a[1]).slice(0, n);
+  P.layoutReads = layoutReads;   // (the page's layout reads by the frame's phase, and how many came after a write: layout-snap.js)
+  P.offgpu = () => ({ total: { ...total }, inMotion: { ...inMotion }, redFrames, sites: [...sites], top: top() });
+  // pps.offgpuReset(): empties the tally (call it before a view switch, read pps.offgpu().top after).
+  P.offgpuReset = () => { tally.clear(); sites.length = 0; redFrames = 0; for (const k of KINDS) inMotion[k] = 0; inMotion.bytes = 0; };
+  // await pps.offgpuWhere(): the top sites with the source text around each address (the built page has one-letter names, so the
+  // address alone says nothing): the script is fetched again from the cache and cut at the line and column.
+  P.offgpuWhere = async (n = 12) => {
+    const files = new Map(), out = [];
+    for (const [key, count] of top(n)) {
+      const parts = key.split(' ← ').slice(1).map((a) => {
+        const m = /([^\s(]+?):(\d+):(\d+)\)?$/.exec(a);
+        return m ? { file: m[1], line: +m[2], col: +m[3] } : null;
+      });
+      const src = [];
+      for (const q of parts) {
+        if (!q) { src.push(null); continue; }
+        if (!files.has(q.file)) files.set(q.file, fetch(q.file).then((r) => r.text(), () => '').then((t) => t.split('\n')));
+        const lines = await files.get(q.file), l = lines[q.line - 1] || '';
+        src.push(l.slice(Math.max(0, q.col - 90), q.col + 50));
+      }
+      out.push({ key, count, src });
+    }
+    return out;
+  };
 }

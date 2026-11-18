@@ -12,17 +12,14 @@
 
 // After TIPS the splanchnic circulation grows more hyperdynamic and the hepatic artery takes up the portal flow the liver
 // loses (its buffer response, with some arterioportal shunting): the patch stands for both, so the stent reads 90–190 cm/s,
-// the main portal vein over 30 cm/s and the left portal vein clearly reversed, as on a working TIPS.
-const STENT = { tips: { on: true, d: 9 }, splanchnicTone: 0.7, habrStrength: 1.5, apShunt: 0.5 };
+// the main portal vein over 30 cm/s and the left portal vein clearly reversed, as on a working TIPS. (A 10 mm stent, not 9, since 15 Nov 2026
+// (full app review C2b-5): at 9 mm the stent read 189.5 cm/s mid stent, on the 190 line the slide teaches; at 10 mm it reads 160, 144 at its
+// portal end, near Mitchell's 149 for 10 mm stents.)
+const STENT = { tips: { on: true, d: 10 }, splanchnicTone: 0.7, habrStrength: 1.5, apShunt: 0.5 };
 
 export const TIPS_DOPPLER = {
   id: 'tips-doppler', level: 'advanced', title: 'Doppler ultrasound of TIPS', minutes: 8,
-  objectives: [
-    'Describe Doppler of a patent TIPS: proximal, mid and distal stent velocities and flow direction in each portal branch',
-    'Explain why the intrahepatic portal branches flow toward the stent',
-    'Recognize Doppler signs of TIPS dysfunction wherever stenosis forms along the stent, including a hepatopetal left portal vein',
-    'Distinguish aliasing from reversed flow, and correct it by shifting the baseline or raising the velocity scale',
-  ],
+  objectives: ['Describe Doppler of a patent TIPS: stent velocities and flow in each portal branch', 'Recognize the Doppler signs of TIPS dysfunction wherever the stent narrows', 'Tell aliasing from reversed flow, and correct it with the baseline or velocity scale'],
   summary: 'TIPS Doppler: the pre-TIPS baseline, a patent stent, aliasing, and a stenosed stent with its velocity jet, with the vessels colored by velocity and direction.',
   checks: [
     ['Which velocities suggest TIPS stenosis?', 'A velocity <90 or >190 cm/s at the proximal, mid or distal stent, a change of >50 cm/s from the baseline study, or a main portal vein velocity <30 cm/s.'],
@@ -46,7 +43,7 @@ export const TIPS_DOPPLER = {
       kicker: 'A patent TIPS', title: 'The stent is sampled at three points',
       line: 'The stent lowers the PPG from {ppg@before} to {ppg}. Sample it at three points: {<90 cm/s} or {>190 cm/s} at any one suggests stenosis.',
       caveat: 'In the model the patent stent reads about 10% lower at its portal end than mid stent; in patients the three often differ by a few tens of cm/s.',
-      notes: 'A covered stent, here 9 mm in diameter, traverses the liver from the right portal vein to the right hepatic vein. This low-resistance pathway diverts most portal flow directly to the systemic circulation, so the gradient falls. A baseline Doppler study is done in the first weeks after placement, and every follow-up study is compared with it. Velocity rises as blood enters the stent, which is narrower than the portal vein, and flow is directed toward the heart along its whole length. Doppler samples the stent at its portal end (proximal), mid stent (mid) and its hepatic vein end (distal); each normally measures 90 to 190 cm/s. In shunts confirmed patent at venography, mean peak velocities were about 140 cm/s at the portal end, 150 to 185 cm/s mid stent and 140 to 170 cm/s at the hepatic vein end, often highest mid stent in 8 mm stents (Mitchell et al., 2025). A velocity outside 90 to 190 cm/s, or a change of >50 cm/s from the baseline study, suggests stenosis. These cut-offs were derived from bare stents; covered stents develop stenosis far less often, so the change from the baseline study carries more weight. Tap Proximal, Mid or Distal to move the Doppler gate; that third of the stent is lit. The figure steps along the stent with Next: the portal end, the hepatic vein end, then the whole stent.',
+      notes: 'A covered stent, here 10 mm in diameter, traverses the liver from the right portal vein to the right hepatic vein. This low-resistance pathway diverts most portal flow directly to the systemic circulation, so the gradient falls. A baseline Doppler study is done in the first weeks after placement, and every follow-up study is compared with it. Velocity rises as blood enters the stent, which is narrower than the portal vein, and flow is directed toward the heart along its whole length. Doppler samples the stent at its portal end (proximal), mid stent (mid) and its hepatic vein end (distal); each normally measures 90 to 190 cm/s. In shunts confirmed patent at venography, mean peak velocities were about 140 cm/s at the portal end, 150 to 185 cm/s mid stent and 140 to 170 cm/s at the hepatic vein end, often highest mid stent in 8 mm stents (Mitchell et al., 2025). A velocity outside 90 to 190 cm/s, or a change of >50 cm/s from the baseline study, suggests stenosis. These cut-offs were derived from bare stents; covered stents develop stenosis far less often, so the change from the baseline study carries more weight. Tap Proximal, Mid or Distal to move the Doppler gate; that third of the stent is lit. The figure steps along the stent with Next: the portal end, the hepatic vein end, then the whole stent.',
       ask: ['Where along the stent is the velocity measured?', 'At the portal end (proximal), in the middle (mid) and at the hepatic vein end (distal).'],
     },
     {
@@ -70,21 +67,23 @@ export const TIPS_DOPPLER = {
     },
     {
       id: 'left', cam: 'liver', lens: 'direction', labels: ['LPV'], terms: ['lpv'], tool: { kind: 'doppler', vessel: 'PVH_L' },
-      kicker: 'A patent TIPS', title: 'Every intrahepatic portal branch flows toward the stent',
-      line: 'With a patent TIPS every branch flows toward the stent, so the [left portal vein](lpv) is hepatofugal. Only the right portal segment before the stent is hepatopetal.',
+      kicker: 'A patent TIPS', title: 'After a TIPS the intrahepatic portal branches flow toward the stent',
+      line: 'With a patent TIPS the intrahepatic branches drain toward the stent, so the [left portal vein](lpv) is hepatofugal. Here only the right portal segment before the stent is hepatopetal.',
       notes: 'The stent is the lowest-resistance outflow from the liver, so blood in the left portal vein, much of it hepatic arterial blood that has entered the sinusoids, flows back to the bifurcation and into the stent. Before TIPS this branch was hepatopetal. Here hepatofugal flow is the expected finding, a sign of a patent stent, not of advanced disease. Colored by direction, reversed flow is orange. The stent starts in the right portal vein, close to the bifurcation, so the short segment between the bifurcation and the stent remains hepatopetal, on its way into the stent. Beyond the stent the right portal branches drain back toward it, hepatofugal like the left. The rule is the same for every segment: flow is directed toward the stent. (Lechowicz 2015, Polish Ultrasound Society standards.)',
       ask: ['With a patent TIPS, what is the direction of left portal vein flow?', 'Away from the liver, toward the stent (hepatofugal).'],
     },
     {
-      // A 60 % pinch in the distal third (stenosisSite unset: distal), sampled there: the jet runs over 190 cm/s, the rest under 90.
+      // A 65 % pinch in the distal third (stenosisSite unset: distal), sampled there: the jet runs over 190 cm/s, the rest under 90. (65 %, not 60,
+      // since 15 Nov 2026 (C2b-5): at 60 % the rest of the stent read 88 cm/s, on the 90 line; at 65 % it reads about 68.)
       // The buttons move the same pinch along the stent: the flow is the same wherever it sits, and the gate ('site') follows it.
-      id: 'narrow', params: { stenosis: { TIPS: 0.6 } }, days: 180, cam: 'liver', lens: 'velocity',
+      id: 'narrow', params: { stenosis: { TIPS: 0.65 } }, days: 180, cam: 'liver', lens: 'velocity',
       mark: { edges: ['TIPS'], label: 'Stenosis', seg: 'site' }, tool: { kind: 'doppler', vessel: 'TIPS', gate: 'site', points: true }, data: 'tiles', tiles: ['ppg', 'asc'], key: ['ppg'], delta: 'jet',
-      compare: [{ label: 'Proximal', params: { stenosisSite: { TIPS: 'proximal' } } }, { label: 'Mid', params: { stenosisSite: { TIPS: 'mid' } } },
-        { label: 'Distal', own: true, params: { stenosisSite: { TIPS: 'distal' } } }],
+      // (Mid is the same 1 cm pinch mid stent, which the stent card sets as its Waist: a stenosis there sits at an end, stent-geom.js.)
+      compare: [{ label: 'Proximal', params: { stenosis: { TIPS: 0.65 }, stenosisSite: { TIPS: 'proximal' }, stentGeom: { TIPS: { red: 0 } } } }, { label: 'Mid', params: { stenosis: { TIPS: 0 }, stentGeom: { TIPS: { red: 0.65 } } } },
+        { label: 'Distal', own: true, params: { stenosis: { TIPS: 0.65 }, stenosisSite: { TIPS: 'distal' }, stentGeom: { TIPS: { red: 0 } } } }],
       kicker: 'TIPS stenosis', title: 'A stenosed stent shows low velocity with a focal jet',
-      line: 'At 6 months, {asc} of ascites has reaccumulated. The jet at the stenosis is {>190 cm/s}, the rest of the stent {<90 cm/s}, and the PPG is back to {ppg}.',
-      notes: 'Stenosis usually develops at the hepatic vein end of the stent, or in the hepatic vein beyond it, often from intimal hyperplasia at the junction of the stent and the hepatic vein, or from a stent that does not extend to the IVC. Within the stent, pseudointimal hyperplasia or a kink can narrow it, and at the portal end the stent can be too short or angled against the vein wall. Along most of the stent the velocity falls, often <90 cm/s, while a short jet at the stenosis itself can exceed 190 cm/s. Doppler localizes the stenosis by its jet: the highest of the three velocities, with low velocity on either side. That is why all three points are sampled: a gate away from the stenosis measures only the low velocity. The gradient rises again and the indication for the TIPS recurs: ascites, or varices that can bleed. The tile compares with the patent stent. Tap Proximal, Mid or Distal to move the stenosis along the stent; the gate follows it. The model draws the stenosis as one short segment, about 1 cm long; in patients it can be longer or lie in the hepatic vein beyond the stent.',
+      line: 'At 6 months, {asc} of ascites has reaccumulated. The jet at the stenosis is {>190 cm/s}, the rest of the stent {<90 cm/s}, and the PPG has risen to {ppg}.',
+      notes: 'Stenosis usually develops at the hepatic vein end of the stent, or in the hepatic vein beyond it, often from intimal hyperplasia at the junction of the stent and the hepatic vein, or from a stent that does not extend to the IVC. Within the stent, pseudointimal hyperplasia or a kink can narrow it, and at the portal end the stent can be too short or angled against the vein wall. Along most of the stent the velocity falls, often <90 cm/s, while a short jet at the stenosis itself can exceed 190 cm/s. Doppler localizes the stenosis by its jet: the highest of the three velocities, with low velocity on either side. That is why all three points are sampled: a gate away from the stenosis measures only the low velocity. The gradient rises again and the indication for the TIPS recurs: ascites, or varices that can bleed. The tile compares with the patent stent. Tap Proximal, Mid or Distal to move the stenosis along the stent; the gate follows it. The model draws a stenosis as one short segment, about 1 cm long, at the portal or hepatic vein end; a longer narrowing mid stent is the Waist on the stent card. In patients it can be longer or lie in the hepatic vein beyond the stent.',
       ask: ['TIPS velocities are 60 cm/s proximally, 240 cm/s mid stent and 65 cm/s distally. Where is the stenosis?', 'Mid stent, where the jet is.'],
     },
     {
@@ -105,7 +104,7 @@ export const TIPS_DOPPLER = {
     {
       id: 'fix', cam: 'liver', lens: 'velocity', mark: { edges: ['TIPS'], label: 'Stent', kind: 'treat' }, tool: { kind: 'doppler', vessel: 'TIPS', gate: 'site', points: true },
       data: 'tiles', tiles: ['ppg'], key: ['ppg'],
-      compare: [{ label: 'Stenosed', own: true, params: { stenosis: { TIPS: 0.6 } } }, { label: 'Dilated', params: { stenosis: { TIPS: 0 } } }],
+      compare: [{ label: 'Stenosed', own: true, params: { stenosis: { TIPS: 0.65 } } }, { label: 'Dilated', params: { stenosis: { TIPS: 0 } } }],
       kicker: 'TIPS stenosis', title: 'TIPS venography confirms stenosis, and the stent is dilated',
       line: 'Doppler raises the suspicion. TIPS venography measures the gradient, and angioplasty or a new stent lowers the PPG from {ppg}.',
       notes: 'A Doppler study that suggests stenosis is followed by TIPS venography, with the portosystemic gradient measured across the stent. A stenosed stent is treated with balloon angioplasty or relined with a new stent, and the gradient is measured again. Afterward stent velocity returns toward baseline, and both portal branches flow toward the stent again. Tap the buttons to compare the stenosed and the dilated stent.',
@@ -113,12 +112,12 @@ export const TIPS_DOPPLER = {
     },
     {
       // (The relation chart before the summary, the narrowed stent of the slides before it: the PPG and the main portal vein's velocity read against the
-      // stent's narrowing, 0 to 80%, the patient otherwise as it stands. The ring is the 60% narrowing.)
+      // stent's narrowing, 0 to 80%, the patient otherwise as it stands. The ring is the 65% narrowing.)
       id: 'relation', cam: 'liver', lens: 'velocity', mark: { edges: ['TIPS'], label: 'Stent', kind: 'treat' },
       tool: { kind: 'curve', param: 'stenosis.TIPS', from: 0, to: 0.8, step: 0.05, lines: ['ppg', 'pvVel'], cuts: [12] },
       kicker: 'Summary', title: 'Progressive TIPS stenosis raises the PPG and lowers portal vein velocity',
-      line: 'The PPG exceeds 12 mmHg at about 33% stenosis, and main portal vein velocity drops {<30 cm/s} at about 50%. At 60% stenosis the PPG is {ppg}.',
-      notes: 'Each point is the same patient with slightly more stenosis, the PPG and mean main portal vein velocity plotted against the degree of stenosis. The PPG exceeds the 12 mmHg target at about 33% stenosis, and portal vein velocity drops <30 cm/s at about 50%, one of the Doppler signs of stenosis. The ring is the 60% stenosis of the preceding slides. After TIPS, a PPG <12 mmHg means a beta-blocker is no longer needed (AASLD 2024). The velocities are the model\'s means. (AASLD 2024; McNaughton and Abu-Yousef 2011.)',
+      line: 'The PPG exceeds 12 mmHg at about 40% stenosis, and main portal vein velocity drops {<30 cm/s} at about 50%. At 65% stenosis the PPG is {ppg}.',
+      notes: 'Each point is the same patient with slightly more stenosis, the PPG and mean main portal vein velocity plotted against the degree of stenosis. The PPG passes the 12 mmHg variceal reference at about 40% stenosis, and portal vein velocity drops <30 cm/s at about 50%, one of the Doppler signs of stenosis. The ring is the 65% stenosis of the preceding slides. After a TIPS for gastric varices, AASLD 2024 does not require a beta-blocker once the gradient is under 12 mmHg. The velocities are the model\'s means. (AASLD 2024; McNaughton and Abu-Yousef 2011.)',
       ask: ['In a patient with a TIPS, ascites recurs and main portal vein velocity has fallen to 25 cm/s. What do you suspect?', 'TIPS stenosis: the gradient rises as the stent narrows, and portal vein velocity falls with it.'],
     },
     {

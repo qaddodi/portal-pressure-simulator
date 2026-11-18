@@ -80,3 +80,11 @@ export function pairScale(pos, neg) {
   PAIR.scale = scaleFor(Math.max(pos, neg)); PAIR.base = Math.round(base * 10) / 10;
   return PAIR;
 }
+
+/** The resistive index written out (Mohammad's review, 15 Nov 2026), the artery's two marks made into a sum: four forms, the longest first, for a strip that takes the
+ *  longest that fits. psv: the peak systolic velocity and edv the end-diastolic one, in cm/s as the marks print them (a reversed diastole is negative); ri: the index
+ *  to two decimals. "RI = (PSV − EDV) / PSV = (62 − 20) / 62 = 0.68", the same without the numbers' working, the working alone, then "RI 0.68". */
+export function riForms(psv, edv, ri) {
+  const n = (v) => (v < 0 ? '\u2212' : '') + Math.abs(Math.round(v)), e = edv < 0 ? `(${n(edv)})` : n(edv), r = ri.toFixed(2), work = `(${n(psv)} \u2212 ${e}) / ${n(psv)}`;
+  return [`RI = (PSV \u2212 EDV) / PSV = ${work} = ${r}`, `RI = (PSV \u2212 EDV) / PSV = ${r}`, `RI = ${work} = ${r}`, `RI ${r}`];
+}

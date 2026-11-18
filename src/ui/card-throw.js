@@ -7,11 +7,15 @@
 // (Next pressed mid-entrance, a swipe let go): its next move starts from there, never from a jump.
 
 import { frameFor, cancelFrame, easeNow, beginMotion } from './frame.js';
-import { cubicBezier } from './ease.js';
+import { enterWhenReady } from './widget-ready.js';
+import { easeArrive } from './ease.js';
 import { classSoon, runSoon } from './class-soon.js';
 import { caught } from './caught.js';
 import { D_SMALL, D_SURFACE } from './ease.js';
 import { signalMove } from './num-move.js';
+import { readBox } from './layout-snap.js';
+import { STALL_MAX } from './glide-clock.js';
+import { cardMoveFor } from './card-motion.js';
 
 /** How far (px) the new card comes in from, and the stagger (ms) of a second card behind the first. */
 export const THROW_IN = 56, THROW_STAGGER = 40;
@@ -22,8 +26,7 @@ const nextFrame = frameFor('card-throw');
 // rail's curve.)
 // (Out on the rail's curve, which starts at once and fast, gone from sight by 85 % of its way (a few frames), and in on it from
 // the same distance.)
-export const RAIL_MS = 560, RAIL_GAP = 24;   // motion-scale: own pace (the rail throw, decided with the cards)
-export const easeRail = cubicBezier(0.32, 0.72, 0, 1);
+export const RAIL_MS = 560, RAIL_GAP = 24;   // motion-scale: own pace (the rail throw, decided with the cards); its curve is easeArrive, the token every card arrival uses (review ANI-1: no fourth curve)
 
 /** Where a card is at k (0 to 1) of its move, on the rail's curve: out, gone from sight by 85 % of its way; in, with no overshoot,
  *  whole by 40 % of its way. */
@@ -31,9 +34,18 @@ export function throwAt(kind, k, from, to) { return throwInto({ x: 0, o: 0 }, ki
 /** The same, written into out ({x, o}) in place: what the frame uses, so a moving card costs no object a frame. */
 export function throwInto(out, kind, k, from, to) {
   k = k <= 0 ? 0 : k >= 1 ? 1 : k;
-  const e = easeRail(k), f = kind === 'out' ? Math.min(1, e / 0.85) : kind === 'back' ? e : Math.min(1, e / 0.4);   // ('back': a card let go short of a swipe, fading in on its way as it moves, not ahead of it)
+  const e = easeArrive(k), f = kind === 'out' ? Math.min(1, e / 0.85) : kind === 'back' ? e : Math.min(1, e / 0.4);   // ('back': a card let go short of a swipe, fading in on its way as it moves, not ahead of it)
   out.x = from.x + (to.x - from.x) * e; out.o = from.o + (to.o - from.o) * f;
   return out;
+}
+
+/** How far a card may travel (px, the whole way it is sent) so that no part of it that can still be seen crosses the screen's edge. A card going out is gone from sight by `seen` of its
+ *  way (the rail's curve: 85% of it; a case card's faster fade: 95%), so it may go as far as the room between its box and the edge, over that share. A card with no box (no layout) or no
+ *  room measured is not held back. Mohammad, 16 Nov 2026: the leaving card "shouldn't get cut off" at the viewport's edge. box: its rect; dir: 'next' (left) or 'back' (right). */
+export function throwReach(box, dir, vw, travel, seen = 0.85) {
+  if (!box || !(box.width > 0) || !(vw > 0) || !(travel > 0)) return travel;
+  const room = dir === 'back' ? vw - box.right : box.left;
+  return Math.max(0, Math.min(travel, Math.max(0, room) / seen));
 }
 
 const runs = new Map();
@@ -92,7 +104,13 @@ function land(el, r, x, o) {
   try { r.done?.(); } finally { settleLands(el, r.kind !== 'out'); }
 }
 function stepRun(el, r, now) {
-  const k = r.ms > 0 ? (now - r.t0) / r.ms : 1;
+  // (The move's own clock goes on by what the frame took but never by more than STALL_MAX, as the camera's glides do (glide-clock.js): a frame of 200 ms, the deck's first card arriving
+  // with the slide built behind it, carried the fade of a card from nothing to whole in one step, which read as the card popping in after a wait (the tester, iPhone, 17 Nov 2026: the title
+  // card at 0 for 700 ms then 1 in one step, frames of 194 to 239 ms). A long frame now holds the card where it stood and the move goes on from there; the guard still lands it by the wall clock.)
+  // (A staggered card's wait is the wall clock's: it is the move after it that a long frame is held back on.)
+  if (now < r.t0) { r.v = now; r.last = now; return; }
+  r.v += Math.min(Math.max(0, now - r.last), STALL_MAX); r.last = now;
+  const k = r.ms > 0 ? (r.v - r.t0) / r.ms : 1;
   if (k < 0) return;   // (a staggered card waits where it starts)
   const p = throwInto(pos, r.kind, k, r.from, r.to);
   r.x = p.x; r.o = p.o;
@@ -146,7 +164,14 @@ let endMove = null;
 const settle = () => { if (!runs.size) { if (guardT) clearTimeout(guardT); guardT = 0; guardAt = Infinity; if (endMove) { endMove(); endMove = null; } } };
 function start(el, kind, to, ms, delay, done) {
   endMove ||= beginMotion('card throw', ms + delay + 2000);
+  cardMoveFor(ms + delay + 120);   // (the work made for the rest after, the other view's labels solved ahead, waits for the landing: card-motion.js)
   const from = here(el);
+  if (kind === 'out' && to.x !== from.x && el.isConnected) {   // (never cut at the screen's edge: throwReach)
+    let box = null;
+    try { box = readBox(el); } catch { /* a card with no box (no layout): not held back */ }
+    const dir = to.x < from.x ? 'next' : 'back', travel = Math.abs(to.x - from.x), keep = throwReach(box, dir, typeof innerWidth === 'number' ? innerWidth : 0, travel);
+    if (keep < travel) to.x = from.x + (dir === 'next' ? -keep : keep);
+  }
   runs.delete(el); pinned.delete(el);
   if (kind === 'out') settleLands(el, false);   // (a card sent out will not land: whoever waited for it arriving is told)
   el.classList?.add(THROWING); classSoon(el, THROWING, true);   // (on in the task that starts the move; a let-go still waiting is overruled)
@@ -155,7 +180,8 @@ function start(el, kind, to, ms, delay, done) {
   signalMove();
   const dead = performance.now() + delay + ms + GUARD_MS;
   const run = ++runIds; lastRun.set(el, run);
-  runs.set(el, { run, kind, from, to, x: from.x, o: from.o, t0: easeNow() + delay, ms, done, dead });
+  const n0 = easeNow();
+  runs.set(el, { run, kind, from, to, x: from.x, o: from.o, t0: n0 + delay, v: n0, last: n0, ms, done, dead });
   outCheck();   // A replacement that no longer goes out can release the waiting slide immediately.
   if (!ask) ask = nextFrame(step);
   guardBy(dead);
@@ -212,7 +238,9 @@ export function throwIn(el, dir, delay = 0) {
   // (A card already coming in is taken from where it is, never put back at its start: a second call for it mid-way (a repeated pass of
   // cardsIn, a staggered card asked again) used to drop it from full to nothing and slide it in again, a blink.)
   if (!was) { el.style.setProperty('transition', 'none', 'important'); write(el, s * THROW_IN, 0); runs.delete(el); }
-  start(el, 'in', { x: 0, o: 1 }, RAIL_MS, was?.kind === 'in' ? 0 : delay);
+  // (A card with a widget not yet drawn comes in when it is, held at its start meanwhile: no deck card is seen in the page's fallback look, widget-ready.js.)
+  const d = was?.kind === 'in' ? 0 : delay;
+  if (was) start(el, 'in', { x: 0, o: 1 }, RAIL_MS, d); else enterWhenReady(el, () => start(el, 'in', { x: 0, o: 1 }, RAIL_MS, d), undefined, false);
 }
 
 /** Brings el in where it stands, from nothing to whole, over ms after delay ms, on this clock: no slide, only the fade. For a card that comes
@@ -230,7 +258,7 @@ export function throwFade(el, delay = FADE_DELAY, ms = FADE_MS) {
   const was = runs.get(el);
   releaseHeld(el);
   if (!was) { el.style.setProperty('transition', 'none', 'important'); write(el, 0, 0); }
-  start(el, 'back', { x: 0, o: 1 }, ms, was ? 0 : delay);
+  if (was) start(el, 'back', { x: 0, o: 1 }, ms, 0); else enterWhenReady(el, () => start(el, 'back', { x: 0, o: 1 }, ms, delay), undefined, false);
 }
 
 /** A card let go short of a swipe (or one the swipe took along that the next slide keeps) eases back to its place from where the finger left it

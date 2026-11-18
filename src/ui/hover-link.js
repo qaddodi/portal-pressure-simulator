@@ -9,6 +9,7 @@
 
 import { normalizeSel } from './actions.js';
 import { LABEL_VESSEL } from './anatomy.js';
+import { piecesOf } from './part-names.js';
 
 export const HOVER_LINK = true;   // (switch deleted; kept for stage.js until its own pass)
 
@@ -30,7 +31,7 @@ export function labelTarget(key) {
   const id = key.slice(2).split(':')[0], hung = LABEL_VESSEL[id];   // alloc-rare: only a label key's first ask (memo)
   const sel = id === 'TIPS' || id === 'DIPS' ? { type: 'edge', id } : normalizeSel({ type: 'node', id });   // alloc-rare: only a label key's first ask (memo)
   if (sel?.type === 'edge') t = { edge: sel.id, also: hung && hung !== sel.id ? [hung] : [] };   // alloc-rare: only a label key's first ask (memo)
-  else if (hung) t = { edge: hung, also: [] };   // alloc-rare: only a label key's first ask (memo)
+  else if (hung) t = { edge: hung, also: piecesOf(hung).filter((x) => x !== hung) };   // alloc-rare: only a label key's first ask (memo)
   else if (sel?.type === 'organ' && OUTLINED.has(sel.id)) t = { organ: sel.id };   // alloc-rare: only a label key's first ask (memo)
   else t = null;
   if (memo.size >= 400) memo.clear();   // (bounded: keys are a few hundred at most; clearing only rebuilds the answer once)

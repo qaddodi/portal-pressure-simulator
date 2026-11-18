@@ -1,12 +1,16 @@
 // The model-driven transitions and what rides on them: reveal and exit of vessels, reversal hold, circuit nodes, the ascites fluid, the stent mesh and the surgical ties.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { EDGES, isCoveredStent } from '../engine/topology.js';
+import { siteU } from './stent-waist.js';
+import { geomOf as stentGeomOf, kindOf as stentKindOf, waistSpan } from '../engine/stent-geom.js';
 import { ABDOMEN_FLOOR, NEEDS_C3, abdomenOutline, cavityHalfWidths, flankPath } from './anatomy.js';
 import { createReversalHold } from './blood.js';
+import { throughFlow } from './part-names.js';
+import { flowReversed } from './velNormal.js';
 import { FRONT_MS } from './collateral-front.js';
 import { stepLeft } from './change-order.js';
 import { fluidBase, fluidFloorAt, fluidLevel, poolFade } from './fluid-step.js';
-import { reduceMotionMQ as reduceMotion } from './motion.js';
+import { D_SMALL, fadeMs, reduceMotionMQ as reduceMotion } from './motion.js';
 import { fluidSpring, fluidSpringFor } from './organ-ease.js';
 import { createDiaphragm } from './stage-diaphragm.js';
 import { createFocus } from './stage-focus.js';
@@ -18,12 +22,13 @@ import { bareOf, stentLookD } from './stent-mesh.js';
 import { store } from './store.js';
 import { distToLine, seamDashes, seamTable, stumpCentre, woundTie } from './suture-marks.js';
 import { clamp, s } from './util.js';
+import { revealShare, turnedStart } from './reveal-turn.js';
 
 // Where the cross sits on a vein the Warren shunt has tied off and greyed out, as a share of its course (Mohammad, 7 Nov: about half way).
 const TIED_X = 0.5;
 
 export function createTransitions(st, live) {
-  const { E, EI, EV, FLUID_COLS, FLUID_R, JUMP_MMHG, MAP, ND_PER, ND_SEG, NI, SEL_DIM, abdTo, anyReveal, arcMid, ascitesLine, ascitesPath, ascitesSvg, caud, clampW, clampWOut, collOpen, defs, diaCut, divideLen, drawFrame, easeInOut, edgeVisible, findingHidden, flag, flank, gBackdrop, gFx, gFxC, gOver, geo, haloEls, hidePlate, late, liveOn, liverR, liverTint, lv, morphLiver, nd, nextFrame, nodeDots, nodePos, organEls, organG, ov, plateOn, platePoke, pointAt, putA, qP, readFrame, recruitFrac, refreshCTM, resTheme, routeCustomShunts, setGlowSrc, setReveal, spleenMv, spot, svg, syncOrganMasks, syncVeins, themeKey, toRGB, update, updateGeometry, waist, wrap, wrapCls } = st;
+  const { E, EI, EV, FLUID_COLS, FLUID_R, JUMP_MMHG, MAP, ND_PER, ND_SEG, NI, SEL_DIM, anyReveal, arcMid, ascitesLine, ascitesPath, ascitesSvg, caud, clampW, clampWOut, collOpen, defs, diaCut, divideLen, drawFrame, easeInOut, edgeVisible, findingHidden, flag, flank, gBackdrop, gFx, gFxC, gOver, geo, haloEls, hidePlate, late, liveOn, liverR, liverTint, lv, morphLiver, nd, nextFrame, nodeDots, nodePos, organEls, organG, ov, plateOn, platePoke, pointAt, putA, qP, readFrame, recruitFrac, refreshCTM, resTheme, routeCustomShunts, setGlowSrc, setReveal, spleenMv, spot, svg, syncOrganMasks, syncVeins, themeKey, toRGB, update, updateGeometry, waist, wrap, wrapCls } = st;
   // ── Model-driven transitions ──────────────────────
   // Nothing flashes or sweeps across the anatomy. Pressure change shows as the vessel's own color
   // easing; reversed flow is a steady state (its tracers run the other way);
@@ -32,8 +37,9 @@ export function createTransitions(st, live) {
   // reduced motion or in the figure view.
   const track = {};
   // (Each vessel's reveal record, made once here and written in place by revealOf: a reveal starting makes nothing.)
-  for (const x of EV) x.rv = { t0: 0, dur: 0, dir: 1, out: false };
-  const revealOf = (x, t0, dur, dir, out) => { const r = x.rv; r.t0 = t0; r.dur = dur; r.dir = dir; r.out = out; return r; };
+  // (fade: where nothing may draw on (Reduce Motion, imaging) the vessel fades in or out whole instead, over fadeMs: never at once, owner 15 Nov 2026.)
+  for (const x of EV) x.rv = { t0: 0, dur: 0, dir: 1, out: false, fade: false };
+  const revealOf = (x, t0, dur, dir, out, fade = false) => { const r = x.rv; r.t0 = t0; r.dur = fade ? fadeMs(dur, true) : dur; r.dir = dir; r.out = out; r.fade = fade; r.ghostIn = false; return r; };
   const appEl = document.getElementById('app');
   // The Meso-Rex graft is long (the superior mesenteric vein up to the Rex recess): it draws on from the gut end slowly enough to be seen growing.
   const REX_GROW_MS = 2600;
@@ -51,22 +57,31 @@ export function createTransitions(st, live) {
       const open = x.vis && !x.ghost && !x.reveal?.out;
       const was = track[e.id];
       track[e.id] = open;
-      if (was === false && open && canFade(x) && !quiet) setReveal(x, revealOf(x, e.kind === 'shunt' ? now : t0, e.shunt === 'rex' ? REX_GROW_MS : e.kind === 'shunt' ? 900 : e.kind === 'collateral' ? FRONT_MS : 1500, q >= 0 ? 1 : -1, false));
+      if (was === false && open && (!x.reveal || x.reveal.ghostIn) && canFade(x)) setReveal(x, revealOf(x, e.kind === 'shunt' ? now : t0, e.shunt === 'rex' ? REX_GROW_MS : e.kind === 'shunt' ? 900 : e.kind === 'collateral' ? FRONT_MS : 1500, q >= 0 ? 1 : -1, false, quiet));
     }
   }
   // The vessels that come and go with the disease (collaterals, shunts, the epigastric veins that
   // open with the paraumbilical route) draw on when they appear and retract when they leave.
-  const canFade = (x) => !x.isArt && (x.e.kind === 'collateral' || x.e.kind === 'shunt' || NEEDS_C3.has(x.e.id));
-  function startExit(x, f) {
+  // (The caudate's own lane too: it comes and goes with a slide about the caudate, and popped in and out in the Circuit. Owner, 15 Nov 2026.)
+  const canFade = (x) => !x.isArt && (x.e.kind === 'collateral' || x.e.kind === 'shunt' || NEEDS_C3.has(x.e.id) || x.e.id === 'CAUD');
+  function startExit(x, f, turn = false) {
+    if (turn) { const r = x.reveal, now = live.fxAt ?? performance.now(), share = revealShare(r, now, easeInOut); revealOf(x, now, x.e.shunt === 'rex' ? (r.out ? REX_GROW_MS : 1200) : r.out ? 900 : 700, r.dir, !r.out, quietFx()); r.t0 = turnedStart(share, r.out, now, r.dur, easeInOut); return; }   // (reveal-turn.js: a shunt that changes its mind mid-way turns round from where it is)
     const q = f.Qf ? f.Qf[EI[x.e.id]] : f.Q[EI[x.e.id]];
-    setReveal(x, revealOf(x, (live.fxAt ?? performance.now()) + (x.e.kind === 'shunt' ? 0 : stepLeft('collaterals')), x.e.shunt === 'rex' ? 1200 : x.e.kind === 'shunt' ? 700 : x.e.kind === 'collateral' ? FRONT_MS : 1100, q >= 0 ? 1 : -1, true));
+    setReveal(x, revealOf(x, (live.fxAt ?? performance.now()) + (x.e.kind === 'shunt' ? 0 : stepLeft('collaterals')), x.e.shunt === 'rex' ? 1200 : x.e.kind === 'shunt' ? 700 : x.e.kind === 'collateral' ? FRONT_MS : 1100, q >= 0 ? 1 : -1, true, quietFx()));
   }
   // When the retraction ends: hide the vessel, or leave the dotted outline of a closed collateral.
   function finishExit(x) {
     if (!live.F) return;
     live.edgeRev++;   // (the labels' signature: R04)
     if (!edgeVisible(x, live.F)) x.vis = false;
-    else if (x.e.kind === 'collateral' && !collOpen(x.e.id, live.F)) x.ghost = true;
+    else if (x.e.kind === 'collateral' && !collOpen(x.e.id, live.F)) {
+      x.ghost = true;
+      // (The dotted outline a closed collateral leaves comes in with a fade, as the closing's hairline goes out: it never appears whole. A fade
+      // record, the vessel's own alpha rides it: stage-vessels.js colPass. ghostIn lets a reopening take it over: trackChanges.)
+      const r = revealOf(x, live.fxAt ?? performance.now(), D_SMALL, 1, false, true);
+      r.ghostIn = true;
+      setReveal(x, r);
+    }
   }
   function stepReveals(now) {
     if (!live.revealN) return;   // (nothing draws on or off: no walk over the vessels, rev 2 §2.8)
@@ -76,7 +91,7 @@ export function createTransitions(st, live) {
       const r = x.reveal;
       const u = clamp((now - r.t0) / r.dur, 0, 1);
       // (The GPU draws the vessel on from x.reveal itself: syncVeins.)
-      const done = u >= 1 || quietFx();
+      const done = u >= 1;   // (a draw-on running when Reduce Motion is turned on runs out its course: no jump)
       if (done) { setReveal(x, null); finished = true; if (r.out) finishExit(x); }
     }
     // Rebuild at once so the vessel turns from the drawn-on stroke into its shaded tube on the
@@ -85,7 +100,7 @@ export function createTransitions(st, live) {
     else if (live.veins && !live.inUpdate && anyReveal()) syncVeins(easeInOut(live.morph));
   }
   const { polysD } = createHalos({ E, NI, drawFrame, easeInOut, gOver, haloEls, nodePos, quietFx, routeCustomShunts, setGlowSrc, updateGeometry }, live);
-  const { caliperAt, caliperSegs, clampA, clampFading, clampShade, fxBuild, fxK, fxPill, fxSync, gMatrix, glLines, markA, markShade, normal, normalSync, olFading, olGeom, olKey, olRings, olSet, olStep, orgTone, pinOrgans, setCallouts, spotOrgans, stentFade } = createOutlines({ E, MAP, ND_PER, ND_SEG, arcMid, caud, clampW, clampWOut, easeInOut, gFx, gFxC, geo, late, nd, nextFrame, nodeDots, organEls, organG, ov, pointAt, quietFx, readFrame, refreshCTM, resTheme, svg, themeKey, toRGB }, live);
+  const { caliperAt, caliperSegs, clampA, clampFading, clampShade, fxBuild, fxK, fxPill, fxSync, gMatrix, glLines, markA, markShade, normal, normalSync, olFading, olGeom, olKey, olRings, olSet, olStep, orgTone, pinOrgans, setCallouts, spotOrgans, stentAmounts, stentFade } = createOutlines({ E, MAP, ND_PER, ND_SEG, arcMid, caud, clampW, clampWOut, easeInOut, gFx, gFxC, geo, late, nd, nextFrame, nodeDots, organEls, organG, ov, pointAt, quietFx, readFrame, refreshCTM, resTheme, svg, themeKey, toRGB }, live);
   const { marksStale, marksSync, mk } = createMarks({ gOver, glLines, ov, svg, themeKey, toRGB, wrapCls });
   // A selected organ keeps a quiet outline; a selected site (varices, fundus, abdomen) a ring.
   const gSelO = s('g', { id: 'organSel' });
@@ -112,7 +127,7 @@ export function createTransitions(st, live) {
   function isReversed(e, f) {
     const q = f.Qf[EI[e.id]];
     const ref = st0Ref(e.id);
-    return q < -Math.max(0.12, 0.02 * Math.abs(ref));
+    return flowReversed(q, ref, throughFlow(e.id, f.Qf, EI));
   }
   const st0Ref = (id) => store.get().healthy?.Q?.[EI[id]] ?? 1;
   function updateNodesCircuit(f) {
@@ -124,12 +139,12 @@ export function createTransitions(st, live) {
     }
     for (const id in liverR) {
       const r = liverR[id], k = EI[id];
-      const q = f.Q[k];
-      const dp = f.P[NI[EDGES[k].from]] - f.P[NI[EDGES[k].to]];
+      const q = (f.Qf || f.Q)[k], PF = f.Pf || f.P;   // (the shown readings: this instant's put the beat into the resistance)
+      const dp = PF[NI[EDGES[k].from]] - PF[NI[EDGES[k].to]];
       r.R = Math.abs(q) > 1e-3 ? dp / (q * 0.06) : Infinity;
     }
   }
-  const { easeLiver, updateOrgans } = createDiaphragm({ EI, NI, abdTo, caud, diaCut, drawAscites, findingHidden, gBackdrop, hidePlate, liveOn, liverTint, lv, morphLiver, normalSync, organEls, organG, platePoke, putA, qP, recruitFrac, spleenMv, syncOrganMasks, syncSelFluid, syncSelLine }, live);
+  const { easeLiver, updateOrgans } = createDiaphragm({ EI, NI, caud, diaCut, drawAscites, findingHidden, gBackdrop, hidePlate, liveOn, liverTint, lv, morphLiver, normalSync, organEls, organG, platePoke, putA, qP, recruitFrac, spleenMv, syncOrganMasks, syncSelFluid, syncSelLine }, live);
   // Ascites collects in the flanks and the pelvis first (supine patient, frontal view), so its
   // surface is a meniscus: highest at the sides, lowest in the middle. The abdominal wall bulges
   // and the bowel floats up on it. A slow ripple runs along the surface while the model runs. On
@@ -262,7 +277,7 @@ export function createTransitions(st, live) {
   // The stent's half-width at arc length d (the tube's own where the tube renderer has it, else the lumen's with a narrowed stent's waist, to the wall's middle).
   function meshR(id, p) {
     const x = E[id], L = geo[id].len;
-    const v = live.isImaging() ? 0 : p.stenosis[id] || 0, wf = v > 0.01 ? waist(id, v, L, x.width, p) : null;
+    const v = live.isImaging() ? 0 : p.stenosis[id] || 0, red = live.isImaging() ? 0 : p.stentGeom?.[id]?.red || 0, wf = v > 0.01 || red > 0.01 ? waist(id, v, L, x.width, p) : null;   // (a waist narrows the stent with no end stenosis at all: stentGeom.red)
     if (x.glR?.length > 1) {   // (A stent is as wide as the tube it sits in, which narrows along its run, and stays inside its wall: its ends fit the veins they enter, not a stub wider than the tube, 11 Nov 2026; every stent since 13 Nov)
       const g = x.glR, n = g.length - 1;
       return (d) => { const t = Math.min(1, Math.max(0, d / (L || 1))) * n, i = Math.min(Math.floor(t), n - 1); return Math.max(1.2, g[i] + (g[i + 1] - g[i]) * (t - i) - 0.25); };
@@ -302,14 +317,43 @@ export function createTransitions(st, live) {
     if (id === 'TIPS') return;   // (the covered stent comes in whole on its own clock, with the veins' stents: stage-venous.js)
     putMark(ov.stents, `stent:${id}`, id, meshPaths(id, p, 2, geo[id].len - 2));
   }
+  // A stent's waist length as a dimension bracket along it: the waist's flat run, on the stent's left on screen, a hairline with a tick at each end (the mock
+  // tips-geometry-on-figure.html). One of the waist's own clamp marks (class `clamp-span`, in ov.clamps with its arrows, returned to stage-clamps.js): it fades in with the waist and out
+  // with it (clampA, as the arrows do), and its ends slide with the waist as its length eases. The words are the clamp's callout, which the label solver places like every figure label: "Waist 8.0 to 6.0 mm × 1.5 cm", the open stent, the
+  // waist and its length (stage-clamps.js, stent-waist.js waistText). Only the mid waist has a bracket; an end stenosis is its own callout (17 Nov 2026). The bracket carries no words of its own: they would only repeat the callout (Mohammad, 17 Nov).
+  const brkG = { len: 0, waist: 0, trans: 0, red: 0 }, brkS = { c: 0, a0: 0, a1: 0, b1: 0, b0: 0 };   // (read at once)
+  function stentBracket(id, p) {
+    const x = E[id], kind = stentKindOf(x?.e), L = geo[id]?.len;
+    if (!kind || !(L > 0)) return null;
+    const g = stentGeomOf(p, id, kind, brkG);
+    if (!(g.red > 0.004) || g.waist < 0.25) { live.dimBoxes.delete(id); return null; }   // (no waist, no bracket)
+    const w = waistSpan(g, brkS), d0 = w.a1 * L, d1 = w.b1 * L,   // (the waist's flat length alone, not its tapers: Mohammad, 17 Nov, "Bracket shouldn't include taper", after first asking for them)
+       mid = frameAt(id, (d0 + d1) / 2);
+    // (Beside the waist as it is drawn, clear of the widest the stent is where the waist starts and ends, and a little air off it: not the open stent's half-width, which left it floating a stent's width off a narrowed one, and not the narrowed one's alone, which touched the stent where the waist begins. Mohammad's iPhone shots, 17 Nov.)
+    const sg = Math.abs(mid.nx) > 0.05 ? (mid.nx > 0 ? -1 : 1) : (mid.ny > 0 ? -1 : 1), R = meshR(id, p), hw = Math.max(R((d0 + d1) / 2), R(Math.max(0, d0 - x.width)), R(Math.min(L, d1 + x.width))), off = sg * (hw + (x.wallPx || 1) + 7);
+    const f1 = (n) => n.toFixed(1);
+    let d = '';
+    for (let k = 0; k <= 12; k++) { const q = frameAt(id, d0 + ((d1 - d0) * k) / 12); d += `${k ? ' L' : 'M'}${f1(q.x + q.nx * off)} ${f1(q.y + q.ny * off)}`; }
+    for (const dd of [d0, d1]) { const q = frameAt(id, dd); d += ` M${f1(q.x + q.nx * (off - sg * 3.5))} ${f1(q.y + q.ny * (off - sg * 3.5))} L${f1(q.x + q.nx * (off + sg * 3.5))} ${f1(q.y + q.ny * (off + sg * 3.5))}`; }
+    const span = s('path', { class: 'clamp-span', d });
+    // (Its hairline's boxes, world units, a box for each of its runs and its ticks' reach: the figure's labels, the slide's callouts and the Doppler probe keep
+    // off it, stage-label-col.js dimObstacles.)
+    const boxes = [];
+    for (let k = 0; k < 12; k++) {
+      const a = frameAt(id, d0 + ((d1 - d0) * k) / 12), b = frameAt(id, d0 + ((d1 - d0) * (k + 1)) / 12), ax = a.x + a.nx * off, ay = a.y + a.ny * off, bx = b.x + b.nx * off, by = b.y + b.ny * off;
+      boxes.push([Math.min(ax, bx) - 3.5, Math.min(ay, by) - 3.5, Math.max(ax, bx) + 3.5, Math.max(ay, by) + 3.5, 0]);
+    }
+    live.dimBoxes.set(id, boxes);
+    return span;
+  }
   function putMark(host, key, vessel, els, anatOnly = false) {
     const g = s('g', { 'data-mk': key });
     g.append(...els);
-    markShade(g, markA.want(key, { host, vessel, anatOnly, t: live.ovT }, quietFx()));
+    markShade(g, markA.want(key, { host, vessel, anatOnly, t: live.ovT }));   // (fades in under Reduce Motion and imaging too: nothing pops)
     markA.hold(key, g);
     host.append(g);
   }
-  const { venousSync } = createVenous({ E, easeInOut, frameAt, geo, late, markShade, meshPaths, meshR, nextFrame, ov, putA, stentFade, tipsBare }, live);
+  const { venousSync, venousSig } = createVenous({ E, EI, easeInOut, frameAt, geo, late, markShade, meshPaths, meshR, nextFrame, ov, putA, stentFade, tipsBare }, live);
   // Surgical shunts: a running stitch round each join (S1 of the suture mocks, 13 Nov 2026), the seam following the host vein's wall.
   // Where the shunt's end is in no host vein, and in the circuit (no walls to follow), the old three ticks stay.
   // (The Warren shunt's start is the splenic vein turning down, and the end-to-side portocaval shunt's the portal vein itself: nothing is sewn
@@ -371,5 +415,5 @@ export function createTransitions(st, live) {
     putMark(ov.plugs, `tieX:${id}`, shunt, [s('circle', { cx: m.x, cy: m.y, r: 7, fill: 'var(--surface)', stroke: 'var(--danger)', 'stroke-width': 2 }),
       s('path', { d: `M${m.x - 4} ${m.y - 4} L ${m.x + 4} ${m.y + 4} M${m.x + 4} ${m.y - 4} L ${m.x - 4} ${m.y + 4}`, stroke: 'var(--danger)', 'stroke-width': 2 })]);
   }
-  return { anastomoses, appEl, caliperAt, caliperSegs, canFade, clampA, clampFading, clampShade, easeLiver, fluidEasing, fluidFade, fluidLook, fxBuild, fxK, fxPill, fxSync, gMatrix, gSelO, glLines, holdReversals, ligature, markA, marksStale, marksSync, mk, normal, normalSync, olFading, olKey, olRings, olSet, olStep, orgTone, pinOrgans, polysD, putMark, quietFx, revHold, reversedShown, setCallouts, spotOrgans, startExit, stentMesh, stepFluid, stepReveals, trackChanges, updateFocus, updateNodesCircuit, updateOrganSel, updateOrgans, venousSync };
+  return { meshR, venousSig, stentBracket, anastomoses, appEl, caliperAt, caliperSegs, canFade, clampA, clampFading, clampShade, easeLiver, fluidEasing, fluidFade, fluidLook, fxBuild, fxK, fxPill, fxSync, gMatrix, gSelO, glLines, holdReversals, ligature, markA, marksStale, marksSync, mk, normal, normalSync, olFading, olKey, olRings, olSet, olStep, orgTone, pinOrgans, polysD, putMark, quietFx, revHold, reversedShown, setCallouts, spotOrgans, startExit, stentAmounts, stentMesh, stepFluid, stepReveals, trackChanges, updateFocus, updateNodesCircuit, updateOrganSel, updateOrgans, venousSync };
 }

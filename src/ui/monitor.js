@@ -6,8 +6,10 @@
 // right once taken, a very faint dashed curve between two readings taken apart in time, and the gradient as a bracket between the two with its pill in its cut-off colour.
 //
 // What differs between measurements is only their script (the procedure's clock, what the tip reads when, its colours and words): a script is
-// { heads, win: [t0, t1], at(t, v, wave), lv(t, v), segs, status(t, v, st, out), drops, levels, result, ticks, target?, notes, ymax(v) }, every time
-// on the script's own clock (ms). The HVPG catheter's script is hvpg-proc.js's; the procedure scripts are tool-reading.js's.
+// { heads, win: [t0, t1], lv(t, v), damp(t), segs, status(t, v, st, out), drops, levels, result, ticks, target?, notes, ymax(v) }, every time
+// on the script's own clock (ms). The trace is recorded, never worked out again (trace-tape.js: Mohammad, 17 Nov 2026, "what's already been traced is
+// actually changing"): each sample is written once as the clock passes it, the level lv with the patient's beat and breath on it (hvpg-clock.js
+// traceWave, the pulse softened by damp), and every frame draws the samples as they were written. The HVPG catheter's script is hvpg-proc.js's; the procedure scripts are tool-reading.js's.
 // Drawn by the GPU through trace-gl.js's 2D context (fitPen), every word, line and fill; with no GPU, on the canvas as before.
 
 import { fmt, clamp, cssVar } from './util.js';
@@ -16,6 +18,7 @@ import { ease, k01 } from './hvpg-clock.js';
 import { fitPen } from './trace-gl.js';
 import { traceRoom, TRACE_MIN } from './trace-room.js';
 import { dropK, inkSeg } from './trace-callouts.js';
+import { createTape, tapeAdvance, tapeClear, tapeAt, tapeIndex, tapeT } from './trace-tape.js';
 
 // The monitor's colours, dark in both themes (theme-tokens.js --mon-*; a reading's are the dark looks' trace colours, theme-tokens.js DARK_TRACE).
 export const MON_TOKENS = { bg: '--mon-bg', grid: '--mon-grid', line: '--mon-line', text: '--mon-text', bright: '--mon-bright',
@@ -103,6 +106,8 @@ export function wrapWords(text, maxW, measure, out = []) {   // alloc-rare: the 
   return out;
 }
 
+const TAPES = new WeakMap();   // (each monitor canvas's recorded trace: trace-tape.js)
+let TP = null;   // (the tape of the monitor being drawn)
 // The axes of the frame being drawn (set by monOn; the draw is synchronous and does not call itself).
 let axTop = 0, axBot = 0, axMax = 15, axL = 0, axR = 0, axT0 = 0, axT1 = 1;
 const Y = (p) => axBot - (clamp(p, 0, axMax) / axMax) * (axBot - axTop);
@@ -111,15 +116,20 @@ const ST = { label: '', num: '', col: 'text' };   // (what a script's status wri
 
 /** Draw script S's monitor on canvas cv (g: the GPU drawer, trace-gl.js, or null). st: { ph: 'idle' (no tip yet: its note), 'enter' (on its way:
  *  its note), 'abort' (the vein will not take it), 'run' (the trace); t: ms on the script's clock; v: the readings the script reads; running: the
- *  procedure still sweeping; wave: the beat and breath the trace's waves follow (hvpg-clock.js), null: the script's own clock's; blocked, probing }. */
+ *  procedure still sweeping; wave: the model's beat and breath the recorded trace follows (hvpg-clock.js syncWave), null: the script's own clock's; blocked, probing }. */
 export function drawMonitor(cv, g, S, st) {
+  // (The tape is written whether or not the monitor has room to draw it: a trace recorded while its card was too small is there when it grows.)
+  let tp = TAPES.get(cv);
+  if (!tp) TAPES.set(cv, tp = createTape());   // alloc-rare: once per monitor canvas
+  if (st.ph === 'run') tapeAdvance(tp, S, Math.min(st.t, S.win[1]), st.v, st.wave); else tapeClear(tp);
+  TP = tp;
   const p = fitPen(cv, g);
   try { monOn(p, S, st); } finally { p.ctx.end?.(); }
 }
 
 function monOn({ ctx, w, h: hh }, S, st) {
   if (w < 80 || hh < 60) return;
-  const { ph, t, v, wave } = st;
+  const { ph, t, v } = st;
   ctx.clearRect(0, 0, w, hh);
   rrect(ctx, 0, 0, w, hh, 12); ctx.fillStyle = C.bg; ctx.fill();
   const x = 12, y = 10, W = w - 24, H = hh - 18;
@@ -181,7 +191,8 @@ function monOn({ ctx, w, h: hh }, S, st) {
     // (Wrapped inside the grid, 8 px clear of the axis numbers and the monitor's right edge, on a solid patch of the monitor
     // so no gridline runs through it: sweep 2 review items 14 and 15.)
     ctx.font = FONT(500, FS);
-    monitorNote(ctx, note[0], L + 8, Math.min(R, x + W) - 8, (top + bot) / 2);
+    // (Its left edge is 8 px right of the widest axis number's ink, not of the axis: the numbers stand at L + 3 and a "10" is 16 px wide, so the words once started under it, F48.)
+    monitorNote(ctx, note[0], L + 3 + Math.ceil(ctx.measureText(tick(ymax)).width) + 8, Math.min(R, x + W) - 8, (top + bot) / 2);
     return;
   }
   // A target the gradient is read against (after a TIPS: <12 mmHg), a dashed line under the trace.
@@ -194,8 +205,8 @@ function monOn({ ctx, w, h: hh }, S, st) {
   }
   // The trace, swept up to now, each stretch in the colour of what the tip reads there.
   const tNow = Math.min(t, tEnd);
-  for (let i = 0; i < S.segs.length; i++) { const sg = S.segs[i]; seg(ctx, S, v, wave, sg[0], sg[1], C[sg[2]], tNow); }
-  if (t < tEnd && t > axT0) { const p = S.at(tNow, v, wave); if (Number.isFinite(p)) { ctx.fillStyle = C.bright; ctx.beginPath(); ctx.arc(X(tNow), Y(p), 2.6, 0, Math.PI * 2); ctx.fill(); } }
+  for (let i = 0; i < S.segs.length; i++) { const sg = S.segs[i]; seg(ctx, sg[0], sg[1], C[sg[2]], tNow); }
+  if (t < tEnd && t > axT0 && TP.n > 0) { const p = TP.p[TP.n - 1]; if (Number.isFinite(p)) { ctx.fillStyle = C.bright; ctx.beginPath(); ctx.arc(X(tapeT(TP, TP.n - 1)), Y(p), 2.6, 0, Math.PI * 2); ctx.fill(); } }
   // (Each level's name and number in a tag at the right end of its line; two tags kept apart so they never touch.)
   const on0 = !!L0 && t >= L0[0], on1 = !!L1 && t >= L1[0];
   if (on0 || on1) {
@@ -205,7 +216,7 @@ function monOn({ ctx, w, h: hh }, S, st) {
     const yLo = Math.min((lo === 0 ? yA : yB) + sep, hh - 16), yHi = Math.min((lo === 0 ? yB : yA) - sep, yLo - SEP);
     // (Each level's line is faded and dashed, from the end of its own trace to the right axis where its label stands, not a solid rule across the whole screen: Mohammad, 13 Nov 2026.)
     const sa = on0 ? stubAt(S, L0, tNow) : 0, sb = on1 ? stubAt(S, L1, tNow) : 0;
-    if (on0 && on1) joinLevels(ctx, S, v, wave, L0, L1, a, tNow, sa);
+    if (on0 && on1) joinLevels(ctx, S, L0, L1, tNow);
     if (on0) level(ctx, a, C[L0[2]], L0[3], both ? (lo === 0 ? yLo : yHi) : Math.min(yA, hh - 16), !tags, R, cLv0, sa);
     if (on1) level(ctx, b, C[L1[2]], L1[3], both ? (lo === 1 ? yLo : yHi) : Math.min(yB, hh - 16), !tags, R, cLv1, sb);
   }
@@ -232,7 +243,7 @@ function monOn({ ctx, w, h: hh }, S, st) {
   for (let i = 0; i < S.drops.length; i++) {
     const [at, , key, ck] = S.drops[i];
     if (t < at || !Number.isFinite(v[key])) continue;
-    const p = S.at(at, v, wave);
+    const p = tapeAt(TP, at);
     if (!Number.isFinite(p)) continue;
     const yp = Y(p), k = dropK(t - at);
     // (A dot only: each reading's name and number stand in its tag at the right end of its line, so the trace is not lettered twice.)
@@ -240,34 +251,74 @@ function monOn({ ctx, w, h: hh }, S, st) {
     ctx.strokeStyle = C.bg; ctx.lineWidth = 1; ctx.stroke(); ctx.globalAlpha = 1;
   }
   // (A step's tick and its words come with the step, not before: the balloon's "balloon up", Mohammad, 12 Nov 2026.)
+  let nTaken = 0;
   for (let i = 0; i < S.ticks.length; i++) {
     const [at, word] = S.ticks[i];
     if (t < at) continue;
     ctx.fillStyle = C.text; ctx.font = FONT(500, FS); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
     ctx.fillText(word, X(at), bot + FS + 3);
     ctx.fillStyle = C.line; ctx.fillRect(X(at) - 0.5, bot, 1, 4);
+    const half = ctx.measureText(word).width / 2 + 6;
+    if (nTaken < TAKEN.length) { TAKEN[nTaken++] = X(at) - half; TAKEN[nTaken++] = X(at) + half; }
+  }
+  // The time axis (a script with secs: true): a mark every two seconds from the start of the window, a number where it clears a step's words and the previous number.
+  if (S.secs) {
+    ctx.font = FONT(500, FS); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    let lastRight = -Infinity;
+    for (let sec = 0; axT0 + sec * 1000 <= tNow; sec += 2) {
+      const xs = X(axT0 + sec * 1000), word = `${sec} s`, hw = ctx.measureText(word).width / 2 + 4;
+      ctx.fillStyle = C.line; ctx.fillRect(Math.round(xs) - 0.5, bot, 1, 4);
+      let free = xs - hw > lastRight;
+      for (let k = 0; k < nTaken && free; k += 2) if (xs + hw > TAKEN[k] && xs - hw < TAKEN[k + 1]) free = false;
+      if (free && xs - hw >= L && xs + hw <= R) { ctx.fillStyle = C.text; ctx.fillText(word, xs, bot + FS + 3); lastRight = xs + hw; }
+    }
   }
 }
+const TAKEN = new Float64Array(16);   // (the x-extents of the step words drawn on the time axis this frame: [from, to] pairs)
 const cLv0 = cell(), cLv1 = cell(), cRes = { v: undefined, w: '', s: '' };
 
-// The trace from a to b (ms on the script's clock), swept as far as tNow; a stretch where the script reads nothing (NaN: the needle out, another
-// way in) is left blank. (Drawn with the axes monOn set: Y, X.)
-function seg(ctx, S, v, wave, a, b, colr, tNow) {
-  if (tNow <= a) return;
+// The trace from a to b (ms on the script's clock), as recorded (the tape: trace-tape.js), as far as tNow; a stretch where the script reads nothing
+// (NaN: the needle out, another way in) is left blank. (Drawn with the axes monOn set: Y, X.) Where the samples are closer than half a pixel they are
+// taken in fixed runs counted from the tape's start, each drawn as its lowest and highest point in the order they came, so no beat's peak is lost
+// and the same samples always make the same line.
+const TRACE_W = 1.6;
+function seg(ctx, a, b, colr, tNow) {
+  if (tNow <= a || TP.n === 0) return;
+  const tp = TP, k0 = Math.max(0, Math.floor((a - tp.t0) / tp.dt + 1e-9)), kEnd = Math.min(tp.n - 1, Math.floor((Math.min(b, tNow) - tp.t0) / tp.dt + 1e-9));
+  if (kEnd < k0) return;
+  const pxPer = ((axR - axL) * tp.dt) / Math.max(1, axT1 - axT0), run = Math.max(1, Math.floor(0.5 / Math.max(1e-6, pxPer)));
   // (Laid as small round boxes along the trace, not one stroked line: a stroke is drawn through the GPU's coverage target and the tracing came
   // up with no line on a phone while its dot, words and axes drew. A box draws wherever the dot does.)
   ctx.fillStyle = colr; ctx.beginPath();
-  let px = 0, py = 0, have = false;
-  const end = Math.min(b, tNow);
-  for (let tt = a; tt <= end + 15; tt += 30) {
-    const t2 = Math.min(tt, end), p = S.at(t2, v, wave);
-    if (!Number.isFinite(p)) { have = false; if (t2 >= end) break; continue; }
-    const X1 = X(t2), Y1 = Y(p);
-    if (have) inkSeg(ctx, px, py, X1, Y1, 2); else inkSeg(ctx, X1, Y1, X1, Y1, 2);
-    px = X1; py = Y1; have = true;
-    if (t2 >= end) break;
+  PEN.ctx = ctx; PEN.have = false;
+  if (run === 1) { for (let k = k0; k <= kEnd; k++) put(k); }
+  else {
+    for (let r0 = Math.floor(k0 / run) * run; r0 <= kEnd; r0 += run) {
+      const a0 = Math.max(k0, r0), a1 = Math.min(kEnd, r0 + run - 1);
+      let lo = -1, hi = -1, gap = false;
+      for (let k = a0; k <= a1; k++) {
+        const p = tp.p[k];
+        if (!Number.isFinite(p)) { gap = true; continue; }
+        if (lo < 0 || p < tp.p[lo]) lo = k;
+        if (hi < 0 || p > tp.p[hi]) hi = k;
+      }
+      if (gap) PEN.have = false;
+      if (lo < 0) continue;
+      if (lo === hi) put(lo); else if (lo < hi) { put(lo); put(hi); } else { put(hi); put(lo); }
+    }
+    put(kEnd);   // (the trace ends exactly at its last sample)
   }
   ctx.fill();
+  PEN.ctx = null;
+}
+const PEN = { ctx: null, x: 0, y: 0, have: false };   // (where seg's line has got to: kept, written in place)
+/** One recorded sample k onto seg's line (a blank one breaks it). */
+function put(k) {
+  const p = TP.p[k];
+  if (!Number.isFinite(p)) { PEN.have = false; return; }
+  const X1 = X(tapeT(TP, k)), Y1 = Y(p);
+  if (PEN.have) inkSeg(PEN.ctx, PEN.x, PEN.y, X1, Y1, TRACE_W); else inkSeg(PEN.ctx, X1, Y1, X1, Y1, TRACE_W);
+  PEN.x = X1; PEN.y = Y1; PEN.have = true;
 }
 // A level: its dashed, faded line from the end of its trace to the right axis and, when there is room, its name and number at the right (c: the number's text cell; x0: where the dashes start).
 const STUB_PX = 40, DASH = 5, DASH_GAP = 4;   // (STUB_PX: the room kept after a trace's end and the first level's share of the gap; the dashes)
@@ -275,7 +326,10 @@ function level(ctx, p, colr, txt, ly, narrow, R, c, x0) {
   const x1 = R, dy = Math.round(Y(p));   // (to the right axis, where its name stands: Mohammad, 13 Nov 2026)
   if (x1 - x0 > 3) {
     ctx.save(); ctx.fillStyle = colr; ctx.globalAlpha = 0.5;
-    for (let xx = x0; xx < x1; xx += DASH + DASH_GAP) ctx.fillRect(xx, dy, Math.min(DASH, x1 - xx), 1);   // (boxes, not a stroked dash: see seg)
+    // (The dashes keep their places counted back from the right axis, not from x0: x0 follows the sweep's head while its trace runs, and dashes counted from it would march along
+    // with the head. Fixed, they are only uncovered as the head passes. Boxes, not a stroked dash: see seg.)
+    const P = DASH + DASH_GAP;
+    for (let xx = x1 - Math.ceil((x1 - x0) / P) * P - DASH_GAP; xx < x1; xx += P) { const a = Math.max(xx, x0), b = Math.min(xx + DASH, x1); if (b > a) ctx.fillRect(a, dy, b - a, 1); }
     ctx.restore();
   }
   if (!narrow) {
@@ -299,23 +353,26 @@ function stubAt(S, lv, tNow) {
   const i = segOfLevel(S, lv);
   return Math.max(axL, X(Math.min(i < 0 ? lv[0] : S.segs[i][1], tNow))) + 3;
 }
-/** Two readings taken apart in time (the needle out between them: a gap between their traces): a very faint grey dashed curve from the end of the first level's
- *  dashes to where the second trace begins, laid down as the sweep crosses the gap. Smoothstep, so it leaves and arrives level, with no corner. A visual aid only. */
-function joinLevels(ctx, S, v, wave, L0, L1, a, tNow, x0) {
+/** Two readings taken apart in time (the needle out between them: a gap between their traces): one faint, solid, smooth curve from the last point of the first trace to the
+ *  first point of the second, laid down as the sweep crosses the gap. Smoothstep, so it leaves and arrives level, with no corner, and it starts and ends exactly on the
+ *  traces' own ends so nothing is left between them (Mohammad, 13 Nov 2026: "the line that bridges the gap is glitched"). A visual aid only. */
+function joinLevels(ctx, S, L0, L1, tNow) {
   const i = segOfLevel(S, L0), j = segOfLevel(S, L1);
   if (i < 0 || j < 0 || i === j) return;
   const e1 = S.segs[i][1], s2 = S.segs[j][0];
   if (s2 - e1 < 60 || tNow <= e1) return;   // (traces that run on into each other need none)
-  const p2 = S.at(s2 + 1, v, wave);
-  if (!Number.isFinite(p2) || !Number.isFinite(a)) return;
-  const xa = Math.min(x0 + STUB_PX, X(e1) + 0.3 * (X(s2) - X(e1))), xb = X(s2), xe = Math.min(X(tNow), xb), ya = Math.round(Y(a)) + 0.5, yb = Y(p2);
-  if (xb - xa < 6 || xe <= xa) return;
-  ctx.save(); ctx.fillStyle = C.text; ctx.globalAlpha = 0.3; ctx.beginPath();
-  let px = xa, py = ya, d = 0;
-  for (let xx = xa + 2; ; xx += 2) {
+  // (from the first trace's last recorded sample to the second's first: exactly the traces' own ends)
+  const k1 = tapeIndex(TP, e1 - 0.001), k2 = tapeIndex(TP, s2, true);
+  if (k1 < 0 || k2 < 0) return;
+  const p1 = TP.p[k1], p2 = TP.p[k2];
+  if (!Number.isFinite(p1) || !Number.isFinite(p2)) return;
+  const xa = X(tapeT(TP, k1)), xb = X(tapeT(TP, k2)), ya = Y(p1), yb = Y(p2), xe = Math.min(X(tNow), xb);
+  if (xb - xa < 4 || xe <= xa) return;
+  ctx.save(); ctx.fillStyle = C.text; ctx.globalAlpha = 0.45; ctx.beginPath();
+  let px = xa, py = ya;
+  for (let xx = xa + 1.5; ; xx += 1.5) {
     const xc = Math.min(xx, xe), u = (xc - xa) / (xb - xa), y = ya + (yb - ya) * u * u * (3 - 2 * u);
-    d += Math.hypot(xc - px, y - py);
-    if (d % (DASH + DASH_GAP) < DASH) inkSeg(ctx, px, py, xc, y, 1.2);
+    inkSeg(ctx, px, py, xc, y, 1.6);
     px = xc; py = y;
     if (xc >= xe) break;
   }

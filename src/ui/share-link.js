@@ -8,6 +8,11 @@ const SEL_TYPES = new Set(['edge', 'organ', 'node', 'lobule']);
 const isObj = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
 const finite = (v) => typeof v === 'number' && Number.isFinite(v);
 
+/** The #s= code of a payload (base64url JSON): the one writer, main.js's share link and the bug packet's state link (packet/state.js) both use it. */
+export function encodeShare(payload) {
+  return btoa(unescape(encodeURIComponent(JSON.stringify(payload)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
 /** The payload of a #s= link (base64url JSON), or null if it cannot be read. */
 export function parseShare(code) {
   if (typeof code !== 'string' || !code) return null;
@@ -26,7 +31,8 @@ export function cleanShare(s, presetIds = null) {
   const known = (id) => typeof id === 'string' && /^[\w-]{1,60}$/.test(id) && (!presetIds || presetIds.includes(id));
   out.preset = known(s.preset) ? s.preset : 'healthy';
   // (A patient the link names but the app does not have is reported, never swapped for another without a word.)
-  if (s.preset != null && !known(s.preset)) out.missing = String(s.preset).slice(0, 60);
+  // (A patient made from readings, "Yours", lives on its owner's device only; another device is told that, not that the app lacks a patient.)
+  if (s.preset != null && !known(s.preset)) { if (/^yours-[0-9a-z]{1,12}$/.test(String(s.preset))) out.fromYours = true; else out.missing = String(s.preset).slice(0, 60); }
   if (isObj(s.params)) out.params = s.params;
   if (VIEWS.has(s.view)) out.view = s.view;
   if (isObj(s.sel) && SEL_TYPES.has(s.sel.type) && (s.sel.type === 'lobule' || typeof s.sel.id === 'string')) out.sel = s.sel;

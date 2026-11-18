@@ -3,13 +3,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { appCssFiles } from '../scripts/app-css.mjs';
 
 const read = (f) => readFileSync(new URL(f, import.meta.url), 'utf8');
 const ui = readdirSync(new URL('../src/ui/', import.meta.url)).filter((f) => f.endsWith('.js')).map((f) => '../src/ui/' + f);
 
 test('no code reads a language choice or string table', () => {
   assert.equal(existsSync(new URL('../src/i18n/', import.meta.url)), false);
-  for (const f of [...ui, '../index.html', '../styles/app.css']) {
+  for (const f of [...ui, '../index.html', ...appCssFiles().map((f) => '../' + f)]) {
     assert.doesNotMatch(read(f), /i18n|setLang|currentLang|LANGS|pps:lang|get\('lang'\)|\[dir="rtl"\]/, f);
   }
 });

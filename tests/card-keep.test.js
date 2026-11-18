@@ -4,10 +4,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { dataPlan, textPlan, keepData, keepText, eases, cardSnap, cardChanged, cardBack } from '../src/ui/card-keep.js';
+import { dataPlan, textPlan, keepData, keepText, eases, carries, cardSnap, cardChanged, cardBack } from '../src/ui/card-keep.js';
 import { DECKS, withOverview } from '../src/ui/decks.js';
+import { presenterSource } from './split-src.js';
 
-const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const src = presenterSource();
 const run = src.slice(src.indexOf('async function transitionRun('), src.indexOf('const reFit = '));
 const O = { keys: ['hvpg'], ref: false, title: 'Endoscopy', ghost: null, under: false, sin: false };
 
@@ -180,20 +181,20 @@ test('the presenter decides before the cards leave and falls back if the layout 
   const out = run.indexOf('keepNow = keepFor('), words = run.indexOf('outMs = wordsOut(s)');
   assert.ok(out > 0 && out < words, 'chosen as the change begins, before any card fades');
   // (A time-lapse changes the patient as transitionRun counts it: from the slide before's state, or from a start of its own.)
-  assert.match(run, /const si = lap \|\| holdQ \? stateOf\[to - 1\] : stateOf\[to\];\n\s+keepNow = keepFor\(was && slides\[was\.i\], s, to, si !== shownState \|\| liveOff \|\| \(lap && !!states\[stateOf\[to\]\]\?\.start\) \|\| \(pre && !!states\[to\]\?\.before\), \{ again: !was \|\| was\.i === to \}\)/);
+  assert.match(run, /const si = lap \|\| holdQ \? (?:live\.)?stateOf\[to - 1\] : (?:live\.)?stateOf\[to\];\n\s+(?:live\.)?keepNow = keepFor\(was && (?:live\.)?slides\[was\.i\], s, to, si !== (?:live\.)?shownState \|\| (?:live\.)?liveOff \|\| \(lap && !!(?:live\.)?states\[(?:live\.)?stateOf\[to\]\]\?\.start\) \|\| \(pre && !!(?:live\.)?states\[to\]\?\.before\), \{ again: !was \|\| was\.i === to \}\)/);
   assert.equal(run.split('const si = ').length, 2, 'one count of the patient');
   // (a kept card is not built; its fall back is checked after each layout of the unseen cards, before they come in)
-  assert.match(src, /if \(!keepNow\.text\) textIn\(s, st, i\);\n\s+if \(keepNow\.data\) dataKept\(s, i, now\); else dataIn\(s, st, i, fresh, lap, now\);\n\s+layout\(\);\n\s+keepNote\(\);/);
+  assert.match(src, /if \(!(?:live\.)?keepNow\.text\) textIn\(s, st, i\);\n\s+if \((?:live\.)?keepNow\.data\) dataKept\(s, i, now\); else dataIn\(s, st, i, fresh, lap, now\);\n\s+layout\(\);\n\s+keepNote\(\);/);
   // (the settle lays the unseen cards out once more, and ends by letting a kept card that layout changed fall; the cards come in after it)
-  const settle = run.indexOf('await settleRun();'), cards = run.indexOf('cardsIn({ i: to, gen: g })');
+  const settle = run.indexOf('await settleRun(tx);'), cards = run.indexOf('cardsIn({ i: to, gen: g })');
   assert.ok(settle > 0 && settle < cards);
-  assert.match(src, /async function settleRun\(\) \{[\s\S]*?\n\s+layout\(\);\n\s+await keepFall\(keepCut\);/);
-  assert.match(run, /keepNow = keepFor\([^\n]*; keepCut = cut;/, 'the settle cuts with the move that chose the cards');
+  assert.match(src, /async function settleRun\((?:tx = null)?\) \{[\s\S]*?\n\s+layout\(\);\n\s+(?:tx\?\.phase\('keep-fall'\);\n\s+)?await keepFall\(keepCut\);/);
+  assert.match(run, /(?:live\.)?keepNow = keepFor\([^\n]*; keepCut = cut;/, 'the settle cuts with the move that chose the cards');
   // (and once more at the last gate before the cards come in, after the unseen cards' own last layout)
   assert.match(src, /async function caseEnd\(cut\) \{\n\s+await keepFall\(cut\);[^\n]*\n\s+if \(cut\(\)\) return;/);
   // (a kept card is put back as it stood before it leaves)
   assert.match(src, /async function keepFall\(cut\) \{\n\s+keepNote\(\);/);
-  assert.match(src, /cardBack\(sn\);\n\s+if \(k === 'data'\) \{ clearTimeout\(colT\); colT = 0; \}/, 'a move the layout began for the card is cancelled');
+  assert.match(src, /cardBack\(sn\);\n\s+if \(k === 'data'\) \{ clearTimeout\((?:live\.)?colT\); (?:live\.)?colT = 0; \}/, 'a move the layout began for the card is cancelled');
 });
 
 test('a card that stays does not fade, and the other one still does', () => {
@@ -206,24 +207,24 @@ test('a card that stays does not fade, and the other one still does', () => {
 });
 
 test('a kept data card rides the model through a new patient and lands on the slide\'s numbers; with the same patient it takes them in place', () => {
-  assert.match(run, /if \(later && !under && keepNow\.data && keepNow\.swap\) followData\(s, to, st, cut\);\n\s+if \(later && !under\) \{ if \(!await morphTo\(st, cut, MORPH_ONE_MS\)\) return; shownState = own \? -1 : si; ui\?\.tools\.hold\(false\); \}/);
+  assert.match(run, /if \(later && !under && (?:live\.)?keepNow\.data && (?:live\.)?keepNow\.swap\) followData\(s, to, st, cut\);\n\s+if \(later && !under\) \{ if \(!await morphTo\(st, cut, MORPH_ONE_MS\)\) return; (?:live\.)?shownState = own \? -1 : si; (?:live\.)?ui\?\.tools\.hold\(false\); \}/);
   // (One move: a change eased under the glide has the kept card ride it from its start: slide-one-move.test.js.)
-  assert.match(run, /if \(under\) \{\n\s+if \(keepNow\.data && keepNow\.swap\) followData\(s, to, st, cut\);/);
+  assert.match(run, /if \(under\) \{\n\s+if \((?:live\.)?keepNow\.data && (?:live\.)?keepNow\.swap\) followData\(s, to, st, cut\);/);
   const kept = src.slice(src.indexOf('function dataKept('), src.indexOf('function followData('));
-  assert.match(kept, /if \(keepNow\.swap\) return;/, 'with a new patient nothing jumps ahead of the figure');
-  assert.match(kept, /ui\.tiles\.paintTiles\(respFp\(s, now\.fp\), tileKeys\(s\), s\.key \|\| \[\], refOf\(s, i\), undefined, now\.params\?\.tips\?\.on\);/, 'the tiles count (an undefined ease is theirs)');
+  assert.match(kept, /if \((?:live\.)?keepNow\.swap\) return;/, 'with a new patient nothing jumps ahead of the figure');
+  assert.match(kept, /(?:live\.)?ui\.tiles\.paintTiles\(respFp\(s, now\.fp\), (?:live\.)?tileKeys\(s\), s\.key \|\| \[\], (?:live\.)?refOf\(s, i\), undefined, now\.params\?\.tips\?\.on\);/, 'the tiles count (an undefined ease is theirs)');
   const follow = src.slice(src.indexOf('function followData('), src.indexOf('// Each row of a table still computing'));
   assert.match(follow, /dataTo\(s, liveFp\(fr\), ref, 280\)/);
-  assert.match(follow, /if \(shownState === stateOf\[to\]\) \{ if \(s\.tool\) showTool\(s, to\); dataTo\(s, st\.fp, ref, 280\); return; \}/, 'landed: the slide\'s own numbers, and done');
+  assert.match(follow, /if \((?:live\.)?shownState === (?:live\.)?stateOf\[to\]\) \{ if \(s\.tool\) showTool\(s, to\); dataTo\(s, st\.fp, ref, 280\); return; \}/, 'landed: the slide\'s own numbers, and done');
 });
 
 test('nothing is kept after a start or a stop, and each change decides afresh', () => {
-  assert.match(src, /ui = build\(\);\n\s+dataOn = textOn = null; keepNow = NO_KEEP;/);
-  assert.match(src, /dataOn = textOn = null; keepNow = NO_KEEP; keepSnap = null; keepBad = \[\]; keepArgs = null;\n\s+pillW = 0;/);
-  assert.match(src, /try \{ await transitionRun\(to\); \} finally \{[^]*?if \(mine\) \{ keepNow = NO_KEEP;/);
+  assert.match(src, /(?:live\.)?ui = build\(\);\n\s+(?:live\.)?dataOn = (?:live\.)?textOn = null; (?:live\.)?keepNow = NO_KEEP;/);
+  assert.match(src, /(?:live\.)?dataOn = (?:live\.)?textOn = null; (?:live\.)?keepNow = NO_KEEP; (?:live\.)?keepSnap = null; (?:live\.)?keepBad = \[\]; (?:live\.)?keepArgs = null;\n\s+(?:live\.)?pillW = 0;/);
+  assert.match(src, /try \{ await transitionRun\(to\); \} finally \{[^]*?if \(mine\) \{ (?:live\.)?keepNow = NO_KEEP;/);
   // a change cut short, a card on its way in or out, and the states a tile's ring counts from not yet in keep nothing
   assert.match(src, /const dataStands = \(\) => /);
-  assert.match(src, /!states\[stateOf\[to\]\] \|\| \(to > 0 && !states\[stateOf\[to - 1\]\]\)\) return NO_KEEP;/);
+  assert.match(src, /!(?:live\.)?states\[(?:live\.)?stateOf\[to\]\] \|\| \(to > 0 && !(?:live\.)?states\[(?:live\.)?stateOf\[to - 1\]\]\)\) return NO_KEEP;/);
 });
 
 test('in the shipped decks the rule keeps cards between consecutive slides, and never one that is not the same card', () => {
@@ -247,7 +248,8 @@ test('in the shipped decks the rule keeps cards between consecutive slides, and 
         assert.ok(!own(a) && !own(b), `${d.id} ${i}: no slide with its own order of cards`);
         // (A time-lapse keeps only a card that reads the live model, with the patient staying into it.)
         if (a.lapse) assert.ok(eases(a.tool), `${d.id} ${i}: a time-lapse's card that stays reads the live model`);
-        if (b.lapse) assert.ok(!swap && eases(b.tool), `${d.id} ${i}: a time-lapse keeps its card only with the patient staying and a card that eases`);
+        // (or the chart that holds across the talk, tool-shift.js: drawn from the deck's states, it plays the days itself)
+        if (b.lapse) assert.ok((!swap && eases(b.tool)) || carries(b.tool), `${d.id} ${i}: a time-lapse keeps its card only with the patient staying and a card that eases`);
         if (swap) assert.ok(eases(b.tool), `${d.id} ${i}: a recording instrument is never kept through a new patient`);
       }
     }

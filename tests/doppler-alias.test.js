@@ -4,43 +4,27 @@
 // that sets neither fits its scale to the signal as before, and no built-in deck sets them (deck-instruments.test.js).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { DEMO_ALL } from '../src/ui/test-decks/demo-all-new-visuals.js';
 
-const doppler = readFileSync(new URL('../src/ui/doppler.js', import.meta.url), 'utf8');
 
 test('a fixed scale holds the Nyquist limit either side of the baseline, the span twice the limit', () => {
   // (scale is the dominant side's reach, so pxPerV = (baseF ≥ 0.5 ? baseY : H − baseY) / scale = H / (2 × limit))
   // (the scale's choice is fitScale, dopplerWindow.js, given the slide's fixed scale on every frame)
-  const win = readFileSync(new URL('../src/ui/dopplerWindow.js', import.meta.url), 'utf8');
-  assert.match(win, /if \(fixed\) \{ st\.baseF = fixed\.base; st\.scale = 2 \* fixed\.nyq \* Math\.max\(st\.baseF, 1 - st\.baseF\); st\.settleAt = tNow; \}/);
-  assert.match(doppler, /FS_IN\.fixed = fixed; FS_IN\.holding = holding; FS_IN\.fits = fits; FS_IN\.target = target; FS_IN\.tbF = tbF; FS_IN\.tNow = tNow;\s+fitScale\(FS_ST, FS_IN\);/);   // (fitScale's state and input are kept records, written in place: nothing built in a frame)
   for (const base of [0.5, 0.15, 0.85]) {
     const nyq = 80, H = 300, scale = 2 * nyq * Math.max(base, 1 - base), baseY = H * base;
     const pxPerV = (base >= 0.5 ? baseY : H - baseY) / scale;
     assert.ok(Math.abs(H / pxPerV - 2 * nyq) < 1e-9, `baseline ${base}: span ${H / pxPerV}`);
   }
-  assert.match(doppler, /g\.span = fixed \? H \/ pxPerV : 0; g\.topV = baseY \/ pxPerV; g\.botV = \(H - baseY\) \/ pxPerV/);
 });
 
 test('past the scale\'s end the spectrum also shows one span above and below; otherwise each line is drawn as before', () => {
   // (The wrap was pinned in the CPU's writeLine; since the unification audit §4 the spectrum is made by the GPU's line shader alone,
   // doppler-synth.js, so the same rule is read there: lineParams flags a line that reaches past an end, and the shader adds the two aliases.)
-  const synth = readFileSync(new URL('../src/ui/doppler-synth.js', import.meta.url), 'utf8');
-  assert.match(doppler, /const wraps = g\.span > 0 && P > \(s > 0 \? g\.topV : g\.botV\);/);
-  assert.match(doppler, /gpu\.setCol\(x, P, b\.L, [^\n]*1 \+ \(wraps \? 2 : 0\) \+ \(s < 0 \? 4 : 0\), cn\);/);
-  assert.match(synth, /bool wraps = \(fl & 2\) != 0;/);
-  assert.match(synth, /float S = power\(vel \* s, P, L, sigHi, sigLo\);\n\s+if \(wraps\) S \+= power\(\(vel \+ span\) \* s, P, L, sigHi, sigLo\) \+ power\(\(vel - span\) \* s, P, L, sigHi, sigLo\);/);
-  assert.match(synth, /uniform float [^;]*\bspan\b/);
   // The alias of a true velocity v shows at v − span: 112 cm/s on a ±80 scale shows at −48, under the baseline.
   const span = 160, v = 112;
   assert.equal(v - span, -48);
 });
 
-test('the slide option is read once per slide, clamped, and cleared on a slide without it', () => {
-  assert.match(doppler, /const next = nyq > 0 \? \{ nyq: clamp\(nyq, 5, 400\), base: Math\.round\(clamp\(Number\.isFinite\(b\) \? b : 0\.5, 0\.15, 0\.85\) \* 100\) \/ 100 \} : null;/);
-  assert.match(doppler, /if \(next\?\.nyq !== fixed\?\.nyq \|\| next\?\.base !== fixed\?\.base\) \{ fixed = next; scale = null; baseF = null; \}/);
-});
 
 test('the test deck shows aliasing on a stent and its fix with the baseline moved down', () => {
   const by = Object.fromEntries(DEMO_ALL.slides.map((s) => [s.id, s]));

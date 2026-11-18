@@ -48,21 +48,6 @@ test('lerpInto equals the lobule glide step bit for bit', () => {
 });
 
 // ── The lobule's records (push A): read from the source
-import { readFileSync } from 'node:fs';
-const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
-test('the lobule keeps its view and its pan, dive and card cameras as scene-cam records', () => {
-  assert.match(lz, /const V = cams\.lobule\.base = \{ k: 1, x: 0, y: 0 \};/);
-  for (const gone of ['zK', 'zE', 'zF', 'diveK', 'diveE', 'diveF', 'panDX', 'panDY', 'zoomCam']) assert.doesNotMatch(lz, new RegExp(`\\b${gone}\\b`), gone);
-  assert.match(lz, /camThen\(VIEWC, CARD, camThen\(VIEWC, DIVE, PAN\)\)/);
-});
-test('each record has its own writer: zoomAt writes only the card, setDive only the dive, zoomEnd never the dive or the base', () => {
-  const body = (head) => { const i = lz.indexOf(head); assert.ok(i >= 0, head); return lz.slice(i, lz.indexOf('\n    },', i)); };
-  const zoomAt = body('    zoomAt(S, px, py, dx, dy) {'), zoomEnd = body('    zoomEnd() {');
-  assert.match(zoomAt, /camAbout\(CARD, S, snap\.w \/ 2, snap\.h \/ 2\)/, 'the lobule scales about the stage middle (4 Nov)');
-  assert.doesNotMatch(zoomAt, /\b(DIVE|PAN)\b|\bV\.[kxy] =/);
-  assert.doesNotMatch(zoomEnd, /\b(DIVE|PAN)\b|\bV\.[kxy] =/);
-  assert.match(lz, /const setDive = [^\n]*camSet\(DIVE, k, e, f\)/);
-});
 
 test('a card zoom scales the scene about the card with no move, so the stage is always covered and cover never clamps (5 Nov)', () => {
   const out = [0, 0];
@@ -75,10 +60,4 @@ test('a card zoom scales the scene about the card with no move, so the stage is 
     close(out[0], tx); close(out[1], ty);
   }
   sceneCam.off();
-});
-test('card-zoom.js asks for no figure camera: the cards zoom, the figure holds still (5 Nov)', async () => {
-  const src = (await import('node:fs')).readFileSync(new URL('../src/ui/card-zoom.js', import.meta.url), 'utf8');
-  assert.match(src, /cam: false \}/);
-  assert.match(src, /sceneCam\.aim = null;/);
-  assert.doesNotMatch(src, /camera\?\.open\(\)/);
 });

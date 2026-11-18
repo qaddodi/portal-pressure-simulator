@@ -19,13 +19,12 @@
 //   ≥150). In PSVD/NCPF, SSM >40 kPa is a specific sign of portal hypertension (8.44), and EGD is not needed at SSM <40 kPa with a
 //   bilirubin <1 mg/dL (8.47).
 // - resolved, resolvedLsm: 7.19b, recompensated cirrhosis: LSM <15 kPa plus SSM <25 kPa may rule CSPH out (LoE 4, weak).
-// - Baveno VIII gives no SSM rule-out of its own. Baveno VII's (50 Hz probe, viral hepatitis) were <21 kPa to rule out and
-//   >50 kPa to rule in; kept here as BAVENO7_SSM for the notes, not drawn as zones.
+// - Baveno VIII gives no SSM rule-out of its own. The older 50 Hz probe's cut-offs (viral hepatitis) do not apply to the 100 Hz probe
+//   and are not kept here.
 // - AASLD 2024: above an HVPG of 10 mmHg SSM correlates with the HVPG better than LSM; neither has a role in monitoring the HVPG
 //   (so the model's SSM following a beta-blocker is physiology, not a test of response).
 // - normal: a healthy spleen's reading on the 100 Hz probe, about 15 to 20 kPa in published controls (not a guideline number); the model's is 17.
 export const SSM_CUTS = Object.freeze({ ruleIn: 55, spareScope: 40, resolved: 25, resolvedLsm: 15, normal: 17, max: 100 });
-export const BAVENO7_SSM = Object.freeze({ ruleOut: 21, ruleIn: 50 });
 
 /** The model's coefficients (metrics.js ssmOf): kPa per mmHg of pulp pressure above normal (and a small square term: a
  *  capsule stiffens faster as it fills), and kPa per cm of spleen above normal. */
@@ -37,6 +36,10 @@ export function ssmOf(pulpTm, lengthCm) {
   const k = SSM_MODEL, dP = Math.max(0, pulpTm - k.pulp0), dL = Math.max(0, lengthCm - k.len0);
   return Math.min(SSM_CUTS.max, k.base + k.perMmHg * dP + k.perMmHg2 * dP * dP + k.perCm * dL);
 }
+
+/** The ticks the spleen stiffness bar prints (fibroscan's bar, stiff-bar.js): the guideline's own two lines, nothing between them (Baveno VIII gives no SSM grey-zone
+ *  number of its own; AASLD 2024 gives none). */
+export const SSM_STEPS = Object.freeze([SSM_CUTS.spareScope, SSM_CUTS.ruleIn]);
 
 /** A reading's zone against the cut-offs: 'in' (CSPH ruled in), 'gray', or 'spare' (scope spared, under spareScope). */
 export const ssmZone = (v) => (v == null ? null : v > SSM_CUTS.ruleIn ? 'in' : v < SSM_CUTS.spareScope ? 'spare' : 'gray');

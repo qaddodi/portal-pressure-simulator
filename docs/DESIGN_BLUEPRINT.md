@@ -178,7 +178,7 @@ Collaterals C1a to C9 and the drawn shunts are listed in `docs/deck-authoring-gu
 
 ### 6.4 Semantic zoom levels
 
-A dive goes from the body plate into the **liver lobule** (portal triads at the corners, sinusoids running to the central vein, the space of Disse with lymph, zones 1 to 3 and the three resistance sites) and on into the **sinusoid wall**. The **varix** is shown in cross-section by the wall instrument (radius r, wall thickness w, wall stress σ = ΔP·r / w) and by the endoscopy scope. The `scales` and `cutouts` slide fields (`docs/deck-authoring-guide.md` 5.10 and 5.11) flip or lay these scales beside the anatomy.
+A dive goes from the body plate into the **liver lobule** (portal triads at the corners, sinusoids running to the central vein, the space of Disse with lymph, zones 1 to 3 and the three resistance sites) and on into the **sinusoid wall**. The **varix** is shown in cross-section by the wall instrument (radius r, wall thickness w, wall stress σ = ΔP·r / w) and by the endoscopy scope. A deck slide shows one of these scales by diving into it (`docs/deck-authoring-guide.md` 5.11).
 
 ### 6.5 Circuit view
 
@@ -556,7 +556,7 @@ for fairness) in the worker when the user asks. Cache the result until the state
 | Cardiac | **Right heart failure / TR** | Contractility ↓, TR ↑ | RA ↑↑, FHVP and WHVP both ↑, **HVPG normal**, **pulsatile PV**, high-protein ascites |
 | Cardiac | **Constrictive pericarditis** | Pericardial constraint ↑ | Similar to RHF, with a respiratory pattern |
 
-The app has 19 presets (`src/engine/scenario.js`, listed in `docs/deck-authoring-guide.md` 8.1). Beyond this table (the porto-sinusoidal patient is a second presinusoidal one, beside schistosomiasis): end-stage cirrhosis with hepatofugal flow, MASLD cirrhosis (HVPG under-reads), cirrhosis with a gastrorenal shunt (isolated fundal varices), and cirrhosis in pregnancy.
+The app has 19 presets (`src/engine/scenario.js`, listed in `docs/deck-authoring-guide.md` 8.1). Beyond this table (the porto-sinusoidal patient is a second presinusoidal one, beside schistosomiasis): cirrhosis with reversed portal flow, MASLD cirrhosis (HVPG under-reads), cirrhosis with a gastrorenal shunt (isolated fundal varices), and cirrhosis in pregnancy.
 
 ### 10.2 Interventions library
 

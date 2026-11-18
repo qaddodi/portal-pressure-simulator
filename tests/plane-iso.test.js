@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DECKS } from '../src/ui/decks.js';
 import { deckStates } from './deck-states.js';
-import { planeOf, hasAxes, axesFrame, scaler, isoOf, lineBoxes, layoutPlane, shownReading, wasAt, PAD, PLANES } from '../src/ui/visual-plane.js';
+import { planeOf, hasAxes, axesFrame, scaler, isoOf, isoRays, lineBoxes, layoutPlane, shownReading, wasAt, PAD, PLANES } from '../src/ui/visual-plane.js';
 
 const SIZES = [[910, 396, 15.6], [540, 574, 16.7], [340, 362, 17.4], [315, 336, 17.4]];
 const deck = (id) => DECKS.find((d) => d.id === id);
@@ -47,7 +47,7 @@ test('no rays without iso, or where an axis does not start at 0', () => {
 test('the rays are lines the points\' names keep clear of', () => {
   const pl = planeOf('flow-ppg'), fr = axesFrame(pl, 540, 574, 16), { X, Y } = scaler(pl, fr);
   const io = isoOf(pl, X, Y, fr, 16), lb = lineBoxes(pl, X, Y, fr, 16);
-  for (const b of io.boxes) assert.ok(lb.some((o) => o[0] === b[0] && o[1] === b[1]), 'every ray box is among the line boxes');
+  for (const b of io.boxes.slice(0, io.boxes.length - io.lines.length)) assert.ok(lb.some((o) => o[0] === b[0] && o[1] === b[1]), 'every ray box is among the line boxes');
 });
 
 test('each slide on the plane puts every patient where the model\'s own flow and PPG are, laid out with every name or a lead line', async () => {
@@ -82,4 +82,23 @@ test('a drug that cuts the inflow moves the patient left; carvedilol stays near 
   const c = deck('circuit'), cs = await deckStates(c), cq = (i) => cs[c.slides.findIndex((s) => s.id === i)];
   assert.ok(cq('meal').pvFlow > cq('ohm').pvFlow && cq('both').pvFlow > cq('resist').pvFlow, 'a meal moves right');
   assert.ok(cq('resist').ppg / cq('resist').pvFlow > 2 * (cq('ohm').ppg / cq('ohm').pvFlow), 'cirrhosis lifts the patient onto a steeper line');
+});
+
+test('the rays\' names never touch each other, another ray or a point, at every width (B22: R = 40, 30, 20 ran together on a phone, R = 5 stood under a dot)', () => {
+  const meets = (a, b) => a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
+  for (const rays of [[40, 30, 20, 10, 5], [32, 16, 8, 4], [24, 16, 8, 4]]) for (const [W, H, fs] of [...SIZES, [375, 420, 16], [330, 300, 14]]) {
+    const pl = planeOf({ base: 'flow-ppg', iso: { rays } }), fr = axesFrame(pl, W, H, fs), { X, Y } = scaler(pl, fr);
+    // (A point on each ray's far end and one near the origin: the places a name is tempted to stand.)
+    const dots = [[1.4, 9], [0.4, 14.5], [0.8, 17.5]].map(([x, y]) => [X(x) - 16, Y(y) - 16, X(x) + 16, Y(y) + 16]);
+    const io = isoOf(pl, X, Y, fr, fs, dots), rs = isoRays(pl, X, Y);
+    const labels = io.lines.map((l) => l.label);
+    labels.forEach((a, i) => {
+      const at = `${rays} at ${W}x${H}: ${a.text}`;
+      for (let j = i + 1; j < labels.length; j++) assert.ok(!meets(a.box, labels[j].box), `${at} touches ${labels[j].text}`);
+      rs.own.forEach((boxes, k) => { if (rs.lines[k].r !== io.lines[i].r) assert.ok(!boxes.some((b) => meets(a.box, b)), `${at} sits on the ray of R = ${rs.lines[k].r}`); });
+    });
+    // (Where a name found a clear place it is clear of the points too; a plot too small for any leaves it at the end of its ray.)
+    const clear = labels.filter((a) => !dots.some((d) => meets(a.box, d))).length;
+    assert.ok(clear >= labels.length - 1, `${rays} at ${W}x${H}: at most one name stands on a point (${clear} of ${labels.length} clear)`);
+  }
 });

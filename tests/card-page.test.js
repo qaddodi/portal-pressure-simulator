@@ -11,41 +11,48 @@ import { PROCS as PROC_TABLE, MEASURES, GRAFTS, ENDO, PLUGS, procKindOf } from '
 // (A measuring procedure, the EUS-PPG, steps like the others: its Next plays its steps before the slide moves on.)
 const PROCS = { ...PROC_TABLE, ...MEASURES, ...GRAFTS, ...ENDO, ...PLUGS };
 import { pageOn, followOf, pageIn, FOLLOW } from '../src/ui/card-page.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8');
-const presenter = read('../src/ui/presenter.js');
-const css = read('../styles/app.css');
+const presenter = presenterSource();
+const css = appCss();
 const body = (name) => { const i = presenter.indexOf(`function ${name}(`); assert.ok(i >= 0, name); return presenter.slice(i, presenter.indexOf('\n  }\n', i)); };
 const procKind = (s) => procKindOf(s.procedure);
 
 // presenter.js turnsSlide, as written there, run against each state of the walk.
 const turnsSrc = (() => { const i = presenter.indexOf('const turnsSlide = (dx) =>'); return presenter.slice(presenter.indexOf('=>', i) + 2, presenter.indexOf(';\n', i)); })();
-const turnsSlide = new Function('dx', 'caseLift', 'lapseOn', 'procHeld', 'procWait', 'slides', 'want', 'beat', 'lastBeat', `return ${turnsSrc};`);
+const turnsSlide = new Function('dx', 'caseLift', 'lapseOn', 'procHeld', 'procWait', 'toolStep', 'slides', 'want', 'beat', 'lastBeat', `return ${turnsSrc};`);
+// A slide whose data card takes its readings one Next at a time (tool-hvpg.js: the free pressure, the wedge, the HVPG), as the presenter's ui.tools.step does.
+const readsOnNext = (s) => s?.tool?.kind === 'hvpg' && !(s.tool.catheter && ['free', 'wedge', 'result'].includes(s.cath));
 
 // Next as presenter.js next() runs it on a landed slide (no case card, no time-lapse playing): a procedure's steps first (the first
 // Next sends the catheter in, each next plays a step, the one after the last moves on), then the slide's views, then the next slide.
 function pressNext(deck, st) {
   const s = deck.slides[st.at], P = PROCS[procKind(s)];
+  if (readsOnNext(s) && st.reading < 2) { st.reading++; return 'reading'; }
   if (P && !st.done) {
     if (st.step < 0) { st.step = 0; return 'step'; }
     if (st.step < P.stops.length - 1) { st.step++; return 'step'; }
     st.done = true;
   }
   if (st.beat < beatCount(s) - 1) { st.beat++; return 'view'; }
-  if (st.at < deck.slides.length - 1) { st.at++; st.beat = 0; st.step = -1; st.done = false; return 'slide'; }
+  if (st.at < deck.slides.length - 1) { st.at++; st.beat = 0; st.step = -1; st.done = false; st.reading = 0; return 'slide'; }
   return 'end';
 }
-const follows = (deck, st, dx) => turnsSlide(dx, null, false, () => st.step >= 0 && !st.done, false, deck.slides, st.at, st.beat, (i) => beatCount(deck.slides[i]) - 1);
+// (toolStep: the card's own Next, as presenter.js asks the tool: a Next takes a reading while the card has one left; a Back takes one back once one was taken.)
+const toolOf = (deck, st) => (d) => readsOnNext(deck.slides[st.at]) && (d > 0 ? st.reading < 2 : st.reading > 0);
+const follows = (deck, st, dx) => turnsSlide(dx, null, false, () => st.step >= 0 && !st.done, false, toolOf(deck, st), deck.slides, st.at, st.beat, (i) => beatCount(deck.slides[i]) - 1);
 
 test('every slide of every deck: a Next swipe moves the card only when that Next changes the slide, never on a step or a view', () => {
-  let slides = 0, steps = 0, views = 0;
+  let slides = 0, steps = 0, views = 0, readings = 0;
   for (const deck of DECKS) {
-    const st = { at: 0, beat: 0, step: -1, done: false };
+    const st = { at: 0, beat: 0, step: -1, done: false, reading: 0 };
     for (let guard = 0; guard < 3000; guard++) {
       const f = follows(deck, st, -60), at = st.at, what = pressNext(deck, st);
       if (what === 'end') { assert.equal(f, false, `${deck.id}: the last slide's Next goes nowhere, so nothing follows`); break; }
       if (what === 'slide') slides++;
-      else { assert.equal(f, false, `${deck.id} slide ${at + 2}: a Next that plays a ${what} keeps the card still (it went back on release)`); if (what === 'step') steps++; else views++; }
+      else { assert.equal(f, false, `${deck.id} slide ${at + 2}: a Next that plays a ${what} keeps the card still (it went back on release)`); if (what === 'step') steps++; else if (what === 'view') views++; }
+      if (what === 'reading') readings++;
       if (what === 'slide' && !PROCS[procKind(deck.slides[at])]) assert.equal(f, true, `${deck.id} slide ${at + 2}: a Next that changes the slide follows the finger`);
     }
     assert.equal(st.at, deck.slides.length - 1, `${deck.id}: walked to its last slide`);
@@ -53,14 +60,16 @@ test('every slide of every deck: a Next swipe moves the card only when that Next
   assert.ok(slides > 200, `walked ${slides} slide changes`);
   assert.ok(steps >= 15, `and ${steps} procedure steps (BRTO, BATO, TIPS), none followed`);
   assert.ok(views >= 1, `and ${views} views of the figure, none followed`);
+  assert.ok(readings >= 2, `and ${readings} readings of the HVPG tracing card (Varices 6/11), none followed: its cards stay still while it steps`);
 });
 
 test('every slide of every deck: a Back swipe moves the card only when Back changes the slide', () => {
   for (const deck of DECKS) {
     deck.slides.forEach((s, i) => {
       for (let beat = 0; beat < beatCount(s); beat++) {
-        assert.equal(follows(deck, { at: i, beat, step: -1, done: false }, 60), beat === 0 && i > 0, `${deck.id} slide ${i + 2} view ${beat + 1}`);
-        if (PROCS[procKind(s)]) assert.equal(follows(deck, { at: i, beat, step: 1, done: false }, 60), false, `${deck.id} slide ${i + 2}: Back during a procedure steps it back`);
+        assert.equal(follows(deck, { at: i, beat, step: -1, done: false, reading: 0 }, 60), beat === 0 && i > 0, `${deck.id} slide ${i + 2} view ${beat + 1}`);
+        if (readsOnNext(s)) assert.equal(follows(deck, { at: i, beat, step: -1, done: false, reading: 1 }, 60), false, `${deck.id} slide ${i + 2}: Back after a reading takes the reading back`);
+        if (PROCS[procKind(s)]) assert.equal(follows(deck, { at: i, beat, step: 1, done: false, reading: 0 }, 60), false, `${deck.id} slide ${i + 2}: Back during a procedure steps it back`);
       }
     });
   }
@@ -93,8 +102,8 @@ test('the glass and the words come in by the same keyframes, transform and opaci
   assert.equal(pageIn('next', 24, 6)[0].transform, 'translateX(24px)');
   assert.equal(pageIn('back', 24, 6)[0].transform, 'translateX(-24px)');
   assert.equal(pageIn('jump', 24, 6)[0].transform, 'translateY(6px)');
-  assert.match(body('wordsTurnIn'), /const frames = pageIn\(k, d, RISE_PX\)[\s\S]*t\.animate\?\.\(frames, how\)[\s\S]*ui\.shade\.animate\?\.\(frames, how\)/, 'one set of keyframes, on both');
-  assert.match(body('wordsFreeze'), /\[\[t, a\], \[ui\.shade, shadeAnim\]\]/, 'Next mid-entrance stops both where they are');
+  assert.match(body('wordsTurnIn'), /const frames = pageIn\(k, d, RISE_PX\)[\s\S]*t\.animate\?\.\(frames, how\)[\s\S]*(?:live\.)?ui\.shade\.animate\?\.\(frames, how\)/, 'one set of keyframes, on both');
+  assert.match(body('wordsFreeze'), /\[\[t, a\], \[(?:live\.)?ui\.shade, (?:live\.)?shadeAnim\]\]/, 'Next mid-entrance stops both where they are');
 });
 
 test('during motion the page changes only transform and opacity: no clip, no layout read, no glass resized', () => {
@@ -114,4 +123,10 @@ test('during motion the page changes only transform and opacity: no clip, no lay
 test('let go after a swipe, the card carries on out from where the finger left it, never back toward where it was', () => {
   assert.match(body('pullLet'), /if \(out\) pageThrow\(x, els\);/, 'as one page: the glass and the words both');
   assert.match(body('pageThrow'), /for \(const el of els\) \{ el\.style\.setProperty\('--pz-turn-d', `\$\{\(Math\.abs\(x\) \+ d\)\.toFixed\(1\)\}px`\);/);
+});
+
+test('no slide has more views than the pill\'s dots show (three), so every Next that turns the figure is seen', () => {
+  let multi = 0;
+  for (const deck of DECKS) deck.slides.forEach((s, i) => { const n = beatCount(s); assert.ok(n <= 3, `${deck.id} slide ${i + 1} has ${n} views`); if (n > 1) multi++; });
+  assert.ok(multi >= 3, `${multi} slides with several views`);
 });

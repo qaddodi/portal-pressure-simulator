@@ -50,6 +50,7 @@ export function makeHarness({ withStage2 = true, withStage3 = false, withGlow = 
     passes: 0, strips: 0, patches: 0, plain: 0, webs: 0, kP: 0, ref: 0 };
   MG.dirty = false;
   let tube2 = null;
+  const g2 = [];   // (every setG2 the pass made: whether the second lumen target is wanted, R1b-7)
   if (withStage2) tube2 = { lean: prog('tubeLean'), depth: prog('tubeDepth'), web: prog('tubeWeb'), webDepth: prog('tubeWebDepth'), joinDepth: prog('tubeJoinDepth') };
   let tube3 = null;
   if (withStage3) tube3 = { lumen: prog('tubeLumen'), webLumen: prog('tubeWebLumen'), comp: prog('compTube'), compCell: prog('compTubeCell'), plain: prog('plainTube'), plainCell: prog('plainTubeCell') };
@@ -58,12 +59,12 @@ export function makeHarness({ withStage2 = true, withStage3 = false, withGlow = 
   const E = {
     lobule: false, gl, UC, MG, MAX_TIERS, ATTACH: ['A'], KEY_PASSES: 64, MESH_TWO: [null, null], MESH_DS: ['DS'], MESH_GLOW_BUF: ['GLOW'], MESH_COLOR_BUF: ['COLOR'], CLR_F: new Float32Array(4),
     gpuProbe: { on: true, note() {}, gauge: (k, v) => gauges.push([k, v]) }, nTubes: n, tubeNow: sc.tube,
-    meshPad: () => 0, meshKeyNext: () => 1 - ++keyN / 64, meshRefNext: () => 1, meshTargets: () => true, meshGeo: () => MG, meshTarget() {}, meshScratch: () => ({}), meshLay() {}, vesselSet() {},
+    meshPad: () => 0, meshKeyNext: () => 1 - ++keyN / 64, meshRefNext: () => 1, meshTargets: () => true, meshGeo: () => MG, meshTarget() {}, meshScratch: () => ({}), meshLay() {}, vesselSet() {}, setG2(on) { g2.push(on); },
     get tubeS() { return tubeS; }, get tubePt() { return tubePt; }, get tube2() { return tube2; }, get tube2Failed() { return withStage2 ? null : []; }, get tube3() { return tube3; }, get tube3Failed() { return tube3 || !withStage3 ? null : []; }, get layerView() { return view && ((m, look, out) => { out.ok = view.ok !== false; for (let i = 0; i < 4; i++) out.rect[i] = view.rect[i]; out.pad = view.pad || 0; out.rmax = view.rmax || []; return out; }); }, get tubeGlow() { return tubeGlow; }, get tubeGlowFailed() { return glowFailed; }, lumenBind(P) { log.push({ call: 'lumenBind', prog: P.p.name }); }, get baseTex() { return {}; }, get geo() { return { morph }; },
   };
   const tubePass = createTubePass(E);
   const look = { tierGroup: new Int32Array(MAX_TIERS), tierAlpha: new Float32Array(MAX_TIERS).fill(1), netAlpha: 1, reach: 11 };
   const run = () => { log.length = 0; sets.length = 0; gauges.length = 0; keyN = 0; const ok = tubePass([1, 0, 0, 1, 0, 0], look); return ok; };
   const runLumen = (redo = true) => { log.length = 0; sets.length = 0; gauges.length = 0; keyN = 0; return tubePass.lumen([1, 0, 0, 1, 0, 0], look, redo); };
-  return { run, runLumen, tubePass, log, sets, gauges, MG, E, sc, setTube2(v) { tube2 = v; }, MP };
+  return { run, runLumen, tubePass, log, sets, gauges, g2, MG, E, sc, setTube2(v) { tube2 = v; }, MP };
 }

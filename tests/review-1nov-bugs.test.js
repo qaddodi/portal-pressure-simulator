@@ -7,9 +7,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { badgeHtml, BADGE_H } from '../scripts/preview-badge.mjs';
+import { presenterSource } from './split-src.js';
 
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
-const STAGE = stageSource(), PZ = read('src/ui/presenter.js'), MAIN = read('src/ui/main.js'), PROC = read('src/ui/hvpg-proc.js');
+const STAGE = stageSource(), PZ = presenterSource(), MAIN = read('src/ui/main.js'), PROC = read('src/ui/hvpg-proc.js');
 const body = (src, head) => { const i = src.indexOf(head); assert.ok(i >= 0, head); let d = 0, k = src.indexOf('{', i); for (let j = k; j < src.length; j++) { if (src[j] === '{') d++; else if (src[j] === '}' && --d === 0) return src.slice(i, j + 1); } return src.slice(i); };
 
 // ── A1: no WebGL2 ──
@@ -35,7 +36,7 @@ test('A1: a slide\'s glows and outlines are the figure\'s decoration: one that c
 test('V1: the words\' floor keeps their smallest lettering at 12 px on the screen, and a half at the most', () => {
   const f = body(PZ, 'function wordsFloor()');
   assert.match(f, /px > 12 && isFinite\(px\) \? Math\.max\(0\.5, Math\.ceil\(12 \/ px \* 1000\) \/ 1000\) : 1/);
-  assert.match(f, /ts\.removeProperty\('--pz-fit'\);\s*const px = minText\(ui\.text\);\s*if \(sv\) ts\.setProperty\('--pz-fit', sv\);/, 'measured with no fit, put back as it was');
+  assert.match(f, /ts\.removeProperty\('--pz-fit'\);\s*const px = minText\((?:live\.)?ui\.text\);\s*if \(sv\) ts\.setProperty\('--pz-fit', sv\);/, 'measured with no fit, put back as it was');
 });
 
 // ── V2: messages over the wrong surface ──
@@ -90,12 +91,14 @@ test('A2: the presenter\'s catheter monitor has its readings as text, written wh
 // ── A3: the slide announcement ──
 test('A3: a slide is announced once it is on screen, and the cards say they are changing meanwhile', () => {
   const a = body(PZ, 'function announce(force = false)');
-  assert.match(a, /\(force \|\| landedNow\(\)\) && ui\.say\.textContent !== t/);
-  assert.match(a, /aria-busy/);
-  assert.match(PZ, /const landedNow = \(\) => !!shown && shown\.i === want && shown\.gen === gen;/);
+  assert.match(a, /\(force \|\| onScreenNow\(\)\) && (?:live\.)?ui\.say\.textContent !== t/);
+  // (A case or question card standing for the slide counts as on screen too, tests/slide-say.test.js: the reader is told that slide, not the one before.)
+  assert.match(PZ, /const onScreenNow = \(\) => landedNow\(\) \|\| slideSaid\(\{ want: (?:live\.)?want, card: (?:live\.)?caseCard \}\);/);
+  assert.match(a, /aria-(?:live\.)?busy/);
+  assert.match(PZ, /const landedNow = \(\) => !!(?:live\.)?shown && (?:live\.)?shown\.i === (?:live\.)?want && (?:live\.)?shown\.gen === (?:live\.)?gen;/);
   const chrome = body(PZ, 'function paintChrome()');
   assert.match(chrome, /\bannounce\(\);/);
-  assert.doesNotMatch(chrome, /ui\.say\.textContent = /, 'the bar\'s count may run ahead; the announcement does not');
+  assert.doesNotMatch(chrome, /(?:live\.)?ui\.say\.textContent = /, 'the bar\'s count may run ahead; the announcement does not');
 });
 
 test('A3: a move that ends, or fails, settles the announcement and puts the cards\' busy flag away', () => {

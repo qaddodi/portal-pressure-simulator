@@ -3,9 +3,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss, presenterSource } from './split-src.js';
 
-const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const src = presenterSource();
+const css = appCss();
 const body = (name) => { const i = src.indexOf(`function ${name}(`); assert.ok(i >= 0, name); return src.slice(i, src.indexOf('\n  }\n', i)); };
 
 test('every kind of slide coming turns the words the same way: question, case, visual and new patient included', () => {
@@ -36,7 +37,7 @@ test('the glass fades in place on the words’ own curve on a turn', () => {
 
 test('the words follow the finger only on a swipe that changes the slide (never a procedure step, beat, time-lapse or case lift)', () => {
   const i = src.indexOf('const turnsSlide = (dx) =>'), t = src.slice(i, src.indexOf(';', i));
-  for (const k of ['!caseLift', '!lapseOn', '!procHeld()', '!procWait', '!slides[want]?.procedure', 'beat >= lastBeat(want)', 'beat === 0']) assert.ok(t.includes(k), k);
+  for (const k of ['!caseLift', '!lapseOn', '!procHeld()', '!procWait', '!toolStep(1)', '!toolStep(-1)', '!slides[want]?.procedure', 'beat >= lastBeat(want)', 'beat === 0']) assert.ok(t.includes(k), k);
   assert.match(src, /const pullCan = \(dx\) => turnsSlide\(dx\) && !!ui && !changing\(\)/);
   assert.match(src, /!pullCan\(dx\)\) return;/);
 });

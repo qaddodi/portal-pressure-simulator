@@ -66,17 +66,33 @@ vec2 chevHead(float u, float ay, float hw, float px, float rev) {
  * the composite's chevOrange and swaps chevInks. The composite's per-pixel heads (bleed frames only) keep the composite's own inks.
  */
 export const CHEV_SEPIA = [59, 44, 34];
+/**
+ * Where a head's ink flips from near-black to cream, as the lumen's relative luminance (linear light, 0 black .. 1 white): it eases over
+ * [FLIP_LO, FLIP_HI], centred on .19, the lumen at which near-black (L .012) and cream (L .87) stand off it equally (WCAG 3.6:1 at either edge).
+ * 16 Nov 2026 (style play-test: chevrons low contrast on the lavender and wine vessels): it was a gamma luma band .38 to .46, about 3 mmHg of the
+ * pressure ramp on every look, and across it the head's ink was a grey between the two, the same lightness as the lumen
+ * (1.04:1 at 15 mmHg in Light and Soft, 1.11:1 at 18 mmHg in Dark, Navy and Black), so a vessel held there showed no heads at all. The band is
+ * now a little over half as wide (about 1.2 to 1.7 mmHg), and centred where the two inks answer equally, so the grey is on screen only while a vessel's colour eases through it.
+ */
+export const CHEV_FLIP = [0.175, 0.205];
+const CHEV_LUMA_LIN = [0.2126, 0.7152, 0.0722];
+const smooth01 = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+/** The share of a head's ink that is cream (1) rather than near-black (0) on a lumen of this colour (sRGB 0–1 each): the shader's `dark`. */
+export function chevDarkShare(r, g, b) {
+  const L = CHEV_LUMA_LIN[0] * Math.max(r, 0) ** 2.2 + CHEV_LUMA_LIN[1] * Math.max(g, 0) ** 2.2 + CHEV_LUMA_LIN[2] * Math.max(b, 0) ** 2.2;
+  return 1 - smooth01(CHEV_FLIP[0], CHEV_FLIP[1], L);
+}
 export function headInksGLSL(orange) {
   // alloc-rare: assembles the shader text once when the renderer's programs are made
   const at = orange.indexOf('void chevInks(');
   const keep = at >= 0 ? orange.slice(0, at) : orange;
   return `${keep}
-// The heads' inks (chevron-glsl.js headInksGLSL), by the lumen's lightness over the composite's band (luma .38 to .46, so a vessel whose
-// colour eases never pops): a forward head near-black on a light lumen and cream on a dark one; a reversed head orange on both (cream on an
+// The heads' inks (chevron-glsl.js headInksGLSL), by the lumen's relative luminance over a short band centred where near-black and cream
+// answer equally (CHEV_FLIP, so a vessel whose colour eases never pops and one held anywhere has a head that shows): a forward head near-black on a light lumen and cream on a dark one; a reversed head orange on both (cream on an
 // orange lumen); the rim sepia on a light lumen and cream on a dark one (never white on a bright vessel).
 void chevInks(vec3 vc, float rv, out vec3 core, out vec3 rim) {
-  float rk = origin == 1 ? rv * (1.0 - blendA.z) : rv;
-  float dark = 1.0 - smoothstep(0.38, 0.46, dot(vc, vec3(0.299, 0.587, 0.114)));
+  float rk = origin == 1 ? rv * (1.0 - blendA.y) : rv;
+  float dark = 1.0 - smoothstep(${CHEV_FLIP[0]}, ${CHEV_FLIP[1]}, dot(pow(max(vc, vec3(0.0)), vec3(2.2)), vec3(0.2126, 0.7152, 0.0722)));
   float warm = rk * chevOrange(vc);
   vec3 ink = mix(chevInk, vc * 0.3, 0.2);
   core = mix(mix(mix(ink, chevLight, dark), revCol, rk), chevLight, warm);

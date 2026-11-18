@@ -1,17 +1,23 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
+import './test-boot.js';   // (very first: ?testclock puts the page's clocks on the test clock before any other module reads the time)
+import { lcFirst } from '../engine/lc-first.js';
+import { shortName, COMPACT } from './scenario-names.js';
 import { motionBudget } from './motion-budget.js';   // (first: counts from the start when ?perf or ?budget=1 asks)
 import { budget as gpuBudget } from './gpu-budget.js';   // (the render graph's registry and pass counts, R06: before any context is made)
 import './gl-state.js';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host, hostFailed, restartHost } from './host.js';
 import { createLease } from './slide-txn.js';
-import { store, viewKey, setViewKey, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js';
+import { watchSelection } from './selection-live.js';
+import { store, viewKey, setViewKey, updateParams, replaceParams, bindParamSender, clearHistory, saveHistory, loadHistory, logAction, varicesPresent, hiddenNow } from './store.js';
+import { hvBlocked } from '../engine/pressure-cuts.js';
 import { fibroReading } from './clock.js';
 import { createStage } from './stage.js';
 import { createCreditPlacer } from './credit.js';
 import { whenQuiet, booting, holdCover } from './quiet.js';
 import { sinusoidSupported } from './gl-support.js';
+import { keyLabel } from './platform-keys.js';
 import { createInspector } from './inspector.js';
 import { createDock, CUTOFFS, savedInstruments } from './dock.js';
 import { setHvpgStage } from './hvpg-proc.js';
@@ -23,8 +29,10 @@ import { createCompare } from './compare.js';
 import { createCard } from './card.js';
 import { createChart } from './chart.js';
 import { createMenu } from './menu.js';
+import { readYours, saveYours, removeYours } from './yours-store.js';
+import { viewTapAgain } from './view-tap.js';
+import { YOURS_NOTE } from '../engine/yours.js';
 import { caption } from './a11y.js';
-import { startLMS } from './lms.js';
 import { sharpMoving, setSharpMoving } from './adapt-tier.js';
 import { UPDATED, RELEASE, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js';
 import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js';
@@ -33,11 +41,15 @@ import { EDGES, PORTAL_TERRITORY, tiedOff } from '../engine/topology.js';
 import { dopplerVel } from './velNormal.js';
 import { controlOwnsKey } from './key-owner.js';
 import { onTheme, onThemeBusy, themeSettled, settledSurfaces } from './theme-epoch.js';
-import { cssVar, $, $$, h, icon, afterExit, fmt, fmtFlow, toast, TOASTS, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, menuSection, menuPush, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, switchIn, onSurfaceOpened, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js';
+import { cssVar, $, $$, h, icon, afterExit, fmt, fmtFlow, toast, TOASTS, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, menuSection, menuPush, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, switchIn, onSurfaceOpened, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile, fadeShown } from './util.js';
+import { enterWhenReady } from './widget-ready.js';
+import { toastFoot } from './toast-foot.js';
+import { changesPage } from './treat-page.js';
+import { warmGlWords } from './gl-words.js';
 import { initMenuGlass, whyGlass } from './menu-glass.js';
-import { glidePlateOn, platePieces, glideOnResize } from './plate-glide.js';
+import { glideOnResize } from './plate-glide.js';
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet, dragSheet } from './sheet-move.js';
-import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js';
+import { releaseSpeed, isFlick, flickAim, carryCurve, D_SMALL, D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { morphKey, crossfadeText } from './legend-morph.js';
 import { glideNow } from './seg-glide.js';
 import './focus-ring.js';
@@ -53,7 +65,6 @@ const appClass = () => app.className.replace(/(?:^|\s)stage-busy(?=\s|$)/g, '');
 const view = $('#stageView');
 const isPhone = isPhoneLayout;
 const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
-const NAMED_DETAILS = ['edge', 'node', 'organ'];   // (the selections whose name is the panel's title itself)
 const SN_L = { class: 'sn-l' }, SN_S = { class: 'sn-s' }, SN_C = { class: 'sn-c' };   // (the scenario name's three forms)
 const NAME_FORMS = ['l', 's', 's2', 'c2'], NAME_FORMS_NARROW = ['s2', 'c2'];   // (the scenario name's forms, widest first)
 const FOCUS_NO_SCROLL = { preventScroll: true };
@@ -71,10 +82,13 @@ const ZOOM_TITLES = [['#zoomOut', 'Zoom out', 'Back out to the lobule'], ['#zoom
 import { initDebug } from './debug.js';
 import { initTopbarMotion } from './topbar-motion.js';
 import { FIRSTPASS, ORIGINS } from './blood.js';
-import { parseShare, cleanShare } from './share-link.js';
-import { deepMerge, sanitizeParams } from '../engine/scenario.js';
+import { parseShare, cleanShare, encodeShare as encodeShareCode } from './share-link.js';
+import { focusBack } from './focus-flow.js';
+import { deepMerge, sanitizeParamsReport } from '../engine/scenario.js';
 import { createPaintGate } from './paint-gate.js';
-import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask, noteInput, setRestTalk, setFramePump, figOpt, figDefault, setFigOpt } from './frame.js';
+import { createSampleOwing } from './frame-samples.js';
+import { FIG_STEPS, figDetailWords } from './fig-detail-words.js';
+import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask, noteInput, setRestTalk, setFramePump, figOpt, figDefault, setFigOpt, watchAnimating, isAnimating } from './frame.js';
 import { glassAtLoad, setGlassMode, storeGlassMode, storedGlassMode } from './glass-mode.js';
 import { restPass } from './rest-pass.js';
 import { createScope } from './scope.js';
@@ -88,8 +102,13 @@ import { pillState, foldPill, stopFold } from './pill-motion.js';
 import { readAnims, readBox, readElAt, readMetric, readStyle, scrollInto } from './layout-snap.js';
 import './scroll-edges.js';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
 import { caught, caughtNow } from './caught.js';
+import { loadBloodPref } from './blood-pref.js';
 import { setFpsCounter } from './fps-counter.js';
 import { setDockTop } from './sheet-layer.js';
+import { freeStageOf, setFreeStage, sideBlock, bandOf, FOOT_BAND } from './free-stage.js';
+import { procLabel } from './procedure-names.js';
+// (The frame tags of the traces that draw the model's samples as they come: their scroll needs the frames about ten times a second.)
+const TRACE_TAGS = ['doppler', 'pressure-time', 'vitals-monitor'];
 const nextFrame = frameFor('main');
 
 // Color lenses: [title, what it shows, legend swatch].
@@ -126,7 +145,7 @@ function lazy(load, make) {
   // offline use and makes the first open instant.
   return { get, now: () => inst, warm: () => load().catch(() => {}) };
 }
-let paletteL, presenterL, dopplerL, fibroL;
+let paletteL, presenterL, dopplerL, fibroL, trialsL, fromReadingsL;
 const palette = {
   // alloc-rare: the palette is opened by a key or a tap (its promise and handlers), not in a frame
   // (Opened in the same task as the tap once it is loaded (it is warmed at idle), so the field's focus is inside the gesture and iOS raises the
@@ -142,6 +161,8 @@ const presenter = {
   position: () => presenterL.now()?.position() ?? null,
   stop: () => presenterL.now()?.stop(),
   go: (i) => presenterL.now()?.go(i),
+  count: () => presenterL.now()?.count?.() ?? 0,   // (the slides of the talk open, and a time-lapse sped to its end: the play-test toolkit's settle and pps.cameraGate)
+  skipLapse: () => presenterL.now()?.skipLapse?.(),
   busy: () => !!presenterL.now()?.busy(),
   readLink: () => (/#script=/.test(location.hash) ? presenterL.get().then((p) => p.readLink()) : false),
   active: () => !!presenterL?.now()?.active(),   // (asked at boot by the idle rest's first timer, before presenterL is made)
@@ -161,7 +182,6 @@ async function main() {
   const savedTheme = readLS('pps.theme');
   applyTheme(knownLook(savedTheme));   // an unknown saved theme falls back to the device's
   glassAtLoad(document.documentElement, { stored: storedGlassMode(readLS) });   // (Settings › Blur effect as stored; on where none was chosen, every device, 12 Nov 2026)
-  startLMS();
   // The Student role was removed (to come back later): an old saved role is dropped, everyone gets the full app.
   try { localStorage.removeItem('pps.role'); } catch (e) { caught('main:122', e); /* storage unavailable */ }
   // Language selection was removed too (English only, to come back later): drop an old saved choice.
@@ -171,9 +191,12 @@ async function main() {
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
   dopplerL = lazy(() => import('./doppler.js'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
   fibroL = lazy(() => import('./fibroscan.js'), ({ createFibroScan }) => createFibroScan());
+  trialsL = lazy(() => import('./trials-pane.js'), ({ createTrialsPane }) => createTrialsPane());   // (the Tests card's Trials tab)
+  // The patient menu's "From readings" (Work backward): its refinement worker is made only when a person has entered enough readings.
+  fromReadingsL = lazy(() => import('./from-readings.js'), ({ createFromReadings }) => createFromReadings({ makeWorker: () => new Worker(new URL('./inverse-worker.js', import.meta.url), { type: 'module' }), openYours }));
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
-  if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
+  if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL], ['trials', trialsL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
   why = createWhy($('#whyPop'));
   stage = createStage({
     wrap: view,
@@ -194,9 +217,19 @@ async function main() {
   document.addEventListener('visibilitychange', () => host.send({ type: 'visibility', visible: !document.hidden }));
   host.send({ type: 'visibility', visible: !document.hidden });
   host.send({ type: 'ackPaint', on: true });   // (each model frame is told back as it is taken in: ingestFrame)
+  // The model posts its frames about ten times a second while a trace that records its samples scrolls on screen (the Doppler, the
+  // pressure trace, the vitals strip: each runs a fraction of a second behind the newest sample), and only when the shown readings move,
+  // or once a second, otherwise (worker-core.js 'traces'; full app review ENG-1).
+  const tracesNow = () => TRACE_TAGS.some(isAnimating);
+  let tracesSent = tracesNow();
+  host.send({ type: 'traces', on: tracesSent });
+  watchAnimating(() => { const on = tracesNow(); if (on !== tracesSent) { tracesSent = on; host.send({ type: 'traces', on }); } });
   bindParamSender((params, settle) => host.send({ type: 'setParams', params, settle }));
 
   // Both asked at once: one round trip to the engine before any UI, not two.
+  // (The patients made from readings, "Yours", are on this device only: the engine is told them before the list is asked for, so the one answer holds them.)
+  const saved = readYours();
+  if (saved.length) await host.request('yours', { list: saved }).catch(() => {});
   const [healthy, { presets }] = await Promise.all([host.request('healthyProfile'), host.request('presets'), ...openAtStart]);
   store.set({ healthy: { P: healthy.P, Q: healthy.Q, D: healthy.D, metrics: healthy.metrics } });
   store.set({ presetList: presets });
@@ -215,7 +248,7 @@ async function main() {
     onSpeed: (v, lapse) => setSpeed(v, lapse),
     onJump: (d) => host.send(d === 'event' ? { type: 'advance', untilEvent: true } : { type: 'advance', days: d }),
     onRestart: () => restartPatient(),
-    scenarioLabel: () => store.get().presetList?.find((x) => x.id === store.get().presetId)?.label || 'Custom',
+    scenarioLabel: () => patientLabel(store.get()),
     // (The play bar's clock opens the same History card as the top bar on a Mac or iPad, menu recs C8; a phone keeps the menu.)
     onHistory: () => { if (isPhone()) return false; if (historyOpen()) closeHistory({ focus: true }); else openHistory(); return true; },
   });
@@ -225,18 +258,11 @@ async function main() {
     // (One card at a time: a patient fact's row puts the Treat card away and opens that vessel's or organ's card.)
     reveal: (sel) => { closeTreat(); select(sel); },
   });
-  inspector = createInspector($('#inspector'), {
-    onWhy: (m, el) => why.open(m, el), onAction: doAction, onOpenTab: (id) => dock.show(id, { reveal: true }),
-    onScenarios: () => mainMenu.open('patients'), onMode: (m) => store.set({ mode: m }), chart,
-    // Back from a selection's details: to the pinned comparison if there is one, else the panel closes.
-    onBack: () => { if (store.get().compareSnap) store.set({ details: null }); else closePanel(); },
-  });
+  inspector = createInspector($('#inspector'), { chart });
+  watchSelection(store);   // (a card for a stent or shunt that is no longer in the patient is put away: selection-live.js)
   store.on('details', (d) => {
-    const el = $('#panelTitle span'); if (el) el.textContent = d?.type === 'advanced' ? 'Advanced physiology' : d ? 'Details' : 'Compare';
-    // A vessel, compartment or organ is the panel's title itself (its name, its kind small above it), so "Details" is
-    // left to screen readers there (17 Oct, V9).
-    const named = NAMED_DETAILS.includes(d?.type);
-    $('#panelTitle')?.classList.toggle('sr-only', named); $('#panel')?.classList.toggle('named', named);
+    // (A vessel's or an organ's details are in its own card since 17 Nov 2026: the panel holds only the advanced physiology and the pinned comparison.)
+    const el = $('#panelTitle span'); if (el) el.textContent = d?.type === 'advanced' ? 'Advanced physiology' : 'Compare';
   });
   // The figure's labels the open menu covers are hidden while it is open: one tucked under its edge showed a sliver, the "S" of
   // Sinusoids R between the screen edge and the menu (sweep batches 02 and 04). The labels keep their places.
@@ -283,15 +309,17 @@ async function main() {
     const want = underWant;
     setTimeout(() => { if (underWant === want && underTok === want && !underQueued) underQueued = nextFrame(underStep); }, 450);
   }
-  dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
+  dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL, trials: trialsL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
-    marks: () => timeline.entries(), onBeat: () => sendBeat() });
+    marks: () => timeline.entries(), onBeat: () => sendBeat(), onFromReadings: (a) => { fromReadingsL.get().then((f) => f.open(a)).catch(() => {}); } });
   presenterL = lazy(() => import('./presenter.js'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
-    poke: () => idleRest?.poke(), closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
+    poke: () => idleRest?.poke(), closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render(),
+    restartTraces, patientHistory: { save: () => ({ timeline: timeline.save(), stacks: saveHistory() }), load: (k) => { loadHistory(k.stacks); timeline.load(k.timeline); } } }));
   mainMenu = createMenu({
     anchor: $('#btnMenu'), library: presenter.library, libraryNow: presenter.libraryNow,
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
+    onFromReadings: (a) => { fromReadingsL.get().then((f) => f.open(a)).catch(() => {}); }, onForget: forgetYours,
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
   paletteL = lazy(() => import('./palette.js'), ({ createPalette }) => createPalette({ ctx: {
@@ -306,11 +334,12 @@ async function main() {
   } }));
   card = createCard({
     view, stage,
-    onDetails: (sel) => { store.set({ details: normalizeSel(sel) || sel }); openPanel(); },
+    onWhy: (m, el) => why.open(m, el),   // (the card's own details view asks the Why? explainer: card-details.js)
     ctx: {
       action: doAction, showPane: (id) => dock.show(id, { reveal: true }), probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); },
       startShunt: (id) => stage.startShunt(id), canShunt: (id) => shuntable(id), select,
       zoomLobule: (lobe) => zoomLobule(lobe), askSinusoid: () => stage.askSinusoid(), paneApi: (id) => dock.pane(id),
+      openIr: (id) => { dock.pane('hvpg')?.openStent?.(id); dock.show('hvpg', { reveal: true }); },   // (Tests › IR › TIPS on this stent: a stent card's IR action and its folded line)
       injectDye: (id, o) => stage.injectDye(id, o), releaseDye: () => stage.releaseDye(), dyeInjecting: () => stage.dyeInjecting(),
       canDye: () => !store.get().imaging,
     },
@@ -379,10 +408,8 @@ async function main() {
   store.on('mode', onMode);
   store.on('layers', () => { const off = !store.get().layers.chips; if (app.classList.contains('chips-off') !== off) { app.classList.toggle('chips-off', off); themeChanged(); } syncBloodBtn(); redraw(); });
   // A phone shows a short form of a long name (styles), wrapped to two lines if needed: "Decomp. cirrhosis", not "Decomp…".
-  const shortName = (s) => s.replace(/\s*\(.*\)$/, '').replace(/,.*$/, '').replace(/^Decompensated\b/, 'Decomp.').replace(/^Compensated\b/, 'Comp.').replace(/^Clinically significant PH$/, 'CSPH');
   // The compact form, for the narrowest room (a phone held sideways, 84 px): the short form where two lines of it fit, else a
   // shorter name (a soft hyphen breaks Schistosomiasis across the two lines with a hyphen if it must).
-  const COMPACT = { 'Acute portal vein thrombosis': 'Acute PVT', 'Schistosomiasis / NCPH': 'Schisto\u00ADsomiasis', 'Cirrhosis with gastrorenal shunt': 'Gastrorenal shunt', 'Sinusoidal obstruction syndrome': 'SOS' };
   // (A name is one of the presets' labels or "Custom", so each one's forms are made once here, not when the name changes.)
   const nameOf = new Map(), shortOf = new Map();
   for (const p of presets) if (!nameOf.has(p.id)) nameOf.set(p.id, p.label || 'Custom');
@@ -431,10 +458,23 @@ async function main() {
   store.on('compareSnap', () => { if (!store.get().details) inspector.render(); });
   // (Only on a new value: a slide change sets focus and selection to null each time, and a full figure update for a value that
   // stayed the same cost a frame's worth of script in the tap.)
+  store.on('presenting', (v) => keepAwake(!!v || projector));   // (A24: a talk keeps the screen awake; wake-lock.js lets go when it ends)
   for (const k of ['focus', 'labelLevel', 'selection']) { let was = store.get()[k]; store.on(k, (v) => { if (v === was) return; was = v; redraw(); }); }
 
   // Console handle for educators preparing a class (and for automated screenshots).
   window.pps = { resumeUrl, loadPreset, store, updateParams, setTool, dock, details: (sel) => { store.set({ details: sel }); openPanel(); }, stage, host, card, timeline, menu: mainMenu, palette, presenter, get perf() { return framePerf(); }, motionBudget, budget: gpuBudget, get credit() { return creditPlacer; }, caught: caughtNow };   // (caught: the app's counted errors; the assignment above had replaced the one caught.js puts on window.pps, so no device report could read them)
+  // (The slide camera's gate on this device: every deck, Next and Back, each move judged from its own frames. cam-gate.js; loaded when asked.)
+  // (The test clock: the page's time on a clock a window that is not in front does not throttle. test-mode.js; ?testclock starts it at boot, the camera gate turns it on for its run.)
+  window.pps.testClock = async (o) => (await import('./test-mode.js')).testClock(o);
+  if (window.ppsTestClock) window.pps.testClock(true);
+  window.pps.cameraGate = async (o) => { const [{ createCameraGate }, { DECKS }, p] = await Promise.all([import('./cam-gate.js'), import('./decks.js'), presenterL.get()]); return createCameraGate({ presenter: p, stage, decks: DECKS, withTestClock: async (r) => (await import('./test-mode.js')).withTestClock(r) })(o); };   // (the presenter itself, not main.js's few-call facade: the gate needs its count and skipLapse)
+  window.pps.decks = async () => (await import('./decks.js')).DECKS.map((d, n) => ({ n: n + 1, id: d.id, title: d.title }));   // (the deck ids pps.cameraGate takes)
+  window.pps.screen = Object.assign((o) => import('./screen/index.js').then((m) => m.screen(o)), { text: (r) => import('./screen/index.js').then((m) => m.text(r)) });   // (what is on the screen as data and text, from the app's own records: screen/index.js, read in only when called)
+  window.pps.lookNow = (id) => applyLookAttrs(document.documentElement, knownLook(id));   // (a look on the page's attributes with nothing saved: the gallery page's looks, which must not change the look this browser keeps for the live site)
+  // ?gallery on the preview copy only: the card gallery and debug page (gallery/page.js). The live site never reads it.
+  { const g = new URLSearchParams(location.search).get('gallery'); if (g !== null && g !== 'frame' && /\/preview\//.test(location.pathname)) import('./gallery/page.js').then(({ startGallery }) => startGallery({ pps: window.pps })).catch((e) => caught('main:gallery', e)); }
+  // The bug packet ("What's wrong here?": a key chord, a long press on the preview pill, pps.packet) and a state link's extras (the `x` of its #s= payload), on the preview copy and a local run only: the live site never reads them.
+  if (/\/preview\//.test(location.pathname) || /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) import('./packet/trigger.js').then(({ installPacketTrigger }) => installPacketTrigger({ pps: window.pps })).catch((e) => caught('main:packet', e));
   const linked = await presenter.readLink();
   if (linked) mainMenu.open('scripts', { mark: typeof linked === 'string' ? linked : null });
   const shared = readShare(), back = new URLSearchParams(location.search).has('back');
@@ -467,7 +507,7 @@ async function main() {
   // Offline support registers once the figure is up and the page has been left alone a moment, so its install (every file of the app,
   // fetched at once) does not compete with the modules still loading, nor with the first touches. The fonts' other subsets come later
   // still (the worker is asked once it is active, build.mjs 'pps:fill').
-  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  if ('serviceWorker' in navigator && location.protocol !== 'file:' && !EMBED) {   // (?embed: an iframe on another site installs nothing, offers no update)
     // A new version takes over this tab's files while it is open (the worker claims its pages). The page keeps running the files it began with, and
     // an older tab can no longer fetch the part it has not opened yet (the first talk), so, once, it is offered a reload: not in a talk, and never
     // by itself. (The first install, with no worker before it, is not an update.)
@@ -487,7 +527,9 @@ async function main() {
         if (sw && await holdsMine(sw)) return;
         if (offered) return;
         offered = true;
-        const offer = () => { if (presenter.active()) { setTimeout(offer, 30000); return; } toast('A new version of the simulator is ready.', '', { actions: [['Reload', () => location.reload()]] }); };
+        // (Held while a talk plays, and put up again once it ends if it was taken away by one: it stood over a slide's teaching card and its tag, 16 Nov 2026.)
+        const retry = () => setTimeout(offer, 30000);
+        const offer = () => { if (presenter.active()) { retry(); return; } toast('A new version of the simulator is ready.', '', { actions: [['Reload', () => location.reload()]], holdInTalk: true, onClose: (why) => { if (why === 'held') retry(); } }); };
         offer();
       });
     }
@@ -502,14 +544,15 @@ async function main() {
   // The surfaces most sessions never open are fetched and read in once the page is idle, one at a time, each only after the page has been
   // left alone for a moment (quiet.js): a module's read-in is tens of ms of script on a phone, and a timer alone put it in a pan or pinch.
   const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
-  const warmUp = [() => paletteL.warm(), () => presenterL.warm(), () => dock.load()];   // (dock.load reads in the Doppler and FibroScan panes too)
+  const warmUp = [() => warmGlWords(), () => paletteL.warm(), () => presenterL.warm(), () => dock.load()];   // (warmGlWords: the first number picture is made now, not in the first tap on a vessel)   // (dock.load reads in the Doppler, FibroScan and Trials panes too)
+  warmUp.push(() => fromReadingsL.warm());   // (the patient menu's From readings: its module is there by the time its row is tapped)
   const warmNext = () => { const step = warmUp.shift(); if (step) whenQuiet(() => idle(() => { step(); warmNext(); })); };
   setTimeout(warmNext, 3000);
   // While the loading cover is still up, the same modules are read in under it (the cover waits for them), not in the first seconds of use.
   const warmUnder = () => { if (!booting()) return; while (warmUp.length) holdCover(Promise.resolve().then(warmUp.shift()).catch(() => {})); };
   if (window.ppsFigureReady) warmUnder(); else addEventListener('pps:figure-ready', warmUnder, { once: true });
 }
-// Deep links, for an LMS or a syllabus: ?script=<id> (&slide=<n>), ?preset=<id>,
+// Deep links, for a syllabus or a class page: ?script=<id> (&slide=<n>), ?preset=<id>,
 // ?home=explore|present (the menu, open at Patients or Present). They open straight into that activity.
 async function openDeepLink() {
   const q = new URLSearchParams(location.search);
@@ -561,6 +604,8 @@ function syncScanProbe() {
 // (The Tests card's Liver/Spleen switch, tapped: the probe comes off the liver for the spleen's exam, and back.)
 fibroReading.onOrgan = () => syncScanProbe();
 // Every snapshot is taken in at once (params, events, monitor samples); only the newest waiting one is painted, next frame (paint-gate.js).
+// (The samples of the frames taken in but not painted go to the painted one, so a card that reads painted frames sees every beat: frame-samples.js.)
+const sampleOwing = createSampleOwing();
 const frameGate = createPaintGate({ ingest: ingestFrame, paint: paintFrame, ask: (cb) => frameFor('frame')(cb), cancel: cancelFrame });
 function onFrame(f) { frameGate.push(f); }
 // (A snapshot that says the model jumped, a reset, a patient, an intervention or a clock change, is never blended into the one before
@@ -571,6 +616,7 @@ function ingestFrame(f) {
   if (f.params) replaceParams(f.params);
   if (f.events?.length) { const hid = store.get().hiddenEvents; const ev = hid ? f.events.filter((e) => !hid.has(e.id) && !(hid.has('COLL_*') && e.id.startsWith('COLL_'))) : f.events; if (ev.length) timeline.addEvents(ev); }
   dock?.ingest(f);   // every frame's samples, even one that is not painted
+  sampleOwing.take(f);
   // (Rev 2 step 3: the worker is told a frame is taken in as it is ingested, in the scheduler's frame, not once it is painted: a page that
   // paints late no longer holds the model's next frame back, and the gate paints only the newest anyway.)
   host?.send({ type: 'painted' });
@@ -592,6 +638,7 @@ function watchInspectorSeen() {
 let frameNext = null;
 const storeFrame = () => { const f = frameNext; frameNext = null; store.setFrame(f); };
 function paintFrame(f) {
+  f = sampleOwing.forPaint(f);
   watchInspectorSeen();
   const now = performance.now();
   if (jumpSeen) { jumpSeen = false; noteJump(); }
@@ -658,7 +705,26 @@ async function openInExplore(id) {
   if (store.get().mode !== 'explore') store.set({ mode: 'explore' });
   await loadPreset(id);
 }
+// Work backward's "Open as patient": the scenario is saved on this device as "Yours", the engine is told the whole saved list (engine/yours.js), and
+// the patient is opened in Explore like any other. forgetYours takes one out of the list; a patient already loaded stays as it is.
+async function syncYours(list) {
+  const { presets } = await host.request('yours', { list });
+  store.set({ presetList: presets });
+  mainMenu?.render();
+}
+async function openYours(f, p, readings) {
+  const { list, rec } = saveYours(f, p, readings);
+  if (!rec) throw new Error('not a patient the model can make');
+  await syncYours(list);
+  await openInExplore(rec.id);
+  toast(rec.label, 'note', { sub: YOURS_NOTE });
+}
+const forgetYours = (id) => { syncYours(removeYours(id)).catch(() => {}); };
 let presetGen = 0;
+// The Over time and Doppler traces belong to the patient on show: a new patient, or the viewer's own coming back after a talk, clears them and opens them
+// on the steady state's last seconds (backfill.js). `ok`: whether the answer is still wanted when it comes (another patient was asked for meanwhile).
+const traceHistory = (ok = () => true) => host.request('history', { secs: 12 }).then((m) => { if (ok() && m?.samples) dock?.backfillTraces({ ...m.samples, probe: m.probe }); }).catch(() => { /* the traces fill as they record */ });
+const restartTraces = () => { dock?.clearTraces(); return traceHistory(); };
 // (N1, change-order.js: the patient's name changes first, and the model is asked for the new patient once the new name is in, so the
 // vessels never change under the old name (A7). namingId: the patient being loaded, whose name the top bar shows; nameFirst: the bar's
 // own swap, set where the bar is built.)
@@ -683,7 +749,7 @@ async function loadPreset(id, opts = {}) {
   namingId = null;
   noteChange(store.get().params, res.params);   // (the new patient's steps keep the one order from here: change-order.js)
   // The traces start from the steady state the patient opens on: its last seconds are made beside the first live ones (backfill.js).
-  host.request('history', { secs: 12 }).then((m) => { if (gen === presetGen && m?.samples) dock?.backfillTraces({ ...m.samples, probe: m.probe }); }).catch(() => { /* the traces fill as they record */ });
+  traceHistory(() => gen === presetGen);
   replaceParams(res.params);
   store.set({ presetParams: { id, params: structuredClone(res.params) } });   // what the patient came with (chart.js: About this patient)
   clearHistory();
@@ -695,7 +761,7 @@ async function loadPreset(id, opts = {}) {
 function encodeShare(extra) {
   const st = store.get();
   const payload = { v: 1, preset: st.presetId, params: st.params, view: st.view, ...extra };
-  return btoa(unescape(encodeURIComponent(JSON.stringify(payload)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return encodeShareCode(payload);
 }
 // (Read through share-link.js: prototype keys dropped, and only a known patient, view, selection and a finite camera kept.)
 function readShare() {
@@ -705,18 +771,22 @@ function readShare() {
 async function loadShared(s, { quiet = false } = {}) {
   // B1: a load that was replaced (another patient tapped meanwhile) or failed must not take this link's settings.
   if (!(await loadPreset(s.preset))) return false;
-  let clamped = false;
+  let clamped = false, repaired = '';
   const missing = s.missing && `This link names a patient the app does not have (“${s.missing}”), so its settings opened on the healthy patient.`;
+  // (A patient made from readings, "Yours", is saved on its owner's device only: a link made from one carries the settings, and says so.)
+  if (s.fromYours) toast('This link comes from a patient made from readings, which is saved on the sender’s device only, so its settings opened on the healthy patient.', 'bad');
   if (s.params) {
-    const merged = deepMerge(store.get().params, s.params), clean = sanitizeParams(merged);
+    const merged = deepMerge(store.get().params, s.params), { params: clean, repairs } = sanitizeParamsReport(merged);
     updateParams(() => clean, { settle: true, history: false });
+    // (R07: a value that is not what its field takes is replaced and named, never read as "on": the first few field paths are in the toast.)
+    if (repairs.length) repaired = repairs.slice(0, 3).map((r) => r.path || 'the settings').join(', ') + (repairs.length > 3 ? ` and ${repairs.length - 3} more` : '');
     if (JSON.stringify(clean) !== JSON.stringify(merged)) { timeline.flush(); clamped = true; }   // (the view, selection and camera of the link still apply)
   }
-  if (s.view) store.set({ view: s.view });
+  if (s.view && s.view !== store.get().view) setViewKey(s.view === 'circuit' ? 'circuit' : 'anatomy');   // (the link's view, through the one writer: a link made inside the lobule or sinusoid carries the anatomy's)
   if (s.sel) store.set({ selection: s.sel });
   if (s.cam && !store.get().lobule) stage.setCamera(s.cam, 0);
   timeline.flush();
-  if (clamped) toast(missing || 'This link had values out of range; they were set to the nearest allowed values.', missing ? 'bad' : undefined);
+  if (clamped) toast(missing || `This link had values the model does not accept${repaired ? ` (${repaired})` : ''}; they were set to the nearest allowed value or the default.`, missing ? 'bad' : undefined);
   else if (missing) toast(missing, 'bad');
   else if (!quiet) toast('Loaded the shared scenario.');
   return true;
@@ -755,6 +825,7 @@ async function restartPatient() {
     try { await restartHost(); } catch { toast('The model could not restart. Reload the page.', 'bad', { actions: [['Reload', () => location.reload()]] }); return; }
     host.send({ type: 'ackPaint', on: true });
     host.send({ type: 'visibility', visible: !document.hidden });
+    host.send({ type: 'traces', on: TRACE_TAGS.some(isAnimating) });
     const s = store.get();
     host.send(s.lapse ? { type: 'run', speed: s.lapse, clock: 'disease' } : { type: 'run', speed: s.speed, clock: 'hemo' });
     if (s.running === false) host.send({ type: 'run', running: false });
@@ -774,16 +845,22 @@ function resetEverything() {
 }
 
 // ── Actions ─────────────────────────────────────────
+const BANDS_MAX = 4;   // (the engine's cap, engine.band)
 function doAction(a) {
   if (a.kind === 'probe') { host.send({ type: 'probe', id: a.id }); return; }
   if (a.kind === 'paracentesisPrompt') { dock.show('abdomen', { reveal: true }); toast('Choose the volume in Ascites & paracentesis, then Drain.'); return; }
   if (a.kind === 'band') {
     const fr = store.get().frame;
     if (fr?.metrics && !varicesPresent(fr, 'VAR')) { toast('No varices to band.'); return; }
+    // (Said every time, from Treat or from the card: the bands show on the endoscopy view and the varices card, which may not be the one open, so the tap answers where it was made.)
+    const placed = Math.round(fr?.bands || 0);
+    const quiet = !!store.get().presenting;   // (a slide's own bands say nothing: the talk says it)
+    if (placed >= BANDS_MAX) { if (!quiet) toast(`${BANDS_MAX} bands are already on the varices.`); return; }
+    if (!quiet) toast(`Band (EVL) placed: ${placed + 1} of ${BANDS_MAX}.`);
   }
   host.send({ type: 'action', action: a });
   logAction('action', a.kind);
-  const tl = { infuse: { crystalloid: '1 L crystalloid', prbc: '1 unit PRBC', albumin: 'Albumin infusion' }, hemorrhage: `Hemorrhage ${a.mL} mL`, band: 'Band ligation', valsalva: 'Valsalva', rupture: 'Varix ruptured (manual)', stopBleed: 'Bleeding stopped',
+  const tl = { infuse: { crystalloid: '1 L crystalloid', prbc: '1 unit PRBC', albumin: 'Albumin infusion' }, hemorrhage: `Hemorrhage ${a.mL} mL`, band: procLabel('band'), valsalva: 'Valsalva', rupture: 'Varix ruptured (manual)', stopBleed: 'Bleeding stopped',
     paracentesis: `Paracentesis ${((a.mL || 0) / 1000).toFixed(1)} L${a.albumin ? ' + albumin' : ''}` }[a.kind];
   const tlLabel = typeof tl === 'object' ? tl[a.fluid] : tl;
   if (tlLabel) timeline.recordAction(tlLabel);
@@ -806,7 +883,7 @@ function shuntHint(only, fine) {
   SHUNT_LINES[0] = h('div', NOATTR, fine ? 'Click a glowing vein to connect it to.' : 'Tap a glowing vein to connect it to.');
   SHUNT_LINES[1] = h('div', NOATTR, 'A portal branch to a ', h('b', NOATTR, 'hepatic vein'), ' makes a TIPS.');
   SHUNT_LINES[2] = h('div', NOATTR, 'A portal branch to the ', h('b', NOATTR, 'IVC'), ' below the hepatic veins makes a DIPS.');
-  SHUNT_LINES[3] = h('div', NOATTR, 'The splenic vein to the ', h('b', NOATTR, 'left renal vein'), ' makes a Warren shunt.');
+  SHUNT_LINES[3] = h('div', NOATTR, 'The splenic vein to the ', h('b', NOATTR, 'left renal vein'), ' makes a distal splenorenal shunt (DSRS).');
   SHUNT_LINES[4] = fine ? h('div', NOATTR, 'Esc cancels.') : null;
   return SHUNT_LINES;
 }
@@ -837,34 +914,27 @@ function renderPaintHint() {
 }
 let hintT = 0;
 // The Lobule view: a view of its own beside Anatomy and Circuit.
-function zoomLobule() { stage.askSinusoid(false); setViewKey('lobule'); }   // (a sinusoid still waiting on the dive is called off too)
+function zoomLobule() { stage.askSinusoid(false); stage.diveToLobule(); }   // (a sinusoid still waiting on the dive is called off too)
 
 // ── Figure header: view, color, legend; banners ─────
 let tipEl, stageClock;
 function buildHud() {
-  // Moving blood: chevrons are remembered per device.
-  let saved = null;
-  // (pps.blood2: chevrons became the default, so a choice saved under the old default starts over.)
-  try { saved = JSON.parse(localStorage.getItem('pps.blood2') || 'null'); } catch (e) { caught('main:684', e); /* storage unavailable */ }
-  const blood = { look: 'shimmer', phasic: false, chevrons: true, ...(saved && typeof saved === 'object' ? saved : {}) };
-  delete blood.origin;   // now the Blood origin lens
-  blood.look = 'shimmer'; blood.phasic = false;   // the Blood menu offers streaks and chevrons only
+  // Moving blood: the chevrons are remembered per device (blood-pref.js: it also drops what the removed Streaks option saved).
+  const blood = loadBloodPref(localStorage);
   store.set({ blood });
-  // The streaks start off for anyone with no saved choice (the store's default is flow:false: the blood is the arrowheads alone, the cheapest moving blood); a device that chose them on ('1') keeps them on, one that chose off ('0') keeps them off.
-  try { if (localStorage.getItem('pps.streaks') === '1') store.set({ layers: { ...store.get().layers, flow: true } }); } catch (e) { caught('main:streaks', e); /* storage unavailable */ }
   store.on('blood', (v) => {
     try { localStorage.setItem('pps.blood2', JSON.stringify(v)); } catch (e) { caught('main:690', e); /* storage unavailable */ }   // alloc-rare: the saved choice is written when the Blood menu changes it, never per frame
     sendBeat(); syncBloodBtn();
     redraw();
   });
-  // A chip that opens a menu says so: aria-expanded from the start (popover() keeps it), which app.css turns into a turned chevron and a held tint.
-  document.documentElement.classList.add('chip-open'); for (const id of ['btnBlood', 'btnLobuleLayers', 'btnLayers']) $('#' + id).setAttribute('aria-expanded', 'false');
+  // A chip that opens a menu says so: aria-expanded from the start (popover() keeps it), which app.css turns into a turned chevron and a held tint. (No class on the root for it: the old `chip-open` stayed there after the menu closed, 16 Nov 2026; the rules read aria-expanded alone.)
+  for (const id of ['btnBlood', 'btnLobuleLayers', 'btnLayers']) $('#' + id).setAttribute('aria-expanded', 'false');
   // Press and hover on every other control eases and answers a finger (app.css, html.press-fx).
   document.documentElement.classList.add('press-fx');
   document.documentElement.classList.add('model-contain');
   $('#btnBlood').onclick = (e) => openBlood(e.currentTarget);
   $('#btnLobuleLayers').onclick = (e) => openLobuleLayers(e.currentTarget);
-  store.on('lobule', (on) => { $('#btnLobuleLayers').hidden = !on; if (!on) closePopover(); });
+  store.on('lobule', (on) => { fadeShown($('#btnLobuleLayers'), on); if (!on) closePopover(); });
   syncBloodBtn();
   renderLegend();
   enhanceRanges();
@@ -881,7 +951,19 @@ function buildHud() {
   const syncRotate = () => rotateBtn.setAttribute('aria-pressed', String(stage.circuitRotated()));
   rotateBtn.onclick = () => { stage.setCircuitRotated(!stage.circuitRotated()); syncRotate(); };
   syncRotate();
-  $$('#viewSeg button').forEach((b) => b.addEventListener('click', () => (b.dataset.view === 'lobule' ? zoomLobule() : b.dataset.view === 'sinusoid' ? (store.get().lobule ? stage.askSinusoid() : stage.diveToSinusoid()) : b.dataset.view === 'anatomic' && store.get().sinusoid ? stage.exitSinusoid() : setViewKey(b.dataset.view === 'circuit' ? 'circuit' : 'anatomy'))));
+  // (The view's own button pressed again fits the figure to the screen, always the Fit button's framing: view-tap.js, stage-fit.js fitAgain.)
+  // Circuit from the sinusoid view (the pill keeps every view there, Mohammad 17 Nov 2026): out in the one glide, the turn to the circuit beginning as it ends (stage.exitSinusoid).
+  const circuitFromSinusoid = () => stage.exitSinusoid('circuit');
+  // The lobule is made ready as the reader reaches for it (17 Nov 2026, the tester: opening it cold took 565 ms of stage, 386 of tissue, 161 of labels in one go): the pointer resting 0.22 s on its button, or a finger
+  // down on it, warms it a piece at a time (stage.warmLobule), as a deck's rows warm theirs on hover.
+  { const lb = $('#viewSeg button[data-view="lobule"]'); let warmT = 0;
+    if (lb) {
+      lb.addEventListener('pointerenter', (e) => { if (e.pointerType === 'touch') return; clearTimeout(warmT); warmT = setTimeout(() => stage.warmLobule?.(), 220); });
+      lb.addEventListener('pointerleave', () => clearTimeout(warmT));
+      lb.addEventListener('pointerdown', () => { clearTimeout(warmT); stage.warmLobule?.(); });
+      lb.addEventListener('focus', () => { clearTimeout(warmT); warmT = setTimeout(() => stage.warmLobule?.(), 220); });
+    } }
+  $$('#viewSeg button').forEach((b) => b.addEventListener('click', () => (viewTapAgain(b.dataset.view, store.get()) ? stage.fitAgain() : b.dataset.view === 'lobule' ? zoomLobule() : b.dataset.view === 'sinusoid' ? (store.get().lobule ? stage.askSinusoid() : stage.diveToSinusoid()) : b.dataset.view === 'anatomic' && store.get().sinusoid ? stage.exitSinusoid() : b.dataset.view === 'circuit' && store.get().sinusoid ? circuitFromSinusoid() : setViewKey(b.dataset.view === 'circuit' ? 'circuit' : 'anatomy'))));
   // The legend is the lens switcher: it shows what the colors mean and changes what they show.
   const sinLens = () => store.get().lobule && store.get().sinusoid;   // no lens in the sinusoid view
   $('#btnLayers').addEventListener('click', (e) => { if (!sinLens()) openLayers(e.currentTarget); });
@@ -1041,7 +1123,7 @@ const setBlood = (patch) => { store.set({ blood: { ...store.get().blood, ...patc
 function syncBloodBtn() {
   const b = $('#btnBlood');
   if (!b) return;
-  const st = store.get(), on = st.layers.flow !== false || !!st.blood?.chevrons || !!st.blood?.keyChevrons;   // (lit while any of the moving blood is drawn: the streaks or the arrows)
+  const st = store.get(), on = !!st.blood?.chevrons || !!st.blood?.keyChevrons;   // (lit while the moving blood, the arrows, is drawn)
   b.classList.toggle('off', !on);
 }
 function injectDye({ hold = false } = {}) {
@@ -1051,23 +1133,18 @@ function injectDye({ hold = false } = {}) {
 // A row of a Blood or Layers menu: an icon, a name, a line under it, and a checkbox.
 function menuToggle(checked, ic, label, sub, onChange) {
   let on = !!checked;
-  const b = h('button', { class: 'lens lens-opt' + (on ? ' on' : ''), role: 'menuitemcheckbox', 'aria-checked': String(on) },
+  const b = h('button', { class: 'lens lens-opt' + (on ? ' on' : ''), role: 'switch', 'aria-checked': String(on) },
     svgIcon(ic, 'bo-ic'), h('span', { class: 'lens-t' }, label), sub ? h('span', { class: 'lens-d' }, sub) : null, h('span', { class: 'mt-sw', 'aria-hidden': 'true' }));
   b.addEventListener('click', () => { on = !on; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); onChange(on); });
   return b;
 }
-function openBlood(anchor) { popover(anchor, bloodItems(), { cls: 'blood-pop' }); }
+function openBlood(anchor) { popover(anchor, bloodItems(), { cls: 'blood-pop', safe: 'bottom' }); }
 function bloodItems() {
   const st = store.get(), b = st.blood || {};
-  const flowOn = st.layers.flow !== false;
   const toggle = menuToggle;
   const layer = (key, ic, label, sub) => toggle(st.layers[key] !== false, ic, label, sub, (on) => store.set({ layers: { ...store.get().layers, [key]: on } }));
   return [
     menuSection('Moving blood',
-      toggle(flowOn, 'streaks', 'Streaks', 'Off, with Chevrons on: arrows only', (on) => {
-        store.set({ layers: { ...store.get().layers, flow: on } }); syncBloodBtn();
-        try { localStorage.setItem('pps.streaks', on ? '1' : '0'); } catch (e) { caught('main:streaks', e); /* storage unavailable */ }
-      }),
       toggle(!!b.chevrons, 'chevrons', 'Chevrons', 'Flow arrows, orange where reversed', (on) => setBlood({ chevrons: on })),
       toggle(!!b.keyChevrons, 'chevrons', 'Key chevrons only', 'Just the main routes, not every vessel', (on) => setBlood({ keyChevrons: on }))),
     menuSection('Show on the figure',
@@ -1091,15 +1168,16 @@ function labelLevelSeg() {
     return b;
   }));
 }
-// The Lobule view's layers, in the same kind of menu: the zone bands and the lymph.
-function openLobuleLayers(anchor) { popover(anchor, lobuleLayerItems(), { cls: 'blood-pop' }); }
+// The Lobule view's layers, in the same kind of menu: the zone bands, the lymph and the bile.
+function openLobuleLayers(anchor) { popover(anchor, lobuleLayerItems(), { cls: 'blood-pop', safe: 'bottom' }); }
 function lobuleLayerItems() {
   const l = store.get().lobuleLayers || {};
   const set = (patch) => store.set({ lobuleLayers: { ...store.get().lobuleLayers, ...patch } });
   return [
     menuSection('Show on the lobule',
       menuToggle(!!l.zones, 'zones', 'Zones', 'Zones 1 to 3, portal to central vein', (on) => set({ zones: on })),
-      menuToggle(!!l.lymph, 'lymph', 'Lymph', 'Where lymph forms and drains', (on) => set({ lymph: on }))),
+      menuToggle(!!l.lymph, 'lymph', 'Lymph', 'Where lymph forms and drains', (on) => set({ lymph: on })),
+      menuToggle(!!l.bile, 'bile', 'Bile', 'Where bile forms and drains', (on) => set({ bile: on }))),
   ];
 }
 function lensKeys() { return Object.keys(LENSES); }
@@ -1108,15 +1186,15 @@ function openLayers(anchor) {
   const cur = store.get().colorMode;
   const lens = (v) => {
     const [title, desc, sw] = LENSES[v];
-    const b = h('button', { class: 'lens' + (cur === v ? ' on' : ''), role: 'menuitemradio', 'aria-checked': String(cur === v), onclick: (e) => { store.set({ colorMode: v }); const g = e.currentTarget.parentElement; g.querySelectorAll('.lens').forEach((x) => { const on = x === e.currentTarget; x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on)); }); } },
+    const b = h('button', { class: 'lens' + (cur === v ? ' on' : ''), role: 'radio', 'aria-checked': String(cur === v), onclick: (e) => { store.set({ colorMode: v }); const g = e.currentTarget.parentElement; g.querySelectorAll('.lens').forEach((x) => { const on = x === e.currentTarget; x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on)); }); } },
       h('span', { class: 'lens-sw', style: { background: sw() } }),
       h('span', { class: 'lens-t' }, title), h('span', { class: 'lens-d' }, desc));
     return b;
   };
   popover(anchor, [
-    h('div', { class: 'lens-grid' }, lensKeys().map(lens)),
+    h('div', { class: 'lens-grid', role: 'radiogroup', 'aria-label': 'Color the vessels by' }, lensKeys().map(lens)),
     s0.imaging ? h('div', { class: 'ctl-sub', style: { padding: '2px 10px 6px' } }, 'This view shows anatomy only until you measure.') : null,
-  ], { cls: 'layers-pop' });
+  ], { cls: 'layers-pop', safe: 'bottom' });
 }
 // Active bleeding is a state, not an alarm: the figure shows the blood itself; the readings are drawn again when it starts or stops.
 let lastBleed = false;
@@ -1177,6 +1255,8 @@ let tipShape = '', tipVals = [], tipPlace = '';
 
 // The figure header carries the Then / Now / Change switch when a moment is pinned.
 let cmpWatched = false;
+let cmpOccN = -1, cmpOccS = '0px';
+const CMP_OCC = (n) => { if (n !== cmpOccN) { cmpOccN = n; cmpOccS = `calc(${n}px + (min(1px, max(0px, 100vw - 1023px)) * 30))`; } return cmpOccS; };   // alloc-rare: made when the header's height changes
 let cmpHNum = 0, cmpHStr = '0px';   // (the header's height as written, and as text: made again only when the height changes)
 function syncCmpH() {
   const c = $('#stageCenter');
@@ -1189,6 +1269,10 @@ function syncCmpH() {
     v = cmpHStr;
   }
   if (app.style.getPropertyValue('--cmp-h') !== v) app.style.setProperty('--cmp-h', v);
+  // (The room the cards on the right leave above them while a moment is pinned: the switch, and on a wide screen the "Showing" pill's row under it
+  // (styles .cmp-badge, 24 px and its gap), kept whether or not the pill shows, so Then and Now never move a card.)
+  const occ = v === '0px' ? '0px' : CMP_OCC(cmpHNum);
+  if (app.style.getPropertyValue('--cmp-occ') !== occ) app.style.setProperty('--cmp-occ', occ);
 }
 // (Scrolled between frames, rest-pass.js: scrollIntoView lays the page out.)
 const SCROLL_CMP = { block: 'start', behavior: 'auto' };   // (options read by scrollInto at once: the behaviour is written before each use)
@@ -1232,13 +1316,20 @@ function renderBanner() {
   if (s0.compareSnap) {
     const names = s0.compareSnap.names || CMP_NAMES;
     cmpWords(s0.compareSnap.when, names[0], names[1]);
+    const cur = s0.compareView || 'B';
+    // (The same switch with the same words keeps its elements: Then, Now and Change only move the pressed mark, so the selection glides from one to the next (seg-glide.js);
+    // a new switch for each press put the piece down on the new choice with nothing to glide from. Play-test, Mac, 16 Nov 2026.)
+    if (bannerSeg && bannerSeg.isConnected && bannerSeg.parentNode === el && bannerSeg._words === cmpLabel + '|' + cmpNA + '|' + cmpNB) {
+      for (let i = 0; i < 3; i++) bannerSeg.children[i].setAttribute('aria-pressed', cur === 'ABD'[i] ? 'true' : 'false');
+      return renderBannerBadge(s0);
+    }
     bannerLabel = h('span', CMP_LABEL, cmpLabel);
     CMP_SEG['aria-label'] = cmpAria;
-    const cur = s0.compareView || 'B';
     CMP_BTN[0]['aria-pressed'] = cur === 'A' ? 'true' : 'false'; CMP_BTN[0].title = cmpTitleA;
     CMP_BTN[1]['aria-pressed'] = cur === 'B' ? 'true' : 'false'; CMP_BTN[1].title = 'The live model';
     CMP_BTN[2]['aria-pressed'] = cur === 'D' ? 'true' : 'false'; CMP_BTN[2].title = cmpTitleD;
     bannerSeg = h('div', CMP_SEG);
+    bannerSeg._words = cmpLabel + '|' + cmpNA + '|' + cmpNB;
     for (let i = 0; i < 3; i++) {
       const b = h('button', CMP_BTN[i], h('b', NOATTR, i === 0 ? cmpNA : i === 1 ? cmpNB : 'Change'));
       b.addEventListener('click', CMP_CLICK[i]);
@@ -1253,6 +1344,9 @@ function renderBanner() {
   // The switch's height, for views that place their own controls under it (the lobule's).
   // (Its height as the browser last reported it, geom.js: the switch just built is reported after this layout and written again then.)
   syncCmpH();
+  renderBannerBadge(s0);
+}
+function renderBannerBadge(s0) {
   // "Showing <then>" fades in and out (styles: .cmp-badge) instead of popping.
   const badge = view.querySelector('.cmp-badge:not(.leaving)');
   if (s0.compareSnap && s0.compareView === 'A') {
@@ -1278,9 +1372,12 @@ function wireTopbar() {
   if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
   // ?offgpu=1 in the address: the live count of work off the GPU, flashing red when it happens during motion (offgpu-overlay.js). Without it, never loaded.
   if (/[?&]offgpu=1\b/.test(location.search)) import('./offgpu-overlay.js').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
+  // ?watch in the address, on the preview copy (or a local run): the motion recorder and its red dot (watch/start.js; docs/watch.md). Without it, never loaded.
+  if (/[?&]watch\b/.test(location.search) && (/\/preview\//.test(location.pathname) || /^(localhost|127\.0\.0\.1)$/.test(location.hostname))) import('./watch/start.js').then(({ startWatch }) => startWatch(() => window.pps)).catch(() => { /* a measuring aid only */ });
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());
+  { const b = $('#btnPalette'); b.title = `Search (${keyLabel('Ctrl/⌘ K')})`; const k = b.querySelector('kbd'); if (k) k.textContent = keyLabel('Ctrl/⌘ K'); }   // (the page's own text says Ctrl K: a Mac reads ⌘ K)
   $('#btnTreat').addEventListener('click', () => (treatOpen() ? closeTreat({ focus: true }) : openTreat()));
   // History, beside Treat and Tests: its own card on the right (a phone held sideways keeps the menu sheet).
   $('#btnHistory').addEventListener('click', (e) => (isPhone() ? timeline.openHistory(e.currentTarget) : historyOpen() ? closeHistory({ focus: true }) : openHistory()));
@@ -1313,7 +1410,7 @@ function openSettings(anchor, withSearch = false) {
     menuSection(null,
       ...(FEEDBACK_EMAIL ? [menuItem('Send feedback', { icon: 'mail', onClick: () => { closePopover(); sendFeedback(); } })] : []),
       // (History and Help are pages inside this sheet, menu recs P4: they slide in over Settings with a back row, and the sheet stays open.)
-      ...(withSearch ? [menuItem('History', { icon: 'clock', kb: $('#timeline .tl-hc')?.textContent || null, onClick: () => menuPush('Settings', 'History', timeline.historyBody()) }),
+      ...(withSearch ? [menuItem('History', { icon: 'clock', kb: $('#timeline .tl-hc')?.textContent || null, onClick: () => menuPush('Settings', 'History', timeline.historyList()) }),
         menuItem('Help', { icon: 'help', onClick: () => menuPush('Settings', 'Help', helpRows()) })] : []),
       fullscreenControl()),
     menuSection('Appearance',
@@ -1332,7 +1429,8 @@ function openSettings(anchor, withSearch = false) {
       }),
       h('div', { class: 'menu-title' }, 'Figure detail'),
       figureMpControl(),
-      menuToggle(sharpMoving(), 'layers', 'Sharp while moving', 'Keep the figure at full detail when you pan or zoom, even if it runs slower', (on) => { toggleStored('pps.sharp', 'main:sharp')(on); setSharpMoving(on); })),
+      menuToggle(sharpMoving(), 'layers', 'Sharp while moving', 'Keep the figure at full detail when you pan or zoom, even if it runs slower', (on) => { toggleStored('pps.sharp', 'main:sharp')(on); setSharpMoving(on); }),
+      menuToggle(keysOn(), 'grid', 'Keyboard shortcuts', 'Single keys such as Space, A, L and 1 to 9. Off leaves Esc and Ctrl or Cmd with a key', (on) => { setKeysOn(on); })),
     // (What the model shows and how far it goes has its own heading; none of it is in a talk.)
     ...(talk ? [] : [menuSection('Model',
       menuItem('Advanced physiology', { icon: 'sliders', onClick: () => { closePopover(); closeTreat(); store.set({ selection: null, details: { type: 'advanced' } }); openPanel(); } }))]),
@@ -1350,17 +1448,17 @@ function presenterSettings() { return []; }
 // up to 2x). Fewer pixels: every GPU pass of the figure's picture costs less and the picture is softer; the canvas the labels, leaders and
 // glass are drawn in stays at 1 device px per CSS px at least (stage-res.js resizeCanvas), the picture upscaled onto it with its edges
 // steepened (veins-gl.js UP_FS), and the cards and readings stay sharp.
-// Kept across reloads (pps.fig.cap) and applied at once (the stage hears onRenderScale and sizes the canvas again). The middle resets to the device's default (1.5 on a Mac and an iPad, 0.5 on a phone, 12 Nov 2026).
-const MP_STEPS = [0.25, 0.5, 1, 1.5, 2, 3, 4, 6, 8, 0];
+// Kept across reloads (pps.fig.cap) and applied at once (the stage hears onRenderScale and sizes the canvas again). The middle resets to the default (1.5 MP on every device; a phone's was 0.5 until 16 Nov 2026).
+const MP_STEPS = FIG_STEPS;
 function figureMpControl() {
   const at = () => Math.max(0, MP_STEPS.indexOf(figOpt('cap')));
   const less = h('button', { class: 'ts-a ts-sm', 'aria-label': 'Less detail', title: 'Less detail (softer, runs cooler)' }, '−');
   const dflt = figDefault('cap');
   const now = h('button', { class: 'ts-reset', 'aria-label': 'Figure detail: back to Standard', title: 'Back to Standard' });
   const more = h('button', { class: 'ts-a ts-lg', 'aria-label': 'More detail', title: 'More detail (sharper, runs warmer)' }, '+');
-  // The steps in words: Standard is this device's own default (a phone's is a lighter picture than a laptop's), then one or two steps each way, and
-  // Full at the top (the screen's own density). The megapixels stay in the hover text for a tester who is asked for them.
-  const wordOf = (i) => { const v = MP_STEPS[i], d = MP_STEPS.indexOf(dflt) - i; return !v ? 'Full' : d === 0 ? 'Standard' : d === 1 ? 'Softer' : d > 1 ? 'Softest' : d === -1 ? 'Sharper' : 'Sharpest'; };
+  // The steps in words (fig-detail-words.js, one name each): Standard is this device's own default, the others are counted outward from it, and
+  // Full is at the top (the screen's own density). The megapixels stay in the hover text for a tester who is asked for them.
+  const words = figDetailWords(MP_STEPS, dflt), wordOf = (i) => words[i];
   const paint = () => {
     const i = at(), v = MP_STEPS[i];
     less.disabled = i === 0; more.disabled = i === MP_STEPS.length - 1;
@@ -1450,7 +1548,7 @@ const canCrossfade = () => !!document.startViewTransition && !document.hidden &&
 // The Appearance tiles show a ring on the tapped tile until then, look-chooser.js.)
 const pumpLease = createLease(() => setFramePump(true), () => setFramePump(false));
 function switchTheme(t, clear) {
-  if (!canCrossfade()) { applyTheme(t, clear); return Promise.resolve(); }
+  if (!canCrossfade()) return document.hidden ? (applyTheme(t, clear), Promise.resolve()) : dipTheme(t, clear);
   // (The new page is whole before the crossfade captures it: every surface has drawn the look, themeSettled in theme-epoch.js, capped.)
   // (The page's rendering is held while the callback is pending, and with it the browser's animation frames: the scheduler's frames come from a
   // timer meanwhile (setFramePump), so the surfaces draw the new look before the new picture is taken. Once whole, it is.)
@@ -1462,6 +1560,22 @@ function switchTheme(t, clear) {
       await Promise.race([(async () => { await themeSettled(); await stage?.lookWhole?.(700); await settledSurfaces(); })(), new Promise((r) => appScope.timer(r, 900))]);
     } finally { pumpOff(); }
   });
+}
+// Where the crossfade cannot run (no View Transitions, a context over its memory budget), the look still never changes in one frame,
+// surface by surface (owner, 15 Nov 2026: nothing pops; his 7 Nov reports): the page dips to the ground's colour over D_SMALL, takes the
+// new look unseen once every surface has drawn it (capped as the crossfade's wait is), and comes back over D_SURFACE. Opacity only.
+let dipGen = 0;
+async function dipTheme(t, clear) {
+  const me = ++dipGen, root = document.documentElement;
+  root.classList.add('look-dip-on');
+  root.classList.add('look-dip');
+  await new Promise((r) => appScope.timer(r, D_SMALL + 20));
+  if (me !== dipGen) return;
+  applyTheme(t, clear);
+  await Promise.race([(async () => { await themeSettled(); await stage?.lookWhole?.(700); await settledSurfaces(); })(), new Promise((r) => appScope.timer(r, 900))]);
+  if (me !== dipGen) return;
+  root.classList.remove('look-dip');
+  appScope.timer(() => { if (me === dipGen) root.classList.remove('look-dip-on'); }, D_SURFACE + 40);
 }
 // While a crossfade plays, its pictures cover the page, so a tap would land on <html>: lost, and taken as a tap outside the
 // open Settings, which closed. Such a tap ends the crossfade and goes to whatever is under it once the live page shows again.
@@ -1530,14 +1644,14 @@ function leave(el) {
   // (With Reduce Motion it fades where it stands: app.css turns the leaving keyframes into fades.)
   // (A leave already playing starts again from its first frame: its own animations are set back to the start, no reflow to restart it.)
   if (el.classList.contains('card-leaving')) { const as = readAnims(el); if (as) for (const a of as) if (a.animationName) a.currentTime = 0; }
-  el.classList.add('card-leaving');
+  el.classList.add('card-leaving'); cardMoveFor(D_SMALL + 160);
   markGone(D_SMALL, el);
   // (Each card has its own step, made on its first leave and kept: adding the same listener again is a no-op, and it takes itself off as before.)
   const done = el._leaveDone ||= (e) => { if (e && e.target !== el) return; el.classList.remove('card-leaving'); el.removeEventListener('animationend', el._leaveDone); };   // alloc-rare: one per card, made on its first leave
   el.addEventListener('animationend', done);
   setTimeout(done, 400);
 }
-const arrive = (el) => { el.classList.remove('card-leaving'); switchIn(el); };
+const arrive = (el) => { el.classList.remove('card-leaving'); cardMoveFor(D_SMALL + 160); switchIn(el); enterWhenReady(el, NOOP); };   // (held until its widgets are drawn, widget-ready.js: its entrance is the CSS one, which begins when the hold comes off)
 // One at a time (8 Nov 2026, Mohammad: "menus hate to be on top of each other"). A menu's frost is drawn in the figure's canvas, under every
 // page element, so the words and pictures of a card lying under a menu show straight through it. So a card coming in puts the open menus
 // away, and a menu coming in sends away each card its box lies over (all of them when it is a sheet), except the card it was opened from.
@@ -1583,7 +1697,7 @@ function fitScenarioName() {
 }
 let refitT = 0;
 // (The steps the layout's timers run are made once here, not for each call.)
-const stageRefit = () => stage?.refit();
+const stageRefit = () => stage?.cardsMoved();   // (a card opened, closed or changed size: the camera keeps its zoom and pans, stage-fit.js cardsMoved)
 const stageRelayoutSoon = () => stage?.relayout();
 const stageRelayout = () => stage.relayout();
 let dockFrame = null;   // (the frame the Tests card is brought up to date with, as asked last)
@@ -1603,10 +1717,8 @@ function syncPanelToggle() {
 // (Safari does not focus a clicked button, so the card's own button stands in for the opener.) A card put away because
 // another opens keeps focus where it is.
 function giveFocusBack(card, to) {
-  const a = document.activeElement;
-  if (a && a !== document.body && !card.contains(a)) return;
-  // (A button that is not drawn takes no focus: focus() leaves it where it is, with no box read to ask first.)
-  if (to?.isConnected) to.focus(FOCUS_NO_SCROLL);
+  // (A button that is not drawn takes no focus, and a card opened by a click on the figure has no opener: focus-flow.js hands it to the figure, never the page.)
+  focusBack(card, to);
 }
 let panelOpener = null;
 /** Opens the patient chart; or the instruments when named. */
@@ -1676,16 +1788,19 @@ function setPanelTab(tab) {
   if (instr && !was) giveWay('dock');   // (the other right-hand cards give way when they would leave the vessel card no strip)   // (the other right-hand cards give way when they would leave the vessel card no strip)
   if (instr) arrive($('#dock')); else if (was && !app.classList.contains('instrument-focus')) leave($('#dock'));
   app.classList.toggle('dock-open', instr);
+  if (!instr && was) dock.away();   // (the panes are told they are out of sight: the Tests stent editor lets go of the vessel card's chips, F11)
   $('#tabInstruments').setAttribute('aria-pressed', instr ? 'true' : 'false');
   if (instr) $('#tabInstruments').classList.remove('ping');
   else app.classList.remove('instrument-focus');
   if (instr && !was) dockSheet?.open();
   if (!instr && was) dockSheet?.closed();
   if (was !== instr) {
-    // Opening Tests frames the figure into the space left, as every other card does (U3, 13 Nov 2026: it used to keep the camera where it
-    // was, under the card too, which hid the spleen and the kidney on a Mac). Closing it fits again only a view that was fitted; one the
-    // learner zoomed or panned stays where it is, and a refit still pending from the open is dropped (Mohammad, 17 Oct).
-    if (instr || stage?.closeView()) refitStage(); else clearTimeout(refitT);
+    // A card opening or closing keeps the zoom and pans the view so as much of it as possible stays in the room the card leaves (Mohammad, 17 Nov 2026,
+    // every card, every device: "the zoom should remain the same when opening the cards; but the view should shift"). It reverses U3 (13 Nov), which fitted
+    // (resized) the figure to the room. stage-fit.js cardsMoved: a fitted view is framed again (same size, panned), one the learner placed is panned back
+    // and forth by the same amount, never refitted. Closing lets go of the home framing of a view the learner placed (closeView), as before.
+    if (!instr) stage?.closeView();
+    refitStage();
     const f = store.get().frame; if (f && instr) { dockFrame = f; nextFrame(dockUpdate); }
     setTimeout(fireResize, 320);
   }
@@ -1695,6 +1810,8 @@ function setPanelTab(tab) {
 // The top bar and the vitals dock publish their heights (--top-safe, --vdock-h), so the cards,
 // the Fit button and the toasts keep clear of them; Fit itself reads data-safe (stage.js).
 let panelSheet = null, treatSheet = null, dockSheet = null;
+// A card's rest shift (px along x, none along y), for the camera's framing: where it comes to when its glide aside ends.
+const restShift = (el, x) => { const v = `${Math.round(x)} 0`; if (el.dataset.restTranslate !== v) el.dataset.restTranslate = v; };
 function wireFloating() {
   // Besides the two heights: how much of the right edge the open cards take (--panel-occ for the
   // chart, --instr-occ for the instruments, --right-occ for all of them with Treat) and how much of the
@@ -1770,12 +1887,42 @@ function wireFloating() {
     const pn = $('#panel'), lift = isPhone() && panelShown() && readMetric(pn, 'offsetParent') ? readMetric(readMetric(pn, 'offsetParent'), 'clientHeight') - readMetric(pn, 'offsetTop') + 8 : 0;
     const tall = !!readMetric(pn, 'offsetParent') && lift > 0 && readMetric(readMetric(pn, 'offsetParent'), 'clientHeight') - lift < tbH + 48;
     const vars = {
-      '--top-safe': px(tbH), '--vdock-h': px(vdock), '--vdock-top': px(readMetric(vd, 'offsetHeight') ? vdTop : 0),
-      '--panel-occ': px(panelOcc), '--instr-occ': px(instrOcc), '--right-occ': px(panelOcc + instrOcc + treatOcc), '--bot-occ': px(bot),
+      '--top-safe': px(tbH), '--vdock-h': px(vdock), '--vdock-top': px(readMetric(vd, 'offsetHeight') ? vdTop : 0), '--vdock-edge': px(vdH ? vdTop - nbvH : 0),   // (--vdock-edge: the dock's own top edge from the bottom, without the view switch's reach above it)
+     
+      '--panel-occ': px(panelOcc), '--instr-occ': px(instrOcc), '--right-occ': px(panelOcc + instrOcc + treatOcc), '--bot-occ': px(bot), '--dock-occ': px(vdock + gap),   // (--dock-occ: the bottom bar alone, with no card's sheet above it: the lobule is sized in this room and panned for the cards, lobule-zoom.js)
+
       '--panel-h': px(tall || !lift ? 0 : lift + 4), '--panel-cover': tall ? '1' : '0',
     };
     let changed = false;
     for (const k in vars) if (pubVals[k] !== vars[k]) { pubVals[k] = vars[k]; app.style.setProperty(k, vars[k]); changed = true; }
+    // The free stage (free-stage.js): the window less the open cards, the bars and the view switch, from the cards' resting boxes. Each side card
+    // counts only on the rows it reaches, so a piece clears the cards that are really beside it (the zoom pill did not move for Treat, which ends
+    // 160 px above it). Written on the root, where the toasts and the menus (outside .app) read it too.
+    const aw = ar.width || innerWidth, ah = ar.height || innerHeight, blocks = [];
+    const rowsOf = (el) => { const q = readBox(el); return [q.top - ar.top, q.bottom - ar.top]; };
+    if (wide) {
+      if (panelOcc) { const [y0, y1] = rowsOf($('#panel')); blocks.push(sideBlock('r', panelOcc, y0, y1)); }
+      if (instrOcc) { const [y0, y1] = rowsOf(ws); blocks.push(sideBlock('r', panelOcc + instrOcc, y0, y1)); }
+      if (treatOcc) { const [y0, y1] = rowsOf(!tc.hidden ? tc : hc); blocks.push(sideBlock('r', panelOcc + instrOcc + treatOcc, y0, y1)); }
+      // (The vessel's card on the left shelf: its box holds still while it fades in and out, so it counts where it rests.)
+      const lc = card?.el;
+      if (lc && !lc.hidden && !lc.classList.contains('docked') && !lc.classList.contains('ac-leaving')) {
+        const q = readBox(lc);
+        if (q.width && q.height) blocks.push(sideBlock('l', q.right - ar.left + gap, q.top - ar.top, q.bottom - ar.top));
+      }
+    }
+    const fs = freeStageOf(aw, ah, tbH, bot, blocks);
+    const footY1 = ah - bot - 8, zoomEl = $('#zoomPill'), zoomH = (zoomEl && readMetric(zoomEl, 'offsetHeight')) || 176;
+    fs.foot = [footY1 - FOOT_BAND, footY1];   // (where a toast and the corner credit stand)
+    fs.zoom = [footY1 - zoomH, footY1];   // (the zoom pill's rows)
+    fs.top = [tbH + 6, tbH + 6 + 48];   // (the Compare banner's rows, under the top bar)
+    setFreeStage(fs);
+    const rootVars = { '--fs-t': px(fs.t), '--fs-b': px(fs.b), '--fs-h': px(fs.h), '--fs-l': px(fs.l), '--fs-r': px(fs.r) };
+    for (const [k, [y0, y1]] of [['foot', fs.foot], ['zoom', fs.zoom], ['top', fs.top]]) { const bd = bandOf(fs, y0, y1); rootVars[`--fs-${k}-l`] = px(bd.l); rootVars[`--fs-${k}-r`] = px(bd.r); }
+    for (const k in rootVars) if (pubVals[k] !== rootVars[k]) { pubVals[k] = rootVars[k]; document.documentElement.style.setProperty(k, rootVars[k]); changed = true; }
+    // (Treat, History and the side Tests card glide aside for the card to their right by `translate` (app-07-floating.css --occ-x); the camera frames for where
+    // they come to rest, so it does not follow the glide: util.js translateRest.)
+    if (wide) { restShift(tc, -(panelOcc + instrOcc)); restShift(hc, -(panelOcc + instrOcc)); if (wsOn && ws.classList.contains('side')) restShift(ws, -panelOcc); }
     // (A phone's menu sheets open above the thumb dock, 8 px clear of its top edge like the cards. Measured from the
     // screen's bottom, since the sheets are fixed to it and the dock sits above the home indicator's safe area.)
     // The cards and sheets rest 8 px above the dock's top edge (the play bar, the timeline, the readouts and the tab row stay
@@ -1785,9 +1932,15 @@ function wireFloating() {
     if (pubVals.nbOcc !== nbOcc) { pubVals.nbOcc = nbOcc; app.style.setProperty('--nb-occ', nbOcc); app.style.setProperty('--sheet-foot', nbOcc); }
     // (A preset's note rests above the dock and the view pill, 8 px clear: on a thumb dock the pill is 42 px over the dock's top edge, 8 px up, and steps aside when a sheet is open.
     // A vessel's card open there stands in that place, so a note that comes while it is up stacks above it: B, 13 Nov 2026.)
-    const ac = card?.el, acUp = !!ac && !ac.hidden && ac.classList.contains('docked') && !ac.classList.contains('ac-leaving') ? readMetric(ac, 'offsetHeight') + 8 : 0;
-    const foot = px((thumb && tabOcc ? (sheet ? tabOcc + sheet : tabOcc + 50) : bot) + 8 + acUp);
+    const ac = card?.el, acH = !!ac && !ac.hidden && ac.classList.contains('docked') && !ac.classList.contains('ac-leaving') ? readMetric(ac, 'offsetHeight') : 0;
+    // (Treat and History rest on the same dock, and a note stands above them too: toast-foot.js.)
+    const tcH = thumb && !tc.hidden && !tc.classList.contains('card-leaving') ? readMetric(tc, 'offsetHeight') : thumb && !hc.hidden && !hc.classList.contains('card-leaving') ? readMetric(hc, 'offsetHeight') : 0;
+    const foot = px(toastFoot({ thumb, tabOcc, sheet, bot, sheetsH: [acH, tcH], ah, tbH }));
     if (pubVals.foot !== foot) { pubVals.foot = foot; document.documentElement.style.setProperty('--toast-foot', foot); }
+    // (While a talk plays, the deck's own controls fill the foot of the screen (the slide pill and Exit, under the card on a phone): the toasts it lets through, errors
+    // and cards with buttons, come down from the top bars instead, never over a control or the card's words (B20, 16 Nov 2026). --toast-top: the top bar's foot.)
+    const toastTop = px(Math.max(0, readBox(tb).bottom) + 8);
+    if (pubVals.toastTop !== toastTop) { pubVals.toastTop = toastTop; document.documentElement.style.setProperty('--toast-top', toastTop); }
     const occ = px(nbR && nbR.height ? innerHeight - nbR.top + 8 : 0);
     setDockTop(nbR && nbR.height ? nbR.top : null);   // (the one sheet layer and the menus' GPU glass are cut on this line: sheet-layer.js)
     if (pubVals.occ !== occ) { pubVals.occ = occ; document.documentElement.style.setProperty('--thumb-occ', occ); document.documentElement.style.setProperty('--sheet-foot-screen', occ); }
@@ -1804,6 +1957,7 @@ function wireFloating() {
   const soon = () => restTask(publish);
   const ro = new ResizeObserver(soon);
   for (const id of ['#topbar', '#vdock', '#dock', '#panel', '#treatCard', '.tb-id', '.top-right', '.topbar .sb-right', '#viewSeg']) ro.observe($(id));
+  if (card?.el) ro.observe(card.el);   // (the vessel card on the left shelf is as tall as its words: the free stage's rows follow it)
   // (Not for stage-busy, the floating pieces' fade while the figure moves: it changes only their opacity. Announced, every
   // card, the credit, the labels' blockers and the framing were measured and placed again as the menus faded back in, a
   // beat after each pan or pinch, and the figure hitched (Mohammad, 21 Oct: "the hitch syncs with the menu fading back in").)
@@ -1840,84 +1994,28 @@ function wireFloating() {
   };
   // A gesture over: the pieces already dimmed stay so for ms more; ones still waiting to dim never do.
   const busyEnd = (ms) => { if (dimmed) busy(ms); else { clearTimeout(armT); armT = 0; clearTimeout(busyT); } };
-  // On a phone the same gestures also give the figure more room: the vitals dock folds to a small pill in the
-  // lower-left corner (play and clock; the zoom buttons take the lower right) and the top bar's second row (view, colour legend) slides away, while the figure moves and
-  // for three seconds after. A tap anywhere, or an event on the timeline, brings them back at once.
+  // On a phone the same gestures also give the figure more room: the top bar's second row (view, colour legend) slides away, while the figure moves and
+  // for three seconds after. A tap anywhere, or an event on the timeline, brings it back at once. The bottom bar (play, speed, time, readings) never
+  // changes with a pan: it stays exactly as it is (Mohammad, 13 Nov: "why does the timeline bar change when I pan"; it used to fold to a pill).
   let focusT = 0;
   let focused = false;   // (the class itself is put on and taken off between frames, class-soon.js: this holds the state meanwhile)
-  const unfocus = () => { clearTimeout(focusT); if (!focused) return; focused = false; classSoon(app, 'figure-focus', false); foldSoon(false); };
+  const unfocus = () => { clearTimeout(focusT); if (!focused) return; focused = false; classSoon(app, 'figure-focus', false); };
   const figureFocus = (ms) => {
     clearTimeout(focusT);
     // (The thumb dock stays put: its tab row is how the tools are reached, and it is slim already.)
     if (!isPhone() || app.classList.contains('thumb') || $('#strip').classList.contains('all') || reduceMotionMQ.matches) return;
     if (!focused) { focused = true; classSoon(app, 'figure-focus', true); }
-    foldSoon(true);
     if (ms) focusT = setTimeout(unfocus, ms);
   };
-  // The dock folds to one line and opens again as an ease, never a jump: its old content fades out, the box takes its new size at
-  // once (laid out once, so the framing and the cards read the settled size straight away) and its glass glides there from the
-  // old size by transform (plate-glide.js: nine pieces of one plate slide and stretch, bottom left corner still) while the new
-  // content fades in. Nothing is measured by the fold itself: the sizes come from the bar's ResizeObserver (geom.js).
   // The zoom pill grows and folds by transform when a button comes or goes (the circuit's turn upright): plate-glide.js glideOnResize.
   { const zp = document.getElementById('zoomPill'); if (zp) glideOnResize(zp, { R: parseFloat(readStyle(zp).borderTopLeftRadius) || 16 }); }
-  const vdockEl = $('#vdock');
-  const vdockPlate = vdockEl ? platePieces(vdockEl) : null;   // (its glass's pieces, put in once here: a fold that starts in a frame adds nothing to the page)
-  let foldTok = 0, foldAnims = [], foldGoal = false, foldEnd = null;
-  watchSize(vdockEl, () => {});   // (keeps sizeOf(vdockEl) current)
-  const foldDone = (tok) => { if (tok !== foldTok) return; foldAnims = []; soon(); };
-  // The bar's size once the browser has laid out a change (the observer reports it before that frame is painted).
-  const sizeAfter = () => new Promise((ok) => {
-    const ro = new ResizeObserver((es) => { ro.disconnect(); const bb = es[0]?.borderBoxSize?.[0]; ok(bb ? { w: bb.inlineSize, h: bb.blockSize } : null); });
-    ro.observe(vdockEl);
-  });
-  let shown = 1;   // (how much of the dock's content shows: 1 at rest, 0 once faded for a fold)
-  // (The fold starts in a task of its own, never inside the gesture's move that asked for it: it begins by fading the content out, so one task's wait shows nothing.)
-  const foldOn = () => foldDock(true), foldOff = () => foldDock(false);
-  const foldSoon = (on) => runSoon(on ? foldOn : foldOff);
-  const foldDock = async (on) => {
-    if (on === foldGoal) return;
-    foldGoal = on;
-    const kids = [...vdockEl.children].filter((k) => !k.classList.contains('pg-piece')), tok = ++foldTok;
-    const reduced = reduceMotionMQ.matches || !vdockEl.animate;
-    const s0 = sizeOf(vdockEl);
-    foldAnims.forEach((a) => a.cancel());
-    foldAnims = [];
-    if (reduced || !s0?.h) { foldEnd?.(); vdockEl.classList.toggle('mini', on); shown = 1; foldDone(tok); return; }
-    if (vdockEl.classList.contains('mini') === on) {   // changed its mind before the old content was gone: fade it back
-      foldAnims = kids.map((k) => k.animate([{ opacity: shown }, { opacity: 1 }], { duration: D_FLIP, easing: EASE_ARRIVE }));
-      shown = 1;
-      Promise.all(foldAnims.map((a) => a.finished.catch(() => {}))).then(() => foldDone(tok));
-      return;
-    }
-    const out = kids.map((k) => k.animate([{ opacity: shown }, { opacity: 0 }], { duration: Math.round(D_FLIP * shown) || 1, easing: EASE_IN, fill: 'forwards' }));
-    foldAnims = [...out];
-    await Promise.all(out.map((a) => a.finished.catch(() => {})));
-    if (tok !== foldTok) return;
-    shown = 0;
-    // (The glass as it is drawn now: the last glide's pieces, if one is still under way, end where the box stands.)
-    foldEnd?.();
-    const from = sizeOf(vdockEl) || s0;
-    const next = sizeAfter();
-    vdockEl.classList.toggle('mini', on);
-    const s1 = await next;
-    if (tok !== foldTok) { foldAnims.forEach((a) => a.cancel()); return; }
-    foldAnims.forEach((a) => a.cancel());
-    // (Bottom left corner still: in the new box the old one stood from its left edge, its foot on the new one's.)
-    if (s1 && (Math.abs(s1.w - from.w) > 0.5 || Math.abs(s1.h - from.h) > 0.5)) {
-      foldEnd = glidePlateOn(vdockEl, vdockPlate, { x: 0, y: s1.h - from.h, w: from.w, h: from.h }, { x: 0, y: 0, w: s1.w, h: s1.h }, { R: 16, done: () => { foldEnd = null; } });
-    }
-    // (The new words come in as the glass is nearly there, so they never show past it.)
-    foldAnims = kids.map((k) => k.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, delay: D_FLIP, easing: EASE_ARRIVE, fill: 'backwards' }));
-    shown = 1;
-    Promise.all(foldAnims.map((a) => a.finished.catch(() => {}))).then(() => foldDone(tok));
-  };
   // Only the figure itself: a swipe on a card (or one from the phone's edge) leaves the rest alone.
   view.addEventListener('pointerdown', (e) => { down = systemEdge(e) || e.target.closest?.('.stage-blocker, .zoom-pill, button, input, select') ? null : [e.clientX, e.clientY]; moved = false; });
   view.addEventListener('pointermove', (e) => { if (down && e.buttons && Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 8) { busy(5000); moved = true; figureFocus(0); } });
   addEventListener('pointerup', () => { if (down) { down = null; busyEnd(600); if (moved) figureFocus(3000); else unfocus(); } });
   addEventListener('pointercancel', () => { if (down) { down = null; busyEnd(300); if (moved) figureFocus(3000); } });
   view.addEventListener('wheel', () => { busy(800); figureFocus(3000); }, { passive: true });
-  $('#vdock').addEventListener('pointerdown', (e) => { if (!(vdockEl.classList.contains('mini') && e.target.closest('.play'))) unfocus(); });   // (play and pause work from the folded pill without opening it)
+  $('#vdock').addEventListener('pointerdown', unfocus);
   $('#topbar').addEventListener('pointerdown', unfocus);
 }
 // Phone: the chart and Treat are bottom sheets with three heights; a drag on the handle (or the
@@ -1932,13 +2030,15 @@ const tabletMQ = matchMedia(TABLET_UP_MQ);
 // sheet's paper (its plate, sheet-move.js) is drawn by the cards' glass in the figure's canvas (stage.cardGlass, glass-gl.js), following
 // the plate's slide from its translate and its eases, never a read in a frame. It is cut at the sheet's still foot (cut: the sheet's box, read with the
 // glass's other boxes when the page is read, not in each frame), as the sheet's own clip cuts what slides below it on the page. Where the figure's canvas cannot take it, the plate keeps its paper (app.css).
+// (A sheet that is closing has its hidden attribute set while the stylesheet still shows it (.card-leaving, app-08-cards.css): its glass stays in the list, and in glass-motion.js hiddenIn, until its
+// leave has played, so the paper goes out with the words. Left out at once, the glass was gone on the first frame and the words faded over bare figure: Treat, History, Findings. 17 Nov 2026.)
 const SHEETS = ['#panel', '#treatCard', '#historyCard', '#dock', '.action-card'];   // (the vessel card is glass on the shelf and on a phone alike)
 let sheetGL = null;
 function sheetGlass() {
   if (sheetGL) return;
   const els = SHEETS.map((q) => $(q)).filter(Boolean);
   if (!els.length) return;
-  const plates = () => els.filter((el) => !el.hidden && el.classList.contains('has-plate')).map((el) => el.querySelector(':scope > .sheet-plate')).filter(Boolean);
+  const plates = () => els.filter((el) => (!el.hidden || el.classList.contains('card-leaving')) && el.classList.contains('has-plate')).map((el) => el.querySelector(':scope > .sheet-plate')).filter(Boolean);
   // (glass.add asks again by itself while the figure's canvas is not made yet.)
   sheetGL = stage?.glass?.add(plates, { card: true, watch: els, before: els[0], cover: (g) => g.parentElement, cut: (g) => { const el = g.parentElement; const b = el && readBox(el); return b ? { bottom: b.bottom } : null; } }) || null;
 }
@@ -1972,8 +2072,14 @@ function chromeGlass() {
 }
 import { sheetBehaviour } from './dock-sheet.js';
 import { reduceMotionMQ } from './motion.js';
+import { keepAwake } from './wake-lock.js';
+import { EMBED } from './embed.js';
 import { darkMQ } from './look.js';
 import { labelWritten, themeChanged, labelsBusy } from './label-theme.js';
+import { patientLabel } from './readouts-text.js';
+import { keysOn, setKeysOn, keyHeldBack } from './keys-pref.js';
+import { tableRoles } from './table-roles.js';
+import { cardMoveFor } from './card-motion.js';
 // ── The thumb dock (15 Oct) ─────────────────────────
 // A phone, or a tablet held upright, in Patients: the top keeps only the patient (left) and the Colored-by key
 // (right), and Treat, Tests, History, Layers and Settings sit in a tab row at the foot of the dock, under the play bar,
@@ -2025,7 +2131,7 @@ function wireThumbBar() {
   };
   // (Treat, Tests and Layers belong to the lobule and the anatomy: from the sinusoid view, which keeps the dock, 2 Nov, they first go
   // back out to the lobule, and open there. History and Settings open over the sinusoid itself.)
-  const outOfSin = () => { if (store.get().sinusoid) store.set({ sinusoid: false }); };
+  const outOfSin = () => { if (store.get().sinusoid) setViewKey('lobule'); };
   const treat = tab('treat', 'pill', 'Treat', () => { outOfSin(); if (!treatOpen()) clear('treat'); $('#btnTreat').click(); });
   const tests = tab('tests', 'gauge', 'Tests', () => { outOfSin(); if (!app.classList.contains('dock-open')) clear('tests'); $('#tabInstruments').click(); });
   const menuTab = (open) => (e) => { const a = e.currentTarget; if (a.getAttribute('aria-expanded') !== 'true') clear(); open(a); };
@@ -2073,7 +2179,7 @@ function openLayersMenu(anchor) {
     circuit ? menuItem('Turn upright', { icon: 'rotate', checked: stage.circuitRotated(), onClick: act(() => $('#rotateCircuit').click()) }) : null,
     h('div', { class: 'menu-sep' }),
     ...(st.lobule ? lobuleLayerItems() : bloodItems())],
-  { cls: 'blood-pop layers-pop', place: 'above', align: 'center', title: 'Layers' });
+  { cls: 'blood-pop layers-pop', place: 'above', align: 'center', title: 'Layers', safe: 'bottom' });
 }
 // ── Treat card ──────────────────────────────────────
 let treatOff = null;
@@ -2093,8 +2199,11 @@ function openTreat() {
     count.textContent = n ? runningText : '';
   };
   sync.push(paintCount);
-  const [tabs, pane] = chart.treatBody(sync, () => {});
-  const body = h('div', { class: 'tc-body' }, pane, chart.treatChanges(sync));
+  const [tabs, pane, fit] = chart.treatBody(sync, () => {});
+  // (A phone: Changes is a page of its own, one row in the body that slides it in, treat-page.js; wider screens keep it as the section it is.)
+  const chg = chart.treatChanges(sync), cpage = isPhone() ? changesPage(el, chg) : null;
+  if (cpage) { sync.push(cpage.sync); cpage.sync(); }
+  const body = h('div', { class: 'tc-body' }, pane, cpage ? cpage.row : chg);
   const grab = el.querySelector('.sheet-grab'), plate = el.querySelector(':scope > .sheet-plate');   // (the plate stays: put in once at setup, sheetParts; dropped, the sheet had no paper and the bar and pill showed through it)
   el.replaceChildren(...[plate, grab, h('div', { class: 'tc-head card-head' }, h('h2', { class: 'card-title' }, h('span', {}, 'Treat')), count,
     h('button', { class: 'ib card-close', 'aria-label': 'Close Treat', title: 'Close (Esc)', onclick: () => closeTreat({ focus: true }) }, icon('close'))), tabs, body].filter(Boolean));
@@ -2103,6 +2212,7 @@ function openTreat() {
   treatOff = store.on('params', () => { for (const fn of sync) fn(); });
   arrive(el);
   el.hidden = false;
+  fit();   // (the pane's height on before the observer's first report: chart.js spare)
   treatSheet?.open();
   $('#btnTreat').setAttribute('aria-expanded', 'true');
   refitStage();
@@ -2227,8 +2337,9 @@ function wireKeyboard() {
       else if (stage.isShunting()) stage.cancelShunt();
       else if (store.get().tool !== 'select') setTool('select');
       else if (app.classList.contains('dock-open') && dock) dock.close();   // Tests (it hands focus back to its tab)
-      else if (store.get().sinusoid && !store.get().selection) store.set({ sinusoid: false });
+      else if (store.get().sinusoid && !store.get().selection) setViewKey('lobule');
       else if (panelShown() && !store.get().selection) closePanel({ focus: true });   // the patient chart (its close button says Esc)
+      else if (card.detailsOpen()) card.closeDetails();   // (a card's details first, then the card)
       else store.set({ selection: null });
       return;
     }
@@ -2236,6 +2347,7 @@ function wireKeyboard() {
     // A talk owns the keyboard (presenter.js onKey takes its own keys): undo, speed, view, lens, dye, settle and the rest would change the
     // slide's scripted model under it, and nothing puts it back. Search (/) and the guide (?) stay.
     if (presenter.active() && e.key !== '/' && e.key !== '?') return;
+    if (keyHeldBack(e)) return;   // (Settings › Keyboard shortcuts off: only Esc and Ctrl or Cmd with a key are the page's, keys-pref.js)
     if (e.key === '/') { e.preventDefault(); palette.open(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); (e.shiftKey ? doRedo : doUndo)(); return; }
     // (A held key is one press: Space does not flicker play and pause, a number does not run its verb twenty times. J has its own rule below.)
@@ -2264,7 +2376,7 @@ function wireKeyboard() {
     if ((k === 'l' || (e.key === 'C' && e.shiftKey)) && !store.get().imaging && !(store.get().lobule && store.get().sinusoid)) {
       const ks = lensKeys(), i = ks.indexOf(store.get().colorMode);
       const next = ks[(i + (e.shiftKey && k === 'l' ? ks.length - 1 : 1)) % ks.length];
-      store.set({ colorMode: next }); toast(`Colored by ${LENSES[next][0].toLowerCase()}. ${LENSES[next][1]}.`); return;
+      store.set({ colorMode: next }); toast(`Colored by ${lcFirst(LENSES[next][0])}. ${LENSES[next][1]}.`); return;
     }
     if (k === 'z') { settle(); return; }
     if (e.key === '?') { openHelp(presenter.active() ? 'present' : undefined); return; }
@@ -2292,6 +2404,7 @@ function toggleProjector(on = !projector) {
 function flipProjector() {
   projector = !projector;
   app.classList.toggle('projector', projector);
+  keepAwake(projector || !!store.get().presenting);   // (A24: the screen stays awake while a talk or the projector is up)
   if (projector) {
     bigEl = h('div', { class: 'big-overlay stage-blocker' });
     // The top bar (and its menu) is hidden in projector mode, so the way out is on the figure.
@@ -2304,7 +2417,7 @@ function flipProjector() {
 }
 function updateProjector(f) {
   if (!bigEl) return;
-  const hid = hiddenNow()?.has('trueHVPG'), v = hid ? '—' : fmt(f.metrics.hvpg, 1), u = hid ? 'not measured' : 'mmHg';
+  const hid = hiddenNow()?.has('trueHVPG'), v = hid ? '—' : fmt(f.metrics.hvpg, 1), u = hid ? (hvBlocked(store.get().params) ? 'not measurable' : 'not measured') : 'mmHg';
   // Rebuilt only when it reads differently: new nodes on every model frame restyled the page each time.
   if (bigEl.shown === v + u) return;
   bigEl.shown = v + u;
@@ -2337,17 +2450,17 @@ const PRESENT_KEYS = [
 function openHelp(section) {
   // (Grouped by what a person is doing, so the list reads down a column: run it, change the view, reach and act. Every row is a key the handler takes.)
   const groups = [
-    ['Run the model', [['Space', 'Play / pause'], ['[ ]', 'Slower / faster'], ['.', 'Step'], ['Z', 'Settle to equilibrium'], ['Ctrl/⌘ Z', 'Back one change on the timeline (Shift: forward)'],
+    ['Run the model', [['Space', 'Play / pause'], ['[ ]', 'Slower / faster'], ['.', 'Step'], ['Z', 'Settle to equilibrium'], [keyLabel('Ctrl/⌘ Z'), 'Back one change on the timeline (Shift: forward)'],
       ['P', 'Compare from here / stop comparing'], ['J', 'Inject dye (hold for longer)']]],
     ['Change the view', [['A', 'Anatomy ⇄ circuit'], ['L', 'Next vessel coloring (Shift: previous)'], ['I', 'Open / close Tests'], ['T', 'Open / close Treat'],
-      ['Ctrl/⌘ + / − / 0', 'Zoom in / out / fit the figure'], ['Ctrl/⌘ K or /', 'Search'], ['?', 'This guide']]],
+      [keyLabel('Ctrl/⌘ + / − / 0'), 'Zoom in / out / fit the figure'], [keyLabel('Ctrl/⌘ K or /'), 'Search'], ['?', 'This guide']]],
     ['Reach and act', [['Click', 'Open the actions for a vessel or organ'], ['1 – 9', 'Run an action on the open card'], ['Tab · Enter', 'Reach a vessel, open its actions'],
-      ['← →', 'Walk vessels along the flow'], ['Esc', 'Cancel · close the card · close']]],
+      ['← → ↑ ↓', 'Step through the stations, mesenteric veins to heart'], ['Shift ← →', 'Follow the vessel in focus along the flow'], ['Esc', 'Cancel · close the card · close']]],
   ];
   openModal('Guide', h('div', {},
     h('p', { class: 'lede' }, 'A living model of the portal circulation. Every pressure, flow, collateral and varix comes out of one lumped-parameter hemodynamic model. Nothing is scripted: change a resistance and watch the consequences propagate.'),
     h('div', { class: 'entry-grid' },
-      [['explore', 'Act on the anatomy', 'Click any vessel or organ. A card opens beside it with what you can do there: narrow or clot a vein, make the liver cirrhotic, band varices, start a shunt.'],
+      [['explore', 'Act on the anatomy', 'Click any vessel or organ. A card opens beside it with what you can do there: narrow or thrombose a vein, make the liver cirrhotic, band varices, start a shunt.'],
         ['settle', 'One timeline', 'Play runs the heartbeat-scale model; +1 wk, +1 mo and +6 mo jump the disease ahead. Every change is a marker you can go back to, or compare from.'],
         ['bulb', 'Ask “Why?”', 'Click any readout for a causal breakdown of what is driving it, change by change.']].map(([ic, t, d]) => h('div', { class: 'entry' }, h('span', { class: 'eic' }, icon(ic)), h('span', { class: 't' }, t), h('span', { class: 'd' }, d)))),
     h('h3', { 'data-sec': 'keys' }, 'Keyboard'),
@@ -2358,11 +2471,11 @@ function openHelp(section) {
     h('h3', {}, 'Reading the figure'),
     h('ul', {},
       h('li', {}, 'Veins are colored by mean pressure on a perceptually uniform scale (0–30 mmHg), and the legend names the unit once. A label gives a station’s value. Select the station, color by Change or compare with an earlier moment to see ▲ / ▼, the change from healthy, shown from 5 mmHg. Arteries are thinner, in a fixed red.'),
-      h('li', {}, 'Streaks of blood move downstream, brighter where flow is greater, faster where velocity is higher, fastest along the axis (laminar flow); chevrons (Blood menu) point the way. Smoke marks stagnant blood in a large vein. Coloring the vessels by blood origin shows where blood comes from. Tap a vessel and use Inject dye on its card (or press J; hold for longer) to watch dye travel and split. Dotted vessel outlines are closed potential collaterals.'),
+      h('li', {}, 'Chevrons (Blood menu) point the way blood moves in each vessel, orange where the flow is reversed. Smoke marks stagnant blood in a large vein. Coloring the vessels by blood origin shows where blood comes from. Tap a vessel and use Inject dye on its card (or press J; hold for longer) to watch dye travel and split. Dotted vessel outlines are closed potential collaterals.'),
       h('li', {}, 'Line width follows vessel diameter (compressed, so the venae cavae do not dwarf the portal tree). Watch collaterals and varices swell.'),
       h('li', {}, 'The circuit view is a transit map: pressure falls from left to right; collaterals and shunts run in their own lanes as bypasses.')),
     h('h3', {}, 'Thresholds & references'),
-    h('p', { class: 'sub' }, 'Baveno VIII consensus on portal hypertension (2026), building on Baveno VII (2022); AASLD guidance on risk stratification and management of portal hypertension and varices in cirrhosis (2024). Thresholds apply to gradients (HVPG, direct portal–systemic gradient), never to the pressure at a single vessel. Physiology after Guyton; Lautt (hepatic arterial buffer response); Bosch & Groszmann (HVPG).'),
+    h('p', { class: 'sub' }, 'Baveno VIII consensus on portal hypertension (2026); AASLD guidance on risk stratification and management of portal hypertension and varices in cirrhosis (2024). Thresholds apply to gradients (HVPG, direct portal–systemic gradient), never to the pressure at a single vessel. Physiology after Guyton; Lautt (hepatic arterial buffer response); Bosch & Groszmann (HVPG).'),
     h('p', { class: 'disclaimer' }, 'Educational simulation. The model is simplified and its values are illustrative; do not use it for diagnosis or treatment decisions.')), { wide: true });
   scrollToSection(section);
 }
@@ -2386,18 +2499,17 @@ function openAbout(section) {
     h('ol', { class: 'refs' }, VALIDATION.map((v) => h('li', {}, v))),
     h('h3', {}, 'Status colors'),
     h('p', { class: 'sub' }, 'Every readout’s bar and status word follow a clinical cut-off; the ticks on its bar mark the cut-offs below. A change (▲ / ▼) is drawn in neutral ink and appears only when a value keeps moving for several seconds, never for the heartbeat or breathing. Amber is borderline; red means a threshold has been crossed.'),
-    h('div', { class: 'table-wrap' }, h('table', { class: 'cut-table' },
+    tableRoles(h('div', { class: 'table-wrap' }, h('table', { class: 'cut-table' },
       h('thead', {}, h('tr', {}, CUT_HEADS.map((x, i) => h('th', {}, i ? h('span', { class: 'cut-h', 'data-sev': CUT_SEV[i] }, x) : x)))),
       // (On a phone each row stacks, its readout over four labelled lines, and an empty band is left out: five columns did not fit and the table scrolled sideways, cut off at the edge.)
-      h('tbody', {}, CUTOFFS.map((r) => h('tr', {}, r.map((c, i) => h('td', i ? { 'data-label': CUT_HEADS[i], 'data-sev': CUT_SEV[i], class: c === '—' ? 'none' : '' } : {}, c))))))),
-    h('p', { class: 'sub' }, 'Thresholds belong to gradients, not to the color of a vessel. HVPG ≥10 mmHg is clinically significant portal hypertension (CSPH) in cirrhosis. HVPG ≥20 mmHg is prognostic when measured during acute variceal bleeding. An HVPG of 12 mmHg is not a bleeding threshold: varices can bleed below it. 12 mmHg is the usual post-TIPS target for the directly measured portosystemic gradient.'),
+      h('tbody', {}, CUTOFFS.map((r) => h('tr', {}, r.map((c, i) => h('td', i ? { 'data-label': CUT_HEADS[i], 'data-sev': CUT_SEV[i], class: c === '—' ? 'none' : '' } : {}, c)))))))),
+    h('p', { class: 'sub' }, 'Thresholds belong to gradients, not to the color of a vessel. HVPG ≥10 mmHg is clinically significant portal hypertension (CSPH) in cirrhosis. HVPG ≥20 mmHg is prognostic when measured during acute variceal bleeding. An HVPG of 12 mmHg is not a bleeding threshold: varices can bleed below it. After a TIPS for variceal bleeding, 12 mmHg is the reference for the directly measured portosystemic gradient (AASLD 2024).'),
     h('h3', {}, 'Reference review'),
     h('p', {}, 'The presentations follow Baveno VIII (J Hepatol, August 2026), with AASLD guidance where US practice differs (octreotide). Baveno VIII changed the recompensation criteria (>6 months, Child–Pugh A), the indeterminate zone for stiffness (ANTICIPATE probability ≥75%, or spleen stiffness >55 kPa on the 100 Hz probe), the window for preemptive TIPS and anticoagulation for portal vein thrombosis. Baveno VIII statements were taken from published summaries; a line-by-line check against the full text is still pending.'),
     h('h3', {}, 'Clinical review'),
     h('p', {}, 'Presentation and patient content follows the guidance below. An external clinical advisory review with named reviewers is pending; their sign-off will be listed here.'),
     h('h3', { 'data-sec': 'refs' }, 'References'),
     h('ol', { class: 'refs' },
-      h('li', {}, 'de Franchis R, et al. Baveno VII: renewing consensus in portal hypertension. J Hepatol 2022;76:959–74. ', pmid(35120736)),
       h('li', {}, 'Baveno VIII: advancing consensus in portal hypertension. J Hepatol, August 2026. ', pmid(42624290)),
       h('li', {}, 'Kaplan DE, et al. AASLD Practice Guidance on risk stratification and management of portal hypertension and varices in cirrhosis. Hepatology 2024;79:1180–1211.'),
       h('li', {}, 'Bosch J, Groszmann RJ, et al. Measurement of portal pressure (HVPG). Hepatology / Semin Liver Dis.'),
@@ -2445,18 +2557,27 @@ function firstRun() {
 // first vessel or organ is picked or the card is dismissed. Its own key, so devices that opened the app before see it once.
 // (Not under automation: the browser checks and visual references start from a fresh browser every time.)
 const HINT_KEY = 'pps.hint';
+// Whether a sheet covers the lower part of the figure (a phone's Tests, patient chart, Treat or History), as the camera's framing counts it.
+const sheetOverFigure = () => isPhone() && (app.classList.contains('dock-open') || panelShown() || treatOpen() || historyOpen());
 function showFirstHint() {
+  if (EMBED) return;   // (?embed: an iframe on someone else's page shows no hint)
   if (navigator.webdriver) return;
   let seen = true;
   try { seen = !!localStorage.getItem(HINT_KEY); } catch (e) { caught('main:2188', e); /* storage unavailable: no hint */ }
   if (seen) return;
   const show = () => {
-    if (store.get().selection || presenter.active()) return;
+    if (store.get().selection || presenter.active() || sheetOverFigure()) return;
     const verb = matchMedia('(hover: hover) and (pointer: fine)').matches ? 'Click' : 'Tap';
     let off = null, offTalk = null;
     const done = (why) => { off?.(); off = null; offTalk?.(); offTalk = null; if (why === 'talk') return; try { localStorage.setItem(HINT_KEY, '1'); } catch (e) { caught('main:2194', e); /* storage unavailable */ } };
     const close = toast(`${verb} a vessel or the liver to change it.`, '', { sticky: true, onClose: done });
     off = store.on('selection', (sel) => { if (sel) close(); });
+    // A sheet over the figure (Tests, the chart, Treat or History on a phone) takes the hint away: it sat over the strip of figure the sheet left.
+    // Like a talk it is not counted as read: it comes again on a later visit.
+    const onOcc = () => { if (sheetOverFigure()) close('talk'); };
+    addEventListener('pps:occ', onOcc);
+    const offOcc = () => removeEventListener('pps:occ', onOcc);
+    const offBase = off; off = () => { offBase(); offOcc(); };
     // A talk beginning takes the hint away with the Explore screen it spoke of (it stayed over the slides, sticky). It is not counted as
     // read: a person who went straight to a talk meets it on their next visit to Explore.
     offTalk = store.on('presenting', (on) => { if (on) close('talk'); });
@@ -2472,6 +2593,7 @@ function showFirstHint() {
 const FEEDBACK_ASK_MIN = 10;
 const ASK_KEY = 'pps.feedbackAsk';   // (absent: never asked · 'later': asked once, once more on a later visit · 'done')
 function armFeedbackAsk() {
+  if (EMBED) return;   // (and none asks for feedback)
   if (!FEEDBACK_EMAIL || navigator.webdriver) return;
   let was = null;
   try { was = localStorage.getItem(ASK_KEY); } catch { return; }   // (no storage: it could not remember, so it never asks)
@@ -2495,16 +2617,16 @@ function armFeedbackAsk() {
   // (The card's answers and options are made once, with the timer, not each time it asks.)
   const answer = (v) => { try { localStorage.setItem(ASK_KEY, v); } catch (e) { caught('main:2230', e); /* storage unavailable */ } };
   const askToast = {
-    sticky: true,
+    sticky: true, holdInTalk: true,   // (held while a talk plays: it stood over a slide's tag chip and the preview badge, 16 Nov 2026; asked again, with the minutes counted anew, once the talk is over)
     actions: [['Send feedback', () => sendFeedback()], ['Not now', () => {}]],
     onClose: (why) => {
-      if (why === 'pushed') { active = 0; last = performance.now(); timer = setInterval(tick, TICK); return; }   // (not an answer)
+      if (why === 'pushed' || why === 'held') { active = 0; last = performance.now(); timer = setInterval(tick, TICK); return; }   // (not an answer)
       try { if (localStorage.getItem(ASK_KEY) !== 'done') answer(was === 'later' ? 'done' : 'later'); } catch (e) { caught('main:2235', e); /* storage unavailable */ }
     },
   };
   timer = setInterval(tick, TICK);
 }
-(/[?&]presenter-view(?:[=&]|$)/.test(location.search) ? import('./presenter-view-page.js').then((m) => m.run()) : main()).catch((err) => {   // (N1: ?presenter-view is the presenter's second window, text only)
+(/[?&]presenter-view(?:[=&]|$)/.test(location.search) ? import('./presenter-view-page.js').then((m) => m.run()) : /[?&]gallery=frame(?:&|$)/.test(location.search) && /\/preview\//.test(location.pathname) ? import('./gallery/device-frame.js').then((m) => { document.getElementById('boot')?.remove(); document.documentElement.removeAttribute('data-boot'); document.body.replaceChildren(); m.bootFrame(); }) : main()).catch((err) => {   // (N1: ?presenter-view is the presenter's second window, text only)
   // (Told to the page's own boot card too, so a failed start shows "couldn't start / Reload" at once, not a pulsing logo for 15 s and then an empty shell.)
   const fail = () => { (window.ppsBootErrors ||= []).push(String(err?.message || err).slice(0, 300)); window.ppsBootFail?.(); };
   // (A chunk that will not load is most often a page older than the site: a deploy replaced the hashed files it names. The page's

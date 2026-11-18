@@ -82,7 +82,7 @@ const present = () => { for (const t of tops) t.prep?.(); for (const t of tops) 
 const figFrame = F.frameFor('figure');
 const figLoop = () => { seq++; present(); figFrame(figLoop); };
 F.onFrameFinal(() => { if (pend) { pend = false; present(); } });
-const G = createGlassGL(stage, source, [], { cards: { find: () => [shade, data], watch: [stage], before: { parentNode: stage }, low: shade }, version: () => seq });
+const G = createGlassGL(stage, source, [], { markHold: false, cards: { find: () => [shade, data], watch: [stage], before: { parentNode: stage }, low: shade }, version: () => seq });
 G.setHost({ gl: fig, canvas: source, add, now: () => { if (F.framePhase()) pend = true; else present(); }, active: () => true, order: { low: 1, high: 3 }, low: (g) => g === shade, over: () => [], view: () => null });
 stage.contains = () => false;
 

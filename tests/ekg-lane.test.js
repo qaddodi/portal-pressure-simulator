@@ -8,10 +8,11 @@ import { createCore } from '../src/worker-core.js';
 import { DECKS } from '../src/ui/decks.js';
 import { createBeatClock, ekgRate, ekgSeries, ekgAt, EKG_PHASES } from '../src/ui/ekg.js';
 import { laneRoom, LANE_MIN } from '../src/ui/trace-lanes.js';
+import { appCss } from './split-src.js';
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8');
 const pt = read('../src/ui/pressure-time.js');
-const css = read('../styles/app.css');
+const css = appCss();
 
 // A stream of (time, phase) samples for a heart at `bpm`, one sample every `dt` seconds.
 const stream = (bpm, secs, dt = 0.05) => {

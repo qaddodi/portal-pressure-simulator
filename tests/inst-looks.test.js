@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import { LOOKS } from '../src/ui/chart-looks/index.js';
 import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
 import { tokensOfLook } from '../src/ui/theme-tokens.js';
+import { appCss } from './split-src.js';
 
 const ctx = (over = {}) => withCtx(makeCtx({ host: 'dock' }), { theme: 'light', dark: false, palette: 'navy', view: 'anatomic', ...over });
 const P = (k, st = {}, c = ctx()) => resolveProps(LOOKS[k], c, st, {});
@@ -54,5 +55,5 @@ test('every piece instruments.js builds names a look that exists, and the sheet 
   for (const n of names) assert.ok(LOOKS[n], `look ${n}`);
   assert.match(src, /createSvgGL\(el, \{ host: 'dock' \}\)/);
   assert.doesNotMatch(src, /\.style\.fontSize/, 'a model piece\'s size is an attribute');
-  assert.doesNotMatch(read('styles/app.css'), /\.ab-dial(?!-box)\b|\.ab-dial-(band|live|tick|tl|knob|k|n|u|w)\b/, 'the dial\'s model rules are gone (the box that holds it stays)');
+  assert.doesNotMatch(appCss(), /\.ab-dial(?!-box)\b|\.ab-dial-(band|live|tick|tl|knob|k|n|u|w)\b/, 'the dial\'s model rules are gone (the box that holds it stays)');
 });

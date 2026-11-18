@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { gapLine, gestureText } from '../src/ui/perf-readout.js';
 import { gpuProbe } from '../src/ui/gpu-probe.js';
+import { lobuleSource } from './split-src.js';
 
 // The ?perf readout (perf-readout.js): what blocks frames after a gesture, measured on the owner's own devices (21 Oct).
 // Without ?perf it must change nothing: never fetched, the probe off, no panel.
@@ -116,7 +117,7 @@ test('a whole draw and a target sized again name who asked, from a fixed list th
   const pr = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
   assert.equal(new Set(BY).size, BY.length);
   assert.match(gl, /gpuProbe\.note\(COUNTED\.whole\);\n\s+gpuProbe\.note\(COUNTED\.wholeBy \+ askedBy\(\)\);/);
-  assert.equal((gl.match(/if \(gpuProbe\.on\) noteAlloc\(/g) || []).length, 4, 'every target sized again names its caller (the layer and the kept picture: a pan has no spare set since 31 Oct; the mesh renderer\'s depth and stencil, and its scratch layers)');
+  assert.equal((gl.match(/if \(gpuProbe\.on\) noteAlloc\(/g) || []).length, 5, 'every target sized again names its caller (the layer and the kept picture: a pan has no spare set since 31 Oct; the second lumen target when the stage switches it, R1b-7; the mesh renderer\'s depth and stencil, and its scratch layers)');
   assert.doesNotMatch(gl, /note\(COUNTED\.fboAlloc, [^k]/, 'no sizing counted without its caller');
   assert.match(pr, /BY\.flatMap\(\(b\) => \[COUNTED\.wholeBy \+ b, COUNTED\.fboAllocBy \+ b\]\)/);
   // Every caller stage.js names is on the list, and the stage resets it after each draw.
@@ -129,7 +130,7 @@ test('a whole draw and a target sized again name who asked, from a fixed list th
 
 test("the lobule's tissue bitmap counts why it was painted again, from a fixed list the readout totals", async () => {
   const { COUNTED, TISSUE_WHY } = await import('../src/ui/gpu-probe.js');
-  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  const lz = lobuleSource();
   const pr = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
   for (const w of TISSUE_WHY) assert.ok(lz.includes(`'${w}'`), w);
   assert.match(lz, /gpuProbe\.note\(COUNTED\.tissueWhy \+ /);

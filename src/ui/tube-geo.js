@@ -19,8 +19,6 @@
 //         row, and WebGL then fills the other three with (0, 0, 1): w = 1 must read as "no ends", which `w > 1.5` gives.
 // The skirt's width in a shape pass is exactly the outline's: clamp(0.14 R, 1.5 px, 3 px) + aaPad (+ selPad on a selected row), px = aaPad / 2, from the
 // R of the vertex's own ring or sample (tubeWidth); a glow pass keeps the row's reach (tubeGlowWidth: casing * celK + selection + aaPad + padU).
-// The compositor's zoom numbers (stage 3, thread C's lumen shader reads zoomA and zoomB): tubeStripVS(STRIP_VS_GLSL, F_SEL, ZOOM_VS) includes the host's ZOOM_VS
-// text (veins-gl.js: uniform pxW, flat out zoomA / zoomB, zoomOut()) and calls zoomOut() in main; given none it writes none, and the text is what it was.
 // tubeVertex is the JS twin of tubePlace (GLSL below): same arithmetic in the same order; the tests run the JS one. The mitre and bevel
 // rules are the Mesh's own (STRIP_VS_GLSL: mSeg, mNrm, mMitreAB, mDiscOn), called with pad = w; segOf / nrmX / nrmY / mitreAB below are
 // their JS twins (veins-mesh.js keeps its own private), pinned to veins-mesh.js's stripVertex by tests/tube-geo.test.js.
@@ -255,13 +253,15 @@ const f = (x) => (Number.isInteger(x) ? x.toFixed(1) : String(x));
  * (attributes 0 aV, 1 aRow; uniforms world, size, lOff, tube, mPass, padU, selPad; outputs vI, vRow) plus tubeBase, tubeH (the pass pair's band
  * of depth), hRef (world), celK (the outline's width as a multiple of the row's casing width), aaPad (world: 2 device pixels).
  */
-export const tubeStripVS = (STRIP_VS_GLSL, F_SEL = 1, ZOOM_VS = '') => `#version 300 es
+export const tubeStripVS = (STRIP_VS_GLSL, F_SEL = 1) => `#version 300 es
 precision highp float;
 precision highp int;
 precision highp sampler2D;
 invariant gl_Position;                 // (so the depth prepass and the colour pass agree exactly)
 layout(location=0) in vec4 aV;         // (kind, ring or sample, across, corner): tube-geo.js tubeIndex
 layout(location=1) in vec4 aRow;       // per instance: (row, endStart, endEnd, kind + 2). A one-float buffer reads (row, 0, 0, 1): w = 1 is "no ends"
+layout(location=2) in vec4 aMouthA;    // per instance: the first four mouth codes (tube-data.js mouthCode: 2 + 2 * a branch row + 1 for its last sample; under 1.5 none; an unset attribute reads (0, 0, 0, 1))
+layout(location=3) in vec4 aMouthB;    // and the next four
 uniform mat3 world;                    // world → device pixels
 uniform vec2 size;
 uniform vec2 lOff;
@@ -294,12 +294,14 @@ const float L_PATCH = ${f(L.PATCH)};
 const float L_FADE_A = ${f(TUBE_FADE.A)};
 const float L_FADE0 = ${f(TUBE_FADE.L0)};
 const float L_FADE_H = ${f(TUBE_FADE.H)};
-${ZOOM_VS ? `${ZOOM_VS}\n` : ''}out float vI;
+out float vI;
 flat out int vRow;
 out float vD;                          // signed distance from the lumen's wall (negative inside, 0 on the wall, positive in the skirt), world units
 out vec2 vG;                           // the offset from the centreline point to this point (not unit)
 out float vRad;                        // the lumen's radius at this ring or sample
 flat out vec2 vEnd;                    // the vessel this row ends on at its start (x) and end (y): row * 64 + the sample there, or -1
+flat out vec4 vMouthA;                 // the branches that end on this row's side: its outline is left open across them (tube-lean-glsl.js mouthOpen)
+flat out vec4 vMouthB;
 ${tubeJoinVS(N_SAMPLES)}// The across offset d and the level f of across column ac, for a ring whose half tube has radius rc.
 vec2 tubeAcross(int ac, float rc, float w, float hr, bool glow, float zz) {
   if (ac == 0) return vec2(-(rc + w), glow ? L_GLOW0 : L_CASE0);
@@ -406,9 +408,11 @@ float tubeFadeLevel(float f, float a) {
 }
 void main() {
   int id = int(aRow.x + 0.5);
-  vRow = id;${ZOOM_VS ? '\n  zoomOut();' : ''}
+  vRow = id;
   vEnd = aRow.w > 1.5 && joinCut == 1 ? aRow.yz : vec2(-1.0);
   joinOut(id, vEnd, aRow.w);
+  vMouthA = joinCut == 1 ? aMouthA : vec4(0.0);
+  vMouthB = joinCut == 1 ? aMouthB : vec4(0.0);
   int kind = int(aV.x + 0.5), ring = int(aV.y + 0.5);
   vI = kind == T_TRAP ? aV.y + aV.w : kind == T_DOME ? float(ring) : float(clamp(ring - T_CAP, 0, N_SAMPLES - 1));
   bool glow = mPass <= ${MP.UP};

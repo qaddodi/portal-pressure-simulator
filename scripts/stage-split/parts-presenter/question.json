@@ -1,0 +1,1 @@
+{"factory": "createQuestion", "file": "presenter-question.js", "about": "The question card, the held answer and the cards that stay", "lines": [[2147, 2670]], "stay": ["answerPlay", "keepFall"]}

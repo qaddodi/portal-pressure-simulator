@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
+import { presenterSource, lobuleSource } from './split-src.js';
 
 // Codebase review 22 Oct, group 2: per-frame work in the lobule, the sinusoid, the data-card plane and the charts that
 // gave the same pixels every time is done once and kept. Each test pins one item.
@@ -29,7 +30,7 @@ test('item 36: the data-card plane skips a redraw whose size, font, points, read
 });
 
 test("item 39: a lobule label's leader stops on its letters, read once per layout, never in a frame", () => {
-  const src = read('../src/ui/lobule-zoom.js');
+  const src = unsnap(lobuleSource());
   const lo = src.slice(src.indexOf('const lettersInto = '), src.indexOf('const dropCost = '));
   // (13 Nov 2026, unification audit 12: no pill, lit or not, so nothing of a ::before is read; the padding is measured with the label's
   // size, in a timer task of its own (measureRun), and the leaders use it from there.)
@@ -55,7 +56,7 @@ test('item 33: the sinusoid view keeps its size, colours and dark-mode query ins
 });
 
 test("item 32: the lobule's world bitmap and surround keep their scale under a hand too, drawn sharp once it lets go", () => {
-  const src = read('../src/ui/lobule-zoom.js');
+  const src = unsnap(lobuleSource());
   const pt = src.slice(src.indexOf('function paintTissue('), src.indexOf('\n  }\n', src.indexOf('function paintTissue(')));
   // (Without the GPU a hand is a finger, a flick or a trackpad scroll, as before; on the GPU any wheel too, and there the picture is
   // held only while it is at least as sharp as the zoom wants: tests/tissue-gl.test.js.)
@@ -68,25 +69,25 @@ test("item 32: the lobule's world bitmap and surround keep their scale under a h
 });
 
 test("item 31: lobule pan and zoom frames reuse each tube's radii, compare inks as numbers and keep the look per style copy", () => {
-  const src = read('../src/ui/lobule-zoom.js');
+  const src = unsnap(lobuleSource());
   const gl = src.slice(src.indexOf('function drawGL('), src.indexOf('const num = (cs, n, d)'));
   // (Radii worked out only when the calibers change; the zoom only re-checks them against what was sent.)
   // (Kept as numbers, per vessel, written in place: calibersChanged says when they are worked out again, radiiNow does it.)
-  assert.match(gl, /const calCh = calibersChanged\(rzOf\(\), G\);/);
+  assert.match(gl, /const calCh = radDue && calibersChanged\(rzOf\(\), G\);/);
   assert.match(gl, /const r = radiiNow\(t\);/);
-  assert.match(src, /if \(radNowAt\[t\.id\] !== radStamp\) \{ for \(let i = 0; i < N; i\+\+\) r\[i\] = radiusAt\(t, i\); radNowAt\[t\.id\] = radStamp; \}/);
+  assert.match(src, /if \(radNowAt\[t\.id\] !== (?:live\.)?radStamp\) \{ for \(let i = 0; i < N; i\+\+\) r\[i\] = radiusAt\(t, i\); radNowAt\[t\.id\] = (?:live\.)?radStamp; \}/);
   assert.doesNotMatch(gl, /flat\(2\)\.map\(\(x\) => x\.toFixed\(3\)\)/);
-  assert.match(gl, /if \(inkMoved \|\| !akSame\)/);
+  assert.match(gl, /if \(inkMoved \|\| !akSame(?: \|\| washQ !== washSent)?\)/);   // (the wedge wash on its slide asks for the pass too: lobule-wash.js)
   assert.match(gl, /if \(cs !== lookCs\) \{ lookCs = cs; lookNow = lookOf\(cs\); lookSig = JSON\.stringify\(lookNow\); \}/);
   assert.doesNotMatch(gl, /const lsig = JSON\.stringify\(look\)/);
 });
 
 test('item 6: a short lobule glide carries the labels with their spots and lays them out once where it lands', () => {
-  const src = read('../src/ui/lobule-zoom.js');
+  const src = unsnap(lobuleSource());
   const lay = src.slice(src.indexOf('function layoutLabels()'), src.indexOf('if (bakeFollow())'));
   // (A presenter's glide too, and a dive re-aimed on its way in; not a hand's pan, which carries the whole layer.)
-  assert.match(lay, /if \(sameB && gliding && !handOn\(\) && !panOn\) \{ ride\(\); return; \}/);
-  assert.match(lay, /sameB && V\.k === follow\.k && handOn\(\) && !rides\)/);
+  assert.match(lay, /if \(sameB && (?:live\.)?gliding && !handOn\(\) && !(?:live\.)?panOn\) \{ ride\(\); return; \}/);
+  assert.match(lay, /sameB && V\.k === (?:live\.)?follow\.k && handOn\(\) && !(?:live\.)?rides\)/);
   const rd = src.slice(src.indexOf('function ride()'), src.indexOf('function bakeFollow()'));
   // Each piece moves by its own spot's move at its own size (a translate), and is written into its place at landing.
   assert.match(rd, /if \(p\) tr\(e, p\[0\] \+ d0, p\[1\] \+ d1\);/);
@@ -94,7 +95,7 @@ test('item 6: a short lobule glide carries the labels with their spots and lays 
   // (Where the GPU draws the names, label-captions.js, tr hands each place to it in the frame and the page's clear model is placed between
   // frames, domFlush; there is no per-frame translate write when the names are not on the GPU either.)
   assert.doesNotMatch(src, /const tr = \(e, x, y\) => \{[^}]*e\.style\.translate/);
-  assert.match(src, /function domFlush\(\) \{[\s\S]{0,200}if \(rides\) return;[\s\S]{0,200}e\.style\.translate = /);
+  assert.match(src, /function domFlush\(\) \{[\s\S]{0,200}if \((?:live\.)?rides\) return;[\s\S]{0,200}e\.style\.translate = /);
   assert.match(src, /for \(const e of clrQ\) if \(e\.style\.translate\) e\.style\.translate = '';/);
   assert.match(src, /function bakeFollow\(\) \{\s*if \(bakeRides\(\)\)/);
   // The lit terms are split once per change, not queried for every candidate spot.
@@ -102,7 +103,7 @@ test('item 6: a short lobule glide carries the labels with their spots and lays 
 });
 
 test('item 43 (lobule parts): the anatomy-to-sinusoid chain, the zoom-out hand-over and setLobe stay deleted', () => {
-  const src = read('../src/ui/lobule-zoom.js'), rc = read('../src/ui/lobule-render-cache.js');
+  const src = unsnap(lobuleSource()), rc = read('../src/ui/lobule-render-cache.js');
   for (const dead of ['sinChain', 'chainEase', 'chromeHold', 'sinClosedCb', 'onSinClosed', 'setSinChain', 'outHandler', 'onZoomOut', 'wheelOutOK', 'setLobe']) {
     assert.doesNotMatch(src, new RegExp(`\\b${dead}\\b`), dead);
   }
@@ -111,7 +112,7 @@ test('item 43 (lobule parts): the anatomy-to-sinusoid chain, the zoom-out hand-o
 });
 
 test('item 18 (lobule side): the sinusoid zoom stops a flick or glide first; reduced motion builds no wide copy', () => {
-  const src = read('../src/ui/lobule-zoom.js');
+  const src = unsnap(lobuleSource());
   const dive = src.slice(src.indexOf('function diveSinusoid(on)'), src.indexOf('function diveSinusoid(on)') + 2500);
   assert.match(dive, /if \(on && sinU === 0\) \{ stopInertia\(\); cancelFrame\(glide\); gliding = false;/);
   assert.match(src, /box = reduce\.matches \? null : padBox\(W, H\), wd = box \? buildWide/);
@@ -119,24 +120,24 @@ test('item 18 (lobule side): the sinusoid zoom stops a flick or glide first; red
 });
 
 test("item 18: +, − and Fit wait for the dive into the lobule to land", () => {
-  const src = read('../src/ui/lobule-zoom.js');
+  const src = unsnap(lobuleSource());
   assert.match(src, /function fitView\(\) \{ if \(sinTo \|\| fade < 0\.98 \|\| diveScaled\) return;/);
   const zb = src.slice(src.indexOf('function zoomBy(factor)'), src.indexOf('function zoomBy(factor)') + 400);
   assert.match(zb, /if \(fade < 0\.98 \|\| diveScaled\) return;/);
 });
 
 test('item 51: the presenter announces "Slide N of M: title" once, its cards carry no live region, an empty key is hidden', () => {
-  const pz = read('../src/ui/presenter.js'), fk = read('../src/ui/figure-key.js');
+  const pz = unsnap(presenterSource()), fk = read('../src/ui/figure-key.js');
   assert.equal((pz.match(/'aria-live'/g) || []).length, 1, 'one live region');
   assert.match(pz, /const say = h\('p', \{ class: 'sr-only', 'aria-live': 'polite', 'aria-atomic': 'true' \}\);/);
-  assert.match(pz, /`Slide \$\{i \+ 1\} of \$\{slides\.length\}\$\{slides\[i\]\?\.title \? `: \$\{slides\[i\]\.title\}` : ''\}`/);   // (written by announce(), once the slide is on screen)
+  assert.match(pz, /slideSay\(i, (?:live\.)?slides\.length, (?:live\.)?slides\[i\]\?\.title\)/);   // (the line is slide-say.js's, written by announce() once the slide is on screen)
   assert.match(pz, /'data-empty': '', 'aria-hidden': 'true' \}\);/);
   assert.match(fk, /el\.dataset\.empty = ''; el\.setAttribute\('aria-hidden', 'true'\);/);
   assert.match(fk, /delete el\.dataset\.empty; el\.removeAttribute\('aria-hidden'\);/);
 });
 
 test('item 37: fitCards reads the tiles and scale-bar numbers in one layout, then writes, and probes --pz-sm once per look', () => {
-  const pz = read('../src/ui/presenter.js');
+  const pz = unsnap(presenterSource());
   const fc = pz.slice(pz.indexOf('function fitCards(...els)'), pz.indexOf('fitHeads(el);', pz.indexOf('function fitCards(...els)')));
   // Short tile names: every class taken off, then every room read, then the short ones set.
   assert.match(fc, /for \(const k of names\) k\.classList\.remove\('short'\);\s+(?:\/\/ alloc-rare[^\n]*\s+)*const shorts = names\.filter/);

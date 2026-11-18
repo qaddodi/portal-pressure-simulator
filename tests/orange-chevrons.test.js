@@ -31,13 +31,13 @@ test('teal, wine, red, yellow, blue and grey vessels keep their chevrons', () =>
 });
 
 test('the cream head and deep rim are by the eased reversed flag and the vessel colour, not a switch', () => {
-  const inks = GL.slice(GL.indexOf('void chevInks('), GL.indexOf('const ZOOM_VS'));
+  const inks = GL.slice(GL.indexOf('void chevInks('), GL.indexOf('\n}\n', GL.indexOf('void chevInks(')));
   assert.match(inks, /float warm = rk \* chevOrange\(vc\);/);
   assert.match(inks, /core = mix\(mix\(mix\(ink, chevLight, dark\), revCol, rk\), chevLight, warm\);/);
   assert.match(inks, /rim = mix\(inkLight, vc \* 0\.45, max\(dark, warm\)\);/);
   // (The composite and the quads take their inks from the one function.)
   assert.match(GL, /chevInks\(vc1, f1\.w, hCore, hRim\);\n\s+col = mix\(col, hRim, c\.y/);
-  assert.match(GL, /col = mix\(col, hCore, c\.x \* vis \* flowA \* blendA\.y\);/);
+  assert.match(GL, /col = mix\(col, hCore, c\.x \* vis \* flowA \* blendA\.x\);/);
   assert.match(readFileSync(new URL('../src/ui/blood-heads.js', import.meta.url), 'utf8'), /chevInks\(vc, f1\.w, hInk, hRim\);/);
   assert.match(GL, /UC\.f3a\(U\.chevLight, /);
   assert.match(UTIL, /chevLight: cssRGB01\('--blood-chevron-light'\)/);
@@ -46,7 +46,7 @@ test('the cream head and deep rim are by the eased reversed flag and the vessel 
 });
 
 test('B1: a head flips to near-white with a dark rim on a dark lumen, over a small band of its lightness', () => {
-  const inks = GL.slice(GL.indexOf('void chevInks('), GL.indexOf('const ZOOM_VS'));
+  const inks = GL.slice(GL.indexOf('void chevInks('), GL.indexOf('\n}\n', GL.indexOf('void chevInks(')));
   const band = inks.match(/float dark = 1\.0 - smoothstep\(([\d.]+), ([\d.]+), dot\(vc, vec3\(0\.299, 0\.587, 0\.114\)\)\);/);
   assert.ok(band, 'the flip is by the vessel colour\'s luma');
   const [lo, hi] = [+band[1], +band[2]];
@@ -66,8 +66,8 @@ test('B2: a reversed head carries a smaller » pair behind it, and the origin le
   assert.match(CH, /c = max\(c, rev \* /);
   assert.match(GL, /chevHead\(u, ay, hw, pxW, f1\.w\) \* fade/);
   assert.match(readFileSync(new URL('../src/ui/blood-heads.js', import.meta.url), 'utf8'), /hS\.x, pxW, hS\.w\)/);
-  const inks = GL.slice(GL.indexOf('void chevInks('), GL.indexOf('const ZOOM_VS'));
-  assert.match(inks, /float rk = origin == 1 \? rv \* \(1\.0 - blendA\.z\) : rv;/);
+  const inks = GL.slice(GL.indexOf('void chevInks('), GL.indexOf('\n}\n', GL.indexOf('void chevInks(')));
+  assert.match(inks, /float rk = origin == 1 \? rv \* \(1\.0 - blendA\.y\) : rv;/);
 });
 
 test('B3: the blood\'s reversed orange is the look\'s own, read again after a look change', () => {

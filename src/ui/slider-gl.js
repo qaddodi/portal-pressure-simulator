@@ -102,6 +102,16 @@ function make(S) {
   LIVE.add(S);
   S.w.paint();
 }
+/** The pictures of the sliders under `root` made and drawn now, between frames: a card built to be opened (card.js prepBegin) does not wait for the box to be seen near the screen, then for its size to be
+ *  reported, then for a paint (three frames and the observers' turns: "the card waits half a second", the tester, 18 Nov 2026). The page's own look gives way as each is drawn (.wgl-on). */
+export function warmSliders(root) {
+  for (const input of root.querySelectorAll('input[type="range"]')) {
+    const S = byInput.get(input);
+    if (!S || S.dead) continue;
+    if (!S.w) make(S);
+    if (S.w && !S.w.live) { S.w.prime(); S.w.paint(); }
+  }
+}
 function drop(S) {
   cancelFrame(S.raf); S.raf = 0;
   S.w?.dispose(); S.w = null;

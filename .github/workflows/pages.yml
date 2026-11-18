@@ -2,9 +2,14 @@ name: Pages (live site + preview)
 
 # Publishes two production builds (npm run build) to GitHub Pages:
 #   /          the tip of main (the live site)
-#   /preview/  the commit that triggered the run (the preview branch, or main after a merge)
-# On main, lint and unit tests (validate) still run and report, but a red result no longer blocks the deploy (7 Nov, Mohammad); the build is strict (BUILD_STRICT: a chunk over the size limit fails it).
-# On the preview branch the deploy starts at once and an oversized chunk only warns; lint and unit tests run beside it in quick.yml.
+#   /preview/  the preview branch's head. A push to it deploys that commit. A main run (slow: it waits for lint and the unit tests) deploys the branch's head too while the
+#              branch has commits main does not, so a main deploy that lands after a newer branch deploy never puts an older build over it (Mohammad, 13 Nov 2026: "Keep preview
+#              on the branch head"); once the branch is merged, /preview/ is main, badged "PREVIEW · main <commit>".
+# On main the deploy waits for the GATE: the strict build (BUILD_STRICT: a chunk over the size limit, the first-load ceilings) and the smoke
+# (scripts/smoke-lite.mjs on that build: boots, the three views, slide 1 of every deck) must both pass, so a build that does not start never goes live
+# (PROD-1/PROD-2, 15 Nov 2026). Lint and unit tests (validate) still run and report, but a red result does not block the deploy (7 Nov, Mohammad).
+# tests/deploy-gate.test.js fails if a deploy job can ever run on main without the gate's success.
+# On the preview branch the deploy starts at once and an oversized chunk only warns; lint and unit tests run beside it in quick.yml (the gate is main's only).
 # On the preview branch a new push cancels every older run of this workflow, waiting or running: only the newest commit deploys.
 # On main nothing is cancelled. Browser checks are not part of the deploy.
 # Every deploy also force-pushes the built site as ONE fresh commit (no history) to the gh-pages branch. While Settings > Pages > Source is "GitHub Actions" the
@@ -38,13 +43,36 @@ jobs:
       lint: true
       static: false
 
+  # Gates main's deploy: the strict build and the smoke on it, in one job (a failed build never reaches the smoke, and a smoke that does not pass
+  # keeps main's build off the live site). About 10 to 15 minutes. It builds exactly what the deploy builds (the same commit, BUILD_STRICT).
+  gate:
+    if: github.ref_name == 'main'
+    name: Gate (strict build, smoke)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    concurrency:
+      group: gate-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+      - uses: ./.github/actions/setup-browser
+      - name: Strict build
+        env:
+          BUILD_STRICT: '1'
+        run: npm run build
+      - name: Smoke (boot, views, every deck opens)
+        run: npm run smoke:lite -- dist
+
   deploy:
-    needs: validate
-    # On main validate may be red (it reports, it does not gate); on the preview branch it is skipped and the deploy goes at once.
+    needs: [validate, gate]
+    # On main the gate must have passed (success, nothing less); validate may be red (it reports, it does not gate).
+    # On the preview branch both are skipped and the deploy goes at once. Any other ref deploys nothing.
     if: >-
       !cancelled() &&
-      ((github.ref_name == 'main' && (needs.validate.result == 'success' || needs.validate.result == 'failure')) ||
-       (github.ref_name == 'claude/settings-topbar-icon-flvft1' && needs.validate.result == 'skipped'))
+      ((github.ref_name == 'main' && needs.gate.result == 'success' && (needs.validate.result == 'success' || needs.validate.result == 'failure')) ||
+       (github.ref_name == 'claude/settings-topbar-icon-flvft1' && needs.validate.result == 'skipped' && needs.gate.result == 'skipped'))
     runs-on: ubuntu-24.04
     concurrency:
       group: pages
@@ -56,13 +84,32 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url || steps.deployment-retry.outputs.page_url }}
     steps:
+      # What /preview/ is built from: the commit that triggered the run, except on main, where it is the preview branch's head if that has commits main does not.
+      # If the API cannot say, main's own commit (the earlier behaviour).
+      - name: Preview source
+        id: pv
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+          PREVIEW_BRANCH: claude/settings-topbar-icon-flvft1
+        run: |
+          pv_branch="$BRANCH"; pv_sha="$SHA"
+          if [ "$BRANCH" = 'main' ]; then
+            ahead=$(gh api "repos/${GITHUB_REPOSITORY}/compare/main...${PREVIEW_BRANCH}" -q .ahead_by 2>/dev/null || echo 0)
+            head=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${PREVIEW_BRANCH}" -q .sha 2>/dev/null || echo '')
+            if [ "${ahead:-0}" -gt 0 ] && [ -n "$head" ]; then pv_branch="$PREVIEW_BRANCH"; pv_sha="$head"; fi
+          fi
+          echo "branch=$pv_branch" >> "$GITHUB_OUTPUT"
+          echo "sha=$pv_sha" >> "$GITHUB_OUTPUT"
+          echo "Preview built from $pv_branch @ $pv_sha"
       - uses: actions/checkout@v5
         with:
           ref: main
           path: live
       - uses: actions/checkout@v5
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ steps.pv.outputs.sha }}
           path: preview
 
       # Main's build is kept per main commit, so a preview deploy rebuilds only the preview.
@@ -89,17 +136,18 @@ jobs:
       - name: Build
         env:
           LIVE_KEPT: ${{ steps.live-dist.outputs.cache-hit }}
-          STRICT: ${{ github.ref_name == 'main' && '1' || '' }}
+          STRICT: ${{ steps.pv.outputs.branch == 'main' && '1' || '' }}
+          LIVE_STRICT: ${{ github.ref_name == 'main' && '1' || '' }}   # (a main run's own build is strict, whatever /preview/ is built from)
         run: |
           ready() { grep -q 'pages-build' "$1/scripts/build.mjs" 2>/dev/null; }
           build() { (cd "$1" && npm ci --no-audit --no-fund && npm run build); }
-          if [ "$LIVE_KEPT" != 'true' ] && ready live; then build live; fi
+          if [ "$LIVE_KEPT" != 'true' ] && ready live; then BUILD_STRICT="$LIVE_STRICT" build live; fi
           if ready preview; then BUILD_STRICT="$STRICT" build preview; fi
 
       - name: Assemble the site
         env:
-          BRANCH: ${{ github.ref_name }}
-          SHA: ${{ github.sha }}
+          BRANCH: ${{ steps.pv.outputs.branch }}
+          SHA: ${{ steps.pv.outputs.sha }}
         run: |
           copy() { if [ -f "$1/dist/index.html" ]; then rsync -a "$1/dist/" "$2/"; else rsync -a --exclude .git --exclude .github --exclude node_modules "$1/" "$2/"; fi; }
           mkdir site
@@ -114,8 +162,10 @@ jobs:
           if [ "$BRANCH" = "main" ]; then LABEL="main $LABEL"; fi
           node preview/scripts/preview-badge.mjs site/preview "$LABEL"
           # One small page per case under c/, so shared links preview with the case title (scripts/share-pages.mjs).
-          if [ -f live/scripts/share-pages.mjs ]; then node live/scripts/share-pages.mjs site; fi
-          if [ -f preview/scripts/share-pages.mjs ]; then node preview/scripts/share-pages.mjs site/preview; fi
+          # (The public address goes in too, for the pictures' absolute URLs.)
+          SITE="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}"
+          if [ -f live/scripts/share-pages.mjs ]; then node live/scripts/share-pages.mjs site "$SITE"; fi
+          if [ -f preview/scripts/share-pages.mjs ]; then node preview/scripts/share-pages.mjs site/preview "$SITE/preview"; fi
           touch site/.nojekyll
 
       # The same site, as one orphan commit on gh-pages, replaced every time (a force push), so nothing piles up. It never fails the deploy.

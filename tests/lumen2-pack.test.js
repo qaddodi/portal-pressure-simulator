@@ -16,8 +16,8 @@ test('the shaders write and read the packed second lumen, and the share beside t
   assert.match(src, /float s2 = float\(g2\.y >> 2u\) \/ 4\.0 - S_OFF, y2 = \(float\(\(\(g2\.x >> \$\{ROW2_BITS\}u\) << 2u\) \| \(g2\.y & 3u\)\) \+ 0\.5\) \/ 64\.0 - 1\.0;/);
   assert.match(src, /float vis = g\.x > 0u \? clamp\(float\(g\.w >> 8u\) \/ 255\.0 \/ max\(v\.a, 1e-3\), 0\.0, 1\.0\) : 0\.0;/);
   // (Every place the layer's targets are made takes the same formats.)
-  assert.equal((src.match(/const fmt = layerFmt\(\);/g) || []).length, 2);
-  assert.match(src, /gl\.texImage2D\(gl\.TEXTURE_2D, 0, gl\.RG16UI, fboW, fboH, 0, gl\.RG_INTEGER, gl\.UNSIGNED_SHORT, null\);/);
+  assert.equal((src.match(/const fmt = layerFmt\(\);/g) || []).length, 1);
+  assert.match(src, /gl\.texImage2D\(gl\.TEXTURE_2D, 0, gl\.RG16UI, g2Full \? fboW : 1, g2Full \? fboH : 1, 0, gl\.RG_INTEGER, gl\.UNSIGNED_SHORT, null\);/);
   assert.doesNotMatch(src, /\[gl\.RGBA16UI, gl\.RGBA_INTEGER, gl\.UNSIGNED_SHORT\], \[gl\.RGBA16UI/);
   assert.match(src, /if \(nTubes \+ 1 > ROW2_MASK\) \{/);
 });

@@ -53,9 +53,13 @@ const pools = [];
 // (P2, perf review 4 Nov 2026: the pool hands over its WHOLE buffer per chart, so a layer over a quarter of the screen, like the lobule's leaders once did,
 // slows every chart. It is noted once in pps.caught() and the ?perf paste, to find the next one.)
 let bigNoted = false;
+// (Never a picture that fits the screen's card floor (poolFloor): on a 390 px phone a card's chart is 1000 to 1200 px wide at three device px to the CSS px, over a quarter of that small screen,
+// and each was drawn in a buffer of its own size, the shared one cut back and grown again around it; the tester, 17 Nov 2026: 1 to 11 resizes after the first pick, svg-gl begin stalls 122 to 758 ms.)
 const bigLayer = (Wd, Hd) => {
   const px = typeof screen !== 'undefined' && screen.width > 0 ? screen.width * screen.height * (devicePixelRatio || 1) ** 2 : 0;
-  return px > 0 && Wd * Hd > px / 4;
+  if (!(px > 0 && Wd * Hd > px / 4)) return false;
+  const f = screenFloor();
+  return !(Wd <= f.w && Hd <= f.h);
 };
 // (Pictures handed over by who drew them, in the last second, with the size of the last one: the ?perf readout's charts line names the busiest. Cleared by the readout.)
 export const transfersBy = new Map();
@@ -63,6 +67,28 @@ export const sharedStats = { covRemade: 0, resizes: 0, transfers: 0, moves: 0, c
 const CAP_STEP = 256;
 const WASTE_PX = 2e6;   // (the most a hand-over moves beyond the chart's own buffer: past it, the chart takes a buffer of its own size)
 const SHRINK_MS = 1000;   // (the shared buffer is cut back to the largest chart drawn in the last one to two seconds)
+// (The least the shared buffer is, device px: every card-size picture draws in it without a resize. 17 Nov 2026, the tester, a lobule pick: 13 to 21 resizes in 6.5 s with pictures of 256, 512 and 768 px
+// stepping the buffer up and down, and each resize of the pool's canvas cost 55 to 435 ms here (a resize of an OffscreenCanvas with a context waits on the GPU), more as more cards held a picture of the size.
+// A pool that never goes under what a card's pictures need resizes only for a chart larger than that.)
+const MIN_BUF_W = 1024, MIN_BUF_H = 768;
+// (And it grows in steps of 512, not 256: a phone's card pictures are 1000 to 1300 device px wide at three pixels to the CSS px, and each 256 between made another resize; the tester, 390 px: 1 to 7 resizes after the first pick.)
+const POOL_STEP = 512;
+const poolCap = (n) => Math.ceil(Math.max(1, n) / POOL_STEP) * POOL_STEP;
+// (And the floor is the card pictures of THIS screen, not a fixed 1024 x 768: a card is as wide as the screen up to 620 css px and as tall as half of it up to 460, at the screen's own
+// pixel ratio. 17 Nov 2026, the tester, a 390 px phone (three device px to the CSS px, so a card's picture is 1170 px wide): the buffer still grew twice after the first pick, 9 resizes cold and
+// 2 warmed, and one frame waited 602 ms for the GPU. Read from the window, never from the pictures that happen to be drawn: a screen's floor is whole before its first chart.)
+export function poolFloor(innerW, innerH, dpr) {
+  if (!(innerW > 0) || !(innerH > 0)) return [MIN_BUF_W, MIN_BUF_H];
+  const k = Math.max(1, dpr || 1);
+  return [Math.max(MIN_BUF_W, poolCap(Math.min(innerW, 620) * k)), Math.max(MIN_BUF_H, poolCap(Math.min(innerH * 0.5, 460) * k))];
+}
+const floorNow = { w: MIN_BUF_W, h: MIN_BUF_H, key: '' };
+function screenFloor() {
+  const w = globalThis.innerWidth, h = globalThis.innerHeight, d = globalThis.devicePixelRatio;
+  const key = w + 'x' + h + '@' + d;   // alloc-rare: three reads and a short string a chart's frame, never a layout
+  if (key !== floorNow.key) { floorNow.key = key; [floorNow.w, floorNow.h] = poolFloor(w, h, d); }
+  return floorNow;
+}
 export const capOf = (n) => Math.ceil(Math.max(1, n) / CAP_STEP) * CAP_STEP;
 function makePool() {
   const pool = { dead: true, users: 0 };   // alloc-rare: a drawing pool (a GL context) is made once, a timer ahead of the first chart that needs it
@@ -86,11 +112,17 @@ const progList = (started) => {
 const NO_OPTS = Object.freeze({});   // (a stroke asked for with no options: nothing is made for it)
 const LS_TEXT = new Map();
 const lsText = (n) => LS_TEXT.get(n) ?? (LS_TEXT.size >= 400 && LS_TEXT.clear(), LS_TEXT.set(n, `${n}px`).get(n));   // alloc-rare: the text of a letter spacing is made the first time that spacing is set, then looked up
-function sharedGL() {
-  if (!pools.length) { const first = makePool(); pools.push(first); if (first.dead) return null; }
-  if (pools[0].dead) return null;
-  pools[0].users++;
-  return pools[0];
+// A layer the size of the screen (the lobule's leaders) has a pool of its own (17 Nov 2026, the tester, the lobule view at rest: the shared buffer resized every one to two seconds, 10 to 16 times in 6.5 s,
+// each dearer than the last, 285, 416, 599, 858 ms, every one in the first frame of a card's picture): the screen-size layer grew the one buffer and the small pictures between its frames cut it back,
+// a grow and a shrink in turn. A pool of its own keeps the small charts' buffer at card size and the layer's at the screen's, and neither resizes the other's. Where a second context cannot be made, the
+// layer takes the shared pool as before.)
+function sharedGL(big = false) {
+  if (!pools.length) { pools.push(makePool()); }
+  if (big && !pools[1]) pools[1] = makePool();
+  const p = big && pools[1] && !pools[1].dead ? pools[1] : pools[0];
+  if (p.dead) return null;
+  p.users++;
+  return p;
 }
 const startPool = (p) => (p.started ||= Object.fromEntries(Object.entries(SRC).map(([k, [vs, fs]]) => [k, startProgram(p.gl, vs, fs)])));   // alloc-rare: a pool's programs are started once
 // Paint (a colour or a linear gradient of up to sixteen stops: the profile's curve has a stop per station), shared by the fills and the strokes' laying down. Positions in CSS px.
@@ -372,7 +404,7 @@ const premulInto = (out, o, c, alpha = 1) => { const v = rgba(c), a = v[3] * alp
 
 /** The GPU drawer for one chart, over `host` (the chart's 2D canvas), or null where it cannot be (the 2D canvas draws the chart). */
 // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
-export function createTraceGL(host, { redraw = null, under = null, lose = null, keep = false, name = '' } = {}) {   // (keep: a widget's picture is never taken down by a frame the GPU could not draw: the last completed picture stays until the retry draws it again)
+export function createTraceGL(host, { redraw = null, under = null, lose = null, keep = false, name = '', big = false } = {}) {   // (keep: a widget's picture is never taken down by a frame the GPU could not draw: the last completed picture stays until the retry draws it again)
   // (canvasSize never measures: a chart drawn before the observer reported its box drew nothing, and draws again once it has one,
   // with or without this drawer)
   let unsized = null;   // (the size subscription's release, called by dispose)
@@ -385,7 +417,7 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
   canvas.className = 'trace-gl';
   canvas.style.pointerEvents = 'none';
   let gl = null, glCanvas = canvas, shown = null;
-  let shared = sharedGL();
+  let shared = sharedGL(big);   // (big: a layer the size of the screen, a pool of its own)
   if (shared) {
     try { shown = canvas.getContext('bitmaprenderer'); } catch { shown = null; }
     if (shown) { gl = shared.gl; glCanvas = shared.canvas; }
@@ -825,7 +857,7 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
     /** Starts a frame over a chart w × h CSS px, drawn at Wd × Hd device px. False: the GPU cannot draw now (the 2D canvas draws the chart). */
     begin(w, h, Wd, Hd) {
       if (!api.ready || w < 1 || h < 1) { api.hide(); return false; }
-      if (!bigNoted && bigLayer(Wd, Hd)) { bigNoted = true; caught('trace-gl:big-layer', new Error(`a chart layer of ${Wd} x ${Hd} device px went through the shared pool: every hand-over copies the whole buffer`)); }   // alloc-rare: once per page
+      if (!bigNoted && !big && bigLayer(Wd, Hd)) { bigNoted = true; caught('trace-gl:big-layer', new Error(`a chart layer of ${Wd} x ${Hd} device px (${name || host.parentElement?.className?.split?.(' ')[0] || '?'}) went through the shared pool: every hand-over copies the whole buffer`)); }   // alloc-rare: once per page
       if (shown) {
         // (Another chart's frame still open in the shared context is finished first: its picture handed over before this one starts.)
         if (shared.active && shared.active !== api) shared.active.end();
@@ -848,9 +880,14 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
         // than 2 MP beyond its own area draws in a buffer of its own size instead: a hand-over never moves megapixels it does not need. Charts
         // of card sizes keep sharing one steady buffer (U2), as their window is never that much larger than any of them.)
         const ownW = capOf(Wd), ownH = capOf(Hd);
-        let fitW = capOf(Math.max(shared.lastW, shared.winW, Wd)), fitH = capOf(Math.max(shared.lastH, shared.winH, Hd));
+        // (What the window asks for beyond the floor is what the waste rule weighs: the floor is the screen's card pictures, held whatever the chart in hand.)
+        const askW = poolCap(Math.max(shared.lastW, shared.winW, Wd)), askH = poolCap(Math.max(shared.lastH, shared.winH, Hd));
+        const floor = screenFloor();
+        let fitW = Math.max(floor.w, askW), fitH = Math.max(floor.h, askH);
         if (big) shared.bigAt = t;
-        if (big || fitW * fitH > ownW * ownH + WASTE_PX) { fitW = ownW; fitH = ownH; }
+        // (The floor's own area is never waste: it is held whatever is drawn in it, and a chart that fits it draws there, however small beside the window's biggest.)
+        const inFloor = askW <= floor.w && askH <= floor.h;
+        if (big || (!inFloor && askW * askH > ownW * ownH + WASTE_PX)) { fitW = ownW; fitH = ownH; }
         // (While a big layer draws frame after frame (a slide's Doppler card over a quarter of a small screen: its trace scrolls every frame),
         // a small chart between two of its frames draws in the buffer as it is, when it fits there and that costs at most WASTE_PX beyond its
         // own: cut back to the window's size and grown again for every small picture, the buffer was made again 14 times a second beside 34

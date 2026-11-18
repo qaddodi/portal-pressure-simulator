@@ -3,7 +3,8 @@
  "files": {
   "src/ui/stage*": 3,
   "src/ui/stage.js": 0,
-  "src/ui/lobule-zoom.js": 26,
+  "src/ui/lobule-zoom*": 22,
+  "src/ui/lobule-zoom.js": 15,
   "src/ui/main.js": 22
  }
 }

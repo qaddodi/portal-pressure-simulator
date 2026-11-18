@@ -4,9 +4,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss, presenterSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const src = read('../src/ui/presenter.js'), css = read('../styles/app.css');
+const src = presenterSource(), css = appCss();
 
 test('the ring is an outline in the accent a hair outside the circle, nothing animated, and the row starts a ring in so the card\'s clip never cuts it', () => {
   assert.match(css, /\n\.pz-proc\.at \.pz-step \{ outline: 1\.5px solid var\(--accent\); outline-offset: 1px; \}/);
@@ -16,41 +17,32 @@ test('the ring is an outline in the accent a hair outside the circle, nothing an
 });
 
 test('each mark belongs to its slide and shows on the live card and on a card built afresh', () => {
-  assert.match(src, /const procAtOf = \(i\) => \(procShownAt === i \? procShown : -1\), procRingOf = \(i\) => \(procRingAt === i \? procRing : -1\);/);
-  assert.match(src, /const cur = procAtOf\(want\), ring = procRingOf\(want\);/);
+  assert.match(src, /const procAtOf = \(i\) => \((?:live\.)?procShownAt === i \? (?:live\.)?procShown : -1\), procRingOf = \(i\) => \((?:live\.)?procRingAt === i \? (?:live\.)?procRing : -1\);/);
+  assert.match(src, /const cur = procAtOf\((?:live\.)?want\), ring = procRingOf\((?:live\.)?want\);/);
   assert.match(src, /b\.classList\.toggle\('at', k === ring\); if \(k === ring\) b\.setAttribute\('aria-current', 'step'\)/);
-  assert.match(src, /const steps = procSteps\(s\), cur = procAtOf\(i\), ring = procRingOf\(i\);/, 'a card rebuilt (a resize, a theme) keeps both');
+  assert.match(src, /const steps = (?:live\.)?procSteps\(s\), cur = procAtOf\(i\), ring = procRingOf\(i\);/, 'a card rebuilt (a resize, a theme) keeps both');
   assert.match(src, /class: `pz-proc\$\{k === cur \? ' on' : ''\}\$\{k < cur \? ' done' : ''\}\$\{k === ring \? ' at' : ''\}`/);
-  assert.doesNotMatch(src, /procRun && k === procShown/, 'neither depends on a run in flight: both stay on the last step once played through');
+  assert.doesNotMatch(src, /(?:live\.)?procRun && k === (?:live\.)?procShown/, 'neither depends on a run in flight: both stay on the last step once played through');
 });
 
 test('the fill follows the animation, the ring follows the taps', () => {
-  assert.match(src, /onStep: \(k\) => \{ if \(procRun === run\) \{ procShown = base \+ k; procShownAt = i; procPaint\(\); \} \}/, 'the fill: the step the catheter is on');
-  assert.match(src, /const procTarget = \(\) => \{ if \(!procHeld\(\)\) return; procRing = procRunBase \+ procRun\.at; procRingAt = want; procPaint\(\); \};/, 'the ring: the run\'s target step');
-  assert.match(src, /if \(procRun\) \{ const ok = procRun\.next\(\); if \(ok\) procTarget\(\); return ok \|\| procChain\(\); \}/, 'Next rings its step at once');
-  assert.match(src, /!procRun\.back\(\)\) return false; procTarget\(\); return true;/, 'Back moves the ring back at once');
-  assert.match(src, /if \(!park\) \{ procShown = base - 1; procShownAt = i; procRing = base; procRingAt = i; \}/, 'a run that starts rings its first step and fills none yet, never the step another slide ended on');
+  assert.match(src, /onStep: \(k\) => \{ if \((?:live\.)?procRun === run\) \{ (?:live\.)?procShown = (?:live\.)?base \+ k; (?:live\.)?procShownAt = i; procPaint\(\); \} \}/, 'the fill: the step the catheter is on');
+  assert.match(src, /const procTarget = \(\) => \{ if \(!procHeld\(\)\) return; (?:live\.)?procRing = (?:live\.)?procRunBase \+ (?:live\.)?procRun\.at; (?:live\.)?procRingAt = (?:live\.)?want; procPaint\(\); \};/, 'the ring: the run\'s target step');
+  assert.match(src, /const ring = \(\) => \{ (?:live\.)?procRing = plan\.to; (?:live\.)?procRingAt = (?:live\.)?want; procPaint\(\); \};/, 'Next rings its step at once, counted by the ring, not by the run');
+  assert.match(src, /!(?:live\.)?procRun\.back\(\)\) return false; procTarget\(\); return true;/, 'Back moves the ring back at once');
+  assert.match(src, /if \(!park\) \{ (?:live\.)?procShown = (?:live\.)?base - 1; (?:live\.)?procShownAt = i; (?:live\.)?procRing = (?:live\.)?procRingAt === i \? Math\.max\((?:live\.)?base, (?:live\.)?procRing\) : (?:live\.)?base; (?:live\.)?procRingAt = i; \}/, 'a run that starts rings the step the presses counted to (its first when none) and fills none yet, never the step another slide ended on');
 });
 
 test('Back to the start, a reading, a slide opened forward or back onto a played-through one, a stopped run: both marks agree with the slide', () => {
-  assert.match(src, /if \(rewound && mine\(\) && isThen\) \{ procThenAt = i; procShown = base - 1; procShownAt = i; procRing = base - 1; procRingAt = i; \}/);
-  assert.match(src, /procShown = -1; procShownAt = -1; procRing = -1; procRingAt = -1; procDoneAt = -1; \}/, 'Back past the first step marks none');
-  assert.match(src, /procShown = procRing = procDoneAt === to \? procSteps\(s\)\.length - 1 : -1; procShownAt = procRingAt = procDoneAt === to \? to : -1;/, 'Back onto a played-through slide marks its last step; forward marks none');
-  assert.match(src, /procRun = null; procShown = -1; procShownAt = -1; procRing = -1; procRingAt = -1; procPaint\(\);/, 'stopping a run at home clears both');
+  assert.match(src, /if \(rewound && mine\(\) && isThen\) \{ (?:live\.)?procThenAt = i; (?:live\.)?procShown = (?:live\.)?base - 1; (?:live\.)?procShownAt = i; (?:live\.)?procRing = (?:live\.)?base - 1; (?:live\.)?procRingAt = i; \}/);
+  assert.match(src, /(?:live\.)?procShown = -1; (?:live\.)?procShownAt = -1; (?:live\.)?procRing = -1; (?:live\.)?procRingAt = -1; (?:live\.)?procDoneAt = -1; \}/, 'Back past the first step marks none');
+  assert.match(src, /(?:live\.)?procShown = (?:live\.)?procRing = (?:live\.)?procDoneAt === to \? (?:live\.)?procSteps\(s\)\.length - 1 : -1; (?:live\.)?procShownAt = (?:live\.)?procRingAt = (?:live\.)?procDoneAt === to \? to : -1;/, 'Back onto a played-through slide marks its last step; forward marks none');
+  assert.match(src, /(?:live\.)?procRun = null; (?:live\.)?procShown = -1; (?:live\.)?procShownAt = -1; (?:live\.)?procRing = -1; (?:live\.)?procRingAt = -1; procPaint\(\);/, 'stopping a run at home clears both');
 });
 
-test('a Next on the last step of a run that plays out before its reading (the IVC, then the direct portal pressure) waits for it, rings the reading\'s first step and swallows another Next', () => {
+test('a Next on the IVC run\'s last step rings the reading\'s first step and rushes the run; nothing is swallowed', () => {
   const q = src.match(/const procQueue = \(\) => \{[\s\S]*?\n {2}\};/)[0];
-  assert.match(q, /if \(!procQueued\) \{ procQueued = true; queuePatience\.reset\(\); procRing = specOf\(procKind\(s\)\)\.steps\.length; procRingAt = want; procPaint\(\); \}\n\s+procRun\.rush\(\);[^\n]*\n\s+if \(queuePatience\.ok\(performance\.now\(\)\)\) return true;/, 'it rings the reading\'s first step and plays the IVC out at speed');
-  assert.doesNotMatch(q, /procQueued\) return false/, 'a second Next while it waits never leaves the slide');
-});
-
-test('(never stuck) every place procNext swallows a Next is bounded or checked: the figure\'s turn, the IVC reading\'s play-out, a run that could not start', () => {
-  assert.match(src, /if \(procWait\) return waitPatience\.ok\(performance\.now\(\)\);/);
-  assert.match(src, /procWait = true; waitPatience\.reset\(\); procPaint\(\);/);
-  assert.match(src, /\} finally \{ procWait = false; waitPatience\.reset\(\); \}/);
-  const q = src.match(/const procQueue = \(\) => \{[\s\S]*?\n {2}\};/)[0];
-  assert.match(q, /if \(queuePatience\.ok\(performance\.now\(\)\)\) return true;\n\s+procQueued = false; return false;/);
-  assert.match(src, /procPlay\(s, want, 0, k\);\n\s+if \(!procRun && !procWait\) \{ procThenAt = -1; procDoneAt = want; return false; \}/, 'the reading after a run: if it did not start, this Next moves on');
-  assert.match(src, /procPlay\(s, want, 0\);\n\s+if \(!procRun && !procWait\) return false;/, 'a procedure that did not start: this Next moves on');
+  assert.match(q, /if \(!(?:live\.)?procQueued\) \{ (?:live\.)?procQueued = true; (?:live\.)?procRing = specOf\(procKind\(s\)\)\.steps\.length; (?:live\.)?procRingAt = (?:live\.)?want; procPaint\(\); \}\n\s+(?:live\.)?procRun\.rush\(\);[^\n]*\n\s+return true;/);
+  assert.match(src, /if \(plan\.how === 'wait'\) \{ if \(plan\.queue\) (?:live\.)?procQueued = true; ring\(\); return true; \}/, 'a press while a run starts counts and rings');
+  assert.match(src, /procPlay\(s, (?:live\.)?want, plan\.at, kind\);\n\s+if \(!(?:live\.)?procRun && !(?:live\.)?procWait\) \{[^\n]*\n\s+(?:live\.)?procRing = ring0;/, 'a run that could not start: the ring goes back and this Next moves on');
 });

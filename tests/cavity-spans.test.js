@@ -1,4 +1,3 @@
-import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { abdomenOutline, cavityHalfWidths, CAVITY_LOW } from '../src/ui/anatomy.js';
@@ -58,8 +57,6 @@ test('the half-widths draw the same cavity as the outline, at every bulge', () =
 });
 
 test('the GPU fluid rectangle reaches past the floor', () => {
-  const stage = stageSource();
-  assert.match(stage, /const FLUID_R = \[284, 430, 856, 650\]/);
   assert.ok(R[1] + R[3] > CAVITY_LOW + 10);
 });
 

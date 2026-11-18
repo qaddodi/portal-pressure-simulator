@@ -29,9 +29,9 @@ export default [
   { file: 'styles/tokens.css', forbid: [/--endo-red-wale/, 'one token for the figure and the scope'] },
 
   // lobule-callout-leader-gap
-  { file: 'src/ui/lobule-zoom.js', need: [/const le = leaderEnd\(ink, a\[0\], a\[1\]\);/, 'lobule-zoom ends the pointer leader on the letters box grown by a gap'] },
-  { file: 'src/ui/lobule-zoom.js', need: [/setGeo\(callLine, 'x2', ex\); setGeo\(callLine, 'y2', ey\)/, 'lobule-zoom ends the pointer leader on the letters box grown by a gap'] },
-  { file: 'src/ui/lobule-zoom.js', forbid: [/setGeo\(callLine, 'x2', bx\)/, 'the leader no longer runs to the pill\'s middle'] },
+  { file: 'src/ui/lobule-zoom*', need: [/const le = leaderEnd\(ink, a\[0\], a\[1\]\);/, 'lobule-zoom ends the pointer leader on the letters box grown by a gap'] },
+  { file: 'src/ui/lobule-zoom*', need: [/setGeo\(callLine, 'x2', ex\); setGeo\(callLine, 'y2', ey\)/, 'lobule-zoom ends the pointer leader on the letters box grown by a gap'] },
+  { file: 'src/ui/lobule-zoom*', forbid: [/setGeo\(callLine, 'x2', bx\)/, 'the leader no longer runs to the pill\'s middle'] },
 
   // menu-preview-one-card
   { file: 'src/ui/menu.js', need: [/for \(let i = olds\.length - 1; i >= 0; i--\)/, 'every card of words still in the preview leaves the flow at once, not only the first'] },
@@ -41,9 +41,9 @@ export default [
   { file: 'src/ui/menu.js', need: [/if \(!fade\) next\.style\.animation = 'none';/, 'the first words do not fade in twice'] },
 
   // modal-veil
-  { file: 'styles/app.css', need: [/\n\.modal-back \{/, '.modal-back rule exists'] },
-  { file: 'styles/app.css', forbid: [new RegExp(first('.modal-back') + '[^}]*background'), '.modal-back paints no veil over the dialog\'s glass (the veil is the dialog\'s own outer shadow; a GPU frost is drawn under .modal-back)'] },
-  { file: 'styles/app.css', need: [new RegExp(first('.modal') + '[^}]*--modal-veil: 0 0 0 100vmax var\\(--scrim\\)'), 'the veil is the dialog\'s outer shadow'] },
-  { file: 'styles/app.css', need: [new RegExp(first('.modal') + '[^}]*box-shadow:[^;}]*var\\(--modal-veil\\)'), 'the dialog\'s box-shadow carries the veil'] },
-  { file: 'styles/app.css', need: [/:root:root \.modal\[data-gl\] \{ box-shadow: var\(--modal-veil\); \}/, 'the veil is kept when the GPU draws the glass'] },
+  { file: 'styles/app-*.css', need: [/\n\.modal-back \{/, '.modal-back rule exists'] },
+  { file: 'styles/app-*.css', forbid: [new RegExp(first('.modal-back') + '[^}]*background'), '.modal-back paints no veil over the dialog\'s glass (the veil is the dialog\'s own outer shadow; a GPU frost is drawn under .modal-back)'] },
+  { file: 'styles/app-*.css', need: [new RegExp(first('.modal') + '[^}]*--modal-veil: 0 0 0 100vmax var\\(--scrim\\)'), 'the veil is the dialog\'s outer shadow'] },
+  { file: 'styles/app-*.css', need: [new RegExp(first('.modal') + '[^}]*box-shadow:[^;}]*var\\(--modal-veil\\)'), 'the dialog\'s box-shadow carries the veil'] },
+  { file: 'styles/app-*.css', need: [/:root:root \.modal\[data-gl\] \{ box-shadow: var\(--modal-veil\); \}/, 'the veil is kept when the GPU draws the glass'] },
 ];

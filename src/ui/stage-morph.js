@@ -1,13 +1,17 @@
 // The change between the views on the GPU: the morph pieces, their binning ahead in a worker, and the frames of the change.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { cancelMay, inMotion, mayTask, mayWaiting } from './frame.js';
-import { sinceInput } from './quiet.js';
+import { cancelMay, settling, cameraMoving, mayTask, mayWaiting, settleGate } from './frame.js';
+import { cardMoveLeft } from './card-motion.js';
+import { sinceInput, handDown } from './quiet.js';
 import { lerp } from './util.js';
 import { newJoinStore } from './vein-joins.js';
 import { ENT_W } from './veins-bin.js';
+import { sweptRowBoxes } from './tube-cull.js';
+import { flatPath } from './veins-sweep.js';
+import { gpuProbe } from './gpu-probe.js';
 
 export function createMorph(st, live) {
-  const { BLOOD_PAD, EV, GL_ROWS, N_SAMPLES, cavaAsOne, cbAt, edgeVisible, geo, itemRadii, reachOf, strandAt, veinJoins, vesselAt, wrap } = st;
+  const { BLOOD_PAD, EV, GL_ROWS, N_SAMPLES, cavaAsOne, cbAt, edgeVisible, geo, itemRadii, reachOf, strandAt, veinJoins, veinJoinsStep: joinsStep, vesselAt, wrap } = st;
   // ── The change between the views on the GPU (2 Nov 2026, his iPhone: "going from anatomy to circuit is so laggy") ──
   // Each frame of the change had binned every vessel again on the CPU and sent the 4 MB list up. Now the change is cut into stretches
   // (MORPH_PIECES), and each stretch's binning, listing everything that can draw in a cell anywhere along it (veins-sweep.js), is made
@@ -110,25 +114,46 @@ export function createMorph(st, live) {
   // hold the contacts just past the limit of an end meeting a course (MORPH_NEAR) and a pair's every contact: a frame's courses are within the
   // slack of the stretch's, so a join at the limit is there in some frames and in no moment of the stretch, and which contact of a pair comes
   // first depends on the widths. Those a frame does not have are written as reaching nothing. (Made ahead, between frames, never in one.)
-  function joinsAhead(items, t) {
+  // (In two parts a caller may run in separate slices (18 Nov 2026, the Compare stop's longest unit: 'joins own' at 94.3 ms): the joins within the limit, then the contacts the
+  // pass meant and the run-on state they leave, which the vessels' smoothing reads at once, so these two stay together. Each scales the radii to the moment's widths on its own.)
+  // (`kept`: the job's scaled radii, made once on the first slice and set in again by each later one: every slice of a job copied every vessel's radii again (a map over
+  // each item's glR), a few hundred small arrays per call and 179 calls in a Compare stop's 'joins all (reach)', whose longest unit ran 102 ms, 18 Nov 2026.)
+  function atWidths(items, t, fn, kept = null) {
     // alloc-rare: made ahead of the change, in a task between frames (the stretches' build), never in a frame
     const gs = live.glStraight, gd = live.glRadDirty, gst = live.glStore, nLent = lendRadii(items), saved = [];
     try {
       for (const it of items) {
         const o = it.obj, k = widthRatio(it.x, t);
         saved.push(o, o.glR, o.glMaxR);
-        o.glR = o.glR.map((r) => r * k); o.glMaxR *= k;
+        let sc = kept?.get(it);
+        if (!sc) { sc = { r: o.glR.map((r) => r * k), m: o.glMaxR * k }; kept?.set(it, sc); }   // alloc-rare: once per item of a job
+        o.glR = sc.r; o.glMaxR = sc.m;
       }
-      try {
-        // (The joins within the limit are made last, so the run-on state left is theirs.)
-        const wide = veinJoins(items, newJoinStore(), MORPH_NEAR), st = newJoinStore(), J = veinJoins(items, st).slice(), have = J.slice();
-        for (const j of wide) if (!have.some((h) => h.key === j.key && (h.x - j.x) ** 2 + (h.y - j.y) ** 2 < 1600)) J.push(j);
-        return { J, smooth: live.smoothRunOn(items, st), reach: new Map(items.map((it) => [it.row, reachOf(it)])) };
-      } finally {
+      try { return fn(); } finally {
         for (let i = 0; i < saved.length; i += 3) { saved[i].glR = saved[i + 1]; saved[i].glMaxR = saved[i + 2]; }
       }
     } finally { live.glStraight = gs; live.glRadDirty = gd; live.glStore = gst; takeBackRadii(nLent); }
   }
+  // A moment's joins as a job run in units (18 Nov 2026, the Compare stop: 'joins own' 94.3 ms, 'joins all' 78 ms in one): the joins within the limit (veinJoinsStep, a vessel at a time until
+  // 3 ms are used), then the joins themselves the same way, then the smoothing, the reach and the merge in one. Each slice scales the radii to the moment's widths on its own (atWidths).
+  // The run-on state the smoothing reads is the pairs the joins left in their own store, set for it, so no other pass between the units can change it.
+  const stepJoins = joinsStep || ((items, store, margin) => { veinJoins(items, store, margin); return true; });
+  const joinsJob = (items, t) => ({ items, t, kept: new Map(), wide: { st: newJoinStore(), done: false }, main: { st: newJoinStore(), done: false }, res: null });
+  /** One unit of the job: 'reach', 'joins' or 'smooth' (the last leaves job.res = { J, smooth, reach }). */
+  function joinsJobStep(job) {
+    const { items, t, kept } = job;
+    if (!job.wide.done) { job.wide.done = atWidths(items, t, () => stepJoins(items, job.wide.st, MORPH_NEAR, performance.now() + 3), kept); return 'reach'; }
+    if (!job.main.done) { job.main.done = atWidths(items, t, () => stepJoins(items, job.main.st, 0, performance.now() + 3), kept); return 'joins'; }
+    job.res = atWidths(items, t, () => {
+      const st = job.main.st, J = st.out.slice(), have = J.slice();
+      for (const j of job.wide.st.out) if (!have.some((h) => h.key === j.key && (h.x - j.x) ** 2 + (h.y - j.y) ** 2 < 1600)) J.push(j);
+      live.glStraight = st.straight; live.glStore = st;
+      return { J, smooth: live.smoothRunOn(items, st), reach: new Map(items.map((it) => [it.row, reachOf(it)])) };
+    }, kept);
+    job.kept = null;   // (the scaled radii are not held on to once the job is done)
+    return 'smooth';
+  }
+  const JOB_KIND = { reach: ' (reach)', joins: '', smooth: ' (smooth)' };
   // A join by what it joins: its members, the trunk they end on, a fork.
   const joinKey = (j) => j.key;   // (a join the joins pass made carries its key)
   const rowKey = (items) => items.map((it) => it.row).join(',');
@@ -161,14 +186,16 @@ export function createMorph(st, live) {
   // The building is a may task (frame.js): a slice a frame at most, each under SLICE_MS, held for motion and input. The first check is
   // made in the frame after the first binning (the first picture), not 400 ms after it; later ones settle for 400 ms (a burst of
   // binnings is one check).
-  const TRACK_TAG = 'view-switch pieces', CHECK_TAG = 'view-switch check', COIL_TAG = 'view-switch coil check', SLICE_MS = 8, SETTLE_MS = 400, COIL_WAIT_MS = 3000;
+  const PREP_KIND = ['prepare 0 (points)', 'prepare 1 (joins)', 'prepare 2 (patches)', 'prepare 3 (webs)', 'prepare 4 (rows)'];
+  const TRACK_TAG = 'view-switch pieces', CHECK_TAG = 'view-switch check', COIL_TAG = 'view-switch coil check', SLICE_MS = 4, SETTLE_MS = 400, COIL_WAIT_MS = 3000;
+  const SHOWN_HOLD_MS = 3000, shownGate = settleGate(SHOWN_HOLD_MS);   // (the shown vessels changing all the while, a time-lapse: frame.js settleGate)
   function morphTrackSoon() {
     if (!MORPH_GPU || mayWaiting(CHECK_TAG)) return;
     mayTask(CHECK_TAG, morphTrackCheck, { notBefore: mt.parts || mt.firstAt ? performance.now() + SETTLE_MS : 0 });
   }
   function morphTrackCheck() {
     if (!live.veins || live.veins.lost || live.morph !== live.morphTarget || !wrap.classList.contains('gl-on') || live.lobuleOn) return;
-    if (inMotion() || live.rotU !== live.rotTarget) { morphTrackSoon(); return; }
+    if (settling() || live.rotU !== live.rotTarget) { morphTrackSoon(); return; }
     const owned = !mt.pieces || mt.pieces.every((pc) => !pc.set || pc.set.owner === live.veins);
     // (The first build waits for a coil that is easing at load (a second or so), at most COIL_WAIT_MS: the stretches made on the way
     // would be made again when it settles, and the worker, which is what the build waits on, is busy with them.)
@@ -179,12 +206,13 @@ export function createMorph(st, live) {
     }
     const parts = morphTrackParts();
     if (!mt.parts || !owned) { morphTrackStart(parts, !mt.parts ? 'first build' : 'figure replaced'); return; }
-    const d = partsDiff(mt.parts, parts);
+    const shownWait = shownGate(`${parts.anat}|${parts.circ}`, now), d = partsDiff(mt.parts, parts);   // (the gate told every shown set it is checked at)
     if (!d.length) return;
     // (Only the coil differs and it is still easing: wait for it to settle, the sets already made keep serving the frames that fit them.)
     if (d.length === 1 && d[0] === 'coil shape' && live.coilEasing) { morphTrackSoon(); return; }
     // (Only the coil differs, settled: the pieces are made again only if the new shape leaves the courses they were binned for (coilFits).)
     if (d.length === 1 && d[0] === 'coil shape') { coilCheckStart(parts); return; }
+    if (shownWait > 0 && (mt.parts.anat !== parts.anat || mt.parts.circ !== parts.circ)) { mayTask(CHECK_TAG, morphTrackCheck, { notBefore: now + shownWait }); return; }   // (checked again once they have held)
     morphTrackStart(parts, `${d.join(' + ')} changed`);
   }
   // ── A coil that settled at a shape close to the one the pieces were made for (10 Nov 2026) ──
@@ -228,7 +256,7 @@ export function createMorph(st, live) {
   function coilCheckStep() {
     const c = mt.coilCheck;
     if (!c || c.gen !== mt.gen || mt.parts?.coil === c.parts.coil) { if (mt.coilCheck === c) mt.coilCheck = null; return false; }
-    if (inMotion() || live.coilEasing || live.morph !== live.morphTarget) { mt.coilCheck = null; morphTrackSoon(); return false; }   // (asked again once it rests)
+    if (settling() || live.coilEasing || live.morph !== live.morphTarget) { mt.coilCheck = null; morphTrackSoon(); return false; }   // (asked again once it rests)
     if (!coilFits(mt.pieces?.[c.i], c.changed)) { mt.coilCheck = null; morphTrackStart(c.parts, 'coil shape changed'); return false; }
     if (++c.i < MORPH_PIECES.length) return true;
     // (Every piece still fits: the key takes the new coil, the pieces stay.)
@@ -278,9 +306,13 @@ export function createMorph(st, live) {
   // What a unit of the building costs (a moving mean, per kind), to fit several of them in one slice when they are small.
   const unitEst = {};
   const noteUnit = (kind, ms) => {
-    unitEst[kind] = unitEst[kind] == null ? ms : Math.max(unitEst[kind] * 0.8, ms);
-    const u = mt.stats.units[kind] || (mt.stats.units[kind] = { n: 0, ms: 0, max: 0 });   // alloc-rare: once per kind of unit
-    u.n++; u.ms += ms; if (ms > u.max) u.max = ms;
+    // ('prepare 2 (patches)': a prepare step by its own name in the readout, estimated as 'prepare' as ever: the Compare stop's readout showed 'prepare' as one 270 ms unit, 18 Nov 2026.)
+    const est = kind.startsWith('prepare') ? 'prepare' : kind;
+    unitEst[est] = unitEst[est] == null ? ms : Math.max(unitEst[est] * 0.8, ms);
+    for (const k of est === kind ? [kind] : [est, kind]) {   // (the steps' own names beside the whole's)
+      const u = mt.stats.units[k] || (mt.stats.units[k] = { n: 0, ms: 0, max: 0 });   // alloc-rare: once per kind of unit (and a prepare step)
+      u.n++; u.ms += ms; if (ms > u.max) u.max = ms;
+    }
   };
   // (What the next unit is expected to cost: an upload or a send as it has cost, else the most any of a stretch's own units has: which of
   // those comes next is not known, and the units of a stretch are small, so several are taken in one slice.)
@@ -310,7 +342,10 @@ export function createMorph(st, live) {
     // (Not while the figure moves at rest, for a while: a moment is a pass over every vessel. A move holds it for as long as the move
     // lasts, however long: beginMotion ends one itself after MOTION_MAX_MS. Only the person's own input is capped, at twelve looks. A
     // change between the views under way is built for, not held.)
-    if (live.morph === live.morphTarget && (inMotion() || (sinceInput() < 700 && bd.held < 12))) {
+    // (The anatomy's and the circuit's pieces are for a switch between those two views: not built while the lobule is opening or open, where one slice of them ran 679 ms inside its entrance, 17 Nov 2026.)
+    if (live.lobuleOn || live.diveWait || live.diveT > 0) { mayTask(TRACK_TAG, morphTrackStep, { notBefore: performance.now() + 250 }); return false; }
+    if (live.morph === live.morphTarget && (settling() || cameraMoving() || live.vtGliding || cardMoveLeft() > 0 || handDown() || (sinceInput() < 700 && bd.held < 12))) {   // (a drag in the hand holds it for as long as it lasts, 18 Nov 2026, the tester at 390 px: pieces ran 63 and 99 ms mid-way through a slider's drag, past twelve looks; and a slide change (beginChange) and the camera's glide: pieces ran 117 ms in a deck jump and 218 ms in a swipe, the same day)
+      // (a card coming or going holds it too: it is built for after, card-motion.js)
       bd.held++;
       mayTask(TRACK_TAG, morphTrackStep, { notBefore: performance.now() + 120 });
       return false;
@@ -340,10 +375,14 @@ export function createMorph(st, live) {
       // (A piece's geometry data and the Tube's stage 2 record (veins-gl.js prepareMorphSet), a unit of its own after its upload: in one
       // unit with it, an upload slice ran up to 237 ms on Mohammad's Mac, 10 Nov 2026. A frame that draws from a piece not yet prepared
       // has it prepared on the spot (useMorphSet).)
-      kind = 'prepare';
-      const i = bd.prep.shift(), pc = mt.pieces[i];
-      if (pc?.set) live.veins.prepareMorphSet?.(pc.set);
-      morphMade(bd, i);
+      // (In steps, each its own unit and so its own slice where it is long: his Mac's readout, 17 Nov 2026, "longest unit: prepare 98 ms", 63 slices over 8 ms.)
+      const i = bd.prep[0], pc = mt.pieces[i], step = bd.prepStep | 0;
+      kind = PREP_KIND[step] || 'prepare';
+      let more = false;
+      if (pc?.set) { const v = live.veins; more = v.prepareMorphStep ? v.prepareMorphStep(pc.set, step) : (v.prepareMorphSet?.(pc.set), false); }
+      if (more === 2) { /* the same step again: its next slice */ }
+      else if (more) bd.prepStep = step + 1;
+      else { bd.prep.shift(); bd.prepStep = 0; morphMade(bd, i); }
     } else if (bd.results.length) {
       kind = 'upload';
       const [i, pc, b] = bd.results.shift();
@@ -385,12 +424,20 @@ export function createMorph(st, live) {
     const snaps = pc.snaps ||= [];
     const t = ts[snaps.length];
     let w = pc.work, kind;
-    if (!w) { pc.work = { items: itemsAt(t, pc.anat), own: itemsAt(t, pc.anat, false), o: null, all: null, q: 1, J2: [] }; return 'items'; }
+    if (!w) { pc.work = { items: itemsAt(t, pc.anat), own: null, o: null, all: null, q: 1, J2: [] }; return 'items'; }
+    if (!w.own) { w.own = itemsAt(t, pc.anat, false); return 'items own'; }
     // (The joins of the side's own vessels too: a vessel binned for the other side changes the joins it takes part in.)
-    if (!w.o) { w.o = joinsAhead(w.own, t); return 'joins own'; }
-    if (!w.all) { w.all = joinsAhead(w.items, t); kind = 'joins all'; }
+    if (!w.o) { const oj = w.oj ||= joinsJob(w.own, t), ph = joinsJobStep(oj); if (oj.res) w.o = oj.res; return `joins own${JOB_KIND[ph]}`; }
+    if (!w.all) { const aj = w.aj ||= joinsJob(w.items, t), ph = joinsJobStep(aj); kind = `joins all${JOB_KIND[ph]}`; if (!aj.res) return kind; w.all = aj.res; }
     // (The joins at moments between too: one can be there for less than a step, as two ends pass each other.)
-    else if (snaps.length && w.q < MORPH_JSUB) { const u = lerp(snaps[snaps.length - 1].t, t, w.q / MORPH_JSUB); w.J2.push(...joinsAhead(itemsAt(u, pc.anat, false), u).J); w.q++; kind = 'joins between'; }
+    // (A moment between is two units, its vessels' courses and then their joins: together one ran 72.8 ms, 18 Nov 2026.)
+    else if (snaps.length && w.q < MORPH_JSUB) {
+      if (!w.mid) { const u = lerp(snaps[snaps.length - 1].t, t, w.q / MORPH_JSUB); w.mid = { u, items: itemsAt(u, pc.anat, false), job: null }; return 'items between'; }
+      const mj = w.mid.job ||= joinsJob(w.mid.items, w.mid.u), ph = joinsJobStep(mj);
+      kind = `joins between${JOB_KIND[ph]}`;
+      if (!mj.res) return kind;
+      w.J2.push(...mj.res.J); w.mid = null; w.q++;
+    }
     if (!(w.all && (!snaps.length || w.q >= MORPH_JSUB))) return kind;
     pc.work = null;
     const { items, own, o } = w;
@@ -407,11 +454,14 @@ export function createMorph(st, live) {
   }
   // A stretch's courses, joins and reach from its moments (snaps), and its binning made in the worker: the change between the views
   // (morphTrackBuild) and a coil or a varix's spread easing at rest (envCheck). `more`: reach a vessel had elsewhere, kept.
+  const sendWorst = { tot: 0, at: 0 };
   function sweepPiece(pc, snaps, more) {
+    const ts0 = gpuProbe.on ? performance.now() : 0;
     pc.reach = new Map(snaps[0].items.map((it) => [it.row, Math.ceil(Math.max(live.vBinReach.get(it.row) || 0, more?.get(it.row) || 0, ...snaps.map((sn) => sn.reach.get(it.row) || 0)) * 1.25 / 2) * 2]));
     // (A course as the side's own vessels smooth it where it is one of them: the vessels only the other side shows change which ends run on.)
     pc.path = new Map(snaps[0].items.map((it) => [it.row, snaps.map((sn) => sn.own.get(it.row) || sn.smooth.get(it.row) || sn.items.find((o) => o.row === it.row).pts)]));
     pc.pathRows = Array.from(pc.path.keys());   // (the rows of the stretch, listed once for the frames that draw from it)
+    const ts1 = gpuProbe.on ? performance.now() : 0;
     // (The joins come and go as the vessels' ends move (veinJoins finds them by where the ends lie): every join of any moment, each
     // binned along its centres at the moments it is there; a frame lists the ones it has, the rest written as reaching nothing.)
     // (Joins of the same vessels at two places, a strand's two ends on its varix, are told apart by where they lie.)
@@ -428,11 +478,21 @@ export function createMorph(st, live) {
     pc.jof = U.map((u) => u.j);
     pc.jpath = U.map((u) => u.path);
     pc.jreach = U.map((u) => u.reach * 1.5 + 6);
-    const tubes = snaps[0].items.map((it) => { const r = pc.reach.get(it.row); return { id: it.row, path: pc.path.get(it.row), reach: r, core: r - 18 + BLOOD_PAD }; });
+    const ts2 = gpuProbe.on ? performance.now() : 0;
+    // (Each vessel's moments sent as one typed array, not nested pairs: the clone of those ran 44.4 ms of the Compare stop's 'send' unit on the main thread. veins-sweep.js tubesFromFlat.)
+    const tubes = snaps[0].items.map((it) => { const r = pc.reach.get(it.row), path = pc.path.get(it.row); return { id: it.row, flat: flatPath(path), np: path.length, n: path[0].length, reach: r, core: r - 18 + BLOOD_PAD }; });
     const joins = U.map(({ j }, ji) => ({ path: pc.jpath[ji], reach: pc.jreach[ji] + MORPH_JSLACK - MORPH_SLACK, k: j.k, fillet: j.fillet, members: j.members, trunk: j.trunk, fork: j.fork }));
-    return live.sweepBin({ tubes, joins, opts: { rows: GL_ROWS, samples: N_SAMPLES, slack: MORPH_SLACK, tight: !!pc.tight } });
+    const ts3 = gpuProbe.on ? performance.now() : 0;
+    const sent = live.sweepBin({ tubes, joins, opts: { rows: GL_ROWS, samples: N_SAMPLES, slack: MORPH_SLACK, tight: !!pc.tight } });
+    if (gpuProbe.on) {   // (18 Nov 2026, the Compare stop: 'send' 96 ms in 7 runs: the worst of the last 20 s, by its four parts)
+      const t4 = performance.now(), tot = t4 - ts0;
+      if (tot >= sendWorst.tot || t4 - sendWorst.at > 20000) { sendWorst.tot = tot; sendWorst.at = t4; gpuProbe.gauge('view switch send: worst', `${tot.toFixed(1)} ms = courses ${(ts1 - ts0).toFixed(1)}, joins ${(ts2 - ts1).toFixed(1)}, arrays ${(ts3 - ts2).toFixed(1)}, post ${(t4 - ts3).toFixed(1)} (${tubes.length} vessels, ${joins.length} joins)`); }
+    }
+    return sent;
   }
   function setOf(pc, b) {
+    // (R1b-13, 15 Nov 2026: the Tube leaves out the rows whose box lies outside its layer, in the change between the views too: each row's box over every moment of the stretch, grown by the slack.)
+    b.rowBox = pc.path ? sweptRowBoxes(pc.path, MORPH_SLACK, GL_ROWS, null) : null;
     pc.set = live.veins.makeMorphSet(b);
     pc.frame = new Float32Array((b.rows - b.entRows) * ENT_W * 4);
     pc.posBase = b.posBase - b.entRows * ENT_W; pc.joinBase = b.joinBase - b.entRows * ENT_W;

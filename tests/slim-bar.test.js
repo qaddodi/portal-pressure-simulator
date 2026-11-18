@@ -4,6 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const read = (f) => readFileSync(new URL(f, import.meta.url), 'utf8');
 
@@ -22,14 +23,14 @@ test('tapping the bar\'s HVPG or PPG does nothing: a plain div, no click handler
   assert.match(read('../src/ui/tile-el.js'), /h\(inert \? 'div' : 'button'/);
   assert.match(dock, /tileEl\(t, \{ inert, /);
   assert.match(dock, /if \(inert\) \{ \/\* readout only \*\/ \}\n\s+else if \(t\.pane\)/);
-  const css = read('../styles/app.css');
+  const css = appCss();
   assert.match(css, /\.metric\.inert \{ cursor: default; \}/);
   assert.match(css, /\.metric\.inert \{ --hv-bg: transparent; \} \.metric\.inert:hover::before \{ opacity: 1 \}/, 'its hover layer is clear');
 });
 
 test('no pill (event, narrator, bleed or passing note) floats above the timeline (History keeps the events)', () => {
   const js = read('../src/ui/timeline.js') + read('../src/ui/main.js') + read('../src/ui/util.js');
-  const css = read('../styles/app.css'), html = read('../index.html');
+  const css = appCss(), html = read('../index.html');
   for (const name of ['tl-latest', 'narrator', 'nr-why', 'tl-ld', 'pps:event', 'bleed-pill', 'bleedPill', 'bp-dot', 'vd-note', 'vd-status', 'vdStatus', 'inlineNote']) {
     assert.ok(!js.includes(name), `a script still uses ${name}`);
     assert.ok(!css.includes(name), `app.css still styles ${name}`);
@@ -40,7 +41,7 @@ test('no pill (event, narrator, bleed or passing note) floats above the timeline
 });
 
 test('from a tablet up the dock is a fixed, centred width (no shifting as the clock runs)', () => {
-  const css = read('../styles/app.css');
+  const css = appCss();
   const slim = css.slice(css.indexOf('The slim bottom bar'));
   assert.match(slim, /\.vdock:not\(\.mini\) \{ width: min\(calc\(100% - 2 \* var\(--gap\)\), 640px\)/);
   assert.match(slim, /\.metric\.primary \{ flex: 0 0 128px; width: 128px; \}/);
@@ -49,6 +50,6 @@ test('from a tablet up the dock is a fixed, centred width (no shifting as the cl
 // A selector list whose last rule was deleted ends in a comma and swallows the next rule (it once gave the
 // clock and the HVPG/PPG tiles a box), so no comma may be followed by a blank line or a comment.
 test('app.css has no selector list left dangling by a deleted rule', () => {
-  const css = read('../styles/app.css');
+  const css = appCss();
   for (const m of css.matchAll(/,[ \t]*\n[ \t]*(\n|\/\*)/g)) assert.fail(`a selector list ends in a comma at line ${css.slice(0, m.index).split('\n').length}`);
 });

@@ -5,12 +5,13 @@ import { unsnap } from './unsnap.js';
 import { zoomPlan, zoomMargin, unionBox, emptyTap, tapTracker, createCardZoom, ZOOM_MAX, ZOOM_MIN, ZOOM_MS, STACK_ROOM } from '../src/ui/card-zoom.js';
 import { EASE_ARRIVE, easeArrive } from '../src/ui/ease.js';
 import { zoomRide } from '../src/ui/scene-cam.js';
+import { appCss, presenterSource } from './split-src.js';
 
 // The data card zoomed to the middle of the screen (Mohammad, 28 Oct): "can we add a feature on large screens and ipad landscape for data card
 // instrument card to display it bigger when clicking on it directly; however it shouldn't like make the text smaller. the camera should like zoom
 // on the card to display it centered large in middle of the screen". Code only: the controller is run against stand-in elements.
 const read = (p) => unsnap(readFileSync(new URL(p, import.meta.url), 'utf8'));
-const zoomSrc = read('../src/ui/card-zoom.js'), js = read('../src/ui/presenter.js'), css = read('../styles/app.css');
+const zoomSrc = read('../src/ui/card-zoom.js'), js = unsnap(presenterSource()), css = appCss();
 
 test('the card grows to the screen\'s room and goes to its middle, never past the most, and not at all when it is large already', () => {
   const area = { left: 0, top: 0, width: 1440, height: 900 };
@@ -213,25 +214,25 @@ test('zoom: reset and a card that is large already', () => {
 
 test('the presenter lays nothing out while the card is up, and puts it back before a slide, a resize, Esc or the end of the talk', () => {
   // (Held: the card's watchers, its layout and its refits wait; one pass runs once it is back.)
-  assert.match(js, /const cardMoving = \(\) => !!ui && \(ui\.data\.classList\.contains\('pz-sliding'\) \|\| 'folding' in ui\.data\.dataset \|\| zoomHeld\(\) \|\| throwCards\(\)\.some\(\(el\) => el && throwing\(el\)\)\);/);
-  assert.match(js, /const zoomHeld = \(\) => \{ if \(!ui\?\.zoom\.on\) return false; if \(!zoomMissed\) zoomWas = zoomKey\(\); zoomMissed = true; return true; \};/);
-  assert.match(js, /function layout\(\) \{\n {4}if \(!ui\) return;\n {4}if \(zoomHeld\(\)\) return;/);
+  assert.match(js, /const (?:live\.)?cardMoving = \(\) => !!(?:live\.)?ui && \((?:live\.)?ui\.data\.classList\.contains\('pz-sliding'\) \|\| 'folding' in (?:live\.)?ui\.data\.dataset \|\| zoomHeld\(\) \|\| throwCards\(\)\.some\(\(el\) => el && throwing\(el\)\)\);/);
+  assert.match(js, /const zoomHeld = \(\) => \{ if \(!(?:live\.)?ui\?\.zoom\.on\) return false; if \(!(?:live\.)?zoomMissed\) zoomWas = zoomKey\(\); (?:live\.)?zoomMissed = true; return true; \};/);
+  assert.match(js, /function layout\(\) \{\n {4}if \(!(?:live\.)?ui\) return;\n {4}if \(zoomHeld\(\)\) return;/);
   assert.match(js, /const reFit = \(\) => \{ if \(zoomHeld\(\)\) return; fitted\.forEach\(fitNow\); \};/);
-  assert.match(js, /const zoomSettled = \(\) => restPass\(\(\) => \{ if \(!ui \|\| !zoomMissed \|\| ui\.zoom\.on\) return; zoomMissed = false; if \(zoomKey\(\) === zoomWas && fitDone\.get\(ui\.data\) === fitSig\(ui\.data\)\) return; fitDone\.delete\(ui\.data\); onResize\(\); \}\);/);
+  assert.match(js, /const zoomSettled = \(\) => restPass\(\(\) => \{ if \(!(?:live\.)?ui \|\| !(?:live\.)?zoomMissed \|\| (?:live\.)?ui\.zoom\.on\) return; (?:live\.)?zoomMissed = false; if \(zoomKey\(\) === zoomWas && (?:live\.)?fitDone\.get\((?:live\.)?ui\.data\) === fitSig\((?:live\.)?ui\.data\)\) return; (?:live\.)?fitDone\.delete\((?:live\.)?ui\.data\); (?:live\.)?onResize\(\); \}\);/);
   // (A slide: the card glides back, and only then does the slide run.)
-  assert.match(js, /if \(zoomOn\(\)\) \{ (?:const d0 = deck(?:, t0 = txn)?; )?ui\.zoom\.close\(\)\.then\(\(\) => \{ (?:if \(deck !== d0[^}]*?return; )?paintZoom\(\); zoomMissed = false; if \(deck && !busy\) run\(\); \}\); return; \}[^\n]*\n {4}if \(!busy\) run\(\);/);
+  assert.match(js, /if \((?:live\.)?zoomOn\(\)\) \{ (?:const d0 = (?:live\.)?deck(?:, t0 = (?:live\.)?txn)?; )?(?:live\.)?ui\.zoom\.close\(\)\.then\(\(\) => \{ (?:if \((?:live\.)?deck !== d0[^}]*?return; )?(?:live\.)?paintZoom\(\); (?:live\.)?zoomMissed = false; if \((?:live\.)?deck && !(?:live\.)?busy\) run\(\); \}\); return; \}[^\n]*\n {4}if \(!(?:live\.)?busy\) run\(\);/);
   // (Any move that did not come by go, a slide asked for while a time-lapse plays, a new text size: the card glides back first, it never snaps.)
-  assert.match(js, /async function transition\(to\) \{\n(?: {4}\/\/[^\n]*\n)+(?: {4}const deck0[^\n]*\n)? {4}if \(zoomOn\(\)\) \{ await ui\.zoom\.close\(\); (?:if \(deck !== deck0[^;]*; )?paintZoom\(\); zoomMissed = false; if \(!deck \|\| !ui\) return; \}/);
+  assert.match(js, /async function transition\(to\) \{\n(?: {4}\/\/[^\n]*\n)+(?: {4}const deck0[^\n]*\n)? {4}if \((?:live\.)?zoomOn\(\)\) \{ await (?:live\.)?ui\.zoom\.close\(\); (?:if \((?:live\.)?deck !== deck0[^;]*; )?(?:live\.)?paintZoom\(\); (?:live\.)?zoomMissed = false; if \(!(?:live\.)?deck \|\| !(?:live\.)?ui\) return; \}/);
   // (Esc first glides the card back; the talk ends on the next one.)
-  assert.match(js, /else if \(k === 'Escape'\) \{ if \(black\) toggleBlack\(false\); else if \(zoomOn\(\)\) ui\.zoom\.close\(\)\.then\(paintZoom\); else stop\(\); \}/);
-  assert.match(js, /if \(e\?\.type === 'resize' && zoomOn\(\)\) \{ ui\.zoom\.reset\(\); paintZoom\(\); \}/);
-  assert.match(js, /pillW = 0; ui\?\.zoom\.reset\(\); ui\?\.tools\.dispose\(\);/);
+  assert.match(js, /else if \(k === 'Escape'\) \{ if \((?:live\.)?black\) toggleBlack\(false\); else if \((?:live\.)?zoomOn\(\)\) (?:live\.)?ui\.zoom\.close\(\)\.then\((?:live\.)?paintZoom\); else stop\(\); \}/);
+  assert.match(js, /if \(e\?\.type === 'resize' && (?:live\.)?zoomOn\(\)\) \{ (?:live\.)?ui\.zoom\.reset\(\); (?:live\.)?paintZoom\(\); \}/);
+  assert.match(js, /(?:live\.)?pillW = 0; (?:live\.)?ui\?\.zoom\.reset\(\); (?:live\.)?ui\?\.tools\.dispose\(\);/);
   // (The readings come out and tuck away under it once its glide in has ended, and not on its way in or back: the handle, a pull, the wheel, the
   // arrow keys, a swipe anywhere; the zoom is fitted to the stack as they go, zoomFollow.)
-  assert.match(js, /const setFold = \(open\) => \{\n {6}if \(zoomOn\(\) && !zoomFolds\(\)\) return;/);
-  assert.match(js, /dock\.lvl > 0 \|\| btn\.contains\(e\.target\) \|\| \(zoomOn\(\) && !zoomFolds\(\)\)\) return;/);
-  assert.match(js, /if \(!deck \|\| !d \|\| \(zoomOn\(\) && !zoomFolds\(\)\) \|\| e\.touches\.length !== 1/);
-  assert.match(js, /if \(zoomOn\(\)\) \{ if \(zoomFolds\(\) && wideSheet\(data\)\) setFold\(!data\.classList\.contains\('tool-open'\)\); return; \}/);
+  assert.match(js, /const setFold = \(open\) => \{\n {6}if \((?:live\.)?zoomOn\(\) && !zoomFolds\(\)\) return;/);
+  assert.match(js, /dock\.lvl > 0 \|\| btn\.contains\(e\.target\) \|\| \((?:live\.)?zoomOn\(\) && !zoomFolds\(\)\)\) return;/);
+  assert.match(js, /if \(!(?:live\.)?deck \|\| !d \|\| \((?:live\.)?zoomOn\(\) && !zoomFolds\(\)\) \|\| e\.touches\.length !== 1/);
+  assert.match(js, /if \((?:live\.)?zoomOn\(\)\) \{ if \(zoomFolds\(\) && wideSheet\(data\)\) setFold\(!data\.classList\.contains\('tool-open'\)\); return; \}/);
 });
 
 test('the icon is quiet and the app\'s own: the text\'s grey, corner brackets, a soft tint under the pointer, shown only where the card can grow; no stripe, glow or gradient', () => {
@@ -253,7 +254,7 @@ test('the icon is quiet and the app\'s own: the text\'s grey, corner brackets, a
 test('a stacked card zoomed is never measured: the card answers for where it rests, so the readings\' travel would read none and their room open above the header', () => {
   // (measureUnder reads the card's height with the readings in and out; a zoomed card reports one height for both, --pz-d came out 0, the tucked
   // readings' room stood empty above the header and the card ran off the bottom. Mohammad, 28 Oct, a stacked Doppler card.)
-  assert.match(js, /function measureUnder\(d\) \{\n(?: {4}\/\/[^\n]*\n)+ {4}if \(zoomOn\(\)\) return;\n(?: {4}\/\/[^\n]*\n)* {4}const parts = /);
+  assert.match(js, /function measureUnder\(d\) \{\n(?: {4}\/\/[^\n]*\n)+ {4}if \((?:live\.)?zoomOn\(\)\) return;\n(?: {4}\/\/[^\n]*\n)* {4}const parts = /);
   // (The card's own style change as it zooms, the transform origin, told its watcher, which placed the handle and measured: the guard is what stops it.)
   assert.match(js, /lipMO\.observe\(data, \{ attributes: true, attributeFilter: \['class', 'hidden', 'style'\] \}\);/);
   assert.match(js, /if \(split && !sliding && dock\.lvl === dock\.to\) measureUnder\(d\);/);
@@ -350,12 +351,12 @@ test('zoom: the readings move only once the glide in has ended, and not on its w
 
 test('the readings come out and tuck away under a zoomed card, the zoom fitted again on every frame of it', () => {
   // (liftTo runs on every frame of the readings' slide, a finger's pull included; the zoom hears the change since the card zoomed.)
-  assert.match(js, /words\.u = f; words\.trav = trav; setWords\(wordsAt\(\)\); zoomFollow\(f, trav\); \};/);
+  assert.match(js, /words\.u = f; words\.trav = trav; setWords\(wordsAt\(\)\); (?:live\.)?zoomFollow\(f, trav\); \};/);
   assert.match(js, /const zoomFolds = \(\) => zoomSteady\(\) && slip\.lift - slip\.base > 0\.5;/);
-  assert.match(js, /ui\.zoom\.follow\(\(f - zoomU0\) \* \(trav - LIP\), \(f - zoomU0\) \* trav\);/);
-  assert.match(js, /zoomU0 = underU\(ui\.data\);\n(?: {4}\/\/.*\n)* {4}if \(z\.open\(focus === .text. \? \{ main: \[ui\.text, ui\.shade\], scrim: \[ui\.zscrim, ui\.fscrim\] \} : undefined\)\) paintZoom\(\);/);
+  assert.match(js, /(?:live\.)?ui\.zoom\.follow\(\(f - zoomU0\) \* \(trav - LIP\), \(f - zoomU0\) \* trav\);/);
+  assert.match(js, /zoomU0 = underU\((?:live\.)?ui\.data\);\n(?: {4}\/\/.*\n)* {4}if \(z\.open\(focus === .text. \? \{ main: \[(?:live\.)?ui\.text, (?:live\.)?ui\.shade\], scrim: \[(?:live\.)?ui\.zscrim, (?:live\.)?ui\.fscrim\] \} : undefined\)\) (?:live\.)?paintZoom\(\);/);
   // (A pull on a zoomed card follows the finger over the readings' travel as it is seen: the card is larger, so the finger moves less of it.)
-  assert.match(js, /g\.zk = zoomOn\(\) \? ui\.zoom\.scale : 1;/);
+  assert.match(js, /g\.zk = (?:live\.)?zoomOn\(\) \? (?:live\.)?ui\.zoom\.scale : 1;/);
   assert.match(js, /foldFollow\(g, dy \* g\.dir \/ \(g\.zk \|\| 1\)\);/);
   // (The rise is the cards' own CSS translate, which a zoom's transform does not scale: card-zoom.js makes up for it.)
   assert.match(css, /\.pz\.pz-wide \.pz-data\.col, \.pz\.pz-wide \.pz-lip \{ translate: 0 calc\(-1 \* var\(--pz-lift, 0px\)\); \}/);
@@ -387,7 +388,7 @@ test('zoom: the teaching card rides the zoom where it stands, tucked or not: not
 
 // The presenter's half, run on stand-ins: the words' rise as the zoom holds it, and the glide that carries it.
 const wordsWorld = ({ base = 0, d = 126 } = {}) => {
-  const src = js.match(/const riseOn = [\s\S]*?\n\s*const liftTo = [^\n]*/)?.[0];
+  const src = js.match(/const riseOn = \(\(\) => \{[\s\S]*?\n\s*const liftTo = [^\n]*/)?.[0];
   assert.ok(src, 'the words\' rise is in presenter.js');
   const LIP = 24, slip = { lift: d + base, base }, events = [], ticks = [];
   const card = () => {
@@ -399,7 +400,8 @@ const wordsWorld = ({ base = 0, d = 126 } = {}) => {
   };
   const ui = { data: card(), lip: card(), text: card(), shade: card() };
   const gcs = (el) => ({ translate: el.shown() });
-  const api = new Function('ui', 'slip', 'LIP', 'zoomFollow', 'slideTell', 'getComputedStyle', 'dispatchEvent', 'Event', 'EASE_ARRIVE', `${src}; return { liftTo, words, wordsGlide, wordsAt };`)(
+  const api = new Function('ui', 'slip', 'LIP', 'zoomFollow', 'slideTell', 'getComputedStyle', 'dispatchEvent', 'Event', 'EASE_ARRIVE', `const live = { ui, zoomFollow };   // (the part reads them off the live record)
+${src}; return { liftTo, words, wordsGlide, wordsAt };`)(
     ui, slip, LIP, () => {}, () => ticks.push('slide'), gcs, (e) => events.push(e.type), class { constructor(t) { this.type = t; } }, EASE_ARRIVE);
   return { ...api, ui, slip, events, ticks, rise: () => parseFloat(ui.text.props.get('--pz-rise')) || 0, lift: () => parseFloat(ui.data.props.get('--pz-lift')) || 0, LIP };
 };
@@ -562,18 +564,18 @@ test('zoom: a part put back at once (a slide, a resize, Reduce Motion) leaves th
 test('a tap on one of the six ladders zooms it, a tap on it, outside it, Esc, a slide or a resize puts it back, and only where each cell draws a chart', () => {
   const rule = (sel) => css.split('\n').find((l) => l.startsWith(sel)) || '';
   // (Gated as the card is, except for the card: the panel stands, on a layout that draws a chart in each cell: not a phone, upright or sideways, nor an upright iPad.)
-  assert.match(js, /const cellReady = \(\) => !!ui && !!deck && !!shown && shown\.i === want && shown\.gen === gen && \(!busy \|\| playing\) && !leaving && !black && !caseStands\(\) && ui\.jump\.hidden && !isModalOpen\(\)\n\s+&& !ui\.panel\.hidden && !ui\.panel\.classList\.contains\('pz-leave'\) && !ui\.root\.classList\.contains\('pz-prep'\) && !ui\.root\.classList\.contains\('stack'\) && !ui\.root\.classList\.contains\('low'\);/);
+  assert.match(js, /const cellReady = \(\) => !!(?:live\.)?ui && !!(?:live\.)?deck && !!(?:live\.)?shown && (?:live\.)?shown\.i === (?:live\.)?want && (?:live\.)?shown\.gen === (?:live\.)?gen && \(!(?:live\.)?busy \|\| (?:live\.)?playing\) && !(?:live\.)?leaving && !(?:live\.)?black && !caseStands\(\) && (?:live\.)?ui\.jump\.hidden && !isModalOpen\(\)\n\s+&& !(?:live\.)?ui\.panel\.hidden && !(?:live\.)?ui\.panel\.classList\.contains\('pz-leave'\) && !(?:live\.)?ui\.root\.classList\.contains\('pz-prep'\) && !(?:live\.)?ui\.root\.classList\.contains\('stack'\) && !(?:live\.)?ui\.root\.classList\.contains\('low'\);/);
   assert.match(js, /tapTracker\(panel, \{ ok: \(\) => cellReady\(\) \|\| zoom\.up, onTap: cellTap \}\);/);
   // (The cell under the tap opens; while one is up any tap on the panel puts it back.)
-  assert.match(js, /function cellTap\(e\) \{\n\s+if \(!ui\) return;\n\s+if \(ui\.zoom\.up\) \{ ui\.zoom\.close\(\)\.then\(paintZoom\); return; \}\n\s+cellOpen\(e\.target\?\.closest\?\.\('\.pz-cell'\)\);/);
-  assert.match(js, /ui\.zoom\.open\(\{ card: cell, along: \[\], scrim: \[ui\.pscrim, own\]\.filter\(Boolean\), part: true \}\);/);
+  assert.match(js, /function cellTap\(e\) \{\n\s+if \(!(?:live\.)?ui\) return;\n\s+if \((?:live\.)?ui\.zoom\.up\) \{ (?:live\.)?ui\.zoom\.close\(\)\.then\((?:live\.)?paintZoom\); return; \}\n\s+cellOpen\(e\.target\?\.closest\?\.\('\.pz-cell'\)\);/);
+  assert.match(js, /(?:live\.)?ui\.zoom\.open\(\{ card: cell, along: \[\], scrim: \[(?:live\.)?ui\.pscrim, own\]\.filter\(Boolean\), part: true \}\);/);
   // (The same controller: its holds, Esc, a slide and a resize cover it with no new path.)
-  assert.match(js, /const zoomOn = \(\) => !!ui\?\.zoom\.on;/);
-  assert.match(js, /const zoomHeld = \(\) => \{ if \(!ui\?\.zoom\.on\) return false;/);
+  assert.match(js, /const (?:live\.)?zoomOn = \(\) => !!(?:live\.)?ui\?\.zoom\.on;/);
+  assert.match(js, /const zoomHeld = \(\) => \{ if \(!(?:live\.)?ui\?\.zoom\.on\) return false;/);
   // (Two veils: the page's under the panel, the panel's in its grid; a tap on either puts the cell back.)
-  assert.match(js, /const pscrim = h\('div', \{ class: 'pz-pscrim', 'aria-hidden': 'true', onclick: \(\) => zoom\.close\(\)\.then\(paintZoom\) \}\);/);
+  assert.match(js, /const pscrim = h\('div', \{ class: 'pz-pscrim', 'aria-hidden': 'true', onclick: \(\) => zoom\.close\(\)\.then\((?:live\.)?paintZoom\) \}\);/);
   assert.match(js, /veil\.after\(pscrim\);/);
-  assert.match(js, /grid\.append\(h\('div', \{ class: 'pz-gscrim', 'aria-hidden': 'true', onclick: \(\) => ui\?\.zoom\.close\(\)\.then\(paintZoom\) \}\)\);\n\s+return grid;/);
+  assert.match(js, /grid\.append\(h\('div', \{ class: 'pz-gscrim', 'aria-hidden': 'true', onclick: \(\) => (?:live\.)?ui\?\.zoom\.close\(\)\.then\((?:live\.)?paintZoom\) \}\)\);\n\s+return grid;/);
   // (The cell is scaled as it sits in the panel's fit zoom, which the card is not.)
   assert.match(js, /scale: \(el\) => \(el && el !== data && el\.offsetWidth \? el\.getBoundingClientRect\(\)\.width \/ el\.offsetWidth : wrap\.getBoundingClientRect\(\)\.width \/ \(wrap\.clientWidth \|\| 1\)\) \|\| 1,/);
   // (The app's own scrim, never snapping: both veils fade, the shadow eases, the cell shows the pointer that says what a tap does.)
@@ -660,7 +662,7 @@ test('zoom: a slide with no data card zooms its teaching card alone (Sites and c
     assert.ok(words.classList.contains('pz-zmain'));
     z.reset();
   } finally { back(); }
-  assert.match(js, /const wordsAlone = \(\) => ui\.data\.hidden && !ui\.text\.hidden/);
+  assert.match(js, /const wordsAlone = \(\) => (?:live\.)?ui\.data\.hidden && !(?:live\.)?ui\.text\.hidden/);
   assert.match(js, /\(\(zoomCard\(\) && dataStands\(\)\) \|\| wordsAlone\(\)\)/);
 });
 

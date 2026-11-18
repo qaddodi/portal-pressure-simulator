@@ -4,9 +4,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DECKS } from '../src/ui/decks.js';
+import { appCss, presenterSource, lobuleSource } from './split-src.js';
 
-const SRC = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const SRC = presenterSource();
+const CSS = appCss();
 const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // The lobule targets a slide's line lights (presenter.js slideTargets, for { words: target } terms).
 const litOf = (s) => (s.terms && !Array.isArray(s.terms) ? Object.entries(s.terms).filter(([w, k]) => /^lobule:/.test(k) && new RegExp(`\\b(?:${esc(w)})\\b`, 'i').test(s.line || '')).map(([, k]) => k) : []);
@@ -22,7 +23,7 @@ test('the sinusoids label takes its term\'s ink when lit and is kept (not faded)
   // (Its lit look is the words in the term's colour, outlined, with no pill since 13 Nov 2026, unification audit 12.)
   const ink = CSS.split('\n').find((l) => l.startsWith(':root:root:root:root:root:root:root:root :is(.lz-lab, .lz-zone, .sv-region):is(') && l.includes('{ color: color-mix(in srgb, var(--term-c')) || '';
   assert.ok(ink.includes('.app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"]'), 'a lit Sinusoids label takes the term\'s ink');
-  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  const lz = lobuleSource();
   assert.match(lz, /const LIT_OK = \[[^\]]*'sinusoid'/);
   assert.match(lz, /station\(m, 'sin', m\.P2, m\.R\[1\]\); setLab\('sin', 'Sinusoids', 'Sinusoids', reading\.v, reading\.u, reading\.d, reading\.col\)/, 'the reading is the model\'s sinusoidal pressure, one decimal');
 });

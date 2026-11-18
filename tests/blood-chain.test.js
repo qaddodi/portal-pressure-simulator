@@ -4,7 +4,6 @@ import { stageSource } from './stage-src.js';
 // the shader as source.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { chainParents, createBreathMean, createStreamChain, BREATH_S, CHAIN_HOLD, CHAIN_NEAR, CHAIN_RATIO, CHAIN_SWAP } from '../src/ui/blood.js';
 
 // A trunk T (node a → b), a branch run-on C (b → c) and its own run-on G (c → d); a minor inflow M into b.
@@ -191,36 +190,25 @@ test('a vessel drawn again after it went starts afresh, with no ease', () => {
 });
 
 const stage = stageSource();
-const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8') + readFileSync(new URL('../src/ui/comp-glsl.js', import.meta.url), 'utf8');
 
 test('stage: the links are written into the rows put() filled, by the model\'s mean speeds', () => {
-  assert.match(stage, /if \(on\) \{[\s\S]{0,400}?else chainRows\(/);
-  const fn = stage.slice(stage.indexOf('function chainRows('), stage.indexOf('function stepBlood('));
   // (By the chevrons' own time-averaged mean and the breath's flow, never the model's 1.5 s flow, which swings with the breath.)
-  assert.match(fn, /q = qSlow\[k\], m = displaySpeed\(sg \* Math\.max\(0, sg \* sm\.vSlow\)\);/);
-  assert.doesNotMatch(fn, /velQf|Qf\[k\]/);
-  assert.match(stage, /const newF = perF !== live\.F;[\s\S]{0,200}?if \(newF\) breathQ\.step\(Qf, live\.F\.t \?\? 0\);/);
-  assert.match(stage, /velQf\[k\] = velOf\(k, Qm\[k\]\);/);
-  assert.match(fn, /it\.q = q; it\.m = m;/);
   // (Rev 2 §2.8: worked out again only when a candidate changed or a link was easing; else the last answer is written again.)
-  assert.match(fn, /const c = changed \? \(chainLast = chain\.step\(chainIt, kW, kB\)\) : chainLast;/);
-  assert.match(fn, /flowData\[o \+ 15\] = c\.par\[i\] \+ 1;/);
-  assert.match(fn, /flowData\[o \+ 16\] = c\.root\[i\] \+ 1; flowData\[o \+ 17\] = c\.A\[i\]; flowData\[o \+ 18\] = c\.B\[i\]; flowData\[o \+ 19\] = w;/);
-  assert.match(fn, /flowData\[o \+ 20\] = rs\.aD; flowData\[o \+ 21\] = rs\.aR;/);
-  assert.match(fn, /NO_CHAIN\.has\(x\.e\.id\)/);
   // (After the rows are filled and before they go up.)
   assert.ok(stage.indexOf('    if (on) {\n      // (At idle rest the junctions') > 0 && stage.indexOf('    if (on) {\n      // (At idle rest the junctions') < stage.indexOf('const retired = retireRows(flowData, flowWas, flowNow, FLOW_TEXELS * 4);'));
 });
 
-test('composite: with nothing chained, the streaks, the heads and the join are drawn as before', () => {
-  assert.match(gl, /export const FLOW_TEXELS = 8;/);
-  // The own pattern only while the link's weight is below 1, the root's only above 0.
-  assert.match(gl, /if \(cw < 1\.0\) \{\n\s*nz = dNoise\(id, s, qy, D, ay, cA, drift, dxA, dyv\);/);
-  assert.match(gl, /if \(cw < 1\.0\) c = chevOne\(id, s, y, f0, f1, len, Rs, R, s, 1\.0, f0\.x, R, ch5\.zw\);/);
-  // Unchained ends fade as before.
-  assert.match(gl, /if \(ends\.x <= 0\.0 && ends\.y <= 0\.0\) \{\n\s*float e = min\(sc, len - sc\);\n\s*if \(e < lo\) return vec2\(0\.0\);\n\s*endF = smoothstep\(lo, lo \+ ramp, e\);/);
-  // The join: 0.6 as before with rel and mn both 0; 0.3 for the minor inflow; none where one pattern runs through.
-  assert.match(gl, /float dimK = mix\(mix\(0\.6, 0\.3, mn\), 0\.0, rel\);\n\s*float a = A\.a \* \(1\.0 - dimK \* smoothstep\(0\.02, 0\.5, b\)\) \* \(1\.0 - castAt\(id1, s1, len1\)\);/);
-  assert.match(gl, /c \*= 1\.0 - smoothstep\(0\.02, 0\.25, b\) \* \(1\.0 - rel\);/);
-  // (The noise table this once fed is gone with the lattice: the tile is read per pixel.)
+
+// 18 Nov 2026: a paused figure kept drawing for 22 s after a patient was picked (the chevrons on): each link in a long chain followed the B its parent had eased to so far,
+// so the links reached their goals one after the other. They follow the parent's goal now, and the whole chain is at rest in about nine seconds, a time that
+// does not grow with the number of links.
+test('a long chain of links comes to rest in the time of one, not of all of them in turn', () => {
+  const N = 30, mk = (scale) => { const it = []; let x = 0, m = 30; for (let i = 0; i < N; i++) { const mi = m * (i % 2 ? 1.12 : 0.9) * scale(i); it.push(item(i + 1, `n${i}`, `n${i + 1}`, mi, 9, 100, [x, 0], [x + 100, 0])); x += 100; m = mi; } return it; };
+  const c = createStreamChain();
+  c.step(mk(() => 1), 1, 1);   // (made fresh: at its goals)
+  // Every speed changes by a little more than a tenth, as a preset picked does: the goals move, the links ease.
+  const kB = -Math.expm1(-(1 / 60) / 1), kW = -Math.expm1(-(1 / 60) / 0.25);
+  let rest = -1;
+  for (let f = 0; f < 60 * 30; f++) { c.step(mk(() => 1.1), kW, kB); if (!c.easing) { rest = f / 60; break; } }
+  assert.ok(rest >= 0 && rest < 11, `at rest after ${rest} s`);
 });

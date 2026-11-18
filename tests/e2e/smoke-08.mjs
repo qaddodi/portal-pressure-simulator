@@ -11,7 +11,7 @@ export default async function register({ check, device, instantMotionOn, open, q
       await page.setViewportSize({ width: w, height: hgt });
       await open(page, q);
       if (act === 'measure' || act === 'both') { await tapTool(page, '#tabInstruments'); await page.waitForSelector('#dockBody .dock-pane.active'); }
-      if (act === 'both') await page.evaluate(() => window.pps.details({ type: 'edge', id: 'PV_TRUNK' }));
+      if (act === 'both') await page.evaluate(() => window.pps.details({ type: 'advanced' }));
       if (act === 'lobule') {
         await page.evaluate(() => window.pps.store.set({ lobule: true }));
         await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 15000 });
@@ -118,7 +118,7 @@ export default async function register({ check, device, instantMotionOn, open, q
       await open(page, '?preset=cirr-decomp'); await verify(`${at} explore`);
       await page.evaluate(() => window.pps.store.set({ selection: { type: 'edge', id: 'PV_TRUNK' } })); await verify(`${at} vessel card`);
       await open(page, '?preset=cirr-decomp'); await tapTool(page, '#tabInstruments'); await verify(`${at} tests`);
-      await page.evaluate(() => window.pps.details({ type: 'edge', id: 'PV_TRUNK' })); await verify(`${at} tests + details`);
+      await page.evaluate(() => window.pps.details({ type: 'advanced' })); await verify(`${at} tests + details`);
       await open(page, '?script=circulation');
       for (let i = 0; i < 8; i++) { await verify(`${at} slide ${i + 1}`); await page.keyboard.press('ArrowRight'); }
     }

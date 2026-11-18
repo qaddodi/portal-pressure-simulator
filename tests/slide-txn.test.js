@@ -4,6 +4,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createTxns } from '../src/ui/slide-txn.js';
+import { presenterSource } from './split-src.js';
 
 const keepUp = setInterval(() => {}, 1000);
 after(() => clearInterval(keepUp));
@@ -11,7 +12,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const until = async (f, ms = 2000) => { const t = performance.now(); while (!f() && performance.now() - t < ms) await sleep(5); };
 const prepUrl = new URL('../src/ui/slide-prep.js', import.meta.url);
 const { createSlidePrep } = await import(prepUrl.href);
-const PZ = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const PZ = presenterSource();
 
 test('a new transaction supersedes the one before: it is no longer live, its signal aborts, its releases run newest first', () => {
   const txns = createTxns();
@@ -100,7 +101,7 @@ test('go() begins the transaction before anything else of the change, and the pr
 });
 
 test('transitionRun checks its transaction after every await before it publishes content, visibility, camera or marks', () => {
-  const run = PZ.slice(PZ.indexOf('async function transitionRun('), PZ.indexOf('function paintOverlays('));
+  const run = PZ.slice(PZ.indexOf('async function transitionRun('), PZ.indexOf('const reFit = '));
   assert.match(run, /cut = \(\) => !deck \|\| want !== to \|\| gen !== g \|\| !txnLive\(tx\);/);
   const code = run.replace(/\/\/[^\n]*/g, '');
   const re = /if \(!await\b|\bawait\s+(\w+)?|cut\(\)|\b(cardsIn|figureIn|applyState|paintOverlays|camera|cathTo)\(|shown = \{/g;
@@ -116,11 +117,11 @@ test('transitionRun checks its transaction after every await before it publishes
 });
 
 test('the leaving cards are disowned at the press and when the change starts, and given back when its cards come in', () => {
-  assert.match(fn('function outNow() {'), /txn\?\.own\(els\);/);
-  assert.match(PZ, /tx\?\.own\(\[keepNow\.text \? null : ui\.text, keepNow\.text \? null : ui\.shade, keepNow\.data \? null : ui\.data, ui\.panel\]\);/);
-  assert.match(PZ, /function cardsIn\(at\) \{[^\n]*?if \(!bare\) \{ ui\.text\.classList\.remove\('pz-leave'\); txn\?\.restore\(\);/);
-  assert.match(PZ, /if \(mine && want === to\) tx\.end\(\);/);
-  assert.match(fn('function stopNow('), /txn\?\.end\(\); txn = null;/);
+  assert.match(fn('function outNow() {'), /(?:live\.)?txn\?\.own\(els\);/);
+  assert.match(PZ, /tx\?\.own\(\[(?:live\.)?keepNow\.text \? null : (?:live\.)?ui\.text, (?:live\.)?keepNow\.text \? null : (?:live\.)?ui\.shade, (?:live\.)?keepNow\.data \? null : (?:live\.)?ui\.data, (?:live\.)?ui\.panel\]\);/);
+  assert.match(PZ, /function cardsIn\(at\) \{[^\n]*?if \(!(?:live\.)?bare\) \{ (?:live\.)?ui\.text\.classList\.remove\('pz-leave'\); (?:live\.)?txn\?\.restore\(\);/);
+  assert.match(PZ, /if \(mine && (?:live\.)?want === to\) tx\.end\(\);/);
+  assert.match(fn('function stopNow('), /(?:live\.)?txn\?\.end\(\); (?:live\.)?txn = null;/);
 });
 
 test('phase: each begin starts without a phase; stats and trail name the current step', () => {

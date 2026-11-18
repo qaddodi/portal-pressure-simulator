@@ -1,0 +1,1 @@
+{ "factory": "createGeoHold", "file": "stage-geohold.js", "about": "Held geometry writes", "names": ["setG","geoHeld","geoT","geoPass","geoAt","GEO_QUIET","geoQuiet","flushGeo","flushGeoPass","qHold","colourBins","styleProp","styleProps"] }

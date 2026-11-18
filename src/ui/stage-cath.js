@@ -10,9 +10,11 @@ import { cancelFrame } from './frame.js';
 import { glWords } from './gl-words.js';
 import { balloonOutline, balloonRy, routeRadii } from './hvpg-balloon.js';
 import { cathFadeAlpha } from './hvpg-clock.js';
+import { planStack } from './cath-leads.js';
 import { LIGHT } from './light.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
-import { procSpecs } from './proc-routes.js';
+import { headOf, legSubs, pieceAt, procSpecs, wholeOf } from './proc-routes.js';
+import { expandPieces } from './part-names.js';
 import { restPass } from './rest-pass.js';
 import { clamp, lerp, s } from './util.js';
 import { EUS_GLUE_ROUTE, EUS_ROUTE, coilReach, eusDraw, layCoil, lumenPath } from './eus-scope.js';
@@ -20,7 +22,7 @@ import { EUS_GLUE_ROUTE, EUS_ROUTE, coilReach, eusDraw, layCoil, lumenPath } fro
 import { stageScope } from './stage-scope.js';
 export function createCath(st, live) {
   const { E, NO_LIST, animateVT, appEl, applyVT, blockersRead, cardSpace, cardSpaceRead, cath, clientToVB, clientToVBFast, drawFrame, easeFrame, easeInOut, geo, glWanted, late, nextFrame, polyD, readBlockersRead, readFrame, refreshCTM, safeInsets, stageBox, syncVeins, toRGB, worldToLocalInto, wrap, wrapCS } = st;
-  const CATH_IDS = ['SVC_RA', 'IVCS_RA', 'RHV_IVC', 'POST_R_RHV'];   // (and down the IVC_IS to the hepatic vein)
+  const CATH_IDS = expandPieces(['SVC_RA', 'IVCS_RA', 'RHV_IVC', 'POST_R_RHV']);   // (and down the IVC_IS to the hepatic vein)
   // (How far the glue spreads along the varix each way from the needle's point, as a share of the vessel's course, once it has all gone in: 0.3, of the feeder's 247 units about 74 each way, up to its fundal end.)
   const GLUE_SPREAD = 0.3;
   // (World units per device pixel now, for the pixel floors of the finest parts and the edge: the stage's pixels per world unit and the canvas's per CSS pixel. 0 before the view is known.)
@@ -84,18 +86,18 @@ export function createCath(st, live) {
     if (!a || !b) return u;
     return Math.max(0, Math.min(0.999, (a.start + u * (a.free - a.start) - b.start) / (b.free - b.start || 1)));
   }
-  function cathRoute() {
-    const kind = cath.st?.route || cath.kind || 'hvpg';
+  function cathRoute(over = '') {
+    const kind = over || cath.st?.route || cath.kind || 'hvpg';
     if (kind !== 'hvpg') return procRoute(kind);
     if (live.morph > 0.01 || CATH_IDS.some((id) => !geo[id]?.cur?.length || !E[id])) return null;
     if (cath.route?.kind === 'hvpg') return cath.route;
     const radOf = cathRadOf;
-    const svc = geo.SVC_RA.cur, top = svc[0], pts = [], rad = [], src = [], marks = [];
+    const top = headOf(geo, 'SVC_RA'), pts = [], rad = [], src = [], marks = [];
     const at = (id, f) => { src.push([id, f]); return radOf(id, f); };
     const add = (id, rev) => {
-      const P = rev ? geo[id].cur.slice().reverse() : geo[id].cur, c = lenTo(P), n = c[c.length - 1] || 1;
+      const w = wholeOf(geo, id), base = w ? w.P : geo[id].cur, P = rev ? base.slice().reverse() : base, c = lenTo(P), n = c[c.length - 1] || 1;
       marks.push(pts.length);
-      for (let i = 1; i < P.length; i++) { pts.push(P[i]); rad.push(at(id, rev ? 1 - c[i] / n : c[i] / n)); }
+      for (let i = 1; i < P.length; i++) { const u = rev ? 1 - c[i] / n : c[i] / n; pts.push(P[i]); rad.push(w ? at(...pieceAt(w, u)) : at(id, u)); }
     };
     marks.push(0);
     for (const q of [[top[0] - 6, top[1] - 150], [top[0] - 2, top[1] - 60], top]) { pts.push(q); rad.push(at('SVC_RA', 0)); }
@@ -149,22 +151,22 @@ export function createCath(st, live) {
       // A vessel, whole or in part, the way the catheter travels it (rev: against its drawn course): from a to b of the
       // way, or until a point meets until(q), or to the point nearest `near`, or from the point nearest `from`. r: a fixed lumen radius instead of its caliber.
       vessel(id, { rev = false, a = 0, b = 1, until = null, near = null, from = null, name = id, r = 0 } = {}) {
-        const P0 = rev ? geo[id].cur.slice().reverse() : geo[id].cur, c = lenTo(P0), n = c[c.length - 1] || 1;
+        const w = wholeOf(geo, id), base = w ? w.P : geo[id].cur, P0 = rev ? base.slice().reverse() : base, c = lenTo(P0), n = c[c.length - 1] || 1;
         if (near) { let best = Infinity; P0.forEach((q, i) => { const dd = Math.hypot(q[0] - near[0], q[1] - near[1]); if (dd < best) { best = dd; b = c[i] / n; } }); }
         if (from) { let best = Infinity; P0.forEach((q, i) => { const dd = Math.hypot(q[0] - from[0], q[1] - from[1]); if (dd < best) { best = dd; a = c[i] / n; } }); }   // (from: start at the point nearest it: a tract that leaves a vein mid-run)
         if (until) { const i = P0.findIndex((q, k) => k > 0 && until(q)); if (i > 0) b = c[i - 1] / n; }
         const seg = cutLen(P0, c, a * n, b * n), own = (f) => (rev ? 1 - f : f);
-        marks.push(pts.length); parts.push({ id, name, fa: own(a), fb: own(b) });
+        marks.push(pts.length); const part = { id, name, fa: own(a), fb: own(b), whole: w ? { w, rev, a, b } : null }; parts.push(part);   // (a vein split in pieces by a shunt joining it part-way is one leg, its radii and its tint by piece)
         for (let i = (a === 0 || from) && pts.length ? 1 : 0, run = a * n; i < seg.length; i++) {
           if (i) run += Math.hypot(seg[i][0] - seg[i - 1][0], seg[i][1] - seg[i - 1][1]);
-          if (r) { const rs = r.toFixed(3), fid = '=' + rs; PROC_FIXED.set(fid, +rs); pts.push(seg[i]); rad.push(at(fid, 0)); } else { pts.push(seg[i]); rad.push(at(id, own(run / n))); }
+          if (r) { const rs = r.toFixed(3), fid = '=' + rs; PROC_FIXED.set(fid, +rs); pts.push(seg[i]); rad.push(at(fid, 0)); } else if (w) { pts.push(seg[i]); rad.push(at(...pieceAt(w, own(run / n)))); } else { pts.push(seg[i]); rad.push(at(id, own(run / n))); }
         }
       },
     };
     spec.build(B);
     const { P, raw, Rr, map, idx } = smoothRoute(pts, rad, marks);
     const cum = lenTo(P), total = cum[cum.length - 1], L = (i) => (i < idx.length ? cum[Math.min(idx[i], cum.length - 1)] : total);
-    parts.forEach((q, i) => { q.d0 = L(i); q.d1 = L(i + 1); });
+    parts.forEach((q, i) => { q.d0 = L(i); q.d1 = L(i + 1); if (q.whole) q.subs = legSubs(q.whole.w, q.whole.rev, q.whole.a, q.whole.b, q.d0, q.d1); });
     const span = (name) => parts.find((q) => q.name === name);
     const tp = span(spec.tip[0]), free = tp.d0 + (tp.d1 - tp.d0) * spec.tip[1];
     const spans = Object.fromEntries(parts.filter((q) => q.name !== 'lead').map((q) => [q.name, [q.d0, q.d1]]));
@@ -257,7 +259,7 @@ export function createCath(st, live) {
       // (an end where it runs on into the next vessel left open, so the joins show no edge).
       const a = tipD, reach = a + (r.total - a) * col;
       tint = { col: st.columnColor || 'var(--tr-wedge)', soft: Rf * 2.6 };
-      for (const q of r.parts) {
+      for (const q of r.parts.flatMap((p) => p.subs || [p])) {
         if (!q.id || q.d1 <= a || q.d0 >= reach) continue;
         const f = (d) => q.fa + (q.fb - q.fa) * clamp((d - q.d0) / (q.d1 - q.d0 || 1), 0, 1), open = (fe) => (fe === 0 ? -1 : fe === 1 ? 2 : fe);
         const lo = a < q.d0 - 0.5 ? open(q.fa) : f(a), hi = reach > q.d1 + 0.5 ? open(q.fb) : f(reach);
@@ -266,12 +268,25 @@ export function createCath(st, live) {
     } else if (gpu && col > 0.001) {
       const a = tipD - rc * 4.2, reach = a + (r.total - a) * col, soft = Rf * 2.6;   // (a long fade where it meets moving blood)
       const hv = (d) => 1 - (d - r.hv0) / (r.hvEnd - r.hv0), br = (d) => 1 - (d - r.hvEnd) / (r.total - r.hvEnd);
-      tint = { col: st.columnColor || 'var(--tr-wedge)', soft, RHV_IVC: [hv(Math.min(reach, r.hvEnd)), hv(a)] };
-      if (reach >= r.hvEnd) tint.RHV_IVC[0] = -1;   // runs on into the branch: no edge at the join
+      // (The right hepatic vein is two pieces where the TIPS joins it (topology.js JUNCTIONS): the column's range along the whole vein, each piece its own share of it; a range running past
+      // a piece's end is open there, as at a join, and a piece the column does not reach has none.)
+      const hvWhole = wholeOf(geo, 'RHV_IVC');
+      const tintByPiece = (w, [t0, t1]) => {
+        if (!w) return { RHV_IVC: [t0, t1] };
+        const out = {};
+        w.ids.forEach((id, k) => {
+          const lo = k ? w.cuts[k - 1] : 0, hi = w.cuts[k], span = hi - lo || 1;
+          if (t1 <= lo || t0 >= hi) return;
+          out[id] = [t0 < 0 ? -1 : (t0 - lo) / span, t1 > 1 ? 2 : (t1 - lo) / span];
+        });
+        return out;
+      };
+      const hvT = [hv(Math.min(reach, r.hvEnd)), hv(a)];
+      if (reach >= r.hvEnd) hvT[0] = -1;   // runs on into the branch: no edge at the join
+      tint = { col: st.columnColor || 'var(--tr-wedge)', soft, ...tintByPiece(hvWhole, hvT) };
       if (reach > r.hvEnd) tint.POST_R_RHV = [br(reach), 2];
     }
-    const tk = !tint ? '' : r.parts ? Object.entries(tint).map(([k, v]) => (Array.isArray(v) ? `${k}:${v.map((x) => x.toFixed(3))}` : k === 'col' ? v : '')).join('|')
-      : `${tint.col}|${tint.RHV_IVC.map((v) => v.toFixed(3))}|${tint.POST_R_RHV?.[0].toFixed(3) ?? ''}`;
+    const tk = !tint ? '' : Object.entries(tint).map(([k, v]) => (Array.isArray(v) ? `${k}:${v.map((x) => x.toFixed(3))}` : k === 'col' ? v : '')).join('|');
     // The esophageal varices fade while the EUS-PPG scope is in the esophagus (his ask, 11 Nov 2026), in 50ths: the rows are written again, and sent, only as it steps.
     const vf = Math.round(clamp(st.fade || 0, 0, 1) * 50) / 50;
     if (tk !== cath.tintKey || vf !== live.varixFade) { cath.tintKey = tk; live.cathTint = tint; live.varixFade = vf; if (!live.inUpdate) syncVeins(easeInOut(live.morph)); }
@@ -541,6 +556,8 @@ export function createCath(st, live) {
   const cathPreQ = [], cathTravelQ = [], cathPt = [0, 0], cathSideDef = { above: true, dx: 0 }, cathFrom = { tip: null, ahead: null };
   const CATH_FROM_TIP = { left: 0, top: 0 }, CATH_FROM_AHEAD = { left: 0, top: 0 };
   const cathA = { tip: [0, 0], ahead: [0, 0] }, cathKeep = [], cathKeepRecs = [{ x0: 0, y0: 0, x1: 0, y1: 0 }, { x0: 0, y0: 0, x1: 0, y1: 0 }, { x0: 0, y0: 0, x1: 0, y1: 0 }];
+  const cathLP = [[0, 0], [0, 0]];   // (the two readings' points, by reading, for the stack's plan)
+  const cathLeadPts = (A, l) => { const a = A[l.rows[0].at], b = A[l.rows[1].at]; cathLP[0][0] = a[0]; cathLP[0][1] = a[1]; cathLP[1][0] = b[0]; cathLP[1][1] = b[1]; return cathLP; };
   const cathPS = { A: cathA, bw: 0, bh: 0, W: 0, top: 0, lim: 0, off: 0, blockers: NO_LIST, keep: cathKeep };
   const CATH_MID = { x: 0, y: 0 };
   function cathSumMid(ps) {
@@ -709,16 +726,7 @@ export function createCath(st, live) {
       cathFill(el._calc, l.calc);
       const A = cathA;
       { const pt = cathPinAt(at, 'tip'), pa = cathPinAt(at, 'ahead'); worldToLocalInto(A.tip, pt[0], pt[1]); worldToLocalInto(A.ahead, pa[0], pa[1]); }
-      // The stack follows its points (Mohammad, 13 Nov 2026: "the call out that's closer to whatever it's calling out goes below"): the reading whose
-      // point stands lower on the stage is the lower row, whatever the order the readings were made in (the wedged is below the free where the vein
-      // runs on down past the tip), so the leaders never cross each other. A near tie keeps the last order, so a reading never swaps back and forth.
-      // (Written as a class on the box, which the size key below reads: the rows' places are measured again after it changes.)
       const top = Math.max(70, sp.t + 6), off = 16;
-      if (rows.length === 2) {
-        const dy = A[l.rows[0].at][1] - A[l.rows[1].at][1];
-        const swap = dy > 4 ? true : dy < -4 ? false : box._swap === true;
-        if (box._swap !== swap) { box._swap = swap; box.classList.toggle('swap', swap); }
-      }
       // A short free band (a phone's, between the ladder card and the teaching card) takes the readings on one line each, so the stack fits beside the vein.
       const tight = !l.mid && lim - top < 300;
       if (box._tight !== tight) { box._tight = tight; box.classList.toggle('tight', tight); }
@@ -751,23 +759,20 @@ export function createCath(st, live) {
       if (box._tx !== x || box._ty !== y) { box._tx = x; box._ty = y; box.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`; }
       const sb = cathSumBoxes[cathSumN++ & 3];
       sb.x0 = x; sb.y0 = y; sb.x1 = x + bw; sb.y1 = y + bh; el._box = sb;
+      // The order of the two rows, chosen now that the place is known (cath-leads.js: the order that follows the points, unless its leaders cross
+      // and the other order's do not). It is written as a class on the box; the rows are measured again after it changes, and the plan below
+      // works from the rows' sizes, so it is the same on that frame as on the next.
+      const pl = planStack(cathLeadPts(A, l), R, x, y, bw, bh, box._swap, !!l.mid);
+      if (box._swap !== pl.swap) { box._swap = pl.swap; box.classList.toggle('swap', pl.swap); }
       // The bracket, from the middle of one reading to the middle of the other.
       const brace = box.querySelector('.cath-brace'), path = box.querySelector('.cath-brace path');
-      const m0 = R[0][1] + R[0][3] / 2, m1 = R[1][1] + R[1][3] / 2, ys0 = Math.min(m0, m1), ys1 = Math.max(m0, m1);   // (the rows may be swapped: top to bottom)
+      const ys0 = pl.m0, ys1 = pl.m1;
       if (brace._h !== bh) { brace._h = bh; brace.setAttribute('height', bh); }   // (written only when its numbers moved)
       if (path._y0 !== ys0 || path._y1 !== ys1) { path._y0 = ys0; path._y1 = ys1; path.setAttribute('d', `M2 ${ys0} H9 V${ys1} H2 M9 ${(ys0 + ys1) / 2} H20`); }
-      // Leaders: from each reading to its point on the vein. The reading nearer the points runs straight
-      // from its edge; the other leaves from its outer side and runs down (or up) beside the stack.
+      // Leaders: from each reading to its point on the vein, as planned (cath-leads.js: nothing crosses).
       const svg = el.querySelector('.cath-leads');
       if (svg._w !== W) { svg._w = W; svg.setAttribute('width', W); }
       if (svg._hh !== H) { svg._hh = H; svg.setAttribute('height', H); }
-      // (The rows' places, top to bottom: the first and the last row on the stack, whichever readings they are.)
-      let rTop = 0, rBot = 0;
-      for (let j = 1; j < rows.length; j++) { if (R[j][1] < R[rTop][1]) rTop = j; if (R[j][1] > R[rBot][1]) rBot = j; }
-      const below = (A.tip[1] + A.ahead[1]) / 2 > y + bh / 2, near = below ? rBot : rTop;
-      const c0 = R[rTop], c1 = R[rBot], colTop = y + c0[1], colBot = y + c1[1] + c1[3];
-      // The stack stands right of its points (the placer's short side): each row's own leader runs straight out of its left edge, short, crossing nothing.
-      const beside = !l.mid && x >= Math.max(A.tip[0], A.ahead[0]) + 4;
       // Updated in place (a path and a dot per reading), rebuilt only when the readings change.
       // (Made between frames, never in the frame that finds the readings changed (2 Nov 2026, "Move everything to GPU"): the leaders are
       // drawn from the next frame, which the build asks for.)
@@ -776,15 +781,9 @@ export function createCath(st, live) {
         if (!svg._kAsk) { cathLeadQ.push(svg); svg._kAsk = restPass(cathLeadRun); }
       }
       if (svg._k?.length === rows.length * 2) for (let j = 0; j < rows.length; j++) {
-        const pxy = A[l.rows[j].at], px = pxy[0], py = pxy[1];
-        const rx0 = x + R[j][0], ry0 = y + R[j][1], rx1 = rx0 + R[j][2], ry1 = ry0 + R[j][3];
-        let d;
-        // (Midway between its points, l.mid: the top reading's leader leaves its top edge, the bottom one's its bottom edge, each straight
-        // to its own point, so they never cross: EUS-PPG's HV above, PV below.)
-        if (l.mid) d = `M${clamp(px, rx0 + 12, rx1 - 12).toFixed(1)} ${(j === 0 ? ry0 : ry1).toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`;
-        else if (beside) d = `M${rx0.toFixed(1)} ${((ry0 + ry1) / 2).toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`;
-        else if (j === near) d = `M${clamp(px, rx0 + 12, rx1 - 12).toFixed(1)} ${(below ? ry1 : ry0).toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`;
-        else { const ex = rx0 - 12, ey = below ? colBot + 14 : colTop - 14; d = `M${rx0.toFixed(1)} ${((ry0 + ry1) / 2).toFixed(1)} H${ex.toFixed(1)} V${ey.toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`; }
+        const pxy = A[l.rows[j].at], px = pxy[0], py = pxy[1], Lj = pl.lead[j];
+        let d = `M${Lj[0].toFixed(1)} ${Lj[1].toFixed(1)}`;
+        for (let k = 2; k < pl.n[j] * 2; k += 2) d += ` L${Lj[k].toFixed(1)} ${Lj[k + 1].toFixed(1)}`;
         const lead = svg._k[j * 2], dot = svg._k[j * 2 + 1], cls = l.rows[j].cls || '';
         if (lead._cls !== cls) { lead._cls = cls; lead.setAttribute('class', 'lead ' + cls); dot.setAttribute('class', 'lead-dot ' + cls); }
         lead.setAttribute('d', d);
@@ -930,8 +929,8 @@ export function createCath(st, live) {
   // Where a treatment's route enters the plate (its lead-in from outside ends there): the view never follows the tip off the figure.
   const procIn = (r) => r.parts?.[1]?.d0 ?? r.start;
   // (steady: a refit to cards that moved, see animateVT.)
-  function cathFocus(mode, ms = 700, { both = false, near = false, arc = false, steady = false, scale = false } = {}) {   // (scale: the camera's own time for how far it goes, ms its ceiling: animateVT)
-    const r = cathRoute();
+  function cathFocus(mode, ms = 700, { both = false, near = false, arc = false, steady = false, scale = false, ostium = null, route = '' } = {}) {   // (scale: the camera's own time for how far it goes, ms its ceiling: animateVT)
+    const r = cathRoute(route);
     if (mode === 'home') { if (cath.saved) animateVT(cath.saved, ms, { arc, scale }); cath.saved = null; return true; }
     if (!r) return false;
     if (!cath.saved) cath.saved = { ...(live.vtTarget && live.vtAnim ? live.vtTarget : live.vt) };
@@ -981,7 +980,7 @@ export function createCath(st, live) {
         k = Math.min(k, (fx1 - fx0) * 0.5 / Math.max(1, Math.abs(ah[0] - tp[0])), (fy1 - fy0) * 0.5 / Math.max(1, Math.abs(ah[1] - tp[1])));
       }
       // A blocked vein: the tip waits at the ostium, so the view holds both it and the vein it cannot enter.
-      if (cath.st?.ostium) { const o = cutLen(r.pts, r.cum, 0, r.hv0 - 2).at(-1); cx = (o[0] + tp[0]) / 2; cy = (o[1] + tp[1]) / 2; k = 4.8; }
+      if (ostium ?? cath.st?.ostium) { const o = cutLen(r.pts, r.cum, 0, r.hv0 - 2).at(-1); cx = (o[0] + tp[0]) / 2; cy = (o[1] + tp[1]) / 2; k = 4.8; }
       // With little room above a card (a phone), the view is a little wider and the tip sits low in the free space,
       // so the vein still shows and the readings fit above the tip.
       const sp = cardSpace(), freeH = ins.H - sp.t - sp.b;

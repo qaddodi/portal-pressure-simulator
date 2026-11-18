@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { controlOwnsKey, KEY_OWNERS } from '../src/ui/key-owner.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const el = (sel, visible) => ({ matches: (q) => q === ':focus-visible' ? visible : q === KEY_OWNERS ? sel : false });
@@ -26,7 +27,7 @@ test('the arrows, Esc and the other keys are never a control\'s, and a half-type
 });
 
 test('the talk\'s key handler asks the rule, and leaves Esc to an open menu', () => {
-  const p = read('src/ui/presenter.js');
+  const p = presenterSource();
   const fn = p.slice(p.indexOf('function onKey(e)'), p.indexOf("addEventListener('keydown', onKey, true)"));
   assert.match(fn, /if \(controlOwnsKey\(e\.target, k, digits\)\) return;/);
   assert.match(fn, /if \(k === 'Escape' && popoverOpen\(\)\) return;/);
@@ -36,23 +37,24 @@ test('the talk\'s key handler asks the rule, and leaves Esc to an open menu', ()
 test('a menu: named, focused from the keyboard, focus handed back; a dialog traps the page and returns to its first opener', () => {
   const u = read('src/ui/util.js');
   const pop = u.slice(u.indexOf('export function popover('), u.indexOf('export function fadeWhileMore'));
-  assert.match(pop, /role: 'dialog', 'aria-label': anchor\.getAttribute\?\.\('aria-label'\)/);
-  assert.match(pop, /if \(anchor\.matches\?\.\(':focus-visible'\)\) setTimeout\(/);
+  assert.match(pop, /role: 'dialog', 'aria-modal': asSheet \? 'true' : null, 'aria-label': anchor\.getAttribute\?\.\('aria-label'\)/);   // (a phone's sheet is modal for a screen reader: SHELL-7)
+  assert.match(pop, /const byKey = !!anchor\.matches\?\.\(':focus-visible'\);\n\s+setTimeout\(\(\) => \{ if \(openMenu\?\.el === el\) focusIn\(el, \{ keyboard: byKey \}\)/);   // (16 Nov 2026: focus goes in however it was opened: the keyboard to the first control, a mouse or finger to the menu itself, focus-flow.js)
   const close = u.slice(u.indexOf('export function closePopover'), u.indexOf('/** Over the thumb dock'));
-  assert.match(close, /el\.contains\(document\.activeElement\) && openMenu\.anchor\.isConnected\) openMenu\.anchor\.focus/);
-  assert.ok(close.indexOf('anchor.focus') < close.indexOf('el.inert = true'), 'focus moves before the menu goes inert');
+  assert.match(close, /focusBack\(el, openMenu\.anchor\)/);
+  assert.ok(close.indexOf('focusBack(') < close.indexOf('el.inert = true'), 'focus moves before the menu goes inert');
   const open = u.slice(u.indexOf('export function openModal'), u.indexOf('export const isModalOpen'));
   assert.match(open, /if \(!back\.classList\.contains\('show'\)\) modalReturn = /);
   assert.match(open, /appEl\.inert = true/);
   assert.match(open, /appEl\.inert = false/);
 });
 
-test('a toast with buttons stays 9 s and while the pointer or focus is on it; the Speed button names its value; the slide list shows its focus', () => {
+test('a toast with buttons stays until it is dismissed or pressed (SHELL-9), a plain one stays while the pointer or focus is on it; the Speed button names its value; the slide list shows its focus', () => {
   const u = read('src/ui/util.js');
-  assert.match(u, /const life = actions\?\.length \? 9000 : sub \? 5200 : 4200/);
+  assert.match(u, /const keep = sticky \|\| !!actions\?\.length, life = sub \? 5200 : 4200/);
+  assert.doesNotMatch(u, /actions\?\.length \? 9000/);
   assert.match(u, /t\.addEventListener\('focusin', \(\) => clearTimeout\(timer\)\)/);
   assert.match(read('src/ui/timeline.js'), /speedBtn\.setAttribute\('aria-label', `Playback speed, \$\{speedBtn\.textContent\}`\)/);
-  assert.match(read('styles/app.css'), /\.pzj-list button:focus-visible \{[^}]*outline: 2px solid var\(--focus\)/);
+  assert.match(appCss(), /\.pzj-list button:focus-visible \{[^}]*outline: 2px solid var\(--focus\)/);
 });
 
 test('every icon id in the icon art is defined once', () => {

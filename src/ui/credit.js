@@ -8,7 +8,9 @@ import { CELL, cellFor, regionFor, contains, touches, artTest, boxThrough, multi
 import { CellGrid, geomOf } from './cell-grid.js';
 import { elBoxInto, chainMat } from './shape-gl.js';
 import { layoutWatch, PLACED, GESTURE_LOOK } from './idle-keys.js';
+import { freeStage, bandOf } from './free-stage.js';
 import { readAnims, readBox, readCTM, readMetric, readStyle, readTiming, worldCTM } from './layout-snap.js';
+import { animRunning } from './glass-clock.js';   // (a fade held on the glass's clock is still under way)
 const OWN_BOX = { x: 0, y: 0, width: 0, height: 0 };   // alloc-rare: made once (a shape's own box, read at once)
 // (The art's walk looks at the camera once a frame: in the frame's first, read-only phase (2 Nov 2026), where the layout is the one the
 // browser last drew, never after the frame's writes.)
@@ -145,7 +147,7 @@ export function pickCorner(spots, cur, blocked = {}) {
 }
 
 // What the credit keeps clear of. Chrome (the bars, the zoom pill, the figure's labels) is avoided but does not make the screen "busy".
-export const OBSTACLES = '.stage-blocker:not([hidden]), .pz-fk:not([hidden]), .stage-clock, .menu, .umenu:not(.out), .why-pop.show, .modal-back.show, .home:not([hidden]), .scan-probe:not(.off) .sp-body, .dop-probe:not(.off) .dpr-body, .pz-shade, .pz-prog';   // (the FibroScan probe's body carries its reading; it counts as chrome below)
+export const OBSTACLES = '.stage-blocker:not([hidden]), .pz-fk:not([hidden]), .stage-clock, .menu, .umenu:not(.out), .why-pop.show, .modal-back.show, .home:not([hidden]), .scan-probe:not(.off) .sp-body, .dop-probe:not(.off) .dpr-body, .pz-shade, .pz-prog, .toast-wrap.foot .toast:not(.leaving)';   // (a toast, the first-run hint among them, stands over the figure: the credit never prints over it, 16 Nov 2026) (the FibroScan probe's body carries its reading; it counts as chrome below)
 export const CHROME = '#topbar, .pz-fk, .pz-scales, #vdock, #zoomPill, .stage-clock, .pz-bar, .scan-probe:not(.off) .sp-body, .dop-probe:not(.off) .dpr-body, .pz-prog';   // (.pz-prog: a slide's progress line along the bottom edge)   // (the FibroScan probe: its body carries the reading)
 
 // The figure's own labels (station values, organ captions) and measuring callouts: each one's text and pill, padded and snapped outward to a small
@@ -651,7 +653,7 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
   let cur = null, curTight = false, pos = null, moving = false, changedAt = 0, lastSig = '', raf = 0, waitT = 0, moveT = 0, moveR = 0, size = null, sizeKey = '';
   // The move to a new spot: hidden at once, shown there after a moment. The spot waits in these while the timer and the rest pass run it.
   let moveC = null, moveP = null, moveTight = false;
-  const moveLand = () => { moving = false; if (app?.classList.contains('pz-moving')) return soon(); place(moveC, moveP, moveTight); soon(); };
+  const moveLand = () => { moving = false; if (app?.hasAttribute('data-pz-moving')) return soon(); place(moveC, moveP, moveTight); soon(); };
   const moveFire = () => { moveR = restPass(moveLand); };
   let worldKey = '', worldAt = 0, camT = 0;   // (the figure's camera: its last transform and when it last changed)
   // (kept: the last look that left the credit where it was, what it saw, and the corners it found covered; searches: how many
@@ -711,12 +713,12 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
   function check() {
     raf = 0;
     if (moving || !credit.isConnected || !readMetric(wrap, 'offsetParent') || !readMetric(credit, 'offsetParent')) return;   // (not shown: an iPhone slide carries it in the teaching card)
-    // A slide change (the presenter's pz-moving): out of sight until the cards are in and the camera has settled; it then
+    // A slide change (the presenter's data-pz-moving): out of sight until the cards are in and the camera has settled; it then
     // appears at once at its final spot.
     // A deck opened by its link still loading: out of sight until it is up (it had settled on the plain figure, then hidden as the
     // slide came in; sweep 01 review).
     if ('pzOpening' in document.documentElement.dataset) { credit.classList.add('moving'); lastSig = ''; kept = ''; fresh = true; clearTimeout(camT); camT = setTimeout(soon, 200); return; }
-    if (app?.classList.contains('pz-moving')) { credit.classList.add('moving'); changedAt = 0; lastSig = ''; kept = ''; fresh = true; return; }
+    if (app?.hasAttribute('data-pz-moving')) { credit.classList.add('moving'); changedAt = 0; lastSig = ''; kept = ''; fresh = true; return; }
     // The sinusoid view is all art (hepatocytes, the wall, the blood): no bare spot, so it is hidden there, from the moment the
     // zoom in starts until the zoom back out to the lobule has landed, then placed afresh (at once, never faded).
     if (inSinusoid()) {
@@ -742,6 +744,10 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
     const wr = readBox(wrap);
     let { w, h } = measure(false);
     const fig = { l: size.sl, t: 0, r: wr.width - size.sr, b: wr.height - Math.max(0, size.sb - Math.max(0, innerHeight - wr.bottom)) };   // (the home indicator's strip, where the figure reaches the screen's bottom)
+    // (The credit stands in the free stage, the room the open cards leave along the foot (free-stage.js): with Tests' wide pane open at 1024 px it was set over the bar's
+    // readings. It keeps its corner, only clear: the figure's whole width less what the cards beside the foot take.)
+    const fsg = freeStage();
+    if (fsg?.foot) { const bd = bandOf(fsg, fsg.foot[0], fsg.foot[1]); fig.l = Math.max(fig.l, bd.l); fig.r = Math.min(fig.r, wr.width - bd.r); }
     // (The catheter's shaft too: on the GPU it is not in the page, so the art test cannot see it, and the credit had stood on it, HVPG 2 on a phone held sideways.)
     const cathBars = (window.pps?.stage?.cathBoxes?.() || []).map((q) => ({ l: Math.floor(q.l / GRID) * GRID, t: Math.floor(q.t / GRID) * GRID, r: Math.ceil(q.r / GRID) * GRID, b: Math.ceil(q.b / GRID) * GRID, chrome: true }));
     const els = [...document.querySelectorAll(OBSTACLES)], obs = [...els.map((el) => rectOf(el, wr)), ...gpuProbe.time(null, 'credit: labels', () => labelRects(wr, wrap, keptStyle)), ...cathBars].filter((o) => o && hit(o, fig));
@@ -752,7 +758,7 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
     const now = performance.now();
     // A card still sliding or fading in is not where it will settle: wait for it (and for its size to stop changing).
     // (The card and its blocks only: a live instrument deep inside eases all the time and kept the credit hidden.)
-    const settling = gpuProbe.time(null, 'credit: card motion', () => els.some((el) => [el, ...el.children].some((c) => readAnims(c).some((an) => an.playState === 'running' && Number.isFinite(readTiming(an.effect).endTime)))));
+    const settling = gpuProbe.time(null, 'credit: card motion', () => els.some((el) => [el, ...el.children].some((c) => readAnims(c).some((an) => animRunning(an) && Number.isFinite(readTiming(an.effect).endTime)))));
     // (lastSig is empty after a slide change: the first look at the settled cards is taken as it is, with no extra beat.)
     if ((lastSig && sig !== lastSig) || settling) {
       // Something moved: if it now reaches the credit, hide it at once; let it settle before choosing a new spot
@@ -795,7 +801,7 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
     if (stuck && !fresh && slide && stuck === slide) { kept = look; keptBlocked = []; return; }
     // A new spot is chosen only from a view that has held still: the same cards, labels, camera and size on two looks 150 ms
     // apart (a label or the lobule's outline still arriving had made the same view land it in different corners on two loads;
-    // sweep 02). A slide too, after its pz-moving hold: its labels and readings arrive after the camera settles (Circuit 10 on an
+    // sweep 02). A slide too, after its data-pz-moving hold: its labels and readings arrive after the camera settles (Circuit 10 on an
     // iPad showed it for a second, then hid it). Never longer than 1.6 s.
     if (steadyAt && now - steadyAt > 2000) { steady = ''; steadyAt = 0; }   // (a wait left behind by a look that kept its spot)
     if (look !== steady && (!steadyAt || now - steadyAt < 1600)) { steadyAt ||= now; steady = look; clearTimeout(waitT); waitT = setTimeout(soon, 150); return; }
@@ -851,9 +857,9 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
   addEventListener('animationend', settled, true);
   // (Not for stage-busy alone: the floating pieces' fade while the figure moves changes only their opacity, and a look then,
   // as the menus faded back in after each pan or pinch, added to that beat's hitch.)
-  const appCls = () => app.className.replace(/(?:^|\s)stage-busy(?=\s|$)/g, '');
+  const appCls = () => app.className.replace(/(?:^|\s)stage-busy(?=\s|$)/g, '') + (app.hasAttribute('data-pz-moving') ? ' |moving' : '');   // (the presenter's slide-change mark is an attribute, data-pz-moving: the credit's own hold reads it)
   let appWas = app ? appCls() : '';
-  if (app) new MutationObserver(() => { const c = appCls(); if (c !== appWas) { appWas = c; soon(); } }).observe(app, { attributes: true, attributeFilter: ['class'] });
+  if (app) new MutationObserver(() => { const c = appCls(); if (c !== appWas) { appWas = c; soon(); } }).observe(app, { attributes: true, attributeFilter: ['class', 'data-pz-moving'] });
   // Cards open, close and resize in many ways; a light poll catches the ones no event announces. (It looks only when something
   // the look measures may have changed: a card or bar moved, sized or changed state (layoutWatch), the labels were laid out
   // again or the camera moved, or labels came or went. In the lobule and the sinusoid, whose own labels move by themselves, it

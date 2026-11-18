@@ -7,6 +7,8 @@
 import { register } from 'node:module';
 
 const mode = process.argv[2], lymph = process.argv.includes('--lymph');
+const pi = process.argv.indexOf('--params'), params = pi > 0 ? JSON.parse(process.argv[pi + 1]) : null;
+const si = process.argv.indexOf('--preset'), preset = si > 0 ? process.argv[si + 1] : null;   // the figure after this preset has loaded   // the figure with these model params (e.g. the shunts present)
 const ROOT = new URL('../', import.meta.url).pathname;
 const N = 64, TF = 52;
 
@@ -19,7 +21,7 @@ function pack(tubes, joins, rad, tube, nRows) {
     const rows = tubes.map((t) => {
       const P = []; for (let i = 0; i < N; i++) P.push(t.pts[i][0], t.pts[i][1]);
       const R = []; for (let i = 0; i < N; i++) R.push(rad[(t.id * N + i) * 4]);
-      return { id: t.id, P, R };
+      return { id: t.id, edge: t.edge, kind: t.kind, P, R };
     });
     return { rows, joins: entries, tube: Array.from(tube.subarray(0, nRows * TF)), nRows };
   });
@@ -63,7 +65,9 @@ if (mode === 'lobule') {
   });
   globalThis.__binSpy = [];
   const { bootGL } = await import(ROOT + 'tests/stage-gl-boot.js');
-  const { st, frame } = await bootGL({ w: 1200, h: 800, labels: 'none' });
+  const { st, frame, params: loaded } = await bootGL({ w: 1200, h: 800, labels: 'none', params, preset });
+  if (process.argv.includes('--collaterals')) { const { store } = await import(ROOT + 'src/ui/store.js'); store.set({ layers: { ...store.get().layers, collaterals: true } }); }   // (the collaterals layer on: every collateral that is present is drawn)
+  if (params || loaded) { const { replaceParams } = await import(ROOT + 'src/ui/store.js'); const { store } = await import(ROOT + 'src/ui/store.js'); const { deepMerge } = await import(ROOT + 'src/engine/scenario.js'); replaceParams(deepMerge(deepMerge(store.get().params, loaded || {}), params || {})); }   // (the page's own copy of the params, which decides what is drawn)
   const outs = {};
   for (const view of ['anatomy', 'circuit']) {
     if (view === 'circuit') st.setView('circuit');

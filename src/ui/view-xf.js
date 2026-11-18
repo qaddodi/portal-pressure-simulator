@@ -1,4 +1,5 @@
 import { VIEW_CHANGE_MS } from './motion.js';
+import { lerpInto } from './cam-arc.js';
 // The crossfade between the two views' labels through the change between the views, from the change's own progress (view-switch-labels-recs.md,
 // option B2): never from a timer, and never a frame with no labels on the figure.
 //
@@ -8,11 +9,23 @@ import { VIEW_CHANGE_MS } from './motion.js';
 //
 // Writes { o, n } into `out` (a kept record: a frame of the change makes nothing) and returns it: the old view's ghosts at o, the new view's labels at n.
 //   - still solving: the ghosts at full, the new labels at nothing (the old names ride the figure until the new ones exist);
-//   - whole by the half: the two cross over the second half, as the figure's own progress (1 - 2p, 2p - 1);
+//   - whole by the half: the old names fade out over the first half (from 12 % of it), the new ones in over the second, never both showing;
 //   - whole after the half: they cross over what is left of the change from that frame, so the new labels are whole as the figure lands;
 //   - whole once the figure has landed (landAt >= 1): the swap is this frame.
 const XF_OUT = 0.55, XF_IN = 0.45, smooth = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
-export function viewXfMix(p, landAt, out = { o: 1, n: 0 }) {
+// Solved ahead (at the tap, or before the half), the old names are gone by the half and the new ones come in over the second half: the old ones leave while the
+// figure is still the old view's, so none stands over the other view's vessels, and a name of the one (IVC 4.0) never lands on a name of the other (RIGHT ATRIUM)
+// as the two layouts' anchors cross (play-test, Mac, 16 Nov 2026). The old ones fade from XF_GO of the change, over the first half; the new ones start the moment
+// they are gone. Solved late, the old ones stay until the new ones exist, as before: no frame with no labels on the figure.
+// (`early`: the change between the Anatomy and the Circuit, where the figure itself changes. A presenter's glide over one view (glide-labels.js) keeps the plain law: its
+// figure stays the same, so its old names are still right under the moving camera until the new ones come.)
+const XF_GO = 0.12;
+export function viewXfMix(p, landAt, out = { o: 1, n: 0 }, early = false) {
+  if (early && landAt != null && landAt <= 0.5) {
+    out.o = 1 - smooth((p - XF_GO) / (0.5 - XF_GO));
+    out.n = smooth((p - 0.5) / 0.5);
+    return out;
+  }
   let n;
   if (landAt == null) n = 0;
   else if (landAt >= 1) n = 1;
@@ -54,9 +67,10 @@ export function viewXfCamU(x, p) {
  * Returns false when the change is not the camera's to move (none running, or a hand took the view): the caller glides as usual.
  * `same`: the camera has nowhere to go (the stage then leaves it alone and the change's landing sets nothing).
  */
-export function viewXfRetarget(x, cur, to, p, same) {
+export function viewXfRetarget(x, cur, to, p, same, vb = null) {
   if (!x || x.hand) return false;
   x.from = { k: cur.k, x: cur.x, y: cur.y };
+  if (vb) x.vb0 = [vb[0], vb[1], vb[2], vb[3]];   // (the view box the camera it sets out from was written for: the change moves the view box under it)
   x.to = { k: to.k, x: to.x, y: to.y };
   x.p0 = cl01(p);
   x.same = !!same;
@@ -68,4 +82,35 @@ export function viewXfRetarget(x, cur, to, p, same) {
 export function viewXfDetach(x) {
   if (!x || x.hand) return;
   x.hand = true; x.same = true;
+}
+
+// ── The camera through the change, on the screen ─────────────────────────────────────────────────────────────────────────────────────────────
+
+/** The view box (x, y, width, height) at t of the change (0 the Anatomy's, 1 the Circuit's) with the turn's share rr (0 wide, 1 upright), written into `out`: the one formula the stage draws it with and the camera is worked out against. */
+export function viewBoxAt(t, rr, anat, circ, circR, out) {
+  for (let i = 0; i < 4; i++) { const c = circ[i] + (circR[i] - circ[i]) * rr; out[i] = anat[i] + (c - anat[i]) * t; }
+  return out;
+}
+const EF = { k: 1, x: 0, y: 0 }, ET = { k: 1, x: 0, y: 0 }, EM = { k: 1, x: 0, y: 0 };
+// (A camera in view box units as the screen sees it: scale S in px per world unit, offset in px. The svg meets its view box, so both depend on the box.)
+function onScreen(v, b, sw, sh, o) {
+  const s = Math.min(sw / b[2], sh / b[3]);
+  o.k = s * v.k; o.x = s * (v.x - b[0]) + (sw - b[2] * s) / 2; o.y = s * (v.y - b[1]) + (sh - b[3] * s) / 2;
+  return o;
+}
+/**
+ * The camera at the camera's share u of a change between the views, written into `out`. The view box morphs from the Anatomy's to the Circuit's
+ * through the change, so a camera written in its units and lerped as they stood (lerpVT) drifted over the figure: the landing framing went off its
+ * line by a tenth of its travel and back along it. The two ends are taken to the screen (in the box each was written for: x.vb0 for where it set out,
+ * `vb1` for where it lands), the glide runs there (the even glide, zoom on a log scale and the pan in step with it: straight on the screen for every
+ * point), and the camera is the one that puts that on the screen in the box as it stands now (`vbNow`).
+ * vb0 unknown (a change begun before this): the plain lerp, as it was. sw, sh: the svg's box in px.
+ */
+export function viewXfCameraInto(x, u, vbNow, vb1, sw, sh, out) {
+  if (!x.vb0 || !(sw > 0) || !(sh > 0)) return lerpInto(x.from, x.to, u, out);
+  onScreen(x.from, x.vb0, sw, sh, EF); onScreen(x.to, vb1, sw, sh, ET);
+  lerpInto(EF, ET, u, EM);
+  const s = Math.min(sw / vbNow[2], sh / vbNow[3]);
+  out.k = EM.k / s; out.x = (EM.x - (sw - vbNow[2] * s) / 2) / s + vbNow[0]; out.y = (EM.y - (sh - vbNow[3] * s) / 2) / s + vbNow[1];
+  return out;
 }

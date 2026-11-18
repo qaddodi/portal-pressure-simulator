@@ -2,9 +2,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { presenterSource } from './split-src.js';
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8');
-const PZ = read('../src/ui/presenter.js'), TOOLS = read('../src/ui/presenter-tools.js');
+const PZ = presenterSource(), TOOLS = read('../src/ui/presenter-tools.js');
 
 test('tools.ready says false for an ask that timed out, failed, answered nothing or was let go, and follows a newer ask', () => {
   assert.match(TOOLS, /const ok = tok === primeTok && !held && made\[k\] === inst && !!m\?\.samples; if \(ok\) inst\.backfill/);
@@ -18,5 +19,5 @@ test('the presenter labels a slide shown past its preparation or with an unfille
   assert.match(PZ, /const st = slidePrep\.state\(i\); degrade\('prep-' \+ st\); if \(st !== 'preparing'\) slidePrep\.aim\(i, turn, tx \? tx\.live : undefined\); then\(\);/);
   assert.match(PZ, /if \(!filled\) degrade\('window'\);/);
   assert.match(PZ, /noteResume\(deck\.id, want, slides\.length\);[^\n]*\n\s+if \(ui\) delete ui\.root\.dataset\.pzDegraded;/, 'a press starts clean');
-  assert.match(PZ, /degraded: \(\) => \(\{ \.\.\.degraded, now: ui\?\.root\.dataset\.pzDegraded \|\| '' \}\)/);
+  assert.match(PZ, /degraded: \(\) => \(\{ \.\.\.degraded, clipped: \[\.\.\.degraded\.clipped\], now: ui\?\.root\.dataset\.pzDegraded \|\| '' \}\)/);
 });

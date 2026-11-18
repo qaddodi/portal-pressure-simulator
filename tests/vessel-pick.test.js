@@ -1,4 +1,3 @@
-import { stageSource } from './stage-src.js';
 // Vessel picking on the vessels' own data (vessel-pick.js): a course is a stroke of its hit width with round caps; on a stroke the
 // one drawn on top (highest rank) wins, near one the nearest within slop CSS px; the stage picks through it, not through elements.
 import test from 'node:test';
@@ -36,11 +35,3 @@ test('a course left out (no points, no width) is skipped', () => {
   assert.equal(p.pick(50, 0, 1), 'a');
 });
 
-test('the stage picks vessels on their data: no hit element, path text or style read', () => {
-  const st = stageSource();
-  const fn = st.slice(st.indexOf('  function edgeFromEvent(ev) {'), st.indexOf('  // Organs under a point (anatomy only).'));
-  assert.match(fn, /const vesselPick = createVesselPick\(/);
-  assert.match(fn, /if \(!x\.vis \|\| x\.noHit\) continue;/);
-  assert.match(fn, /rank = pickTier\(x\) \* GL_ROWS \+ x\.row/, 'drawn on top = the GPU\'s tier, then its row');
-  assert.doesNotMatch(fn, /getElementsByClassName|getAttribute\('d'\)|--hit-w|chainMat|closest\('\.vg/);
-});

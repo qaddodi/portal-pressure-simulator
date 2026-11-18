@@ -33,6 +33,7 @@ import { readStyle } from './layout-snap.js';
 import { sceneBegin, sceneStyle } from './scene-store.js';
 import { reduceMotionMQ, D_SMALL, easeMove } from './motion.js';
 import { leaderEnd } from './leader-end.js';
+import { WAVE_ARCS, WAVE_STRIDE } from './scan-waves.js';
 import { darkMQ } from './look.js';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);
@@ -771,6 +772,24 @@ void main() { o = texture(uT, vUV) * uA; }`;
   };
   if (!glyphsReady()) glyphsWait();
   let lost = false, disposed = false, dpr = 1, W = 1, H = 1, last = [];
+  // (A label carried by the camera between layouts (pinned to its point, or riding a glide) that comes to stand past the stage's edge or under a
+  // card (host.room(): the cards' boxes, stage px) fades out whole in ROOM_MS, and back once 4 px clear: it never shows cut, "ight sinusoids" at
+  // the iPad's edge or "Rig…" half under the stent card (F50, 17 Nov 2026), until the next layout places it again.)
+  // (Its next step is asked for with ask(), the next frame, never host.ask: called here, inside the label pass of the figure's present, host.ask
+  // laid a whole present inside it, which left the GL state its own, and the labels drawn after it went down with blending off: black boxes
+  // behind the labels on every card close and slide change, 17 Nov 2026.)
+  const ROOM_MS = 160;   // motion-scale: own pace (a label's whole fade at a card's edge or the screen's, F50: quicker than a state change's D_SMALL so it never shows cut)
+  function roomFade(st, x, y, now) {
+    const was = st.roomA ?? 1, m = was >= 0.5 ? 0 : 4 * dpr, x1 = x + st.w, y1 = y + st.h;
+    let ok = x >= m && y >= m && x1 <= W - m && y1 <= H - m;
+    const blk = ok && host?.room?.();
+    if (blk) for (let i = 0; i < blk.length; i++) { const b = blk[i]; if (x < b.x1 * dpr + m && x1 > b.x0 * dpr - m && y < b.y1 * dpr + m && y1 > b.y0 * dpr - m) { ok = false; break; } }
+    const t = ok ? 1 : 0, dt = st.roomT != null ? now - st.roomT : 0;
+    st.roomT = now;
+    if (st.roomA == null) { st.roomA = t; return t; }   // (first drawn: as it stands, its own fade in does the rest)
+    if (was !== t) { st.roomA = t > was ? Math.min(1, was + dt / ROOM_MS) : Math.max(0, was - dt / ROOM_MS); ask(); }   // (the next frame: never host.ask from inside the draw, tests/label-no-present-in-draw.test.js)
+    return st.roomA;
+  }
   // (The loading cover waits for the labels' first picture, inside its own cap (index.html): it lifted on a figure with no labels, and
   // they arrived a beat later. 1.5 s here, so a view that shows none does not hold it.)
   let coverOpen = null;   // alloc-rare: one promise for the cover, made once, only while it is up
@@ -1117,7 +1136,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     publishWhenDone(gl, hs, () => {
       if (!lost || gl.isContextLost()) return;   // (lost again: the next restore starts over)
       try { finish(hs); } catch { return; }   // (the shaders will not build: the SVG keeps every label)
-      pageTex = []; rpDrop(); retry.clear(); pending.clear(); stuck = false; needRepack = false; packer.reset(); ghosts = []; xfOld = xfNew = 1; for (const s of last) { const v = sprites.get(s.g); if (v) { v.alt = null; v.alts = null; } }   // (sprites is a WeakMap, not iterable: the restore threw here and the layer stayed lost)
+      pageTex = []; rpDrop(); rpFbo = null; retry.clear(); pending.clear(); stuck = false; needRepack = false; packer.reset(); ghosts = []; xfOld = xfNew = 1; for (const s of last) { const v = sprites.get(s.g); if (v) { v.alt = null; v.alts = null; } }   // (sprites is a WeakMap, not iterable: the restore threw here and the layer stayed lost)
       picPaint = null; lostPic(headSp); lostPic(sHeadSp); slotTex = null;
       for (const s of last) { const st = sprites.get(s.g); if (st) { st.slot = null; st.key = ''; } dirty.add(s.g); }
       pReadSoon(); sReadSoon(); marksTaken(); allMarks(); nbk = -1;
@@ -1412,7 +1431,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (R11: the pass builds what the page owes in chunks, new labels first, within REBUILD_MS of a frame's time; the labels it leaves for the
   // next chunk keep the picture they have, or are hidden if they have none, so a slide change that owes many captions does not build
   // them all before one paint. At least REBUILD_LEAST labels go each time, so it always ends.)
-  const REBUILD_MS = 4, REBUILD_LEAST = 12;
+  const REBUILD_MS = 4, REBUILD_LEAST = 12;   // motion-scale: not a move (a slice of a frame's time the rebuild may use, not a duration on screen)
   function dropGhosts() {
     for (const gh of ghosts) {
       const st = sprites.get(gh.s.g), slot = gh.st.slot;
@@ -1704,6 +1723,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       }
       if (!pinned) st.pin = false;
       a *= xfNew;   // (the view change's crossfade: this view's labels come in as it passes its half)
+      a *= roomFade(st, x, y, now);   // (wholly inside the free room, or faded out whole: roomFade)
       st.dx = x; st.dy = y; st.drawn = now;
       if (pr?.on) {
         // (A label fading from where it stood to its new place: the picture at the old place under, going out, and at the new, coming in.)
@@ -1715,6 +1735,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         a *= pr.mf;
       }
       if (x > W || y > H || x + st.w < 0 || y + st.h < 0) continue;
+      st.drawnA = a;   // (the alpha it was drawn at, every fade in, for the snapshot)
       st.seq = frameSeq;
       takeItem(st.slot.page, x, y, st.w, st.h, st.slot.x, st.slot.y, a, st);
       boxAt(x, y, x + st.w, y + st.h);
@@ -1764,7 +1785,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
     hostTail();
     // (R09: while a ride or a landing glide has the pictures off their DOM labels, the labels' pointer events are held off, app.css
     // #labels.lb-displaced: a click or a hover would land where the label was. A class between frames; keyboard and focus are untouched.)
-    { const off = displacedNow(!!rideM, 0); if (off !== displaced) { displaced = off; classSoon(svg, 'lb-displaced', off); } }
+    // (Nor while a change between the views or a slide's glide has them crossing: the old view's pictures stand as ghosts on the vessels and the new ones come in at
+    // their anchors, while the DOM labels keep the layout they had until the change lands and then jump to it, in one frame, 234 to 683 px: the hit targets of
+    // the tester's Anatomy to Circuit, 18 Nov 2026. A click mid-change landed where no label was drawn. Held off for the length of the crossing, as for a ride.)
+    { const off = displacedNow(!!rideM, ghosts.length > 0 || xfNew < 1 || xfOld < 1 ? 1 : 0); if (off !== displaced) { displaced = off; classSoon(svg, 'lb-displaced', off); } }
     // (A full atlas is packed again beside the old one, never reset (repackWork). And the second page is made at rest, ahead of the first
     // picture that needs it, once the first is more than half full.)
     if ((needRepack && !stuck) || rp || todo.size) settleSoon();   // (a repack goes on a few copies a frame, and what the pass left over is built next, R11/R12)
@@ -2381,6 +2405,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // stops premultiplied, the waves' colours with their opacity, the cable's two ends, the tip's colour, and the body, screen and reading
   // as the painter's ops with a matrix of their own, which a frame writes the angle into to paint the head again. Nothing in a frame
   // makes an array, a string or an op.
+  // (The probe's waves as numbers (scan-waves.js waveRecInto), set by stage-scan.js each frame it draws them; waveOn: the pass draws the probe, so the page need not write its elements.)
+  let waveRec = null, waveOn = false;
   const WN = new Float64Array(16), CN = new Float64Array(64), SHC = new Float64Array([-14, 31, 62, 31, -14, 65, 62, 65]);
   function prepScan(L) {
     L.ver = ++sVer;
@@ -2509,7 +2535,24 @@ void main() { o = texture(uT, vUV) * uA; }`;
     // The waves: each packet's arcs (read off the probe's model every frame, where scanTick writes them), at the packet's opacity.
     sat(PIV[0], PIV[1]);
     const cx = PT[0], cy = PT[1], wv = L.wavesEl ? L.wavesEl.children : null;
-    if (wv) {
+    if (waveRec && waveOn) {
+      // (SF-2: the packets as numbers, from stage-scan.js's scanTick: no element and no path text.)
+      const np = Math.floor(waveRec.length / WAVE_STRIDE);
+      for (let a = 0; a < np; a++) {
+        const o = a * WAVE_STRIDE, po = waveRec[o];
+        if (!(po > 0.001)) continue;
+        for (let b = 0; b < WAVE_ARCS; b++) {
+          const k = o + 1 + 5 * b, st = b === 1 ? L.front : L.rip;
+          if (!st) continue;
+          const r = waveRec[k + 2], a0 = Math.atan2(waveRec[k + 1] - PIV[1], waveRec[k] - PIV[0]) + SR.ang, a1 = Math.atan2(waveRec[k + 4] - PIV[1], waveRec[k + 3] - PIV[0]) + SR.ang, wr = r * dpr, w = st.w * dpr;
+          ucOf(gl).i1(MU.uKind, 4);
+          ucOf(gl).f4(MU.uBox, cx - wr - w - 2, cy - wr - w - 2, cx + wr + w + 2, cy + wr + w + 2);
+          ucOf(gl).f4(MU.uGeo, cx, cy, wr, 0); ucOf(gl).f4(MU.uR4, a0, a1 < a0 ? a1 + Math.PI * 2 : a1, 0, 0); ucOf(gl).f1(MU.uW, w);
+          ucOf(gl).f4a(MU.uStroke, st.pm); ucOf(gl).f1(MU.uA, LA * Math.min(1, SR.op * po));
+          gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        }
+      }
+    } else if (wv) {
       for (let a = 0; a < wv.length; a++) {
         const pk = wv[a];
         if (!pk.classList.contains('sp-pk')) continue;
@@ -2606,6 +2649,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
     },
     /** Draws now (a mark the stage just moved, outside a label layout: the probe's ease). */
     redraw() { if (lost) return; ask(); },
+    /** The probe's waves for the next picture (SF-2): the packets' numbers, a record both sides hold (scan-waves.js). */
+    setWaves(rec) { waveRec = rec; },
+    /** Whether this pass draws the probe's waves itself (a probe look is read and a record was given), so scanTick leaves the page's own elements alone. */
+    wavesOn() { waveOn = !!(waveRec && sLook?.drawn); return waveOn; },
     /** Host mode: draws the labels into the host's canvas now (veins-gl top, at the end of each present). */
     drawInto() { draw(); },
     /** Host mode: something that decides whether the labels may be drawn over the figure changed (see check). */
@@ -2733,7 +2780,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       const items = [];   // alloc-rare: asked only by the browser check
       for (const s of last) {
         const st = sprites.get(s.g);
-        if (st && st.mode === 'gl' && st.seq === frameSeq && s.g.dataset?.key) { const it = snapshotItem(s.g.dataset.key, st.dx, st.dy, st.w, st.h, st.held ?? 0, dpr, W, H); it.pin = !!st.pin; it.pic = st.key + inkText(st); it.ink = st.mx && st.ink ? [...st.ink] : null; if (st.pin) { it.px = st.ppx; it.py = st.ppy; } items.push(it); }
+        if (st && st.mode === 'gl' && st.seq === frameSeq && s.g.dataset?.key) { const it = snapshotItem(s.g.dataset.key, st.dx, st.dy, st.w, st.h, st.held ?? 0, dpr, W, H); it.pin = !!st.pin; it.drawn = st.drawnA ?? it.a; it.pic = st.key + inkText(st); it.ink = st.mx && st.ink ? [...st.ink] : null; if (st.pin) { it.px = st.ppx; it.py = st.ppy; } items.push(it); }
       }
       // (The marks this frame drew: each dot's centre and radius, each leader's two ends, keyed by its label, CSS px from the canvas's corner.)
       const marksOut = [];   // alloc-rare: asked only by the browser check

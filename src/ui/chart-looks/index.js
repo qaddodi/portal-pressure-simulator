@@ -6,7 +6,6 @@ import { CRIT } from './crit.js';
 import { CARD } from './card.js';
 import { INST } from './inst.js';
 import { SMALL } from './small.js';
-import { CAUSES } from './causes.js';
 import { PLANE } from './plane.js';
 import { FLUID } from './fluid.js';
 import { LUMEN } from './lumen.js';
@@ -16,6 +15,11 @@ import { FLOWS } from './flows.js';
 import { PATH } from './path.js';
 import { ALLP } from './allp.js';
 import { TRIAL } from './trial.js';
+import { FOREST } from './forest.js';
+import { STIFF } from './stiff.js';
+import { SAAG } from './saag.js';
+import { SHIFT } from './shift.js';
+import { STENT } from './stent.js';
 
 /** key → entry. A key is <group>.<part>[.<sub>] (lowercase, dots). */
 export const LOOKS = {
@@ -25,7 +29,6 @@ export const LOOKS = {
   ...CARD,
   ...INST,
   ...SMALL,
-  ...CAUSES,
   ...PLANE,
   ...FLUID,
   ...LUMEN,
@@ -35,6 +38,11 @@ export const LOOKS = {
   ...PATH,
   ...ALLP,
   ...TRIAL,
+  ...FOREST,
+  ...STIFF,
+  ...SAAG,
+  ...SHIFT,
+  ...STENT,
 };
 
 /** host name → (ctx) → the host's base type size in px, what an `em` of that host means. A host missing here is 12. */
@@ -43,16 +51,19 @@ export const HOSTS = {
   curve: (c) => c.scale.sm ?? 12,   // (the curve and the course)
   talk: (c) => c.scale.sm ?? 12,   // app.css 6177 .pz-talk { font-size: var(--pz-sm, var(--pz-psm, 12px)) }; --pz-psm on a stacked card = its cap = scale.sm
   crit: (c) => Math.max(12, c.scale.sm ?? 14),   // app.css 7533 .pz-crit { font-size: max(12px, var(--bs, 14px)) }; --bs is the card's --pz-sm (a stacked or low card: its --pz-psm, = scale.sm)
-  causes: (c) => c.scale.sm ?? 12,   // app.css 7184 .pz-cbars { font-size: var(--pz-sm, var(--pz-psm, 12px)) }, the same rule
   plane: (c) => c.scale.cap ?? 12,   // app.css 7318 .pze-plot { font-size: var(--s-cap) }
   planecard: (c) => (c.in === 'cell' ? c.scale.chCap : c.scale.cap) ?? 12,   // 7320 .pze-plot.pze-incard { font-size: var(--ch-cap, var(--s-cap)) }; --ch-cap is set in a card's cell only (2266, 2628)
   fluid: (c) => Math.max(c.scale.fs12 ?? 12, 12),   // app.css .gf { font-size: var(--gs-fs) }; --gs-fs: var(--fs-12) = scale.fs12 (the strip is not zoomed by the card)
   // app.css 7096 .pz-tool .pz-inst:is(.pz-prof, .pz-flows) { font-size: var(--pz-sm, var(--pz-psm, 12px)) }; in a ladder's cell 2252 .pz-cc > .pz-prof { font-size: calc(var(--lad-f) * var(--lad-s)) }, --lad-f = --ch-cap
   prof: (c) => (c.in === 'cell' ? (c.scale.chCap ?? 12) * c.lad : c.scale.sm ?? 12),
   flows: (c) => c.scale.sm ?? 12,
+  shift: (c) => c.scale.sm ?? 12,   // (the change-from-healthy chart, tool-shift.js: the card's small size, grown to 12 px at the least by fittedType)
   // the phone grid's strips: 2255 (a case's own strip: the card's label size), 2258 (the names strip over the six: its cap size)
   pstrip: (c) => c.scale.lab ?? 12,
   pstriph: (c) => c.scale.cap ?? 12,
   trial: (c) => c.scale.sm ?? 12,   // (the trial card: one type size, the card's small size, grown to 12 px at the least by fittedType)
+  forest: (c) => c.scale.sm ?? 13,   // (the forest plot, trial-forest.js: the Tests card's 13 px, or the card's small size on a slide)
+  stiff: (c) => c.scale.sm ?? 12,   // (the stiffness bar under the FibroScan number, stiff-bar.js: the card's small size, grown to 12 px at the least by fittedType)
+  saag: (c) => c.scale.sm ?? 12,   // (the SAAG and protein plane, tool-saag.js)
   path: () => 12,   // (the guideline path card's small map: its words are 12 px, styles/path.css)
 };

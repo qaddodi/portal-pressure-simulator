@@ -843,55 +843,93 @@ export function createPaintGL(gl) {
   /** Paints record rec into a new texture (RGBA8, premultiplied, mipmapped unless mip is false, row 0 at the picture's top, as a
    *  canvas's texture is sent); null where it cannot (no programs, a lost context, a picture past the GPU's texture size). The host's
    *  bindings and switches are as they were afterwards, except that the new texture is bound on the active unit. */
-  function paint(rec, { mip = true, wrap = null } = NO_OPTS) {
+  function paint(rec, opts = NO_OPTS) {
+    const job = beginJob(rec, opts);
+    if (!job) return null;
+    stepJob(job, Infinity);
+    if (job.out) gl.bindTexture(gl.TEXTURE_2D, job.out);
+    return job.out;
+  }
+  /** A paint begun to be run in slices (stepJob): the same picture as paint makes, drawn a few tiles at a time so no frame holds the whole of it
+   *  (17 Nov 2026, the tester, a lobule pick that changed the tissue's state: the new bitmap painted in one frame, 743 ms). `tile` is the size of the
+   *  pieces it is cut in (paint uses 1024; a slice's own budget is met on smaller ones). Null where it cannot be painted (as paint). */
+  function beginJob(rec, { mip = true, wrap = null, tile = TILE } = NO_OPTS) {
     if (!rec || !(rec.width > 0) || !(rec.height > 0) || gl.isContextLost() || !ready()) return null;
     const W = Math.ceil(rec.width), H = Math.ceil(rec.height);
     const MAX = glCap(gl, gl.MAX_TEXTURE_SIZE);
     if (W > MAX || H > MAX) return null;
+    return { rec, W, H, mip, wrap, tile: Math.min(TILE, tile), tx: 0, ty: 0, out: null, done: false, failed: false };   // alloc-rare: one job a picture painted, not a frame's
+  }
+  /** Draws the job's tiles for up to `ms` (at least one), then puts the host's state back. True when the picture is whole (job.out, mipmapped;
+   *  null and job.failed when it could not be painted). */
+  function stepJob(job, ms) {
+    if (job.done) return true;
+    if (gl.isContextLost()) { job.done = job.failed = true; job.out = null; return true; }
     const st = saveState();
-    let out = null;
+    const t0 = performance.now();
     try {
       const r = resources();
-      out = gl.createTexture();
-      gl.bindTexture(gl.TEXTURE_2D, out);
-      const levels = mip ? Math.floor(Math.log2(Math.max(W, H))) + 1 : 1;
-      gl.texStorage2D(gl.TEXTURE_2D, levels, gl.RGBA8, W, H);
+      const { rec, W, H, mip, wrap, tile } = job;
+      // (A sliced paint's first step only sets up: the painter's targets (tens of MB of multisampled storage, made at the first picture of a warm period), the texture's storage and the shapes' buffers.
+      // 17 Nov 2026, the tester: the tissue's first slice ran 417 ms, its whole set-up and a tile in one frame. The tiles begin with the next step.)
+      const fresh = !job.out;
+      if (fresh) {
+        job.out = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, job.out);
+        const levels = mip ? Math.floor(Math.log2(Math.max(W, H))) + 1 : 1;
+        gl.texStorage2D(gl.TEXTURE_2D, levels, gl.RGBA8, W, H);
+      }
+      // (The shapes' buffers are sent at each slice: another picture painted between two slices uses the same ones.)
       gl.bindBuffer(gl.ARRAY_BUFFER, r.bufC); gl.bufferData(gl.ARRAY_BUFFER, rec.cv.length ? rec.cv : EMPTY_CV, gl.STATIC_DRAW);
       gl.bindBuffer(gl.ARRAY_BUFFER, r.bufP); gl.bufferData(gl.ARRAY_BUFFER, rec.pv.length ? rec.pv : EMPTY_PV, gl.STATIC_DRAW);
+      if (fresh && ms < Infinity) { gl.flush(); job.setup = true; return false; }   // (the finally puts the host's state back)
       gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.enable(gl.SCISSOR_TEST);
       gl.blendEquationSeparate(gl.FUNC_ADD, gl.FUNC_ADD);
-      for (let ty = 0; ty < H; ty += TILE) for (let tx = 0; tx < W; tx += TILE) {
-        const tw = Math.min(TILE, W - tx), th = Math.min(TILE, H - ty);
-        drawTile(rec, r, tx, ty, tw, th);
-        // (Resolved at the same place, as a multisampled blit must be, then copied into its place in the picture.)
-        gl.disable(gl.SCISSOR_TEST);
-        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, r.ms); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, r.rs);
-        gl.blitFramebuffer(0, 0, tw, th, 0, 0, tw, th, gl.COLOR_BUFFER_BIT, gl.NEAREST);
-        // (The multisampled colour and depth are cleared by the next tile and read by nothing else: told to the driver, a tile-based GPU (the
-        // iPhone's) does not write the 4x samples, about 32 MB, back to memory after each tile. Render-cost review P4, 5 Nov 2026.)
-        gl.invalidateFramebuffer(gl.READ_FRAMEBUFFER, r.sten ? INVAL_S : INVAL_DS);
-        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, r.rs);
-        gl.bindTexture(gl.TEXTURE_2D, out);
-        gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, tx, ty, 0, 0, tw, th);
-        gl.enable(gl.SCISSOR_TEST);
+      let drawn = 0;
+      for (; job.ty < H; job.ty += tile, job.tx = 0) {
+        for (; job.tx < W; job.tx += tile) {
+          if (drawn > 0 && performance.now() - t0 >= ms) break;
+          const tx = job.tx, ty = job.ty, tw = Math.min(tile, W - tx), th = Math.min(tile, H - ty);
+          drawTile(rec, r, tx, ty, tw, th);
+          // (Resolved at the same place, as a multisampled blit must be, then copied into its place in the picture.)
+          gl.disable(gl.SCISSOR_TEST);
+          gl.bindFramebuffer(gl.READ_FRAMEBUFFER, r.ms); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, r.rs);
+          gl.blitFramebuffer(0, 0, tw, th, 0, 0, tw, th, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+          // (The multisampled colour and depth are cleared by the next tile and read by nothing else: told to the driver, a tile-based GPU (the
+          // iPhone's) does not write the 4x samples, about 32 MB, back to memory after each tile. Render-cost review P4, 5 Nov 2026.)
+          gl.invalidateFramebuffer(gl.READ_FRAMEBUFFER, r.sten ? INVAL_S : INVAL_DS);
+          gl.bindFramebuffer(gl.READ_FRAMEBUFFER, r.rs);
+          gl.bindTexture(gl.TEXTURE_2D, job.out);
+          gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, tx, ty, 0, 0, tw, th);
+          gl.enable(gl.SCISSOR_TEST);
+          drawn++;
+        }
+        if (job.tx < W) break;   // (the budget ran out inside a row)
       }
-      gl.bindTexture(gl.TEXTURE_2D, out);
-      const wr = wrap || gl.CLAMP_TO_EDGE;
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wr); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wr);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, mip ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
-      if (mip) gl.generateMipmap(gl.TEXTURE_2D);
+      if (job.ty >= H) {
+        gl.bindTexture(gl.TEXTURE_2D, job.out);
+        const wr = wrap || gl.CLAMP_TO_EDGE;
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wr); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wr);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, mip ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
+        if (mip) gl.generateMipmap(gl.TEXTURE_2D);
+        job.done = true;
+      } else gl.flush();   // (what was drawn is sent on now, so the next slice does not queue behind a frame's)
     } catch (err) {
       console.warn('A GPU picture could not be painted.', err);
-      if (out) gl.deleteTexture(out);
-      out = null;
+      if (job.out) gl.deleteTexture(job.out);
+      job.out = null; job.done = job.failed = true;
     } finally {
       putState(st);
-      if (out) gl.bindTexture(gl.TEXTURE_2D, out);
     }
     clearTimeout(freeT); freeT = setTimeout(release, WARM_MS);   // (R08: kept warm through the next slide's paints)
     if (res) { if (warmHold?.held) warmHold.touch(); else warmHold = hold({ owner: 'paint-gl', kind: 'warm', bytes: resBytes, release, gl }); }   // alloc-rare: only on the first picture of a warm period, when the painter's targets are first held
-    return out;
+    return job.done;
+  }
+  /** Gives back what an unfinished job holds (a picture no longer wanted). */
+  function abandon(job) {
+    if (job && job.out && !job.done && !gl.isContextLost()) gl.deleteTexture(job.out);
+    if (job) { job.out = null; job.done = job.failed = true; }
   }
 
   // A cover: the box, a pixel past it, laid with the plain program from a small buffer of its own.
@@ -1057,6 +1095,9 @@ export function createPaintGL(gl) {
   }
   return {   // alloc-rare: once per GL context (made at its first picture), not per frame
     paint,
+    beginJob,
+    stepJob,
+    abandon,
     release,
     get ready() { return !!progs; },   // alloc-rare: once per GL context (made at its first picture), not per frame
   };

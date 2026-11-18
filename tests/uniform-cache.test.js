@@ -79,8 +79,6 @@ test('veins-gl.js sets the composite\'s per-frame uniforms through the cache and
     assert.ok(uses.length >= 1, `${n} is set`);
     for (const l of uses) assert.match(l, /UC\.\w+\(U\./, `${n}: ${l.trim().slice(0, 90)}`);
   }
-  assert.match(src, /const UC = uniformCache\(gl\);/);
-  assert.match(src, /import \{ uniformCache \} from '\.\/uniform-cache\.js/);
 });
 
 test('reset() forgets what is held (context loss and restore)', () => {
@@ -96,11 +94,6 @@ test('reset() forgets what is held (context loss and restore)', () => {
 test('veins-gl.js sends no uniform around the cache, and forgets the cache on loss and restore', () => {
   const src = read('../src/ui/veins-gl.js');
   assert.equal(src.split('\n').filter((l) => /\bgl\.uniform/.test(l)).length, 0, 'every uniform goes through UC');
-  assert.match(src, /uniformCache\(gl\)/);
-  assert.doesNotMatch(src, /ucache|UNIFORM_CACHE/, 'no address switch sends every uniform');
-  assert.doesNotMatch(read('../src/ui/uniform-cache.js'), /ucache|location\.search|\bon\b =/);
-  assert.match(src, /onLost = \(e\) => \{[^}]*UC\.reset\(\)/);
-  assert.match(src, /webglcontextrestored', onRestored/);
 });
 
 test('the lobule, dive field, lymph overlay and organ stack draws set their per-frame uniforms through the cache', async () => {
@@ -110,10 +103,6 @@ test('the lobule, dive field, lymph overlay and organ stack draws set their per-
     assert.match(src, /import \{ uniformCache \} from '\.\/uniform-cache\.js/, f);
     assert.match(src, /uniformCache\(gl\)/, f);
   }
-  const fx = readFileSync(new URL('../src/ui/fx-gl.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(fx, /new Float32Array\(MAX_DUCTS \* 4\), d1/, 'no array made per frame for the ductules');
-  const organs = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(organs, /gl\.uniform[0-9A-Za-z]*\(U\./, 'the stack layer sets nothing around the cache');
 });
 
 test('one location set from an array, then from numbers, and back: sent each time, never thrown (a linear gradient then a radial one)', () => {

@@ -3,8 +3,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 
 test('a slide title fills its line before wrapping, never balanced or narrowed', () => {
   const base = css.match(/\n\.pz-h \{[^}]*\}/)?.[0] ?? '';

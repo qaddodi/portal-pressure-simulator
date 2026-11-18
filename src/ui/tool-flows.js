@@ -35,7 +35,7 @@ export const ROUTES = [
   ['grs', 'Gastrorenal', '--s7', ['C5']],
   ['srs', 'Splenorenal', '--s5', ['C6']],
   ['pum', 'Paraumbilical', '--s4', ['C3']],
-  ['rec', 'Rectal', '--tr-wedge', ['C4']],
+  ['rec', 'Rectal', '--tr-sin', ['C4']],
   ['ret', 'Retroperitoneal', '--tr-cav', ['C7']],
   ['tips', 'TIPS', '--s1', ['TIPS']],
   ['dips', 'DIPS', '--s1', ['DIPS']],

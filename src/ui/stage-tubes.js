@@ -1,6 +1,6 @@
 // The tubes: update and updateInner, the widths and the tube render.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { EDGES, NODES, PORTAL_TERRITORY, dMinOf, isOccluded } from '../engine/topology.js';
+import { EDGES, NODES, PORTAL_TERRITORY, dMinOf, isOccluded, isStent } from '../engine/topology.js';
 import { ART_FADE, BACK_EDGES, CONTEXT_EDGES, FEEDERS, IVC_EDGES, LABEL_VESSEL, LIVER_EDGES, SIN_EDGES, TIP_CONNECT } from './anatomy.js';
 import { bandsStep } from './band-ease.js';
 import { oxygenFor } from './blood.js';
@@ -8,17 +8,21 @@ import { deltaColor, dropColor, flowColor, heatColor, oxygenColor, pressureColor
 import { follow2 } from './display-state.js';
 import { fluidTarget } from './fluid-step.js';
 import { flareScale, sideEndScale } from './fork-joins.js';
-import { cancelFrame, inMotion, mayTask } from './frame.js';
+import { cancelFrame, settling, mayTask } from './frame.js';
 import { overMemory as gpuOverMemory } from './gpu-budget.js';
 import { COUNTED, gpuProbe } from './gpu-probe.js';
 import { SYSTEM_COLOR, systemOf } from './highlight-math.js';
 import { createJunctionWidths } from './junction-widths.js';
 import { lesionEase } from './lesion-ease.js';
+import { geomOf as stentGeomOf, kindOf as stentKindOf, stentParts } from '../engine/stent-geom.js';
+import { lossShares, siteU } from './stent-waist.js';
 import { lumOf } from './luma.js';
 import { D_SURFACE } from './ease.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
+import { cardMoveLeft } from './card-motion.js';
+import { cavGrow } from './cavernoma-strand.js';
 import { fluidSpringFor } from './organ-ease.js';
-import { booting, holdCover, sinceInput } from './quiet.js';
+import { booting, holdCover, sinceInput, handDown } from './quiet.js';
 import { store } from './store.js';
 import { stumpCentre, stumpPinch } from './suture-marks.js';
 import { clamp, lerp } from './util.js';
@@ -32,7 +36,7 @@ import { stageScope } from './stage-scope.js';
 // 0.8 still read as a branch, 6 Nov). Its lumen is fainter too (stage-vessels.js colPass).
 const AP_FINE = 0.6;
 export function createTubes(st, live) {
-  const { E, EI, EV, FEEDER_CONNECTOR, GPU_EASE, LIGATED, NI, N_SAMPLES, REVERSAL_WATCH, SEL_FADE, SIDE_HOSTS, SIDE_INSIDE, STRAIGHT_COLL, anatCovered, animateVT, anyReveal, applyVT, blockersRead, camShowTo_, circAt, collOpen, defaultVT, divideLen, dopApply, drawVeins, driftEnd, easeInOut, edgeVisible, flag, geo, glowOnlyOk, holdReversals, layerMode, lobuleCode, lobuleReady, nearestLevel, nextFrame, pushCam, qHold, qP, readFrame, recruitFrac, refit, refreshCTM, revShown, sameView, sendRadii, setGlowSrc, setLevel, shownFrac, snapFresh, stageBox, startExit, stenosisAt, stepReveals, syncLift, syncVeins, trackChanges, updateGeometry, updateLabels, updateNodesCircuit, varixHeld, vesselPx, vh, waist, watch, wrap } = st;
+  const { E, EI, EV, FEEDER_CONNECTOR, GPU_EASE, LIGATED, NI, N_SAMPLES, REVERSAL_WATCH, SEL_FADE, SIDE_HOSTS, SIDE_INSIDE, STRAIGHT_COLL, anatCovered, animateVT, anyReveal, applyVT, blockersRead, camShowTo_, circAt, collOpen, defaultVT, divideLen, dopApply, drawVeins, driftEnd, easeInOut, edgeVisible, flag, geo, glowOnlyOk, holdReversals, layerMode, lobuleCode, lobuleReady, nearestLevel, nextFrame, pushCam, qHold, qP, readFrame, recruitFrac, refit, refreshCTM, safeInsets, revShown, sameView, sendRadii, setGlowSrc, setLevel, shownFrac, snapFresh, stageBox, startExit, stenosisAt, stepReveals, syncLift, syncVeins, trackChanges, updateGeometry, updateLabels, updateNodesCircuit, varixHeld, vesselPx, vh, waist, watch, wrap } = st;
   let glAtUpdate = false;   // (whether the GPU drew the figure at the last full update: the steps between take only that state)
   // A patient has arrived and none is on its way (opening one from Home, the first frames are still the last one's).
   const patientArrived = () => ((store.get().historyTick || 0) > 0 || !!store.get().booted) && !store.get().presetLoading;
@@ -85,11 +89,21 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   // pan or pinch waiting until it lifts (Mohammad, 21 Oct: "hitch as soon as I stop panning", finger still down).)
   // (The function waiting is handed on as the timer's own argument, so no closure is made to carry it.)
   const IDLE_ASK = { timeout: 600 }, lobuleNoop = () => {};
-  function prepIdleGo(fn) { if (sinceInput() < 700 || inMotion()) stageScope.timer(prepIdleGo, 400, fn); else if (window.requestIdleCallback) requestIdleCallback(fn, IDLE_ASK); else stageScope.timer(fn, 50); }
+  // (A rush: the pointer rests on the Lobule button or a finger is down on it (warmLobule): the quiet it waits for is a tenth of a second and not 0.7, for a few seconds, so the pieces are made while
+  // the reader's hand travels to the press and the build does not wait for it. A card or sheet coming or going still holds every piece, card-motion.js.)
+  let prepRush = 0;
+  const prepQuiet = () => (performance.now() < prepRush ? 100 : 1500);   // (1500, not 700, 18 Nov 2026: a piece is one task of 176 to 340 ms (lz.drawTile, lz.paintTissue) that cannot be cut, so a reader who stops for a moment and moves on again is less likely to meet it; a hand at the button asks for a rush)
+  function prepIdleGo(fn) { if (handDown() || sinceInput() < prepQuiet() || settling() || cardMoveLeft() > 0) stageScope.timer(prepIdleGo, prepRush > performance.now() ? 120 : 400, fn); else if (window.requestIdleCallback) requestIdleCallback(fn, IDLE_ASK); else stageScope.timer(fn, 50); }
   const prepIdle = (fn) => { stageScope.timer(prepIdleGo, 0, fn); };
   const prepLoad = () => lobuleReady().then(prepLobule, prepLoadLost);
   const prepLoadLost = (err) => console.warn('The lobule view did not load.', err);
   const prepCalm = () => live.morphTarget === 0 && live.morph < 0.02 && !live.lobuleOn && !live.diveWait && live.diveT === 0 && !live.vtGliding;
+  /** The lobule made ready ahead of the press (the pointer rests on its button, or a finger is down on it): its code, its pieces and a first frame, run a piece at a time as the page is quiet. */
+  function warmLobule() {
+    if (live.lobuleOn) return;
+    prepRush = performance.now() + 4000; prepAt = 0;
+    prepLobule();
+  }
   let prepQ = null;
   function prepRun() {
     const q = prepQ;
@@ -106,7 +120,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     if (prepBusy || !live.figureShown || now - prepAt < 1000) return;
     prepAt = now;
     if (!prepCalm() || live.figureHidden() || gpuOverMemory()) return;   // (the lobule's preparation ahead keeps ~130 MB; over the memory envelope it is given back, and not made again until under)
-    const q = live.lz.preparePieces();
+    const q = live.lz.preparePieces(now < prepRush);   // (a hand reaching for the Lobule button: prepared for the state as it is, at once)
     if (!q.length) return;
     prepBusy = true;
     prepQ = q;
@@ -153,7 +167,8 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     }
   }
   const OPT_STEADY = { steady: true };   // (a glide's options, read and never changed)
-  const homeGo = (d) => { if (!sameView(d, live.homeAt)) { live.homeAt = d; live.fitted = true; animateVT(d, 400, OPT_STEADY); } };
+  const REFRAMED = new Event('pps:reframed');   // (a vessel card on a phone brings its vessel above itself again: card.js)
+  const homeGo = (d) => { if (!sameView(d, live.homeAt)) { live.homeAt = d; live.fitted = true; animateVT(d, 400, OPT_STEADY); dispatchEvent(REFRAMED); } };
   let homeAsk = 0;
   function homeLookRead() {
     snapFresh();   // (the cards' boxes as they stand now, if anything placed changed since the last snapshot)
@@ -180,10 +195,10 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   // (The late looks run only if the stage's box is not the one the last look used: a turn whose sheet and cards settled inside the
   // first 200 ms is framed once, not at 0.2 s, 0.7 s and 1.5 s, each a glide with the labels solved again.)
   let lookedBox = '';
-  const boxKey = () => { const b = stageBox(); return b ? `${Math.round(b.left)},${Math.round(b.top)},${Math.round(b.width)},${Math.round(b.height)}` : ''; };
-  const lookHomeIfMoved = () => { if (boxKey() !== lookedBox) lookHomeKept(); };
+  const boxKey = () => { const b = stageBox(); snapFresh(); const i = safeInsets(); return b ? `${Math.round(b.left)},${Math.round(b.top)},${Math.round(b.width)},${Math.round(b.height)}|${Math.round(i.t)},${Math.round(i.b)},${Math.round(i.l)},${Math.round(i.r)}` : ''; };   // (C2, C8, 16 Nov: the room the cards leave counts too: a sheet turning into a side card on a resize leaves the box as it was; read phase)
+  const lookHomeIfMoved = () => readFrame(() => { if (boxKey() !== lookedBox) lookHomeKept(); });
   const lookHomeKept = () => { lookedBox = boxKey(); lookHome(); };
-  const homeResizeGo = () => { homeResizeT = 0; lookHomeKept(); homeLateT[0] = stageScope.timer(lookHomeIfMoved, 500); homeLateT[1] = stageScope.timer(lookHomeIfMoved, 1300); };
+  const homeResizeGo = () => { homeResizeT = 0; readFrame(lookHomeKept); homeLateT[0] = stageScope.timer(lookHomeIfMoved, 500); homeLateT[1] = stageScope.timer(lookHomeIfMoved, 1300); homeLateT[2] = stageScope.timer(lookHomeIfMoved, 2750); };
   addEventListener('resize', () => {
     stageScope.clear(homeResizeT); homeLateT.forEach((t) => stageScope.clear(t));
     homeResizeT = stageScope.timer(homeResizeGo, 200);
@@ -214,6 +229,9 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   // A narrowing and a clot are drawn as they follow the params in a moment too (lesion-ease.js): the waist closes or opens and the clot
   // thickens, instead of either arriving whole in one frame. The same stand-aside for the width step while they move.
   const lesions = lesionEase();
+  let lossF = null;   // (the frame being drawn: a stent's losses read its parts and flow, stentLoss)
+  const lossG = { len: 0, waist: 0, trans: 0, red: 0 }, lossP = { tract: 0, wall: 0, waistWall: 0, entry: 0, jet: 0, inlet: 0, jetEnd: 0, jetWaist: 0, wallEnd: 0, wallWaist: 0, total: 0 }, lossS = { jet: 0, ends: 0, at: 0, dir: 1, jet2: 0, at2: 0 };   // (kept: read at once)
+  const LOSS_KEYS = ['tract', 'wall', 'waistWall', 'entry', 'jet', 'inlet', 'jetEnd', 'jetWaist', 'wallEnd', 'wallWaist', 'total'];
   const lesionsMoving = () => !!live.F && lesions.differs(live.F.viewParams || store.get().params);
   const bandsMoving = () => bandsShown !== null && !!live.F && bandsShown !== (live.F.bands || 0);
   const stepBands = (f, dt) => { bandsShown = bandsStep(bandsShown, f.bands || 0, dt, reduceMotion.matches); return bandsShown !== (f.bands || 0); };
@@ -223,7 +241,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     const e = x.e;
     // The hit stroke is never thinner than the drawn tube (the IVC is wide, behind the liver) and never under ~10 px on screen.
     // (The thin hepatic artery has a narrow hit zone, and ranks below the portal vein it runs beside: the vein wins a shared tap.)
-    { const narrow = CONTEXT_EDGES.has(e.id) || BACK_EDGES.has(e.id) || !!ART_FADE[e.id], hw = Math.round(Math.max(narrow ? 8 : 20, w + 6, 10 / ((live.CTM && live.CTM.sc) || 1))); if (x.hitW !== hw) { x.hitW = hw; live.pickVer++; } }
+    { const narrow = CONTEXT_EDGES.has(e.id) || BACK_EDGES.has(e.id) || !!ART_FADE[e.id]; /* (a stent is a few px wide on a phone: its strip is a thumb wide, F15) */ const hw = Math.round(Math.max(narrow ? 8 : 20, w + 6, (isStent(e) ? 36 : 10) / ((live.CTM && live.CTM.sc) || 1))); if (x.hitW !== hw) { x.hitW = hw; live.pickVer++; } }
     if (x.isArt) return;
     if (x.cbr) for (const cb of x.cbr) cb.w = Math.max(1.2, w * cb.k);
     if (x.strands) for (let i = 0; i < x.strands.length; i++) {
@@ -234,7 +252,10 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
       // (the other lenses' colours are data), and none in the circuit. colPass writes it into the strand's recolour texels.
       const vx = f.metrics?.varix;
       sd.wale = e.id === 'C1a' && layerMode() === 'pressure' ? Math.round(varixWale(!!vx?.redWale, vx?.ratioMean ?? vx?.ratio, varixSNow.VAR) * (1 - t) * 100) / 100 : 0;
-      sd.live = e.code === 'C1' ? clamp(i + 1 - (bandsShown ?? (f.bands || 0)), 0, 1) : e.id === 'C8' ? clamp(1 + 4 * clamp((recruitFrac('C8', f) - 0.15) / 0.7, 0, 1) - (sd.tie ? 0 : i - 1), 0, 1) : 1;   // cavernoma: the fine channel's two halves (one strand) beside the main channel when acute, the rest grow in with the remodeling (a half never shows without the other)
+      sd.live = e.code === 'C1' ? clamp(i + 1 - (bandsShown ?? (f.bands || 0)), 0, 1) : 1;
+      // The cavernoma's channels grow in whole, joined at both ends (a free end in the air was rejected, 17 Nov 2026): each from the recruitment it begins at (CAV_CHANNELS r0), over CAV_GROW of it, in
+      // its width (sd.k, the share of the main channel's it reaches, read by the tube's radius and the blood's split) and, over its first quarter, in its opacity (sd.live).
+      if (sd.cav) { const grow = cavGrow(recruitFrac(e.id, f), sd.cav.r0); sd.k = sd.k0 * grow; sd.live = clamp(grow * 4, 0, 1); }
     }
     // (The gastrorenal shunt is one vein, not a plexus, so it is beaded itself: renderTube reads this into its radii.)
     if (e.id === 'C5') x.bead = Math.round(varixBead(f.metrics?.gastricVarix?.d) * (1 - t) * 100) / 100;
@@ -289,7 +310,9 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     const e = x.e, k = EI[e.id], D = f.D[k];
     // Anatomy: width follows diameter (compressed). Circuit: a narrower, more uniform range,
     // as on a transit map, so the lines stay even and legible.
-    const wA = e.kind === 'liver' ? (e.zone === 'sin' || e.zone === 'inter' || e.zone === 'post' ? 3.6 : 5.2) : vesselPx(IVC_EDGES.has(e.id) ? f.D[EI.IVC_IS] : D) * (IVC_EDGES.has(e.id) || e.id === 'SVC_RA' || e.id === 'V_UP' ? 0.72 : 1);   // the IVC is one tube: one caliber end to end (and the veins above the SVC take its scale, so the SVC widens below the azygos, never narrows: at full scale they bulged it at the join)
+    let wA = e.kind === 'liver' ? (e.zone === 'sin' || e.zone === 'inter' || e.zone === 'post' ? 3.6 : 5.2) : vesselPx(IVC_EDGES.has(e.id) ? f.D[EI.IVC_IS] : D) * (IVC_EDGES.has(e.id) || e.id === 'SVC_RA' || e.id === 'V_UP' ? 0.72 : 1);   // the IVC is one tube: one caliber end to end (and the veins above the SVC take its scale, so the SVC widens below the azygos, never narrows: at full scale they bulged it at the join)
+    // (A stent is drawn to scale with its own lumen, 8 mm as the vein's compressed width and the others in proportion: a 12 mm stent is twice a 6 mm one, not 1.65 times, R2-2.)
+    if (isStent(e) && e.kind === 'shunt') wA = vesselPx(8) * Math.max(0.5, D) / 8;
     const wC = (e.kind === 'liver' ? 8 : clamp(vesselPx(D) * 0.95, 6, 15)) * circBoost;
     let w = lerp(wA, wC, t);
     // (Both ends of the change kept, for the stretches' joins: a vessel's width between the views, widthRatio. Under the flow layer the width ignores the view.)
@@ -345,11 +368,12 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     if (hid.at) { followHidden(f); dtW = (nowW - Math.max(live.wAt, hid.pAt)) / 1000; live.fxAt = Math.max(hid.since, hid.pAt); live.plateStale = true; hid.at = 0; hid.p = null; hid.pAt = 0; }
     const kW = -Math.expm1(-dtW / 0.25);
     live.wAt = nowW; live.widthEasing = false; live.coilEasing = false; live.organsEasing = false;
-    if (stepBands(f, dtW)) live.widthEasing = true;
+    if (stepBands(f, dtW)) { live.widthEasing = true; if (gpuProbe.on) gpuProbe.gauge('widths easing by', 'bands'); }
     glAtUpdate = wrap.classList.contains('gl-on');
     const st = store.get();
+    lossF = f;
     const pRaw = f.viewParams || st.params, p = lesions.view(pRaw, dtW, reduceMotion.matches);
-    if (lesions.differs(pRaw)) live.widthEasing = true;
+    if (lesions.differs(pRaw)) { live.widthEasing = true; if (gpuProbe.on) gpuProbe.gauge('widths easing by', 'lesions'); }
     const t = easeInOut(live.morph);
     const ref = live.REF();
     // The circuit shown small (a phone, the whole map): every lane grows by the same factor, so the
@@ -364,7 +388,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     // Data layers other than pressure quiet the anatomy so the network carries the reading.
     flag.dataLayer = mode !== 'pressure' && mode !== 'neutral';
     // Colored by oxygen: each vessel's saturation at its two ends (the sinusoids darken toward the central vein).
-    const oxy = mode === 'oxygen' ? oxygenFor(EDGES, NODES, f).edge : null;
+    const oxyF = mode === 'oxygen' ? oxygenFor(EDGES, NODES, f) : null;
 
     // The varices' size now, held in steps (varix-look.js): their channels, strands and opacity are drawn as big as the varix is.
     varixHeld.VAR.now = varixHeld.GV.now = nowW;   // (the held size follows the beat's mean, varix-look.js)
@@ -383,12 +407,12 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
       const w = coiled ? 1.5 + 3.5 * sf : 0;
       // Eased toward its target (a change of over 0.6 starts it), so the vessel coils gradually.
       if (g.wigT == null || Math.abs(w - g.wigT) > 0.6) g.wigT = w;
-      if (g.wig !== g.wigT) { const d = g.wigT - g.wig; g.wig = Math.abs(d) < 0.03 ? g.wigT : g.wig + d * kW; coiling.push(x); if (g.wig !== g.wigT) live.widthEasing = live.coilEasing = true; }
+      if (g.wig !== g.wigT) { const d = g.wigT - g.wig; g.wig = Math.abs(d) < 0.03 ? g.wigT : g.wig + d * kW; coiling.push(x); if (g.wig !== g.wigT) { live.widthEasing = live.coilEasing = true; if (gpuProbe.on) gpuProbe.gauge('widths easing by', `coil ${x.e.id} ${g.wig.toFixed(2)} to ${g.wigT.toFixed(2)}`); } }
       // The varices' strands fan out less as their varix shrinks, eased the same way (a closed shunt keeps its full spread).
       if (x.strands && LOOK_SITE[x.e.id]) {
         const sprT = isOccluded(p, x.e.id) ? 1 : varixSpreadK(varixS[LOOK_SITE[x.e.id]]), spr = g.spr ?? 1;
         g.sprT = sprT;   // (binTube: while the spread eases, the strands are binned against where they began, as a coil is)
-        if (spr !== sprT) { const d = sprT - spr; g.spr = Math.abs(d) < 0.005 ? sprT : spr + d * kW; if (!coiling.includes(x)) coiling.push(x); if (g.spr !== sprT) live.widthEasing = live.coilEasing = true; }
+        if (spr !== sprT) { const d = sprT - spr; g.spr = Math.abs(d) < 0.005 ? sprT : spr + d * kW; if (!coiling.includes(x)) coiling.push(x); if (g.spr !== sprT) { live.widthEasing = live.coilEasing = true; if (gpuProbe.on) gpuProbe.gauge('widths easing by', `spread ${x.e.id} ${g.spr.toFixed(3)} to ${sprT.toFixed(3)}`); } }
       }
     }
     gpuProbe.time(null, 'update: geometry', updateGeometry, false, coiling);
@@ -396,11 +420,12 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     for (const x of EV) {
       const e = x.e;
       let vis = edgeVisible(x, f);
+      if (x.reveal && e.kind === 'shunt' && x.reveal.out === vis && live.canFade(x)) startExit(x, f, true);   // (a shunt that changes its mind mid-way turns round from where it is: no pop)
       const wasDrawn = !!x.drawn;   // on screen in the previous frame (not merely flagged visible)
       // A vessel that leaves (a collateral that closes, a shunt that is removed) retracts along its
       // flow, the way it drew on, and is hidden when it is done; it is held visible until then.
       if (x.reveal?.out) vis = true;
-      else if (!vis && x.vis && wasDrawn && live.canFade(x) && !x.reveal && !x.ghost && !live.quietFx()) { startExit(x, f); vis = true; }
+      else if (!vis && x.vis && wasDrawn && live.canFade(x) && !x.reveal && !x.ghost) { startExit(x, f); vis = true; }   // (Reduce Motion and imaging too: it fades out, startExit)
       if (vis !== x.vis) { x.vis = vis; live.edgeRev++; }
       if (!vis) { x.drawn = false; continue; }
       if (x.tipFade && TIP_CONNECT[e.id]) {
@@ -429,7 +454,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
         const q = edgeQ();
         if (Math.abs(w - x.width) < q && Math.abs(w - x.w1) < q) x.width = x.w1 = w;
       }
-      if (widthMoving(x)) live.widthEasing = true;
+      if (widthMoving(x)) { live.widthEasing = true; if (gpuProbe.on) gpuProbe.gauge('widths easing by', `${x.e.id} ${x.width.toFixed(3)} (${x.w1.toFixed(3)}) to ${x.wT.toFixed(3)}`); }
       w = x.width;
       x.wMode = mode;
       // The liver's own small vessels (portal venules, central veins) are the liver to the pointer in the anatomy:
@@ -444,13 +469,13 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
       }
       widthWrites(x, w, t, f, k);
       if (x.isArt) continue;
-      let c1, c2;
+      let c1, c2; x.oxRamp = 0;
       if (mode === 'pressure') { c1 = pressureColor(qHold(mode, k, 0, P1)); c2 = pressureColor(qHold(mode, k, 1, P2)); }
       else if (mode === 'drop') { c1 = c2 = dropColor(P1 - P2); }
       else if (mode === 'direction') { const rev = live.reversedShown(e); c1 = c2 = rev ? 'var(--flow-reversed)' : 'var(--flow-normal)'; }
       else if (mode === 'flow') { c1 = c2 = flowColor(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) * 0.06); }
       else if (mode === 'velocity') { c1 = c2 = e.kind === 'liver' ? 'var(--lens-neutral)' : velColorOf(f, k, store.get().healthy); }
-      else if (mode === 'oxygen') { c1 = oxygenColor(oxy[2 * k]); c2 = oxygenColor(oxy[2 * k + 1]); }
+      else if (mode === 'oxygen') { x.oxRamp = oxyF.ramp[k]; c1 = oxygenColor(oxyF.far[2 * k]); c2 = oxygenColor(oxyF.far[2 * k + 1]); }   // (a vein ends in its junction's blend, eased in over its last stretch: blood.js `far`, alongOf)
       else if (mode === 'heat') { c1 = heatColor(ref ? qHold(mode, k, 0, P1 - ref[NI[e.from]]) : 0); c2 = heatColor(ref ? qHold(mode, k, 1, P2 - ref[NI[e.to]]) : 0); }
       else if (mode === 'system') { c1 = c2 = SYSTEM_COLOR[systemOf(e, PORTAL_TERRITORY)]; }   // (a slide's vein system, deck visuals V7: the same on every patient)
       else if (mode === 'neutral') { c1 = c2 = PORTAL_TERRITORY.has(e.from) || PORTAL_TERRITORY.has(e.to) ? 'var(--vein-portal)' : 'var(--vein-systemic)'; }
@@ -469,7 +494,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
         const fr = shownFrac(e.id, f);
         const qa = Math.abs(f.Qf ? f.Qf[k] : f.Q[k]);
         const openNow = collOpen(e.id, f);
-        if (!openNow && wasDrawn && !x.ghost && !x.reveal && !live.quietFx()) startExit(x, f);
+        if (!openNow && wasDrawn && !x.ghost && !x.reveal) startExit(x, f);
         if (x.ghost !== (!openNow && !x.reveal?.out)) live.edgeRev++;
         x.ghost = !openNow && !x.reveal?.out;
         x.opa = isOccluded(p, e.id) ? 0.45 : Math.min(0.3 + 0.7 * Math.min(1, Math.max(fr * 2.5, qa / 1.5)), LOOK_SITE[e.id] ? varixOpacity(varixS[LOOK_SITE[e.id]]) : 1);   // (the varices' channels fade with their varix)
@@ -506,23 +531,23 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     }
     // Junction widths: where vessels meet, the largest narrows to the second largest and the
     // others widen toward it, so calibers change smoothly through every junction.
-    const J = junctionWidths();
+    const J = gpuProbe.time(null, 'update: junctions', junctionWidths);
     // Detect newly opened collaterals before the tubes are built: a revealing vessel is drawn as a
     // dashed stroke from its first frame (never first as a full tube that then vanishes).
-    trackChanges(f, p);
-    stepReveals(performance.now());
+    gpuProbe.time(null, 'update: track changes', trackChanges, f, p);
+    gpuProbe.time(null, 'update: reveals', stepReveals, performance.now());
     gpuProbe.time(null, 'update: tubes', renderTubes, p, t, J);
     // A selected vessel stays bright while the rest of the network recedes.
     flag.hasSel = st.selection?.type === 'edge' && !!E[st.selection.id]?.vis;
     // (An organ's card steps the whole network back the same way; the organ itself keeps full ink and its outline.)
     flag.orgSel = st.selection?.type === 'organ';
-    syncLift();
-    syncVeins(t);
-    live.updateOrganSel(st.selection, t);
+    gpuProbe.time(null, 'update: lift', syncLift);
+    gpuProbe.time(null, 'update: vessel sync', syncVeins, t);
+    gpuProbe.time(null, 'update: organ selection', live.updateOrganSel, st.selection, t);
     gpuProbe.time(null, 'update: nodes', updateNodesCircuit, f);
     gpuProbe.time(null, 'update: overlays', overlaysStep, f, p, t);
-    live.updateFocus();
-    dopApply();
+    gpuProbe.time(null, 'update: focus', live.updateFocus);
+    gpuProbe.time(null, 'update: doppler', dopApply);
     // (Not through a dive or a rise: the anatomy's labels fade out as it starts, and the way out lays them out once, for its landing.)
     // (Plan "Holding 120 Hz" rev 2 step 1: the figure's own work (geometry, tubes, overlays, organs) is the model frame's must; the labels
     // are a may task of it, laid out from the newest frame once the frame's must work is in, within its share, at most four frames late,
@@ -688,6 +713,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     }
     if (!moved) return;
     const J = junctionWidths();
+    lossF = f;
     const p = lesions.view(f.viewParams || store.get().params);
     for (const x of EV) if (x.vis && !x.isArt) renderTube(x, p, t, J);
     if (syncRadiiOnly(t)) gpuProbe.note(COUNTED.widthRadii);
@@ -706,7 +732,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   const tubeEndW = (J, n, id, stroked, w, lo, lim) => (J[n] && !stroked && GPU_EASE[id] === n ? clamp(J[n], w * lo, w * lim) : w);
   // (The portocaval shunt's end sinks into the side of the cava, as the Warren shunt's does into the renal vein: narrowed inside it and flared toward its wall. Not
   // in SIDE_HOSTS, whose blood hand-off (stage-blood.js) is for veins the shunt's own node meets. 13 Nov 2026.)
-  const SINK = { S_PC: [null, ['IVC_IS', 'ILI_IVC']] };
+  const SINK = { S_PC: [null, ['IVC_IS', 'IVC_IS_1', 'ILI_IVC', 'ILI_IVC_1']] };
   const FLARED = new Set(['S_DSR', 'S_PC']);
   let tubeHosts = 0;   // (how many of a side end's host veins are shown: set by tubeHostMax)
   function tubeHostMax(id, i) {
@@ -753,11 +779,33 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
       R[i] = Math.max(0.35, (r / 2) * (fn ? fn(v) : 1) * side * (pc ? stumpPinch(v * L, pc) : 1) * (bd ? beadRadius(1, bd, v, L, BEAD_PHASE_V, 0, BEAD_LAMBDA_FUNDAL) : 1) * (fr ? frontScale(fp, fr.out, order < 0 ? frontS(fr, u) : chainS(frontS(fr, u), order, wFirst)) : 1));
     }
   }
+  // A narrowed stent's local losses as shares of its whole fall (stent-waist.js lossShares): the jet at the waist's exit and the device's entrance and
+  // exit, from the engine's own parts (TIPS and DIPS: metrics.tips, .dips) or worked out from the stent's width and the frame's flow (a drawn stent).
+  // Written on the vessel in hundredths (x.lsJ, x.lsE, x.lsAt, x.lsDir) for the along curve; returns their key (0: none).
+  function stentLoss(x, id, p, v, f) {
+    const kind = stentKindOf(x.e);
+    if (!kind) return 0;
+    const g = stentGeomOf(p, id, kind, lossG), k = EI[id], q = f.Qf ? f.Qf[k] : f.Q[k];
+    let parts = id === 'TIPS' ? f.metrics?.tips?.parts : id === 'DIPS' ? f.metrics?.dips?.parts : null, dir = id === 'TIPS' ? f.metrics?.tips?.q : id === 'DIPS' ? f.metrics?.dips?.q : q;
+    if (!parts) {
+      const d = p.customShunts?.[id];
+      if (!(d > 0)) return 0;
+      parts = stentParts(kind, d, q, 1, v, g, lossP, siteU(p, id));
+      for (const n of LOSS_KEYS) parts[n] *= Math.abs(q);
+    }
+    lossShares(parts, g, siteU(p, id), dir, lossS);
+    const jQ = Math.round(lossS.jet * 100), eQ = Math.round(lossS.ends * 100);
+    const wQ = Math.round(lossS.jet2 * 100);
+    x.lsJ = jQ / 100; x.lsE = eQ / 100; x.lsAt = lossS.at; x.lsDir = lossS.dir; x.lsJ2 = wQ / 100; x.lsAt2 = lossS.at2;
+    return ((jQ * 101 + eQ) * 101 + wQ) * 2 + ((jQ > 0 || wQ > 0) && lossS.dir > 0 ? 1 : 0);
+  }
   function renderTube(x, p, t, J) {
     const g = geo[x.e.id], id = x.e.id, w = x.width, wallPx = x.wallPx;
     const v = live.isImaging() ? 0 : p.stenosis[id] || 0;
-    const sten = v > 0.01;
-    const stroked = x.ghost || (!!x.reveal && !fronted(x)) || (t >= 0.5 && !sten);   // (a collateral opening or closing is the whole shaded tube with a front of width, not a stroke drawing on)
+    // (A stent's waist narrows it mid stent with no stenosis at all: stentGeom.red, stent-geom.js. Either makes it a narrowed tube.)
+    const red = live.isImaging() || x.e.kind !== 'shunt' ? 0 : p.stentGeom?.[id]?.red || 0;
+    const sten = v > 0.01 || red > 0.01;
+    const stroked = x.ghost || (!!x.reveal && !x.reveal.fade && !fronted(x)) || (t >= 0.5 && !sten);   // (a collateral opening or closing is the whole shaded tube with a front of width, not a stroke drawing on)
     x.sten = sten; x.stroked = stroked;
     const lim = x.e.kind === 'collateral' ? 1.3 : 1.7;
     // A large shunt tapers into the smaller vein it drains into instead of butting onto it.
@@ -780,11 +828,19 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     for (let q = 0; q < LIGATED.length; q++) if (LIGATED[q][1] === id) { const dl = divideLen(id); if (dl > 0) pcQ = Math.round(stumpCentre(dl, g.len || 1) * 10) / 10; }
     const bdQ = x.bead && !stroked ? x.bead : 0;   // (the beaded shunt, C5: none once drawn as a stroke)
     const wallQ = Math.round(wallPx * 100), vQ = sten ? Math.round(v * 1000) : -1, atQ = sten ? stenosisAt(id, p) : 0;
-    const same = x.skKw === x.kw && x.skKa === x.ka && x.skKb === x.kb && x.skH0 === x.kh0 && x.skH1 === x.kh1 && x.skWall === wallQ && x.skV === vQ && x.skAt === atQ && x.skMorph === live.lastMorph && x.skStroked === stroked && x.skBd === bdQ && x.skPc === pcQ;
+    // (A stent's waist, its ends and its length shape the drawn waist, and its losses place the pressure colour's steps: both in the key.)
+    x.lsJ = 0; x.lsE = 0; x.lsAt = 0; x.lsDir = 1; x.lsJ2 = 0; x.lsAt2 = 0;
+    let gQ = 0, lsQ = 0;
+    if (sten && x.e.kind === 'shunt' && stentKindOf(x.e)) {
+      const sg = stentGeomOf(p, id, stentKindOf(x.e), lossG);
+      gQ = ((Math.round(sg.waist * 100) * 201 + Math.round(sg.trans * 100)) * 1001 + Math.round(sg.len * 100)) * 1001 + Math.round(sg.red * 1000);
+      lsQ = lossF ? stentLoss(x, id, p, v, lossF) : 0;
+    }
+    const same = x.skGeom === gQ && x.skLs === lsQ && x.skKw === x.kw && x.skKa === x.ka && x.skKb === x.kb && x.skH0 === x.kh0 && x.skH1 === x.kh1 && x.skWall === wallQ && x.skV === vQ && x.skAt === atQ && x.skMorph === live.lastMorph && x.skStroked === stroked && x.skBd === bdQ && x.skPc === pcQ;
     if (same && x.shadeOk) return;
     x.shadeOk = true;
     if (!same) {
-      x.skKw = x.kw; x.skKa = x.ka; x.skKb = x.kb; x.skH0 = x.kh0; x.skH1 = x.kh1; x.skWall = wallQ; x.skV = vQ; x.skAt = atQ; x.skMorph = live.lastMorph; x.skStroked = stroked; x.skBd = bdQ; x.skPc = pcQ;
+      x.skKw = x.kw; x.skKa = x.ka; x.skKb = x.kb; x.skH0 = x.kh0; x.skH1 = x.kh1; x.skWall = wallQ; x.skV = vQ; x.skAt = atQ; x.skGeom = gQ; x.skLs = lsQ; x.skMorph = live.lastMorph; x.skStroked = stroked; x.skBd = bdQ; x.skPc = pcQ;
       x.shadeVer = (x.shadeVer | 0) + 1;
     }
     const f = sten ? waist(id, v, g.len, w, p) : null;
@@ -793,5 +849,5 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     // (Kept as the function the radii are read through; it reads the numbers above, which this call has just set.)
     if (!x.rOf) x.rOf = (u) => tubeRadius(x, u);   // alloc-once: the vessel's first draw
   }
-  return { W_TAU, edgeQ, endWidth, holdHome, keep, riseFitRead, stepOrgans, stepWidths, tubeFill, update, widthMoving };
+  return { W_TAU, edgeQ, endWidth, holdHome, keep, riseFitRead, stepOrgans, stepWidths, tubeFill, update, warmLobule, widthMoving };
 }

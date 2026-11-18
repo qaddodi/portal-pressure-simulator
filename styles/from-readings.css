@@ -1,0 +1,197 @@
+/* From readings (Work backward), the patient menu's top row: src/ui/from-readings.js. A sheet on a phone (the shared .menu.as-sheet, so it rests over
+   the thumb dock's top line, never over it) and a popover under the menu's button elsewhere; the same glass as every menu. Colours are tokens, so
+   all five looks follow. The only things that move are opacity and transform (the pills' fill and strike, the swap's fade): nothing is laid out in
+   motion and nothing pops in or out. Kept apart from the app-NN files: their line budget only goes down (scripts/size-budget.json). */
+
+.menu.fr-pop { --fr-fill: color-mix(in srgb, var(--accent) 24%, transparent); width: min(440px, calc(100vw - 16px)); padding: 12px 14px 14px; gap: 0; overflow: hidden auto; overscroll-behavior: contain; max-height: min(78dvh, calc(100dvh - 96px), calc(100dvh - var(--fs-b, 0px) - var(--fs-t, 56px) - 8px)); }
+.menu.fr-pop.as-sheet { width: auto; padding: 8px 14px 14px; }
+.menu.fr-pop { scroll-padding-bottom: 96px; }   /* (a field scrolled into view stays clear of the sticky foot, which is about 80 px) */
+.menu.fr-pop.as-sheet[data-kb], html.thumb-ui .menu.fr-pop.as-sheet[data-kb] { scroll-padding-bottom: 96px; }
+/* On a wide screen the popover is wide enough for a card's two columns to hold their numbers on one line (review U14). The phone's order and content are the reference. */
+@media (min-width: 768px) { .menu.fr-pop:not(.as-sheet) { width: min(620px, calc(100vw - 16px)); max-height: min(86dvh, calc(100dvh - 96px), calc(100dvh - var(--fs-b, 0px) - var(--fs-t, 56px) - 8px)); } }
+.fr { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.fr-head { display: flex; align-items: center; gap: 8px; font-size: var(--fs-14); color: var(--text-2); }
+.fr-head b { color: var(--text); font-weight: 600; }
+.fr-head span { color: var(--text-3); font-size: var(--fs-12); }
+.fr-ic { width: var(--ic-s, 16px); height: var(--ic-s, 16px); flex: none; color: var(--text-2); }
+.as-sheet .fr-head { display: none; }   /* (the sheet's own head says it) */
+.fr-body { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.fr-step, .fr-results { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+
+.fr-prog { display: flex; gap: 4px; }
+.fr-prog i { flex: 1; height: 3px; border-radius: 3px; background: var(--surface-3); position: relative; overflow: hidden; }
+.fr-prog i::after { content: ''; position: absolute; inset: 0; background: var(--accent); opacity: 0; }
+.fr-prog i.on::after { opacity: 1; }
+.fr-q { margin: 2px 0 0; font-size: var(--fs-16); font-weight: 600; line-height: 1.3; color: var(--text); }
+.fr-small { margin: -4px 0 0; font-size: var(--fs-14); line-height: 1.4; color: var(--text-2); }
+.fr-fine { margin: 0; font-size: var(--fs-12); line-height: 1.4; color: var(--text-3); }
+.fr-fine b { color: var(--text-2); font-weight: 600; }
+.fr-sub { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); }
+
+.fr-rows { display: flex; flex-direction: column; gap: 6px; }
+.fr-row { display: grid; grid-template-columns: minmax(0, 1fr) 124px; align-items: center; gap: 4px 10px; padding: 6px 0; border-top: 1px solid var(--hairline); }
+.fr-row:first-child { border-top: 0; }
+.fr-l { display: flex; flex-direction: column; min-width: 0; }
+.fr-l b { font-size: var(--fs-14); font-weight: 600; color: var(--text); }
+.fr-l i { font-style: normal; font-size: var(--fs-12); line-height: 1.35; color: var(--text-3); }
+.fr-in { display: flex; align-items: center; gap: 6px; }
+.fr-in input { width: 100%; min-width: 0; height: 36px; padding: 0 10px; border-radius: var(--r-control); border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-16); font-variant-numeric: tabular-nums; text-align: right; }
+.fr-in input::placeholder { color: var(--text-3); font-size: var(--fs-14); }
+.fr-in input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.fr-in em { font-style: normal; font-size: var(--fs-12); color: var(--text-3); min-width: 3.4em; }
+.fr-row[data-known="1"] .fr-in input { border-color: var(--accent-line); background: var(--accent-soft); }
+/* A reading made from two others (HVPG, PPG): its field shows the number, read-only, and the line under its name says from where (review U8). */
+.fr-row[data-derived="1"] .fr-in input { border-color: var(--border); background: transparent; color: var(--text-2); }
+.fr-row[data-bad="1"] .fr-in input { border-color: var(--border-strong); }
+.fr-hint { grid-column: 1 / -1; font-size: var(--fs-12); color: var(--text-2); min-height: 0; }
+.fr-hint:empty { display: none; }
+.fr-grade { grid-template-columns: 1fr; }
+.fr-seg { margin-top: 4px; }
+.fr-seg button { padding: 6px 4px; font-size: var(--fs-12); white-space: normal; }
+
+/* Still possible: a count and every lesion type as a pill. The state is an attribute; the fill and the strike are layers that fade and scale. */
+.fr-still { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-radius: var(--r-card); background: var(--surface-2); }
+.fr-count { display: flex; align-items: baseline; gap: 5px; color: var(--text-2); font-size: var(--fs-12); }
+.fr-count b { font-size: var(--fs-16); font-weight: 600; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
+.fr-pills { display: flex; flex-wrap: wrap; gap: 4px; }
+.fr-pill { position: relative; isolation: isolate; padding: 2px 8px; border-radius: var(--r-pill); border: 1px solid var(--border-strong); font-size: var(--fs-12); line-height: 1.5; color: var(--text); overflow: hidden; }
+.fr-pill::before { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--fr-fill); box-shadow: inset 0 0 0 1px var(--accent-line); opacity: 0; transition: opacity var(--d-flip) var(--ease); }
+.fr-pill::after { content: ''; position: absolute; left: 8px; right: 8px; top: 50%; height: 1px; background: currentColor; transform: scaleX(0); transform-origin: left center; transition: transform var(--d-flip) var(--ease); }
+.fr-pill[data-s="best"]::before, .fr-pill[data-s="tie"]::before { opacity: 1; }
+.fr-pill[data-s="out"] { opacity: .55; transition: opacity var(--d-flip) var(--ease); }
+.fr-pill[data-s="out"]::after { transform: scaleX(1); }
+.fr-need { margin: 0; font-size: var(--fs-12); color: var(--text-3); }
+/* The foot (the count of readings and the buttons) stays at the bottom of the sheet while the rows scroll: Next is never below the fold (review U6). */
+.fr-foot { position: sticky; bottom: -14px; z-index: 2;   /* (above the menu's scroll-edge veils, z-index 1: the bottom veil is the menu's last child and reaches under this foot, and painted over its buttons) */
+   display: flex; flex-direction: column; gap: 6px; margin: 0 -14px -14px; padding: 8px 14px 14px; background: var(--surface); box-shadow: 0 -1px 0 var(--hairline); }
+.fr-btns { display: flex; gap: 8px; }
+.fr-btns .btn { flex: 1 1 0; min-width: 0; }
+.fr-btns .btn.primary { flex: 2 1 0; }
+
+/* The scenarios: one compact row each (name, share, bar, chips, one line of why); a tap opens the card under it by the shared transform fold. */
+.fr-list, .fr-also { display: flex; flex-direction: column; gap: 8px; }
+.fr-card { position: relative; border-radius: var(--r-card); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--hairline); overflow: hidden; transition: opacity var(--d-flip) var(--ease); }
+.fr-card[data-s="possible"] { background: transparent; }
+.fr-results[data-fitting="1"] .fr-card { opacity: .62; }
+.fr-ch { position: relative; display: flex; flex-direction: column; gap: 5px; width: 100%; min-height: 44px; padding: 10px 34px 10px 12px; border: 0; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.fr-ch:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+@media (hover: hover) { .fr-ch:hover { background: var(--surface-3); } }
+.fr-ct { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.fr-ct b { font-size: var(--fs-16); font-weight: 600; line-height: 1.25; color: var(--text); }
+.fr-rate { flex: none; font-size: var(--fs-16); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
+.fr-st { font-size: var(--fs-12); color: var(--text-2); }
+.fr-bar { display: block; height: 4px; border-radius: 4px; background: var(--surface-3); overflow: hidden; }
+.fr-bar i { display: block; width: 100%; height: 100%; border-radius: 4px; background: var(--accent); transform-origin: left center; transform: scaleX(var(--fit, 1)); }
+.fr-card[data-s="possible"] .fr-bar i { opacity: .55; }
+.fr-why1 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: var(--fs-14); line-height: 1.4; color: var(--text-2); }
+.fr-ch .fr-chev, .fr-dh .fr-chev { position: absolute; right: 14px; top: 17px; width: 7px; height: 7px; border-top: 1.5px solid var(--text-3); border-right: 1.5px solid var(--text-3); transform: rotate(135deg); transition: transform var(--d-flip) var(--ease); }
+.fr-dh .fr-chev { top: 15px; }
+.fr-ch[aria-expanded="true"] .fr-chev, .fr-dh[aria-expanded="true"] .fr-chev { transform: rotate(-45deg); }
+/* A row opens by the shared fold (fold-slide.js): closed it takes no room, open it is laid out at once and slides in by transform. */
+.fr-cb { display: none; overflow: hidden; }
+.fr-cb.on { display: block; }
+.fr-cd { display: flex; flex-direction: column; gap: 10px; padding: 4px 12px 12px; }
+.fr-marks { display: flex; flex-wrap: wrap; gap: 4px; }
+.fr-mark { padding: 1px 7px; border-radius: var(--r-pill); font-size: var(--fs-12); line-height: 1.5; border: 1px solid var(--border-strong); color: var(--text-2); }
+.fr-mark[data-m="fit"] { background: var(--fr-fill); border-color: var(--accent-line); color: var(--text); }
+.fr-mark[data-m="off"] { border-style: dashed; color: var(--text-3); text-decoration: line-through; text-decoration-thickness: 1px; }
+.fr-key { margin-top: -2px; }
+/* The card's details: one column on a phone (a 7 em label column left "Not in the model" 30 lines long), two from 640 px (review U12). */
+.fr-kv { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px 10px; margin: 0; }
+.fr-kv dt { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); padding-top: 6px; }
+.fr-kv dd { margin: 0; font-size: var(--fs-14); line-height: 1.45; color: var(--text-2); overflow-wrap: anywhere; }
+.fr-band { display: block; }
+.fr-acts { display: flex; }
+.fr-acts .btn { flex: 1; }
+.fr-disc { display: flex; flex-direction: column; }
+.fr-dh { position: relative; display: flex; align-items: center; width: 100%; min-height: 40px; padding: 0 28px 0 0; border: 0; background: transparent; color: var(--text-2); font: inherit; font-size: var(--fs-14); font-weight: 600; text-align: left; cursor: pointer; }
+.fr-dh .fr-chev { right: 6px; top: 16px; }
+.fr-dh:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.fr-lim { display: flex; flex-direction: column; gap: 6px; padding: 2px 0 8px; }
+.fr-lim p { margin: 0; font-size: var(--fs-14); line-height: 1.45; color: var(--text-2); }
+.fr-next-note { display: flex; gap: 10px; align-items: baseline; padding: 10px 12px; border-radius: var(--r-card); box-shadow: inset 0 0 0 1px var(--accent-line); background: var(--accent-soft); }
+.fr-next-note p { margin: 0 0 4px; font-size: var(--fs-14); line-height: 1.45; color: var(--text); }
+.fr-next-note p.fr-fine { color: var(--text-2); }
+.fr-pillnote { flex: none; padding: 1px 8px; border-radius: var(--r-pill); font-size: var(--fs-12); font-weight: 600; background: var(--accent); color: var(--on-accent); }
+.fr-refine { min-height: 1.4em; }
+/* Your readings as chips (the results head, and "not entered" on the review): each opens its step. */
+.fr-yr, .fr-miss { display: flex; flex-direction: column; gap: 6px; }
+.fr-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.fr-rc { min-height: 30px; padding: 3px 11px; border-radius: var(--r-pill); border: 1px solid var(--border-strong); background: transparent; color: var(--text); font: inherit; font-size: var(--fs-12); font-variant-numeric: tabular-nums; cursor: pointer; }
+.fr-yr .fr-rc { background: var(--surface-2); border-color: var(--hairline); }
+.fr-rc:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+@media (hover: hover) { .fr-rc:hover { background: var(--surface-3); } }
+.fr-tol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5em, 1fr)); gap: 2px 14px; }
+.fr-tol li { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; font-size: var(--fs-12); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.fr-tol b { font-weight: 600; color: var(--text); }
+.fr-cmp { display: flex; flex-direction: column; gap: 8px; padding: 2px 0 8px; }
+
+/* The menu's row: the door at the head of the Patients list */
+.um-g.um-fr { margin-bottom: 6px; }
+.um-g.um-fr .um-row { font-weight: 600; }
+.um-fromread .um-m { margin-left: auto; font-weight: 400; }
+@media (max-width: 380px) { .fr-row { grid-template-columns: minmax(0, 1fr) 108px; } }
+
+/* The Tests card's second door (Readouts, last group) */
+.rp-fr-btn { display: inline-flex; align-items: center; gap: 8px; }
+.rp-fr-ic { width: var(--ic-s, 16px); height: var(--ic-s, 16px); flex: none; }
+
+/* Your readings (the review before the scenarios): every reading by step, each a button that opens its step. Unknown is shown, never hidden. */
+.fr-review { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.fr-rg { border-radius: var(--r-card); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--hairline); overflow: hidden; }
+.fr-rgh { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 8px 12px 4px; font-size: var(--fs-12); color: var(--text-3); }
+.fr-rgh b { font-weight: 600; color: var(--text-2); }
+.fr-rg ul { list-style: none; margin: 0; padding: 0 0 4px; }
+.fr-rv { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto 14px; align-items: center; gap: 4px 10px; width: 100%; min-height: 44px; padding: 6px 12px; border: 0; border-top: 1px solid var(--hairline); background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.fr-rg li:first-child .fr-rv { border-top: 0; }
+.fr-rv:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.fr-rl { display: flex; flex-direction: column; min-width: 0; }
+.fr-rl b { font-size: var(--fs-14); font-weight: 500; color: var(--text); }
+.fr-rl i { font-style: normal; font-size: var(--fs-12); line-height: 1.35; color: var(--text-3); }
+.fr-rv > b, .fr-val b { font-size: var(--fs-16); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
+.fr-val { display: inline-flex; align-items: baseline; gap: 4px; justify-content: flex-end; }
+.fr-val em { font-style: normal; font-size: var(--fs-12); color: var(--text-3); }
+.fr-unk { font-size: var(--fs-14); color: var(--text-3); }
+.fr-rv[data-s="derived"] .fr-val b { color: var(--text-2); font-weight: 500; }
+.fr-rv[data-s="off"] .fr-val b { color: var(--text-3); text-decoration: line-through; text-decoration-thickness: 1px; }
+.fr-chev { width: 7px; height: 7px; justify-self: end; border-top: 1.5px solid var(--text-3); border-right: 1.5px solid var(--text-3); transform: rotate(45deg); }
+@media (hover: hover) { .fr-rv:hover { background: var(--surface-3); } }
+
+/* The exact settings beside what the model gives back (in each card): numbers only, the unit once in the row's name (review U11). */
+.fr-why { margin: 0; padding-left: 16px; font-size: var(--fs-14); line-height: 1.4; color: var(--text); }
+.fr-why li + li { margin-top: 3px; }
+.fr-fit { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.fr-fit .fr-sub { margin: 0 0 4px; }
+.fr-fit .fr-sub2 { margin-top: 10px; }
+.fr-set, .fr-back { list-style: none; margin: 0; padding: 0; font-size: var(--fs-14); }
+.fr-set li, .fr-back li { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 4px 0; border-top: 1px solid var(--hairline); font-variant-numeric: tabular-nums; }
+.fr-set li:first-child, .fr-back li:first-child { border-top: 0; }
+.fr-set li > span, .fr-back li > span { color: var(--text-2); }
+.fr-back li { grid-template-columns: minmax(0, 1fr) 3.6em 3.6em; }
+.fr-back li em { font-style: normal; text-align: right; color: var(--text-2); }
+.fr-back li b { text-align: right; white-space: nowrap; }
+/* (A reading the model only comes close to is plain; the caution colour stays with pressures. One it does not fit is underlined, as its chip is struck through.) */
+.fr-back li[data-m='near'] b { text-decoration: underline dotted; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.fr-back li[data-m='off'] b { text-decoration: underline dashed; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.fr-back .fr-bh em, .fr-back .fr-bh b { font-size: var(--fs-12); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-3); }
+@media (min-width: 640px) { .fr-fit { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; } .fr-kv { grid-template-columns: 8em minmax(0, 1fr); } .fr-kv dt { padding-top: 2px; } }
+
+/* Quiet notes (pressures that cannot all be true), the case banner, the entry's way in to cases, and the guess (review E8, T1, T2). Plain text on the card ground: no marks at an edge. */
+.fr-notes { display: flex; flex-direction: column; gap: 6px; }
+.fr-note { margin: 0; padding: 8px 12px; border-radius: var(--r-card); background: var(--surface-2); font-size: var(--fs-14); line-height: 1.4; color: var(--text-2); }
+.fr-ties { display: flex; flex-direction: column; gap: 6px; }
+.fr-case { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: var(--r-card); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--hairline); }
+.fr-case p { margin: 0; font-size: var(--fs-14); line-height: 1.45; color: var(--text); }
+.fr-case p.fr-sub { color: var(--text-3); }
+.fr-try { position: relative; display: block; width: 100%; padding: 10px 34px 10px 12px; border-radius: var(--r-card); border: 1px dashed var(--border-strong); background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.fr-try span:first-child { display: flex; flex-direction: column; }
+.fr-try b { font-size: var(--fs-14); font-weight: 600; }
+.fr-try i { font-style: normal; font-size: var(--fs-12); color: var(--text-3); }
+.fr-try .fr-chev { position: absolute; right: 14px; top: 50%; margin-top: -4px; width: 7px; height: 7px; border-top: 1.5px solid var(--text-3); border-right: 1.5px solid var(--text-3); transform: rotate(45deg); }
+.fr-try:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+@media (hover: hover) { .fr-try:hover { background: var(--surface-3); } }
+.fr-cases, .fr-guess { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.fr-guessgo { width: 100%; }
+.fr-pick { display: flex; flex-wrap: wrap; gap: 6px; }
+.fr-rc[aria-pressed="true"] { background: var(--fr-fill); border-color: var(--accent-line); }
+.fr-rc-static { cursor: default; }

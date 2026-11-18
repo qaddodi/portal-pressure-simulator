@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 // Vessel card and Details bugs V1–V3 from the 17 Oct critique (review/vessel-card-critique-17oct.md).
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
-const css = read('styles/app.css'), html = read('index.html'), card = read('src/ui/card.js'), actions = read('src/ui/actions.js');
+const css = appCss(), html = read('index.html'), card = read('src/ui/card.js'), actions = read('src/ui/actions.js');
 
 test('V1: no card title in the page carries an icon (an unsized one draws as a huge black shape)', () => {
   assert.ok(!/class="card-title"[^>]*>\s*<svg/.test(html));
@@ -32,14 +33,14 @@ const inspector = read('src/ui/inspector.js'), main = read('src/ui/main.js');
 
 test('V4: a clotted or narrowed vessel reads in → out on its card; open vessels keep one number', () => {
   assert.match(actions, /value: \(f, lens, ref\) => edgeValue\(e, f, lens, ref, true\)/);
-  assert.match(actions, /if \(range && \(p\?\.thrombus\?\.\[e\.id\] > 0 \|\| p\?\.stenosis\?\.\[e\.id\] > 0\)\) return \{ v: `\$\{fmt\(P1, 1\)\} → \$\{fmt\(P2, 1\)\}`, u: 'mmHg' \};/);
+  assert.match(actions, /if \(range && \(p\?\.thrombus\?\.\[host\] > 0 \|\| p\?\.stenosis\?\.\[host\] > 0\)\) \{/);
+  assert.match(actions, /return \{ v: `\$\{fmt\(H1, 1\)\} → \$\{fmt\(H2, 1\)\}`, u: 'mmHg' \};/);
   assert.match(main, /edgeValue\(e, f, 'pressure', null\)\.v/, 'the hover tip keeps the one number');
 });
 
-test('V5: the status is a coloured word after the reading (card) and under the name (Details), never a pill', () => {
+test('V5: the status is a coloured word after the reading (card), never a pill', () => {
   assert.match(card, /const nr = h\('div', P_NR, name, pillEl\);/, 'the direction word at the right of the name');
   assert.ok(!/class: 'pill '/.test(card), 'card');
-  assert.match(inspector, /h\('span', \{ class: 'st-word ' \+ cls\[0\] \}, cls\[1\]\)/);
   for (const c of ['ok', 'warn', 'rev', 'bad']) assert.match(css, new RegExp(`\\n\\.st-word\\.${c} \\{ color:`), c);
 });
 
@@ -53,9 +54,9 @@ test('V8: a card slider\'s value stays in ink when changed; the accent is on the
   assert.ok(!/\.ac-slider\.changed \.ctl-val/.test(css));
 });
 
-test('V9: a vessel, compartment or organ is the Details title; no "Live values" heading', () => {
-  assert.ok(!/'Live values'/.test(inspector));
-  assert.match(main, /\$\('#panelTitle'\)\?\.classList\.toggle\('sr-only', named\)/);
-  assert.match(main, /const named = NAMED_DETAILS\.includes\(d\?\.type\);/);
-  assert.match(main, /const NAMED_DETAILS = \['edge', 'node', 'organ'\];/);
+test('V9: a vessel, compartment or organ is the title of its own details, inside its card; no "Live values" heading', () => {
+  const det = read('src/ui/card-details.js');
+  assert.ok(!/'Live values'/.test(inspector) && !/'Live values'/.test(det));
+  assert.match(det, /class: 'ad-back'[^\n]*h\('span', \{\}, title\)/, 'the back row is the name');
+  assert.doesNotMatch(main, /NAMED_DETAILS/, 'no panel is titled by the name any more');
 });

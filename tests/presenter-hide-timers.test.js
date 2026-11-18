@@ -4,8 +4,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { presenterSource } from './split-src.js';
 
-const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const src = presenterSource();
 const between = (a, b) => { const i = src.indexOf(a); assert.ok(i > 0, a); const j = src.indexOf(b, i); assert.ok(j > i, b); return src.slice(i, j); };
 
 test('two quick panel-width changes bring the words back', () => {
@@ -22,23 +23,23 @@ test('two quick panel-width changes bring the words back', () => {
 });
 
 test('a data card shown again is not hidden by the timer of its last leaving, and the timer of a second leaving is the first fade\'s', () => {
-  assert.match(src, /let dataHideT = 0;/);
+  assert.match(src, /let (?:live\.)?dataHideT = 0;/);
   const fn = between('function dataIn(', 'const showTool = ');
   // Shown (or about to be, while its cards wait): the timer is cleared before the card's state is looked at.
-  assert.match(fn, /clearTimeout\(dataHideT\); dataHideT = 0;[^\n]*\n\s*if \(data\.hidden\) \{ data\.hidden = false;/);
+  assert.match(fn, /clearTimeout\((?:live\.)?dataHideT\); (?:live\.)?dataHideT = 0;[^\n]*\n\s*if \(data\.hidden\) \{ data\.hidden = false;/);
   // Leaving: one timer, started by the first leaving; it hides the card only if it still fades out, and says it has run.
-  assert.match(fn, /dataHideT \|\|= setTimeout\(\(\) => \{ dataHideT = 0; if \(data\.classList\.contains\('pz-hide'\)\) \{ data\.hidden = true; ui\?\.tools\.hide\(\); \} \}, D_SMALL \+ 20\);/);
+  assert.match(fn, /(?:live\.)?dataHideT \|\|= setTimeout\(\(\) => \{ (?:live\.)?dataHideT = 0; if \(data\.classList\.contains\('pz-hide'\)\) \{ data\.hidden = true; (?:live\.)?ui\?\.tools\.hide\(\); \} \}, D_SMALL \+ 20\);/);
   assert.doesNotMatch(fn, /\n\s*setTimeout\(\(\) => \{ if \(data\.classList\.contains\('pz-hide'\)\)/);
   // The case card hides the faded data card at once behind it: nothing is left to run later.
-  assert.match(src, /if \(ui\.data\.classList\.contains\('pz-hide'\) && !ui\.data\.hidden\) \{ clearTimeout\(dataHideT\); dataHideT = 0; ui\.data\.hidden = true; ui\.tools\.hide\(\); \}/);
+  assert.match(src, /if \((?:live\.)?ui\.data\.classList\.contains\('pz-hide'\) && !(?:live\.)?ui\.data\.hidden\) \{ clearTimeout\((?:live\.)?dataHideT\); (?:live\.)?dataHideT = 0; (?:live\.)?ui\.data\.hidden = true; (?:live\.)?ui\.tools\.hide\(\); \}/);
 });
 
 test('the case card, one element for every case, is not hidden by the timer of an earlier leaving', () => {
-  assert.match(src, /let caseLift = null, caseCard = null, caseHideT = 0;/);
+  assert.match(src, /let (?:live\.)?caseLift = null, (?:live\.)?caseCard = null, (?:live\.)?caseHideT = 0;/);
   // Up again: the old timer has nothing left to hide. Leaving again: the old timer is replaced by this leaving's own.
-  assert.match(between('function cardUp(', 'async function caseRun('), /clearTimeout\(caseHideT\); caseHideT = 0;/);
+  assert.match(between('function cardUp(', 'async function caseRun('), /clearTimeout\((?:live\.)?caseHideT\); (?:live\.)?caseHideT = 0;/);
   const shut = between('function caseShut() {', 'function caseFly(');
-  assert.match(shut, /clearTimeout\(caseHideT\);\s*caseHideT = setTimeout\(\(\) => \{ caseHideT = 0; if \(!card\.c\.classList\.contains\('on'\)\) card\.c\.hidden = true; \}, ms\);/);
+  assert.match(shut, /clearTimeout\((?:live\.)?caseHideT\);\s*(?:live\.)?caseHideT = setTimeout\(\(\) => \{ (?:live\.)?caseHideT = 0; if \(!card\.c\.classList\.contains\('on'\)\) card\.c\.hidden = true; \}, ms\);/);
   // (Still hidden only once the card has gone: the remaining flight of a flung card, or the card's own fade.)
   assert.match(shut, /const ms = card\.flown \? Math\.max\(0, Math\.ceil\(card\.flown - performance\.now\(\)\)\) : card\.ms;/);
 });

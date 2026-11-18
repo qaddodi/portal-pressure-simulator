@@ -10,6 +10,7 @@ import { CIRC_REGIONS } from '../src/ui/cam-frame.js';
 import { isCamOn, unionBox, regionBox, growBox, camNames, camProblems } from '../src/ui/cam-frame.js';
 import { camOn } from '../src/ui/presenter.js';
 import { scaleViews } from '../src/ui/scale-switch.js';
+import { presenterSource } from './split-src.js';
 
 const EDGE_IDS = new Set(EDGES.map((e) => e.id));
 
@@ -39,8 +40,8 @@ test('growing a box takes in what the slide points at with the 8 % room the came
 test('names resolve as the glow resolves them: a term target, an organ, a station, a named set, else a vessel', () => {
   const o = camOn(['PV_TRUNK', 'spleen', 'varix', 'CONF', 'AO', '@hepatic-veins']);
   assert.deepEqual(o.organs, ['spleen']);
-  // varix → C1a, C1b; CONF is the portal vein's station and frames its vessel, not a point; the set brings the three hepatic veins
-  assert.deepEqual(o.edges, ['PV_TRUNK', 'C1a', 'C1b', 'RHV_IVC', 'MHV_IVC', 'LHV_IVC']);
+  // the portal vein is two pieces where the coronary vein joins it; varix → C1a, C1b; CONF is the portal vein's station and frames its vessel, not a point; the set brings the three hepatic veins
+  assert.deepEqual(o.edges, ['PV_TRUNK', 'PV_TRUNK_1', 'C1a', 'C1b', 'RHV_IVC', 'RHV_IVC_1', 'MHV_IVC', 'LHV_IVC']);
   assert.equal(o.points.length, 1, 'AO has no term target: it frames where the station stands');
   assert.deepEqual(o.unknown, []);
   assert.deepEqual(camOn(['liver', 'liver', 'C5', 'C5']), { organs: ['liver'], edges: ['C5'], points: [], unknown: [] }, 'a name twice counts once');
@@ -95,7 +96,7 @@ test('the examples in the authoring guides name things the camera knows', () => 
 });
 
 test('the presenter frames by name through camBox, and the older forms through the same sums', () => {
-  const pz = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const pz = presenterSource();
   const body = /function camBox\(cam, s\) \{([\s\S]*?)\n {2}\}\n/.exec(pz)?.[1];
   assert.ok(body, 'camBox is where the framing is worked out');
   assert.match(body, /regionBox\(isCamOn\(cam\) \? cam\.near : cam, REGIONS\)/, 'a region, a box or a list of regions, or the region the names grow from');

@@ -5,9 +5,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { presenterSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
-const main = read('src/ui/main.js'), pres = read('src/ui/presenter.js');
+const main = read('src/ui/main.js'), pres = presenterSource();
 
 function rig(viewTransitions) {
   const src = main.slice(main.indexOf('let projWant = false;'), main.indexOf('function flipProjector()'));
@@ -56,7 +57,7 @@ test('the explore shortcuts do not reach a talk, except Search and the guide; th
 
 test('a ?script=test- link waits once for the test deck, then says it was not found; a talk\'s link is dropped when it ends', () => {
   assert.match(pres, /async function start\(id, at = 0, opts = null\) \{/);
-  assert.match(pres, /!TESTING\.length && !opts\?\.waited\) return testingLoad\.then\(\(\) => start\(id, at, \{ \.\.\.opts, waited: true \}\)\);/);
+  assert.match(pres, /!(?:live\.)?TESTING\.length && !opts\?\.waited\) return testingLoad\.then\(\(\) => start\(id, at, \{ \.\.\.opts, waited: true \}\)\);/);
   const stop = pres.slice(pres.indexOf('function stopNow('), pres.indexOf('// When the show ends'));
   assert.match(stop, /if \(restore\) \{ try \{ const u = new URL\(location\.href\); if \(u\.searchParams\.has\('script'\)\) \{ u\.searchParams\.delete\('script'\); u\.searchParams\.delete\('slide'\); history\.replaceState\(null, '', u\.pathname \+ u\.search \+ u\.hash\); \}/);
 });
@@ -65,7 +66,7 @@ test('a shared link with a value out of range still applies its view, selection 
   const fn = main.slice(main.indexOf('async function loadShared('), main.indexOf('// The orange PREVIEW pill'));
   assert.doesNotMatch(fn, /return;\s*\}\s*\n\s*\}/, 'no early return in the clamp branch');
   assert.match(fn, /clamped = true; \}/);
-  assert.ok(fn.indexOf('clamped = true') < fn.indexOf('if (s.view) store.set({ view: s.view });'));
-  assert.match(fn, /if \(clamped\) toast\(missing \|\| 'This link had values out of range;/);
+  assert.ok(fn.indexOf('clamped = true') < fn.indexOf('if (s.view && s.view !== store.get().view) setViewKey('));
+  assert.match(fn, /if \(clamped\) toast\(missing \|\| `This link had values the model does not accept/);
   assert.match(main, /catch \{ history\.replaceState\(null, '', location\.pathname \+ location\.search \+ `#s=\$\{encodeShare\(\)\}`\);/);
 });

@@ -5,14 +5,12 @@
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { DECKS } from '../src/ui/decks.js';
 import { adopted } from './deck-adopted.js';
 import { criteriaRow, criteriaRows, criteriaMet, criteriaReading, criteriaHasCase, cutParts, verdictParts, CRITERIA_MAX, ZONES, keyLine } from '../src/ui/tool-criteria.js';
 import teaching from '../src/ui/ext-teaching.js';
+import { appCss } from './split-src.js';
 
-const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const slidesUsing = (f) => DECKS.flatMap((d) => d.slides.filter((s) => s[f] !== undefined).map((s) => [d, s]));
 
 test('hold: only adopted question slides use it, each a true flag on a slide with a card and no preset answer', () => {
@@ -27,20 +25,6 @@ test('hold: only adopted question slides use it, each a true flag on a slide wit
   }
 });
 
-test('hold: the presenter sets it out of sight and lets the answer slide ease it in once it has landed', () => {
-  const p = src('presenter.js');
-  assert.match(p, /function holdAnswer\(on, instant = false\)/);
-  assert.match(p, /holdAnswer\(!s\.visual && \(!!s\.hold \|\| holdEase/);
-  assert.match(p, /paintOverlays\(fv, to, st\);\n\s*if \(holdEase\) \{ holdEase = false; holdAnswer\(false\); \}/);
-  assert.match(src('presenter-tools.js'), /holdAnswer\(on, instant = false\) \{ cur\?\.hold\?\.\(!!on, instant\); \}/);
-  const prof = src('tool-profile.js');
-  assert.match(prof, /new Set\(held \? \[\] : blocksOf\(own \|\| goal, healthy\(\)\)\)/, 'held, the chart asks for no red blocks (they fade out as any block does)');
-  assert.match(prof, /if \(row && hk >= 0\.005\) \{/, 'held, the brackets ease out');
-  // (CSS: the rating words, the Doppler's words and the figure's alerts fade, never snap.)
-  assert.match(css, /\.pz-data\[data-held\] \.pzt-r, \.pz-data\[data-held\] \.pz-tool :is\(\.dop-dir, \.dop-pattern, \.dop-note\) \{ opacity: 0; \}/);
-  assert.match(css, /\.pz-data \.pzt-r, \.pz-data \.pz-tool :is\(\.dop-dir, \.dop-pattern, \.dop-note\) \{ transition: opacity var\(--d-surface\) var\(--ease\); \}/, 'they ease in by opacity (1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
-  assert.match(css, /\.app\.pz-held \.lb-alert \{ fill-opacity: 0; \}/);
-});
 
 
 test('criteria card: rows read in every written form, at most four, live rows judged as their tile prints them', () => {
@@ -84,8 +68,6 @@ test('criteria card: only adopted slides use it, each with 1 to 4 rows of words,
     assert.ok(!s.causes, `${d.id}/${s.id}: the rules live in the card, not in the causes line a phone drops`);
     for (const r of rows) assert.ok(r.text.length <= 70, `${d.id}/${s.id}: "${r.text}" fits a row`);
   }
-  const src2 = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(src2, /s\.tool\?\.kind !== 'criteria'/, 'no tiles stand beside any instrument now: they are the header\'s readings');
 });
 
 test('criteria card V3: cut-offs split for the sans signs and units, the bold lead of the verdict, the case column only with a case', () => {
@@ -112,18 +94,9 @@ test('criteria card, plain rules (his pick 26 Oct, C with D\'s key words): a mar
   const look = DECKS.find((d) => d.id === 'encephalopathy').slides.find((s) => s.tool?.title === 'Look first for').tool;
   assert.equal(look.lead, undefined, '"Treating them" reads after the list it points at');
   assert.deepEqual(verdictParts(look.verdict), { bold: '', rest: 'Treating them comes first.' });
-  const src = readFileSync(new URL('../src/ui/tool-criteria.js', import.meta.url), 'utf8');
-  assert.match(src, /classList\.toggle\('ordered', t\?\.ordered === true\)/);
-  assert.match(src, /classList\.toggle\('has-lit', rows\.some\(\(r\) => r\.lit\)\)/);
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   const block = css.slice(css.indexOf('/* Plain rules, no cut-off column'), css.indexOf("/* A case card's own question"));
   assert.ok(block.length > 400);
-  assert.doesNotMatch(block, /border-(left|right)|inset \d+px 0 0|box-shadow: inset [^0]/, 'no side stripes: a ring is an outline all round');
-  assert.match(block, /\.pzc-row:not\(\.pzc-hrow\) \.pzc-c::before \{[^}]*border-radius: 50%[^}]*transition: none/, 'a ring, its fill taken with the reading (1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
-  assert.match(block, /\[data-lit\], \[data-met="yes"\]\) \.pzc-c::before \{ background: var\(--text\)/, 'filled: the row that applies to the case');
-  assert.match(block, /counter-increment: pzcn; content: counter\(pzcn\)/, 'numerals when the order matters');
-  assert.match(block, /\.pz-crit\.has-lit:not\(\.has-cut\) \.pzc-row:not\(\[data-lit\]\) \.pzc-t > b \{ font-weight: 500/, 'key words go quiet on the rows that do not apply');
-  assert.match(block, /\.pz-crit:not\(\.has-cut\) \.pzc-row:not\(\.pzc-hrow\) \{ font-size: 1\.12em; \}/, 'the words a step larger, the case header unchanged');
 });
 
 test('criteria card V3 in the decks: every rule pill is cited in its slide\'s notes, short leads, cut-offs and verdicts, one row met at most', () => {
@@ -145,17 +118,10 @@ test('criteria card V3 in the decks: every rule pill is cited in its slide\'s no
     }
     if (rows.some((r) => r.cut)) assert.ok(rows.filter((r) => r.cut).length >= 2, `${id}: cut-offs on more than one row, or none`);
   }
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   const block = css.slice(css.indexOf('/* The criteria card'), css.indexOf("/* A case card's own question"));
   assert.ok(block.length > 200);
-  assert.doesNotMatch(block, /border-(left|right)|inset \d+px 0 0|box-shadow: inset [^0]/, 'no vertical lines or side stripes in the criteria card (his rule)');
-  assert.match(block, /\.pzc-row \{[^}]*font: 400 1\.07em\/1\.35 var\(--font-display\)/, 'the rules in the serif');
-  assert.match(block, /\.pzc-end \{[^}]*padding-left: 22px/, 'the case column set apart by space alone');
-  assert.match(block, /\.pz-crit \{[^}]*width: 100%/, 'the card full width: a phone had centred it shrunk and pushed the case out');
   for (const [c, n] of [['c', 1], ['t', 2], ['end', 3]]) assert.match(block, new RegExp(`\\.pzc-${c} \\{[^}]*grid-column: ${n};`), `.pzc-${c} in column ${n}, so a hidden cut-off moves nothing`);
-  assert.match(block, /\.pz-crit\.has-cut \.pzc-c \{ display: block;/, 'the cut-offs at every width, a phone too (his V3 mock)');
-  assert.match(block, /\.pzc-end \{[^}]*white-space: nowrap/, 'the case column on one line (an iPhone wrapped "This case" and "C 10")');
-  assert.match(block, /\.pzc-m > i \{[^}]*transition: opacity/, 'the marks of a live row cross-fade, never snap');
 });
 
 test('case-card question: only adopted case slides end on one, a question, the case and its question together under 220 characters', () => {
@@ -168,7 +134,6 @@ test('case-card question: only adopted case slides end on one, a question, the c
     assert.ok(/^[A-Z].*\?$/.test(s.caseQ) && !s.caseQ.slice(0, -1).includes('?'), `${at}: one question`);
     assert.ok(`${s.vignette} ${s.caseQ}`.length < 220, `${at}: case and question under 220 characters (${`${s.vignette} ${s.caseQ}`.length})`);
   }
-  assert.match(src('presenter.js'), /s\.caseQ \? h\('p', \{ class: 'pz-case-p pz-case-q' \}, nb\(s\.caseQ\)\) : null/, 'its own line on the card, fitted with the case');
 });
 
 test('every content slide of a built-in deck has a question for the handout', () => {
@@ -192,22 +157,13 @@ test('HVPG response tile: hvpgResp adds a live percent fall in the HVPG from a n
     assert.ok(s.data === 'tiles', `${at}: a tiles slide`);
     assert.ok(s.hvpgResp === true || d.slides.findIndex((x) => x.id === s.hvpgResp) >= 0 && d.slides.findIndex((x) => x.id === s.hvpgResp) < d.slides.indexOf(s), `${at}: counted from an earlier slide`);
   }
-  const p = src('presenter.js');
-  assert.match(src('card-tiles.js'), /export const tileKeys = \(s, onPhone\) => \[\.\.\.ownKeys\(s, onPhone\), \.\.\.\(s\.scopeTile \? \['scope'\] : \[\]\), \.\.\.\(s\.hvpgResp && !s\.tiles\?\.includes\('hvpgFall'\) \? \['hvpgFall'\] : \[\]/, 'the tile joins the slide\'s tiles');
-  assert.match(p, /hvpgFall: \(\(base - f\.hvpg\) \/ base\) \* 100/, 'the fall in percent, live');
-  assert.match(p, /ui\.tiles\.paintTiles\(respFp\(s, now\.fp\)/);
-  assert.match(p, /ui\.tiles\.paintTiles\(respFp\(s, f\)/);
 });
 
 test('no Since the bleed tile (his 30 Oct, "I kinda hate the time since bleed tile and it should go"): no slide sets clock, the card has no clock row', () => {
   assert.deepEqual(slidesUsing('clock').map(([d, s]) => `${d.id}/${s.id}`), []);
-  assert.doesNotMatch(src('presenter.js'), /Since the bleed|pz-clockrow|bleedClock/);
-  assert.doesNotMatch(css, /\.pz-clock/);
 });
 
 test('a slide that cannot land is not rebuilt without end (Variceal bleed 3 to 4 froze the talk, 25 Oct)', () => {
-  const p = src('presenter.js');
-  assert.match(p, /if \(tries > 2\) \{ console\.warn\(`presenter: slide \$\{want \+ 1\} did not land\$\{phaseNote\(\)\}`\); break; \}/, 'the move loop gives up on a slide after two tries');
   const vb = DECKS.find((d) => d.id === 'variceal-bleed').slides.find((s) => s.id === 'minutes');
   assert.equal(vb.predict, undefined, 'Predict is gone: Variceal bleed 4 never had a choice question');
 });

@@ -42,6 +42,29 @@ export function hull4Dist2(px, py, ax, ay, bx, by, cx, cy, dx, dy) {
   return Math.min(segDist2(px, py, ax, ay, bx, by), segDist2(px, py, cx, cy, dx, dy), segDist2(px, py, ax, ay, cx, cy),
     segDist2(px, py, bx, by, dx, dy), segDist2(px, py, ax, ay, dx, dy), segDist2(px, py, bx, by, cx, cy));
 }
+/**
+ * Tubes sent flat, as typed arrays (18 Nov 2026, the Compare stop's longest unit, 'send' at 44.4 ms: the structured clone of every vessel's nested [x, y] pairs ran on the main thread):
+ * a tube with `flat` (np moments of n samples, x and y in turn) gets its `path` made here, the worker's side. A tube that has a `path` is left as it is.
+ */
+export function tubesFromFlat(tubes) {
+  for (const t of tubes) {
+    if (!t.flat) continue;
+    const { flat, np, n } = t, path = [];
+    for (let m = 0; m < np; m++) {
+      const P = [];
+      for (let i = 0; i < n; i++) { const k = (m * n + i) * 2; P.push([flat[k], flat[k + 1]]); }
+      path.push(P);
+    }
+    t.path = path; t.flat = null;
+  }
+  return tubes;
+}
+/** The inverse, for the main thread: a path (P0 … Pm, each n points [x, y]) as one Float64Array. */
+export function flatPath(path) {
+  const np = path.length, n = path[0].length, flat = new Float64Array(np * n * 2);
+  for (let m = 0; m < np; m++) for (let i = 0; i < n; i++) { const k = (m * n + i) * 2, q = path[m][i]; flat[k] = q[0]; flat[k + 1] = q[1]; }
+  return flat;
+}
 /** Squared distance from (px, py) to segment i of a vessel anywhere between its samples (path: P0 … Pm). */
 export function sweptDist2(px, py, path, i) {
   if (path.length === 1) { const P = path[0]; return segDist2(px, py, P[i][0], P[i][1], P[i + 1][0], P[i + 1][1]); }

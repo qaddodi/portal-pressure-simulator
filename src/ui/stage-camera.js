@@ -116,14 +116,16 @@ addEventListener('orientationchange', saRead);
     // (The stage's base camera record, stage px from the stage's corner, without the circuit's turn: the one place the stage box and vt meet, so the one writer.
     // A resize moves it with no write to vt.)
     camSet(cams.stage.base, s * live.vt.k, ox + s * live.vt.x - b.left, oy + s * live.vt.y - b.top);
-    // (A dot keeps at least a 4 px radius on screen however far the map is zoomed out: written where the scale steps a quarter octave.)
-    if (sk > 0) { const rm = DOT_MIN_PX / 2 ** (Math.round(Math.log2(sk) * 4) / 4); if (rm !== nd.rmin) { nd.rmin = rm; if (nd.at > 0) nodeVerts(nd.at); } }
+    // (A dot keeps at least a 4 px radius on screen however far the map is zoomed out: written where the scale steps a quarter octave; not in a solve at another stage.)
+    if (sk > 0 && !live.glSuppress) { const rm = DOT_MIN_PX / 2 ** (Math.round(Math.log2(sk) * 4) / 4); if (rm !== nd.rmin) { nd.rmin = rm; if (nd.at > 0) nodeVerts(nd.at); } }
     live.wrapRect = b;
     applyClampFs();
   }
   // (A narrowing's "60 %" is drawn in the figure: its size there is that of the labels' names on screen at any zoom, sweep batch 03 at 6–7 px.)
-  function applyClampFs() {
-    const sk = live.CTM?.sc || 0, cfs = sk > 0 ? (live.clampBase / sk).toFixed(2) : '';
+  function applyClampFs() {   // (a solve at another stage, live.glSuppress, takes the size it reads and writes nothing on the page: frame.js settleGate)
+    // (The scale taken in steps of 2 %, 1 % off at most: these sizes on screen are written to styles that the overlays' reading holds, so a step of
+    // every frame of a zoom or of a change between the views was a new reading of those groups in each frame, 18 Nov 2026. A 12 px name is 0.12 px off.)
+    const sk = live.CTM?.sc > 0 ? Math.exp(Math.round(Math.log(live.CTM.sc) * 50) / 50) : 0, cfs = sk > 0 ? (live.clampBase / sk).toFixed(2) : ''; if (live.glSuppress) { if (cfs && cfs !== live.clampFs) { live.clampFs = cfs; placeClampLabels(); } return; }
     const csw = sk > 0 ? `${(7 / sk).toFixed(2)}px` : '';   // (the clamps' halo, 7 px on screen: --clamp-sw, app.css)
     if (csw && csw !== live.clampSw) { live.clampSw = csw; for (let i = 0; i < clampGs.length; i++) clampGs[i].style.setProperty('--clamp-sw', csw); }
     if (cfs && cfs !== live.clampFs) { live.clampFs = cfs; for (let i = 0; i < clampGs.length; i++) clampGs[i].style.setProperty('--clamp-fs', `${cfs}px`); placeClampLabels(); }
@@ -164,6 +166,7 @@ addEventListener('orientationchange', saRead);
   // A zoom step by the buttons (or a double click) glides there instead of jumping, in the time its reach needs (camMs, ease.js).
   function animZoomAt(cx, cy, factor) {
     live.fitted = false; live.handed = !live.lobuleOn;
+    live.camLock?.release('hand');
     if (live.lobuleOn) return;
     const [vx, vy] = clientToVBFast(cx, cy), base = live.vtTarget && live.vtAnim ? live.vtTarget : live.vt;
     const k = clamp(base.k * factor, 0.6, 6), wx = (vx - live.vt.x) / live.vt.k, wy = (vy - live.vt.y) / live.vt.k;
@@ -171,6 +174,7 @@ addEventListener('orientationchange', saRead);
   }
   // A trackpad pinch may stretch a little past the limits (it springs back when it ends).
   function zoomAt(cx, cy, factor, stretch = false) {
+    live.camLock?.release('hand');
     if (live.lobuleOn) return;   // the lobule view has its own zoom
     // (By arithmetic, as a touch pinch does: asking the browser for the matrix (getScreenCTM) after the last event's new transform laid
     // the whole figure out again, on every wheel event of a trackpad pinch, several a frame on a Mac.)

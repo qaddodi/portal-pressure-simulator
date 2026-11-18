@@ -3,8 +3,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { lobuleSource } from './split-src.js';
 
-const src = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+const src = lobuleSource();
 const gl = src.slice(src.indexOf('function drawGL('), src.indexOf('const num = (cs, n, d)'));
 
 test('the surface pass waits, paused, for the model, the theme, the canvas size or the scale, and looks again every second', () => {
@@ -13,8 +14,8 @@ test('the surface pass waits, paused, for the model, the theme, the canvas size 
   assert.match(gl, /const surfSame = ver === sVer && dark === sDark && cw === sCw && ch === sCh;/);
   // (Where the figure is — V.x, V.y — is not in the key: a translation changes none of the radii's tolerance.)
   assert.doesNotMatch(gl.match(/const surfSame = .*/)[0] + gl.match(/const ver = .*/)[0], /V\.x|V\.y/);
-  assert.match(gl, /const panOnly = dt === 0 && !rzMoving && !lensFrom && !!attrKey && !!radAll && bk === binKey && surfSame && kq === sK && cs === surfCs && now - lastSurface < 1000;/);
-  assert.match(gl, /if \(!panOnly && \(dt === 0 \|\| rzMoving \|\| lensFrom \|\| !attrKey \|\| !radAll \|\| bk !== binKey \|\| camDue \|\| now - lastSurface >= 80\)\) \{\n\s+lastSurface = now; sVer = ver; sDark = dark; sCw = cw; sCh = ch; sK = kq; surfCs = cs;/);
+  assert.match(gl, /const panOnly = dt === 0 && !rzMoving && !lensFrom && washQ === washSent && !!attrKey && !!radAll && bk === binKey && surfSame && kq === sK && cs === surfCs && now - lastSurface < 1000;/);   // (washQ: the wedged column's wash on its slide, lobule-wash.js: a wash on its way is never skipped as a pan)
+  assert.match(gl, /if \(!panOnly && \(dt === 0 \|\| rzMoving \|\| lensFrom \|\| washQ !== washSent \|\| !attrKey \|\| !radAll \|\| bk !== binKey \|\| camDue \|\| now - lastSurface >= 80\)\) \{\n\s+lastSurface = now; sVer = ver; sDark = dark; sCw = cw; sCh = ch; sK = kq; surfCs = cs;/);
 });
 
 test('running, a camera-only change rebuilds no attribute map (R12): the pass comes with the model, the styles or every 80 ms', () => {
@@ -31,9 +32,9 @@ test('only the camera\'s own bumps of the version are left out of the model\'s: 
 });
 
 test('the flow is not worked out or sent again on a paused pan, but is with a new GL context or while its marks fade', () => {
-  assert.match(gl, /const flowSame = panOnly && g === flowG && flowA === flowAt;/);
-  assert.match(gl, /if \(!flowSame\) \{ g\.setFlow\(flowData\); flowG = g; flowAt = flowA; \}/);
-  assert.match(gl, /if \(!flowSame && \(bloodOn \|\| chev \|\| origin\)\) for \(const t of live\)/);
+  assert.match(gl, /const flowSame = panOnly && g === flowG && (?:live\.)?flowA === flowAt;/);
+  assert.match(gl, /if \(!flowSame\) \{ vesSet\(g, null, null, null, null\); framePart\('lz\.vessels: flow send', vesFlow\); flowG = g; flowAt = (?:live\.)?flowA; \}/);
+  assert.match(gl, /if \(!flowSame && \(chev \|\| origin\)\) for \(const t of tubeSet\)/);
 });
 
 test('the surface pass is still counted for the ?perf readout', () => {

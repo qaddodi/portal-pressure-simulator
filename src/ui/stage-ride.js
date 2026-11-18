@@ -1,7 +1,6 @@
 // The camera ride: the labels riding a glide, a hand zoom or a carry, drift and carry ends, the settle, the arc room and the follow of a framed move.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { VIEW } from './anatomy.js';
-import { lerpInto } from './cam-arc.js';
+import { camWindow, lerpInto } from './cam-arc.js';
 import { cancelFrame } from './frame.js';
 import { cams } from './scene-cam.js';
 import { clamp, rideChanged } from './util.js';
@@ -59,15 +58,18 @@ export function createRide(st, live) {
     if (live.F) updateLabels(live.F);
   }
   const camSettleIdle = () => { if (!live.vtGliding) camSettle(); };
-  // The viewBox units the stage really shows (the svg meets its viewBox, so the spare room on one axis shows more), and the widest
-  // view an arc may pull back to: the whole figure's fit.
-  function arcRoom() {
+  // The viewBox units the stage really shows (the svg meets its viewBox, so the spare room on one axis shows more; cam-arc.js camWindow), and the
+  // widest view an arc may pull back to: the whole figure's fit. `free`: the rectangle the framing was fitted into (frameBox), the point the path travels.
+  function arcRoom(free = null) {
     const b = stageBox(), cw = b.sw, ch = b.sh;   // (the svg's box, kept: no layout read)
     if (!cw || !ch) return null;
-    const s0 = Math.min(cw / VIEW.w, ch / VIEW.h), vb = { w: cw / s0, h: ch / s0, cx: VIEW.w / 2, cy: VIEW.h / 2 };
-    // (The anatomy's fit zoom as last framed, kept by defaultVT: an arc's frames no longer measure the cards and the figure.)
-    return { vb, wMax: vb.w / (live.fitKept || 1) };
+    const vb = camWindow(cw, ch, vbBox, free);
+    // (The anatomy's fit zoom as last framed, kept by defaultVT: an arc's frames no longer measure the cards and the figure. The circuit's whole is its view box.)
+    return { vb, wMax: live.morphTarget === 1 ? vb.w : vb.w / (live.fitKept || 1) };
   }
+  // A screen's width in the view's units, the reach a glide's time and its carried speed are counted in (camMs, springSlope).
+  const SW = { w: 0, h: 0, cx: 0, cy: 0 };
+  function screenW() { const b = stageBox(); return b.sw && b.sh ? camWindow(b.sw, b.sh, vbBox, null, SW).w : 1; }
   function aimView(fn) {
     live.aiming = true; live.aimed = null;
     try { fn(); } finally { live.aiming = false; }
@@ -79,6 +81,7 @@ export function createRide(st, live) {
   const viewNow = () => (live.following || live.zoomBase || live.vtGliding || live.drifting || live.lobuleOn || live.morphTarget !== 0 || live.morph > 0 || live.diveT > 0 ? null : { k: live.vt.k, x: live.vt.x, y: live.vt.y });
   function followStart(v0, v1) {
     if (!v0 || !v1 || sameView(v0, v1) || !viewNow()) return false;
+    live.camLock?.release('card');
     cancelFrame(live.vtAnim); driftEnd();
     live.following = true; live.follow0 = { ...v0 }; live.follow1 = { ...v1 };
     // (A camera-only move, 4 Nov 2026, Mohammad: "the whole figure view moves instead of this being a camera only move with everything sticking to
@@ -108,5 +111,5 @@ export function createRide(st, live) {
     if (live.sites.list) { refreshCTM(); sitesPaint(); }
     if (live.scan.on) live.scanPaint(); live.dprobePaint();
   }
-  return { aimView, arcRoom, camSettle, camSettleIdle, driftEnd, followAt, followStart, rideLeaders, rideNow, rideStart, rideStep, rideStop, stagePx, stagePxInto, stagePxNow, viewNow };
+  return { aimView, arcRoom, screenW, camSettle, camSettleIdle, driftEnd, followAt, followStart, rideLeaders, rideNow, rideStart, rideStep, rideStop, stagePx, stagePxInto, stagePxNow, viewNow };
 }

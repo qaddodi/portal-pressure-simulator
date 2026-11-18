@@ -2,7 +2,7 @@
 //
 // The repository root stays a working, build-free site (GitHub Pages serves it as is, and
 // `npm start` runs it). This script writes an optimized copy to dist/ for hosts that can serve a
-// build output, and for the SCORM package:
+// build output:
 //
 //   - one module graph per entry (the app, the engine worker), split so the command palette
 //     and the presenter stay separate chunks loaded on first use;
@@ -16,6 +16,7 @@
 // stylesheet load far faster than ~60 source files on a slow or filtered network (pages-build: 1).
 
 import { build as esbuild } from 'esbuild';
+import { fatalWarnings, refusal } from './build-warnings.mjs';
 import { readFileSync, writeFileSync, rmSync, mkdirSync, cpSync, readdirSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, dirname, resolve, relative, basename, sep } from 'node:path';
@@ -24,6 +25,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { execSync } from 'node:child_process';
 import { gzipSync } from 'node:zlib';
 import { withCsp } from './csp.mjs';
+import { appCssFiles } from './app-css.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'dist');
@@ -51,12 +53,11 @@ const stripStamps = {
     b.onResolve({ filter: /\?v=/ }, (args) => ({ path: resolve(args.resolveDir, args.path.replace(/\?v=[0-9a-f]+$/, '')) }));
   },
 };
-// An import esbuild can only make `undefined` (the module is empty, or exports nothing) minifies to `(void 0)(...)` and the page dies at
-// boot ("(void 0) is not a function", preview c3fb93ed, when a conflict emptied glass-gl.js). esbuild only warns, so the build fails on it.
+// (Warnings that fail the build, scripts/build-warnings.mjs: an import that is always undefined, and a CSS syntax error, strict or not.)
 const build = async (opts) => {
   const r = await esbuild(opts);
-  const bad = r.warnings.filter((w) => w.id === 'import-is-undefined');
-  if (bad.length) throw new Error('Build refused, an import is always undefined:\n' + bad.map((w) => `  ${w.location?.file}:${w.location?.line} ${w.text}`).join('\n'));
+  const bad = fatalWarnings(r.warnings);
+  if (bad.length) throw new Error(refusal(bad));
   return r;
 };
 // Release identity (PR-04): the newest v2026.11.N tag (when the checkout has tags) plus the short commit, so a tester's "which version?"
@@ -80,8 +81,11 @@ const sweepFile = basename(Object.keys(sweep.metafile.outputs).find((f) => f.end
 // 1c. The dye bolus's worker (dye-worker.js: the slugs' advance), the same way.
 const dye = await build({ ...common, entryPoints: [join(ROOT, 'src/ui/dye-worker.js')], outdir: ASSETS, entryNames: 'dye-[hash]', write: true, metafile: true });
 const dyeFile = basename(Object.keys(dye.metafile.outputs).find((f) => f.endsWith('.js')));
+// 1d. Work backward's refinement worker (inverse-worker.js: the engine run near the best fits), the same way.
+const inverse = await build({ ...common, entryPoints: [join(ROOT, 'src/ui/inverse-worker.js')], outdir: ASSETS, entryNames: 'inverse-[hash]', write: true, metafile: true });
+const inverseFile = basename(Object.keys(inverse.metafile.outputs).find((f) => f.endsWith('.js')));
 
-// 2. The app. Every module that starts a worker (host.js, presenter-visuals.js: the engine; stage-vessels.js: the binning; stage-blood.js:
+// 2. The app. Every module that starts a worker (host.js, calc-client.js: the engine; stage-vessels.js: the binning; stage-blood.js:
 // the dye) points the Worker at the bundled worker file. The modules are found by what they hold, not by name: when the stage split
 // moved the binning and dye workers out of stage.js, a filter naming stage.js left the shipped build asking for ./sweep-worker.js, which
 // is not there, so every stretch of the change between the views failed and each of its frames was binned on the CPU (his Mac, 8 Nov
@@ -90,6 +94,7 @@ const WORKER_SRC = [
   [/new URL\('\.\.\/worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/g, `new URL('./${workerFile}', import.meta.url)`],
   [/new URL\('\.\/sweep-worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/g, `new URL('./${sweepFile}', import.meta.url)`],
   [/new URL\('\.\/dye-worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/g, `new URL('./${dyeFile}', import.meta.url)`],
+  [/new URL\('\.\/inverse-worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/g, `new URL('./${inverseFile}', import.meta.url)`],
 ];
 const workerHolders = new Set(readdirSync(join(ROOT, 'src/ui')).filter((f) => f.endsWith('.js')).map((f) => join(ROOT, 'src/ui', f))
   .filter((f) => WORKER_SRC.some(([re]) => { re.lastIndex = 0; return re.test(readFileSync(f, 'utf8')); })));
@@ -180,7 +185,7 @@ if (process.env.PPS_META) writeFileSync(process.env.PPS_META, JSON.stringify(app
 // (No shipped file may still start a worker from its source address: the bundle has no such file, the worker fails to load, and its
 // callers fall back to the main thread without a word. Always refused, preview builds too.)
 for (const f of Object.keys(app.metafile.outputs).filter((x) => x.endsWith('.js'))) {
-  const left = readFileSync(resolve(f), 'utf8').match(/new URL\(["'`](?:\.\.\/worker|\.\/sweep-worker|\.\/dye-worker)\.js/);
+  const left = readFileSync(resolve(f), 'utf8').match(/new URL\(["'`](?:\.\.\/worker|\.\/sweep-worker|\.\/dye-worker|\.\/inverse-worker)\.js/);
   if (left) throw new Error(`Build refused: ${basename(f)} still starts a worker from its source address (${left[0]}): add its module to the worker-url plugin`);
 }
 // A module made an entry above also gets an entry file that only re-exports it; the app imports the shared chunk instead, so a re-export
@@ -215,7 +220,7 @@ for (const queue = [appOut]; queue.length;) {
 
 // 3. Styles: fonts, tokens and layout in one file; fonts get hashed names.
 const cssEntry = join(OUT, '_entry.css');
-writeFileSync(cssEntry, ['fonts/fonts.css', 'styles/tokens.css', 'styles/icons.css', 'styles/app.css', 'styles/path.css', 'styles/scope-card.css', 'styles/tests-card.css'].map((f) => `@import "${relative(OUT, join(ROOT, f)).split(sep).join('/')}";`).join('\n'));
+writeFileSync(cssEntry, ['fonts/fonts.css', 'styles/tokens.css', 'styles/icons.css', ...appCssFiles(ROOT), 'styles/path.css', 'styles/scope-card.css', 'styles/tests-card.css', 'styles/from-readings.css', 'styles/guideline-sides.css'].map((f) => `@import "${relative(OUT, join(ROOT, f)).split(sep).join('/')}";`).join('\n'));
 const css = await build({ ...common, plugins: [], entryPoints: [cssEntry], outdir: ASSETS, entryNames: 'app-[hash]', assetNames: '[name]-[hash]', loader: { '.woff2': 'file', '.png': 'file' }, write: true, metafile: true });
 rmSync(cssEntry);
 const cssFile = basename(Object.keys(css.metafile.outputs).find((f) => f.endsWith('.css')));
@@ -257,7 +262,7 @@ const files = walk(OUT).map((p) => relative(OUT, p).split(sep).join('/')).filter
 // (The handout figures, deck stills and tester guide PDFs are left to load when used, so installing offline support stays light.)
 // (The "Lighter organ art" switch's lines load only when it is turned on (stage.js syncArtLite), so the switch left off downloads nothing new.)
 const liteChunks = Object.entries(app.metafile.outputs).filter(([, o]) => Object.keys(o.inputs).some((i) => i.endsWith('src/ui/organ-art-lite.js'))).map(([f]) => 'assets/' + basename(f));
-const cached = files.filter((f) => !/^(brand\/(handout|decks)|guides)\//.test(f) && !liteChunks.includes(f));
+const cached = files.filter((f) => !/^(brand\/(handout|decks|share)|guides)\//.test(f) && !liteChunks.includes(f));
 // (The fonts' Greek and extended-Latin subsets are drawn only where a word needs them, and the browser fetches one by its unicode-range
 // at that moment. A first visit's install does not fetch them with the rest: they are cached once the page is quiet (the page asks,
 // 'pps:fill'), or when first used, so a person who never meets one never downloads it, and the install does not compete with the first

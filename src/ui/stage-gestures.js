@@ -44,6 +44,7 @@ export function createGestures(st, live) {
     const now = performance.now();
     if (wheelMute) { if (now - wheelAt < 250) { wheelAt = now; return; } wheelMute = false; }
     // The hand takes over from any camera glide (as a press does): the glide would overwrite each step of the scroll or pinch.
+    live.camLock?.release('hand');
     viewXfDetach(live.viewXf);   // (a change between the views running: the camera is the hand's now, view-xf.js)
     if (live.vtGliding) { cancelFrame(live.vtAnim); driftEnd(); live.vtGliding = false; camSettle(); }
     stopGlide(); live.userMoved = true; live.fitted = false; live.handed = !live.lobuleOn;
@@ -213,7 +214,7 @@ export function createGestures(st, live) {
   const clearPress = () => { stageScope.clear(pressT); pressT = 0; };
   // A finger (or the mouse) that lands on a label starts the same gesture as one on the figure: the labels cover
   // much of a phone's figure, and a pinch that began on one used to go unnoticed. A tap on a label still opens it.
-  labelSvg.addEventListener('pointerdown', (ev) => { const lb = ev.target.closest?.('.lb'); if (lb) onDown(ev, live.plateAt?.(ev.clientX, ev.clientY) ? null : lb); });   // (a press on the plate's ring is the ring's, whatever label stands over it)
+  labelSvg.addEventListener('pointerdown', (ev) => { const lb = ev.target.closest?.('.lb'); if (lb) onDown(ev, lb); });
   svg.addEventListener('pointerdown', (ev) => onDown(ev, null));
   function onDown(ev, label) {
     if (systemEdge(ev)) return;
@@ -222,6 +223,7 @@ export function createGestures(st, live) {
     pointers.set(ev.pointerId, [ev.clientX, ev.clientY]);
     panFit = null;
     live.userMoved = true;
+    live.camLock?.release('hand');   // (the hand takes the camera from a slide's move: slide-cam.js)
     viewXfDetach(live.viewXf);   // (a change between the views running: the camera is the hand's now, view-xf.js)
     cancelFrame(live.vtAnim); driftEnd(); live.vtGliding = false; stopGlide(); wheelGlide.cancel(); hand.begin(); stageScope.clear(settleT);
     try { svg.setPointerCapture(ev.pointerId); } catch (e) { caught('stage:13253', e); /* pointer already gone */ }
@@ -327,7 +329,7 @@ export function createGestures(st, live) {
           return;
         }
         lastTap = { t: now, x: ev.clientX, y: ev.clientY, sel: store.get().selection };
-        if (live.tapHook?.(ev.clientX, ev.clientY) || live.plateTap?.(ev.clientX, ev.clientY)) return;   // (the scope view's ring takes its own tap: scope-lens.js)
+        if (live.tapHook?.(ev.clientX, ev.clientY)) return;   // (the scope view's ring takes its own tap: scope-lens.js)
         if (d.label) { d.label.dispatchEvent(new MouseEvent('click', { bubbles: true })); return; }
         pick(d.id, ev);
         return;

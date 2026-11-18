@@ -29,6 +29,27 @@ export const clotSide = (seed) => (seed & 1 ? 1 : -1);
 // The stretch of the vessel (0–1 along it) the clot covers.
 export const clotSpan = (v) => ({ u0: 0.4 - 0.22 * v, u1: 0.6 + 0.22 * v });
 
+/**
+ * The stretch a clot covers on a vein that is cut into pieces where a shunt joins it (the portal trunk, cut where the coronary vein joins): the clot is the vein's, so its span
+ * (clotSpan) is a share of the whole vein's length, not of the piece that carries the vein's name (17 Nov 2026, Mohammad: the cavernoma's channels all joined inside the clot).
+ * `parts`: the pieces in order along the vein, each { pts, lit } (a course and its lit normals, one per point). Returns { pts, lit, u0, u1, L }: the points and normals
+ * from share u0 to share u1 of the vein's arc length, and the vein's length. The pieces share their joint (a piece's first point is skipped when it is the last of the one before).
+ */
+export function clotStretch(parts, v) {
+  const P = [], N = [], U = [];
+  let acc = 0;
+  for (const { pts, lit } of parts) for (let i = 0; i < pts.length; i++) {
+    const q = P[P.length - 1], d = q ? Math.hypot(pts[i][0] - q[0], pts[i][1] - q[1]) : 0;
+    if (q && d < 1e-6) continue;
+    acc += d; P.push(pts[i]); N.push(lit[i]); U.push(acc);
+  }
+  const { u0, u1 } = clotSpan(v), a = u0 * acc, b = u1 * acc;
+  let i0 = 0, i1 = P.length - 1;
+  while (i0 < P.length - 1 && U[i0] < a) i0++;
+  while (i1 > 0 && U[i1] > b) i1--;
+  return { pts: P.slice(i0, i1 + 1), lit: N.slice(i0, i1 + 1), u0, u1, L: acc, from: U[i0], to: U[i1] };
+}
+
 // Half the clot's thickness at its thickest, for a vessel of width w. Full occlusion fills the lumen.
 export const clotHalf = (v, w) => (w / 2) * clamp(0.1 + 0.9 * v, 0, 1);
 

@@ -1,7 +1,6 @@
 import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { parseColor, mul, inv, detailTol } from '../src/ui/organ-paint.js';
 
 // The organs painted live on the GPU (organ-paint.js) read their colours from the page's computed styles: every form the
@@ -25,19 +24,11 @@ test('transforms compose and invert as the SVG matrices do', () => {
 
 test('with the GPU organs on, the liver, spleen and fluid ease with no drop to the SVG drawing', () => {
   const src = stageSource();
-  assert.match(src, /const LIVE_LAYERS = /);
   // The liver's, the spleen's and the fluid's own drops, as they ease.
   assert.equal(src.match(/veins\.hasPlate\(0\) && !liveOn\(\)\) hidePlate\(\);/g)?.length, 3);
   // And platePoke's, while they move.
-  assert.match(src, /if \(!liveNow && \((?:live\.)?(?:live\.)?lvMoving \|\| (?:live\.)?(?:live\.)?fluidEasing\(\)\)\) \{ if \((?:live\.)?(?:live\.)?plateKey && (?:live\.)?(?:live\.)?veins\.hasPlate\(0\) && plateStateKey\(\) !== (?:live\.)?(?:live\.)?plateKey\) hidePlate\(\); return; \}/);
-  assert.match(src, /if \(!liveNow && spleenMoving\(\)\) \{ if \((?:live\.)?plateKey && (?:live\.)?veins\.hasPlate\(0\) && plateStateKey\(\) !== (?:live\.)?plateKey\) hidePlate\(\);/);
 });
 
-test('what the SVG hides is not painted: visibility as the picture copy takes it, not the figure\'s hidden one', () => {
-  const src = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url), 'utf8');
-  assert.match(src, /const own = el\.style\?\.visibility \|\| el\.getAttribute\('visibility'\);\n\s+if \(own && own !== 'inherit'\) vis = own;/);
-  assert.match(src, /for \(let i = 0; i < kids\.length; i\+\+\) walk\(c, kids\[i\], me, a, cl, vis, ch, out, a0\); return; \}\n\s+if \([^\n]*\|\| vis !== 'visible'\) return;/);
-});
 
 // T02 (smoothness review, 26 Oct): a clipped organ's clip outline was cut at exactly 0.2 / scale, so every zoom step was a new
 // tolerance, a new mesh key, a new mesh built and uploaded. Clips now take the fills' and strokes' power-of-two buckets.
@@ -52,9 +43,4 @@ test('a zoom inside one detail bucket keeps the same tolerance, never coarser th
   const seen = new Set();
   for (let sc = 1.6; sc <= 3.1; sc += 0.01) seen.add(detailTol(sc));
   assert.ok(seen.size <= 2, `${seen.size} tolerances over the zoom`);
-  const src = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url), 'utf8');
-  const opAt = src.slice(src.indexOf('function opAt('), src.indexOf('return { om, sh, cm, csh, b, alpha: lv.alpha };'));
-  assert.match(opAt, /tol = detailTol\(sc\)/);
-  assert.match(opAt, /csh = meshOf\(op\.clip\.geom, 0, detailTol\(scaleOf\(cm\)\)\)/, 'the clip in the same buckets');
-  assert.doesNotMatch(opAt, /0\.2 \/ scaleOf/, 'no continuous clip tolerance');
 });

@@ -7,9 +7,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const root = new URL('../', import.meta.url);
-const css = readFileSync(new URL('styles/app.css', root), 'utf8');
+const css = appCss();
 const BUILDERS = readdirSync(new URL('src/ui/', root)).filter((f) => /^(tool-.*|flow-time|talk-trace|visual-plane)\.js$/.test(f));
 
 /** The classes a chart builder gives its model pieces: sv('tag', { ..., class: '...' }) (a `${...}` part of a template is dropped). */

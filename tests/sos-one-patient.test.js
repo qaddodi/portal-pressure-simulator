@@ -15,8 +15,8 @@ const sosSlides = () => {
 
 test('the SOS preset carries the post-sinusoidal block itself', () => {
   const p = PRESETS.find((x) => x.id === 'sos').apply({});
-  assert.equal(p.fibrosis.R.post, 32);
-  assert.equal(p.fibrosis.L.post, 32);
+  assert.equal(p.fibrosis.R.post, 34);   // (32 until 15 Nov 2026: it rested on the HVPG and PPG red lines, ENG-5)
+  assert.equal(p.fibrosis.L.post, 34);
 });
 
 test('no slide overrides the SOS preset, so Sites, Where, the Lobule table and Outflow show one patient', async () => {

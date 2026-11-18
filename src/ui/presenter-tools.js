@@ -18,7 +18,8 @@
 //   tool: { kind: 'flowtime' }                      portal pressure and portal flow around a meal, the slide's time-lapse on a
 //                                                   teaching clock in minutes (flow-time.js), drawn as it plays
 //   tool: { kind: 'evgraph', title? }                a TIPS, BRTO or BATO slide's procedure graph (event-graph.js) in the data card, drawn live after the stent as the presenter plays it
-//   tool: { kind: 'flowtime', clock: 'days', lines: [lower, upper] }   (keepTiles: true keeps the tiles for its two lines on a laptop or tablet too)
+//   tool: { kind: 'flowtime', clock: 'days', lines: [lower, upper] }   (keepTiles: true keeps the tiles for its two lines on a laptop or tablet too;
+//   view: { scales, since } shapes the days chart, see flowTimeSeries: since is a slide's id, whose state the lines start from)
 //                                                   the same chart over a disease time-lapse: two fingerprint keys
 //                                                   (flow-time.js LINE), one point a model day, drawn as it plays
 //   tool: { kind: 'flowtime', clock: 'days', lines: ['wt', 'lsm'], given: { wt: 12 } }
@@ -27,6 +28,7 @@
 //
 //   tool: { kind: 'vitals', show?: ['hr', 'map', 'hb'] }
 //                                                   a black bedside monitor: the EKG strip over up to three of hr, map, co, hb as large numbers
+//                                                   hold: true adds the carvedilol hold rail under the pressure; rail: 'hb' the hemoglobin's, with the 7 to 8 g/dL target (vitals-monitor.js)
 //   tool: { kind: 'hvpg' }                          the HVPG catheter's tracing on the card, the catheter in the hepatic vein on the figure beside it (the slide's own camera; its balloon is
 //                                                   the tracing's, up for the wedge, down for the free; none on a slide in the lobule): it plays free, wedge and
 //                                                   result going forward onto the slide, then holds the result and eases with the model
@@ -59,11 +61,13 @@ import { frameFor } from './frame.js';
 import { restPass, cancelRest } from './rest-pass.js';
 import { talkTrace } from './talk-trace.js';
 import { EXT, guard, safe } from './slide-ext.js';
+import { withPieces } from './part-names.js';
 const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
   SMV_CONF: 'superior mesenteric vein', RHV_IVC: 'right hepatic vein', MHV_IVC: 'middle hepatic vein', LHV_IVC: 'left hepatic vein', IVCS_RA: 'inferior vena cava',
   A_HEP: 'hepatic artery', TIPS: 'the TIPS', C3: 'paraumbilical vein' };
+withPieces(VESSEL);
 const TITLE = {
   doppler: (t) => `Doppler, ${VESSEL[t.vessel || 'PV_TRUNK'] || EDGES.find((e) => e.id === t.vessel)?.label?.toLowerCase() || 'portal vein'}`,
   scope: () => 'Endoscopy, the lower esophagus',
@@ -136,11 +140,12 @@ export function createTools({ host, stage }) {
     /** Put the slide's tool in the box. stateKey: the slide's model state (a new one clears a recording trace);
      *  chain: for the talk trace, [{ n, title, fp }] of every state up to this slide.
      *  trail, reveal: for the flow-time chart, its series and how far along to draw it (see progress).
+     *  before: for a flow-time chart with view.since, the readings of that slide's state ({ key: value }).
      *  ctx: the slide's context for an instrument's configure(t, ctx) (the presenter's ctxOf; slide-ext.js).
      *  forward: the slide is stepped onto from the one before it (an instrument that plays on arrival, arrive()).
      *  balloon: the catheter's balloon on the figure now, for a tracing that follows it (balloon()).
      *  figure: { move, start } for a tracing card with the catheter on the figure beside it: told the card's own balloon (tool-hvpg.js watch). */
-    show(t, { slide = null, stateKey = null, chain = [], trail = null, reveal = 1, ctx = null, forward = false, balloon = null, figure = null } = {}) {
+    show(t, { slide = null, stateKey = null, chain = [], trail = null, reveal = 1, ctx = null, forward = false, balloon = null, figure = null, before = null } = {}) {
       const k = keyOf(t), inst = make(k);
       if (!inst) { this.hide(); return; }
       if (k !== 'doppler') stage?.pinDoppler?.(null);
@@ -173,7 +178,7 @@ export function createTools({ host, stage }) {
       cur = inst; kind = k;
       box.dataset.kind = k === 'evgraph' ? 'flowtime' : k;   // (the procedure's graph is the flow-time chart's box and looks: its card sizes and fits as that one does)
       if (k === 'talk') inst.set(chain);
-      else if (k === 'flowtime') inst.set(trail, reveal, { clock: t.clock, lines: t.lines, given: t.given });
+      else if (k === 'flowtime') inst.set(trail, reveal, { clock: t.clock, lines: t.lines, given: t.given, view: t.view || before ? { scales: t.view?.scales, before } : null });
       else { const f = store.get().frame; if (f) nextFrame(() => cur === inst && inst.update?.(f)); }
       if (startOver) { if (held) primeWait = true; else prime(inst, k); }
     },
@@ -185,7 +190,7 @@ export function createTools({ host, stage }) {
     pin(fp) { for (const k in made) made[k]?.pin?.(fp); },
     /** The instrument of kind k when it is the one showing (the presenter drives the procedure's graph: presenter.js evAdopt), else null. */
     current(k) { return kind === k ? cur : null; },
-    progress(k, trail) { if (kind === 'flowtime') cur.set(trail, k); },
+    progress(k, trail) { if (kind === 'flowtime') cur.set(trail, k); else cur?.progress?.(k, trail); },   // (a package's instrument that draws a time-lapse's days: tool-shift.js)
     /** The card has been fitted (its zoom may have changed with the chart's box the same size): a chart redraws at the type its zoom now asks for. */
     refit() { cur?.refit?.(); },
     /** The earlier reading, faint beside the live one ({ label, value }), or null. Eases in and out. */
@@ -221,12 +226,14 @@ export function createTools({ host, stage }) {
     proc(kind, t) { cur?.procAt?.(kind, t); },
     /** Next (1) or Back (-1) on the slide, for a card that takes its readings one Next at a time (the HVPG tracing, tool-hvpg.js): true when it took the step. */
     step(dir) { return !!cur?.step?.(dir); },
+    /** Whether step(dir) would take a reading (nothing is changed): a swipe that only steps lifts no card. */
+    canStep(dir) { return !!cur?.canStep?.(dir); },
     /** The slide's catheter is parked in the hepatic vein (true) or not yet (false): a tracing that follows it starts only then. */
     reach(b) { cur?.reach?.(b); },
     hide() { stage?.pinDoppler?.(null); stage?.setScanProbe?.(false); fibroReading.pinned = null; cur?.park?.(); cur = null; kind = null; lastSlide = null; lastTool = null; lastCtx = null; delete box.dataset.kind; },
     /** The presentation is over: the Doppler goes back to the vessel it had. */
     dispose() {
-      if (probe0 !== undefined) { host.send({ type: 'probe', id: probe0 }); store.set({ dopGate: gate0 || 'mid' }); } probe0 = undefined; lastSt = null; lastSlide = null; this.hide();
+      if (probe0 !== undefined) { if (probe0) host.send({ type: 'probe', id: probe0 }); store.set({ dopGate: gate0 || 'mid' }); }   // (null: there was no frame to remember a vessel from, so none is put back) probe0 = undefined; lastSt = null; lastSlide = null; this.hide();
       // Each presentation builds its own tools: let go of this one's instruments (and the endoscopy's GL context).
       offFrame(); ro?.disconnect(); cancelRest(svkRaf); svkRaf = 0;
       for (const k of Object.keys(made)) { made[k]?.dispose?.(); delete made[k]; }

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCssFiles } from '../scripts/app-css.mjs';
 
 // A :has() rule followed by more selector parts must end in a part that names something (a class, an id, a tag or an
 // attribute). When its last part names nothing (`> :not(.x)`, `*`), the browser restyles everything under the :has()
@@ -36,7 +37,7 @@ const names = (compound) => /^[a-z]|[.#[]|^:is\(/i.test(compound.replace(/:(not|
 
 test('no :has() rule restyles a whole subtree for want of a name in its last part', () => {
   const bad = [];
-  for (const file of ['../styles/app.css', '../styles/tokens.css']) {
+  for (const file of [...appCssFiles().map((f) => '../' + f), '../styles/tokens.css']) {
     const css = readFileSync(new URL(file, import.meta.url), 'utf8');
     for (const r of rules(css)) for (const sel of split(r, /,/)) {
       if (!sel.includes(':has(')) continue;

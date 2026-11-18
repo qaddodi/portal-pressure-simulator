@@ -10,9 +10,10 @@ import { computeMetrics } from '../src/engine/metrics.js';
 import { EDGES } from '../src/engine/topology.js';
 import { cardFor } from '../src/ui/actions.js';
 import { cardSize } from '../src/ui/card.js';
+import { appCss } from './split-src.js';
 
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
-const css = read('styles/app.css'), card = read('src/ui/card.js');
+const css = appCss(), card = read('src/ui/card.js');
 const CTX = { canShunt: () => true, injectDye: () => {}, canDye: () => true };
 const PARAMS = { stenosis: {}, thrombus: {}, occluded: {}, spontaneous: {}, fibrosis: { R: {}, L: {} } };
 
@@ -53,9 +54,8 @@ test('the bar points from inflow to outflow, and across a stent and the liver it
   const liver = cardFor({ type: 'organ', id: 'liver' }, CTX);
   assert.deepEqual(liver.span.el, ['WHVP', 'FHVP']); assert.equal(liver.span.dn, 'HVPG'); assert.equal(liver.span.cut, 'hvpg');
   assert.ok(Math.abs(liver.span.at(f).d - f.metrics.hvpg) < 1e-9, 'the card\'s HVPG is the dock\'s');
-  const tips = cardFor({ type: 'edge', id: 'TIPS' }, CTX);
-  assert.deepEqual(tips.span.el, ['PV', 'IVC']); assert.equal(tips.span.dn, 'PPG'); assert.equal(tips.span.cut, 'ppg');
-  assert.ok(Math.abs(tips.span.at(f).d - f.metrics.ppg) < 1e-9, 'the card\'s PPG is the dock\'s');
+  // (The stent's card has no PV to IVC bar since the TIPS cards became the approved mock, 17 Nov: the PPG is the first number of its own line, the stent's chart's.)
+  assert.equal(cardFor({ type: 'edge', id: 'TIPS' }, CTX).span, null, 'a stent\'s card draws no bar');
   assert.equal(cardFor({ type: 'edge', id: 'PV_TRUNK' }, CTX).span.el, null, 'a vein shows no end labels: the numbers say it');
 });
 
@@ -72,13 +72,14 @@ test('one fixed size for each kind of card: two controls fit the small card, thr
   const size = (sel) => cardSize(cardFor(sel, CTX), PARAMS);
   assert.equal(size({ type: 'edge', id: 'PV_TRUNK' }), 's');
   assert.equal(size({ type: 'organ', id: 'liver' }), 's');
-  assert.equal(size({ type: 'edge', id: 'TIPS' }), 'l', 'diameter, stenosis and where');
+  assert.equal(size({ type: 'edge', id: 'TIPS' }), 's', 'one row of value chips, the stent editor (17 Nov 2026: the phone\'s card covered the stent)');
   assert.equal(size({ type: 'organ', id: 'heart' }), 'l');
   assert.equal(size({ type: 'lobule', part: 'sin' }), 'x');
-  assert.match(css, /\.action-card \{\n {2}position: absolute;[^}]*left: calc\(env\(safe-area-inset-left, 0px\) \+ 14px\); top: calc\(var\(--top-safe, 56px\) \+ 8px\); width: 276px; height: 320px;/, 'the Mac shelf: 276 x 320 under the case pill');
-  assert.match(css, /\.action-card\.docked \{\n[^}]*width: auto; height: 224px;/, 'the iPhone card: 224 tall');
+  assert.match(css, /\.action-card \{\n {2}position: absolute;[^}]*left: calc\(env\(safe-area-inset-left, 0px\) \+ 14px\); top: calc\(var\(--top-safe, 56px\) \+ 8px\); width: 276px; height: auto; max-height: 500px;/, 'the Mac shelf: 276 wide under the case pill, as tall as its words (16 Nov 2026)');
+  assert.match(css, /\.action-card\.docked \{\n[^}]*width: auto; height: auto; min-height: 0;/, 'the iPhone card: exactly as tall as its words (18 Nov 2026: no 224 floor; 17 Nov: the TIPS card was cut off at a fixed 300)');
   assert.match(css, /\.app\.thumb:not\(\.dock-open\) \.action-card\.docked \{\n {4}bottom: calc\(var\(--nb-occ, calc\(var\(--vdock-h\) \+ 14px\)\) \+ 50px\);/, 'above the view switch');
-  assert.ok(!/\.action-card[^{]*\{[^}]*overflow-y: auto/.test(css), 'nothing in the card scrolls');
+  // (17 Nov 2026: a card grows with its words; only the body scrolls, and only past the room there is: tests/card-fits-screen.test.js)
+  assert.ok(!/\.action-card[^{>]*\{[^}]*overflow-y: auto/.test(css), 'the card itself never scrolls: only its body, past the room');
   assert.ok(!/\.action-card\.docked:not\(\[hidden\]\)/.test(css.match(/^\.app\.thumb:is\(\.dock-open[^\n]*/m)[0]), 'the view switch stays up under an open card');
 });
 

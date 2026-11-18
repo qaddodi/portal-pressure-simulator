@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import './dom-shim.js';
+import { appCss, presenterSource } from './split-src.js';
 
 // A small fake DOM: just what h() and the live box touch.
 class Node {
@@ -20,8 +21,8 @@ globalThis.document.createElement = (tag) => new Node(tag);
 globalThis.document.createTextNode = (data) => ({ nodeType: 3, data: String(data) });
 const { widest, liveText, wordsOf } = await import('../src/ui/live-text.js');
 
-const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const js = presenterSource();
+const css = appCss();
 
 test('the widest words are the longest, the first of equals', () => {
   assert.equal(widest(['0 mmHg', '20 mmHg', '10 mmHg']), '20 mmHg');
@@ -59,7 +60,7 @@ test('a card\'s fit reads its words without the live ones: a digit never fits th
 
 test('the what-if value and the time-lapse counter are live boxes as wide as their widest words', () => {
   assert.match(js, /const out = liveText\('output', 'pzi-v', \[w\.min, \(w\.min \+ w\.max\) \/ 2, w\.max, v0\]\.map\(fmtV\)\);/);
-  assert.match(js, /const paint = \(x\) => \{ paintRange\(input, frac\(x\)\); out\.set\(fmtV\(x\)\); \};/);
+  assert.match(js, /const paint = \(x\) => \{ paintRange\(input, frac\(x\)\); out\.set\(fmtV\(x\)\); if \(w\.unit\) attrSoon\(input, 'aria-valuetext', fmtV\(x\)\); \};/);   // (and the slider says its words, not its number: SHELL-13)
   assert.match(js, /w\.unit \? out\.el : null\);/);
   assert.doesNotMatch(js, /out\.textContent/, 'the value is never written to the box itself');
   assert.match(js, /liveText\('span', 'pzl-t', \[lapseText\(s, 0, s\.days, false\), lapseText\(s, s\.days, s\.days, false\), lapseText\(s, s\.days, s\.days, true\)\]/);
@@ -76,15 +77,16 @@ test('the box stacks the hidden copy and the live words in one grid cell, tabula
 });
 
 test('a what-if slider of either kind holds the cards: the plan and the fit stay as the slide came in', () => {
-  assert.match(js, /let handOn = false;/);
-  assert.match(js, /input\.addEventListener\('input', \(\) => \{\s*handOn = true;[^\n]*\n\s*paint\(\+input\.value\);\s*if \(w\.tool\) \{ ui\?\.tools\.option/, 'set before the instrument\'s option, which leaves liveOff alone');
-  assert.match(js, /const readingsOnly = \(\) => liveOff \|\| handOn \|\| lapseOn \|\|/);
-  assert.match(js, /const cardsStill = \(\) => [^\n]*\(liveOff \|\| handOn \|\| !!slides\[want\]\?\.lapse\)/);
-  assert.match(js, /stopLapse\(\); procStop\(\); abSlow\(\); handOn = false;/, 'cleared with the next slide');
-  assert.match(js, /liveOff = false; handOn = false;/, 'and when the talk is closed');
+  assert.match(js, /let (?:live\.)?handOn = false;/);
+  assert.match(js, /input\.addEventListener\('input', \(\) => \{\s*(?:live\.)?handOn = true;[^\n]*\n\s*paint\(\+input\.value\);\s*if \(w\.tool\) \{ (?:live\.)?ui\?\.tools\.option/, 'set before the instrument\'s option, which leaves liveOff alone');
+  assert.match(js, /const readingsOnly = \(\) => (?:live\.)?liveOff \|\| (?:live\.)?handOn \|\| (?:live\.)?lapseOn \|\|/);
+  assert.match(js, /const (?:live\.)?cardsStill = \(\) => [^\n]*\((?:live\.)?liveOff \|\| (?:live\.)?handOn \|\| !!(?:live\.)?slides\[(?:live\.)?want\]\?\.lapse\)/);
+  assert.match(js, /stopLapse\(\); procStop\(\); abSlow\(\); (?:live\.)?handOn = false;/, 'cleared with the next slide');
+  assert.match(js, /(?:live\.)?liveOff = false; (?:live\.)?handOn = false;/, 'and when the talk is closed');
   // (Where the cards are laid out again for a reading, the words keep the plan: the phone's cap and the wide pair's centring.)
-  assert.match(js, /if \(held && \(held\.shut \|\| gone \|\| readingsOnly\(\)\)\)/);
+  // (held while it is gone or only its readings move; a plan that shut the data card is held too, until the card measures smaller than it was planned: 17 Nov 2026, the TIPS deck on an iPhone)
+  assert.match(js, /if \(held && \(gone \|\| readingsOnly\(\)\)\) \{ phoneShut = held\.shut; phoneFig = held\.fig; return held\.cap; \}\n\s+if \(held && held\.shut\) \{/);
   assert.match(js, /if \(lockKey && shiftLock\?\.key === lockKey && readingsOnly\(\)\) shift = shiftLock\.v;/);
-  assert.match(js, /if \(ui && cardsStill\(\)\) \{ fitCards\(ui\.data\); return; \}/);
-  assert.match(js, /if \(cardsStill\(\)\) fitCards\(ui\.data\); else layout\(\);/);
+  assert.match(js, /if \((?:live\.)?ui && (?:live\.)?cardsStill\(\)\) \{ fitCards\((?:live\.)?ui\.data\); return; \}/);
+  assert.match(js, /if \((?:live\.)?cardsStill\(\)\) fitCards\((?:live\.)?ui\.data\); else layout\(\);/);
 });

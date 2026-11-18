@@ -7,7 +7,8 @@ import { dropLabel } from './drop-label.js';
 import { ROOM_BASE, placeCallout } from './callout-room.js';
 import { cancelFrame } from './frame.js';
 import { glWords } from './gl-words.js';
-import { reduceMotionMQ as reduceMotion, D_SMALL, D_SURFACE, COUNT_MS, easeArrive, afterMs } from './motion.js';
+import { reduceMotionMQ as reduceMotion, D_SMALL, D_SURFACE, afterMs } from './motion.js';
+import { newRoll, rollStep } from './count-roll.js';
 import { portalSplit } from './table-marks.js';
 import { clamp, fmt, putText } from './util.js';
 
@@ -19,6 +20,7 @@ export function createSitesPaint(st, live) {
   // asked for through the one filter the tiles' bars follow theirs with (display-state.js follow2, SHOWN_TAU): a new share
   // glides in, a share that keeps moving (a running model's mean, a what-if slider) is followed as it goes, and the callout's
   // size never changes.
+  const BARE = { bare: true };
   const SPLIT_TXT = [];   // percent → [the shunts' number, 'To the liver n%', 'Shunts n%']
   for (let i = 0; i <= 100; i++) SPLIT_TXT.push([`${i}`, `To the liver ${i}%`, `Shunts ${i}%`]);
   function splitShow(el, sh) {
@@ -157,7 +159,7 @@ export function createSitesPaint(st, live) {
   function siteLeave(k, el) {
     if (sites.made.get(k) === el) sites.made.delete(k);
     el.classList.add('cath-leave');
-    stageScope.timer(siteGone, reduceMotion.matches ? 0 : afterMs(D_SMALL), el);   // (the leave's fade-out, app.css .cath-label.site.cath-leave: --d-small)
+    stageScope.timer(siteGone, afterMs(D_SMALL), el);   // (Reduce Motion too: the leave is an opacity fade)   // (the leave's fade-out, app.css .cath-label.site.cath-leave: --d-small)
   }
   const sitePreQ = [], sitePreRun = () => { for (let i = 0; i < sitePreQ.length; i++) sitePreQ[i].classList.remove('cath-pre'); sitePreQ.length = 0; sitesAgain(); };   // (the readings just made, shown from the frame after)
   const siteGone = (el) => { dropLabel(el); el.remove(); };
@@ -170,20 +172,10 @@ export function createSitesPaint(st, live) {
   const sitesAgain = () => { if (!sitesRaf) sitesRaf = nextFrame(sitesRun); };
   const SITE_CLS = {};   // (each reading's class text, made once)
   for (const k of Object.keys(SITE_DEF)) SITE_CLS[k] = `cath-label site ${SITE_DEF[k].cls} cath-pre`;
-  const SITE_COUNT = {};   // (each reading's count in flight, made once: the record its element counts with)
-  for (const k of Object.keys(SITE_DEF)) SITE_COUNT[k] = { from: 0, to: 0, t0: 0 };
   function siteCount(el, to, tol) {
-    if (!Number.isFinite(to)) { el._nv = null; el._ng = null; return to; }
-    if (el._nv == null || reduceMotion.matches || el.classList.contains('off')) { el._ng = null; return (el._nv = to); }
-    const now = performance.now();
-    let g = el._ng;
-    if (g ? Math.abs(to - g.to) > tol : Math.abs(to - el._nv) > tol) { g = el._ng = el._ngO; g.from = el._nv; g.to = to; g.t0 = now; }
-    if (!g) return (el._nv = to);
-    g.to = to;
-    const u = clamp((now - g.t0) / COUNT_MS, 0, 1);
-    el._nv = g.from + (g.to - g.from) * easeArrive(u);   // (the one roll's curve, motion.js COUNT_MS)
-    if (u < 1) sitesAgain(); else el._ng = null;
-    return el._nv;
+    const r = el._roll, v = rollStep(r, to, tol, performance.now(), reduceMotion.matches || el.classList.contains('off'));   // (the one roll, count-roll.js: COUNT_MS on easeArrive)
+    if (r.on) sitesAgain();
+    return v;
   }
   const siteAt = [0, 0], resGone = [];   // (the resistors to drop, listed first as resPaint takes them out of resMade; the order the key goes by)
   let sitesWant = NO_LIST;   // (the readings this paint is for)
@@ -210,13 +202,13 @@ export function createSitesPaint(st, live) {
       const ratio = null;
       let el = made.get(k);
       if (!el) {
-        el = SITE_EL[d.res ? 0 : 1].cloneNode(true); el.className = SITE_CLS[k]; el._ngO = SITE_COUNT[k];
-        if (!d.res) el._glass = glassCallout(el);
+        el = SITE_EL[d.res ? 0 : 1].cloneNode(true); el.className = SITE_CLS[k]; el._roll = newRoll();   // (alloc-rare: once per reading's element)
+        if (!d.res) el._glass = glassCallout(el, d.split ? BARE : undefined);   // (the portal blood's share has no card, only its leader)
         // (Its parts are cloned from a model made ahead and put in the page, with their words, between frames: late().)
         const [sm, b0, u, kk] = SITE_TPL.cloneNode(true).children, b = d.split ? SPLIT_B.cloneNode(true) : b0;
         // (The share's three readings, taken from its own parts now: they join the callout only between frames (late), so a first paint
         // that looked for them in the callout found none and threw, and the slide was not shown.)
-        if (d.split) el._spW = [...b.querySelectorAll('.sp-n, .sp-lt, .sp-st')].map((e) => glWords(e));
+        if (d.split) el._spW = [...b.querySelectorAll('.sp-n, .sp-lt, .sp-st')].map((e) => glWords(e, { halo: true }));
         el._b = b;   // (its number's box, kept for the same reason)
         late('text', sm, d.kicker); late('text', u, d.split ? '' : d.unit ?? 'mmHg');
         late('append', el, d.res ? [sm, b, u, kk] : [sm, b, u]);

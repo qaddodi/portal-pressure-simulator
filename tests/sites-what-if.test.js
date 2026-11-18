@@ -9,6 +9,7 @@ import { SITES } from '../src/ui/decks/sites.js';
 import { NCPH } from '../src/ui/decks/ncph.js';
 import { PRESETS, defaultParams } from '../src/engine/scenario.js';
 import { runSteps } from './deck-states.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const slide = (id) => SITES.slides.find((s) => s.id === id);
 const paths = (w) => [].concat(w.param);
@@ -42,7 +43,7 @@ test('the heart slide is the failing heart, with Normal heart and Failing heart 
 });
 
 test('the presenter moves every path of a what-if slider together', () => {
-  const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const src = presenterSource();
   assert.match(src, /paths = \[\]\.concat\(w\.param\)/);
   assert.match(src, /paths\.reduce\(\(a, path\) => merge\(a,/);
 });
@@ -68,27 +69,27 @@ test('the controls teach their slides: portal pressure follows the fibrosis with
 test('Sites level slides show the Gut to heart chart, and no slide has a ladder fold left to put behind Show', () => {
   for (const id of ['healthy', 'pvt', 'presin', 'sin', 'postsin', 'post', 'cardiac']) assert.equal(slide(id).tool?.kind, 'profile', id);
   for (const s of SITES.slides) assert.ok(s.data !== 'ladder' && s.fold === undefined, s.id);
-  const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const src = presenterSource();
   assert.doesNotMatch(src, /ladderFold|\.fold !== false/);
   assert.match(src, /const canFold = dd\.classList\.contains\('has-tool'\) && !dd\.classList\.contains\('tool-only'\) && !dd\.classList\.contains\('tool-lead'\) && !dd\.classList\.contains\('pz-sheet'\);/, 'only an instrument card folds, never a stacked one');
 });
 
 test('on a phone a what-if slider takes a full line under its label', () => {
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   assert.match(css, /\.pz\.stack \.pzi-t \{ flex: 1 0 100%; \}/);
   assert.match(css, /\.pz-wi \{[^}]*flex-wrap: wrap/);
 });
 
 test('a patient compare button eases the live model to its computed patient and back; the chart reads the live patient, with no station block to follow', () => {
-  const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const src = presenterSource();
   assert.match(src, /\.\.\.\(s\.compare \|\| \[\]\)\.filter\(\(o\) => o\.preset\)/);
-  assert.match(src, /stateReady\(o\.preset \? extraOf\.get\(xKey\(o\)\) : stateOf\[o\.slide \? slideAt\(o\.slide\) : i\]\)/);
+  assert.match(src, /stateReady\(o\.preset \? (?:live\.)?extraOf\.get\(xKey\(o\)\) : (?:live\.)?stateOf\[o\.slide \? slideAt\(o\.slide\) : i\]\)/);
   assert.doesNotMatch(src, /abBlk|blockOf/);
 });
 
 test('the slide count is not left grey (as if the list were open) on a slide picked from the slide list', () => {
-  const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(src, /listOpen = String\(!ui\.jump\.hidden && !ui\.jump\.classList\.contains\('pz-leave'\)\)/);
+  const src = presenterSource();
+  assert.match(src, /listOpen = String\(!(?:live\.)?ui\.jump\.hidden && !(?:live\.)?ui\.jump\.classList\.contains\('pz-leave'\)\)/);
   assert.match(src, /'aria-expanded': listOpen/);
   assert.match(src, /k\.count\.setAttribute\('aria-expanded', listOpen\)/);   // (the pill updated in place, P16)
 });

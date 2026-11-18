@@ -4,9 +4,10 @@
 
 import { store, updateParams, setViewKey } from './store.js';
 import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore, scrollBehavior } from './util.js';
-import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, EASE_IN, easeArrive } from './ease.js';
+import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE } from './ease.js';
 import { readMetric } from './layout-snap.js';
 import { reduceMotionMQ } from './motion.js';
+import { rideIn, rideOut, rideStop } from './sheet-ride.js';
 import { restPass, cancelRest } from './rest-pass.js';
 import { classSoon, attrSoon } from './class-soon.js';
 import { frame } from './frame.js';
@@ -15,16 +16,21 @@ import { DRUGS } from '../engine/scenario.js';
 import { HIDDEN_EDGES } from './anatomy.js';
 import { LOOKS } from './looks.js';
 import { SURGICAL, SURGICAL_BY_ID, shuntName, surgicalVerbs } from './surgical-shunts.js';
+import { procLabel } from './procedure-names.js';
 
 // One highlight under the list that glides to the active row; the arrow keys and the pointer only move it (and aria-selected on two rows),
 // and the list is rebuilt only when the results change.
+const EMPTY_ORDER = ['Treat', 'Go to', 'Patient', 'Time', 'Present'];
 const FOCUS_NO_SCROLL = Object.freeze({ preventScroll: true });
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9+ ]/g, ' ');
+
+// (A phone's field is narrow: its words are short enough for the width and the field ends one that still overflows in an ellipsis, never mid-letter.)
+const placeholderFor = () => innerWidth < 600 ? 'Vessel, patient or treatment' : 'Search a vessel, patient or treatment: “tips 10”, “+6 months”…';
 
 export function createPalette({ ctx }) {
   const surgical = surgicalVerbs({ store, updateParams, select: (sel) => ctx.select(sel), toast });
   const back = h('div', { class: 'pal-back', hidden: true });
-  const input = h('input', { class: 'pal-input', type: 'text', placeholder: innerWidth < 600 ? 'Search vessels, patients, treatments' : 'Search a vessel, patient or treatment: “tips 10”, “+6 months”…', 'aria-label': 'Search', autocomplete: 'off', spellcheck: 'false', role: 'combobox', 'aria-autocomplete': 'list', 'aria-controls': 'pal-list', 'aria-expanded': 'true' });
+  const input = h('input', { class: 'pal-input', type: 'text', placeholder: placeholderFor(), 'aria-label': 'Search', autocomplete: 'off', spellcheck: 'false', role: 'combobox', 'aria-autocomplete': 'list', 'aria-controls': 'pal-list', 'aria-expanded': 'true' });
   const list = h('div', { class: 'pal-list glides', id: 'pal-list', role: 'listbox', 'aria-label': 'Results' });
   const hl = h('div', { class: 'pal-glide', 'aria-hidden': 'true' });   // (the highlight: a sibling of the rows, in the list's scrolled space)
   // (The same magnifier as the Search button that opens it. The key hints under the list are for a keyboard: a touch screen hides them.)
@@ -40,13 +46,15 @@ export function createPalette({ ctx }) {
   function commands() {
     const st = store.get();
     const cmds = [];
-    const add = (group, title, run, { kw = '', num = null, hint = '' } = {}) => cmds.push({ group, title, run, kw: norm(title + ' ' + kw), num, hint });
+    // (when: false leaves a command out: a take-down is offered only for what is in place, so "Remove TIPS" never shows for a patient with no TIPS.)
+    const add = (group, title, run, { kw = '', num = null, hint = '', when = true } = {}) => { if (when) cmds.push({ group, title, run, kw: norm(title + ' ' + kw), num, hint }); };
+    const P = st.params;
     // Parameters with a number
     add('Change', 'Cirrhosis', (n) => updateParams((p) => { p.cirrhosis = Math.min(1, Math.max(0, (n ?? 60) / 100)); return p; }, { label: 'Cirrhosis' }), { num: '%', kw: 'liver fibrosis', hint: 'cirrhosis 60 → 60%' });
     add('Treat', 'TIPS', (n) => updateParams({ tips: { on: true, d: Math.min(12, Math.max(6, n ?? 8)) } }, { label: 'TIPS' }), { num: 'mm', kw: 'stent shunt transjugular', hint: 'tips 8 → an 8 mm stent' });
-    add('Treat', 'Remove TIPS', () => updateParams({ tips: { on: false } }, { label: 'Remove TIPS' }), { kw: 'take down' });
+    add('Treat', 'Remove TIPS', () => updateParams({ tips: { on: false } }, { label: 'Remove TIPS' }), { kw: 'take down', when: !!P.tips?.on });
     add('Treat', 'DIPS', (n) => updateParams({ dips: { on: true, d: Math.min(12, Math.max(6, n ?? 8)) } }, { label: 'DIPS' }), { num: 'mm', kw: 'stent shunt direct intrahepatic caudate budd chiari', hint: 'dips 8 → an 8 mm stent' });
-    add('Treat', 'Remove DIPS', () => updateParams({ dips: { on: false } }, { label: 'Remove DIPS' }), { kw: 'take down' });
+    add('Treat', 'Remove DIPS', () => updateParams({ dips: { on: false } }, { label: 'Remove DIPS' }), { kw: 'take down', when: !!P.dips?.on });
     add('Change', 'Serum albumin', (n) => updateParams({ albumin: Math.min(5, Math.max(1.5, n ?? 3)) }, { label: 'Serum albumin' }), { num: 'g/dL', kw: 'protein oncotic' });
     add('Change', 'Right-heart contractility', (n) => updateParams({ contractility: Math.min(1.6, Math.max(0.15, (n ?? 50) / 100)) }, { label: 'Contractility' }), { num: '%', kw: 'heart failure rv' });
     add('Change', 'Tricuspid regurgitation', (n) => updateParams({ tr: Math.min(1, Math.max(0, (n ?? 80) / 100)) }, { label: 'TR' }), { num: '%', kw: 'tr heart valve' });
@@ -60,7 +68,7 @@ export function createPalette({ ctx }) {
     for (const k of Object.keys(DRUGS)) add('Treat', DRUGS[k].label, () => updateParams((p) => { p.drugs[k] = !p.drugs[k]; return p; }, { label: DRUGS[k].label }), { kw: 'drug start stop' });
     add('Treat', 'Diuretics', () => updateParams((p) => { p.diuretics = !p.diuretics; return p; }, { label: 'Diuretics' }), { kw: 'spironolactone furosemide' });
     add('Treat', 'Anticoagulation', () => updateParams((p) => { p.anticoag = !p.anticoag; return p; }, { label: 'Anticoagulation' }), { kw: 'heparin' });
-    add('Treat', 'Band ligation', () => { ctx.select({ type: 'organ', id: 'varices' }); ctx.action({ kind: 'band' }); }, { kw: 'evl varices' });
+    add('Treat', procLabel('band'), () => { ctx.select({ type: 'organ', id: 'varices' }); ctx.action({ kind: 'band' }); }, { kw: 'evl varices' });
     add('Treat', 'Paracentesis', (n) => ctx.action({ kind: 'paracentesis', mL: Math.min(10, Math.max(1, n ?? 5)) * 1000, albumin: true }), { num: 'L', kw: 'drain ascites tap' });
     add('Treat', '1 L crystalloid', () => ctx.action({ kind: 'infuse', fluid: 'crystalloid' }), { kw: 'fluid saline' });
     add('Treat', '1 unit PRBC', () => ctx.action({ kind: 'infuse', fluid: 'prbc' }), { kw: 'transfuse blood' });
@@ -70,7 +78,7 @@ export function createPalette({ ctx }) {
     add('Treat', 'Esophageal balloon', () => updateParams((p) => { p.balloonEso = !p.balloonEso; if (p.balloonEso) p.balloonGas = true; return p; }, { label: 'Esophageal balloon' }), { kw: 'tamponade sengstaken minnesota second' });
     // The surgical shunts, as the Treat card's Procedures tab makes them (surgical-shunts.js), each with its take-down.
     for (const x of SURGICAL) add('Treat', shuntName(x), () => surgical.placeShunt(x.id), { kw: `${x.kw} ${x.sub}` });
-    for (const [id, name] of [['warren', 'Warren shunt'], ['pc-es', 'portocaval shunt'], ['mesocaval', 'mesocaval shunt'], ['rex', 'Meso-Rex bypass']]) add('Treat', `Remove ${name}`, () => surgical.removeShunt(id), { kw: `take down ${SURGICAL_BY_ID[id].kw}` });
+    for (const [id, name] of [['warren', 'distal splenorenal shunt (DSRS)'], ['pc-es', 'portocaval shunt'], ['mesocaval', 'mesocaval shunt'], ['rex', 'Meso-Rex bypass']]) add('Treat', `Remove ${name}`, () => surgical.removeShunt(id), { kw: `take down ${SURGICAL_BY_ID[id].kw}`, when: SURGICAL_BY_ID[id].key === 'portocaval' ? !!P.portocaval : SURGICAL_BY_ID[id].on(P) });
     add('Tests', 'Doppler of the portal vein', () => { ctx.probe('PV_TRUNK'); ctx.showPane('doppler'); }, { kw: 'ultrasound velocity' });
     add('Tests', 'Endoscopy', () => ctx.showPane('endoscopy'), { kw: 'scope varices' });
     // Time
@@ -108,7 +116,12 @@ export function createPalette({ ctx }) {
     const num = numM ? parseFloat(numM[0]) : null;
     const words = norm(q.replace(/-?\d+(\.\d+)?/g, ' ')).split(/\s+/).filter(Boolean);
     const cmds = commands();
-    if (!words.length && num == null) return cmds.filter((c) => ['Time', 'Treat'].includes(c.group)).slice(0, 10).map((c) => ({ c, num: null }));
+    // (An empty field offers a few of each thing its placeholder names, not one group: treatments, structures, patients, time, talks.)
+    if (!words.length && num == null) {
+      const left = { Treat: 3, 'Go to': 2, Patient: 2, Time: 2, Present: 1 }, out = [];
+      for (const c of cmds) if (left[c.group] > 0) { left[c.group]--; out.push({ c, num: null }); }
+      return out.sort((a, b) => EMPTY_ORDER.indexOf(a.c.group) - EMPTY_ORDER.indexOf(b.c.group));
+    }
     const scored = [];
     for (const c of cmds) {
       let score = 0, ok = true;
@@ -227,8 +240,9 @@ export function createPalette({ ctx }) {
     // (Ctrl K, or a click Safari does not focus: the Search button takes focus back, not the page.)
     ret = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.getElementById('btnPalette');
     clearTimeout(leaveT); back.classList.remove('leaving');
-    openAt = performance.now(); palExit?.cancel(); palExit = null;
+    input.placeholder = placeholderFor();
     back.hidden = false; input.value = ''; sel = 0; shownKey = ''; renderList({ fadeIn: false });
+    if (document.documentElement.classList.contains('thumb-ui')) { rideStop(box); rideIn(box, reduceMotionMQ.matches, D_SMALL, 8); }   // (the Search sheet rises from behind the dock on the page's frames, so its glass and its words are one piece: sheet-ride.js)
     if (ctx.library && !ctx.libraryNow?.()) ctx.library().then(() => { if (!back.hidden) renderList(); }).catch(() => {});
     // (Focused in the tap itself, so iOS raises the keyboard at once; a focus from a timer is outside the gesture and iOS waits for a second
     // tap: menu recs C3, 13 Nov 2026. The timer stays for a browser that moves focus back to the button after the click.)
@@ -269,17 +283,13 @@ export function createPalette({ ctx }) {
     box.animate([{ transform: `translateY(${(was - t).toFixed(1)}px)` }, { transform: 'none' }], { duration: D_SMALL, easing: EASE_MOVE, composite: 'add' });   // alloc-rare: once per keyboard move
   }
   // It fades out as it faded in (it vanished in one frame: P20), then hides; opened again meanwhile, it simply stays.
-  let leaveT = 0, openAt = -1e9, palExit = null;
-  const leaveDone = () => { palExit?.cancel(); palExit = null; palTop = null; back.hidden = true; back.classList.remove('leaving'); back.style.removeProperty('--pal-room'); back.style.removeProperty('--pal-kb'); back.style.removeProperty('--pal-vh'); };
+  let leaveT = 0;
+  const leaveDone = () => { rideStop(box); palTop = null; back.hidden = true; back.classList.remove('leaving'); back.style.removeProperty('--pal-room'); back.style.removeProperty('--pal-kb'); back.style.removeProperty('--pal-vh'); };
   function close() {
     if (back.hidden || back.classList.contains('leaving')) return;
     back.classList.add('leaving'); clearTimeout(leaveT);
-    // (Over the thumb dock, put away while it still rises (a second tap on Search): it sinks from where it had got to, not from its resting place,
-    // which it jumped up to for a frame first. 13 Nov 2026, iPhone.)
-    const x = (performance.now() - openAt) / D_SMALL;
-    if (x < 1 && box.animate && !reduceMotionMQ.matches && document.documentElement.classList.contains('thumb-ui')) {
-      palExit = box.animate([{ transform: `translateY(calc((100% + 8px) * ${(1 - easeArrive(Math.max(0, x))).toFixed(4)}))` }, { transform: 'translateY(calc(100% + 8px))' }], { duration: D_SMALL, easing: EASE_IN, fill: 'forwards' });   // alloc-rare: a close during the entrance
-    }
+    // (Over the thumb dock it sinks behind the dock on the page's frames, from where its entrance had got to if it still rises: sheet-ride.js.)
+    if (document.documentElement.classList.contains('thumb-ui')) rideOut(box, reduceMotionMQ.matches, D_SMALL, 8);
     vv?.removeEventListener('resize', fitSoon); vv?.removeEventListener('scroll', fitSoon);
     leaveT = afterExit(back, 'leaving', leaveDone);
     ret?.focus?.(FOCUS_NO_SCROLL);

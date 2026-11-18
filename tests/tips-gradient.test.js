@@ -1,5 +1,5 @@
 // The gradient across the new stent (proc-anim.js MEASURES.tipsgrad, TIPS step 5): a reading, not a treatment; the TIPS catheter goes through the
-// stent into the portal vein, reads, is drawn back to the IVC and reads again; the gradient is the PPG the tiles show (9.2 mmHg through an 8 mm
+// stent into the portal vein, reads, is drawn back to the IVC and reads again; the gradient is the PPG the tiles show (9.4 mmHg through an 8 mm
 // stent in cirr-decomp, 7.9 through 10 mm, the recs' figures) and under AASLD 2024's 12 mmHg.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -64,7 +64,7 @@ test('one step with one shot; each reading is taken with the tip still; the resu
   assert.equal(procFrame('tipsgrad', T.back - 20, STOPS).shot, 'way'); assert.equal(procFrame('tipsgrad', T.back, STOPS).shot, '', 'the view stops following the tip as it comes out');
 });
 
-test('the gradient is the PPG the tiles show: 9.2 mmHg through an 8 mm stent and 7.9 through 10 mm in cirr-decomp, both under 12', () => {
+test('the gradient is the PPG the tiles show: 9.2 mmHg through an 8 mm stent and 7.9 through 10 mm in cirr-decomp, both under 12', () => {   // (9.4 before 17 Nov 2026: the TIPS's outlet, docs/tips-stent-model.md)
   const rd = READS.tipsgrad;
   for (const [d, want] of [[8, 9.2], [10, 7.9]]) {
     const f = withTips(d);

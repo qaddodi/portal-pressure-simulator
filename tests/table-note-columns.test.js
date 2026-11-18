@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
+import { appCss, presenterSource } from './split-src.js';
 
 // An upright tablet keeps a small table's notes in columns under their headings, with the kickers over the names (17 Oct).
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const css = appCss();
+const js = presenterSource();
 
 test('a table of four columns or fewer, notes counted, is marked notecols and carries its note count', () => {
   assert.match(js, /const noteCols = notes\.length && cols\.length \+ \(ascCols \? 2 : 0\) \+ notes\.length <= 4;/);

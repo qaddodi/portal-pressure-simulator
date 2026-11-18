@@ -42,8 +42,8 @@ test('the frame loop draws what eases while the anatomy shows; at rest the zoom 
   assert.ok(gate > 0, 'the dive holds the figure only when nothing on it eases');
   // Falling through, the usual frame steps the fluid and the widths and draws the vessels; covered, it still sleeps or waits.
   const rest = loop.slice(gate);
-  assert.ok(rest.indexOf('stepFluid(dt, st, easeDt)') > 0 && rest.indexOf('drawVeins(fluidMoved)') > 0);
-  assert.ok(rest.indexOf('if (lz?.isOpen()) { trimVeins(); sleep(); return; }') < rest.indexOf('stepFluid('));
+  assert.ok(rest.indexOf("framePart('stage: fluid', stepFluid, dt, st, easeDt)") > 0 && rest.indexOf("framePart('stage: draw vessels', drawVeins, fluidMoved)") > 0);   // (each a named part of the frame since the stage's frame was named in parts)
+  assert.ok(rest.indexOf('if (lz?.isOpen()) { trimVeins(); sleep(); return; }') < rest.indexOf('stepFluid, dt'));
   // The plate's picture is still not made mid-dive (it waits for the landing): only the live drawing moves.
   assert.match(fn('  function platePoke() {'), /if \(\((?:live\.)?(?:live\.)?lobuleOn && !(?:live\.)?(?:live\.)?lz\?\.isOpen\(\)\) \|\| \((?:live\.)?(?:live\.)?diveT > 0 && (?:live\.)?(?:live\.)?diveT < 1\)\) return;/);
 });
@@ -80,5 +80,5 @@ test('Figure resolution never changes the canvas mid-zoom: no fade copy that sta
   assert.doesNotMatch(st, /fading\(vCanvas\)\) return 'the canvas is fading/);   // (the fade is an alpha in the present: it no longer stops the glass)
   // A redraw through the zoom keeps the camera it started with, so it never counts as a move (settleRes, Adapt's frame gaps).
   const draw = fn('  function drawVeinsNow(fullComposite) {');
-  assert.ok(draw.indexOf('if (key !== veinsDrawKey) {') < draw.indexOf('settleRes();'));
+  assert.ok(draw.indexOf('if (key !== veinsDrawKey) {') < draw.indexOf("framePart('draw: resolution', settleRes);"));
 });

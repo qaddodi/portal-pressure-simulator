@@ -1,6 +1,7 @@
 // The trial card (tool { kind: 'trial', id }, tool-trial.js, trials.js): every trial it can show is listed in guidelines/trials.md with the
-// status the file gives it, its numbers are whole percents, a slide may name only a trial that is listed, and the card's drawing keeps every word and
-// bar inside its width. Item 39 of docs/recommendations/deck-content-and-new-decks.md.
+// status the file gives it, its numbers are percents with at most one decimal, its ratios, Baveno VIII statements and entry rules are well formed
+// and in the file, a slide may name only a trial that is listed, and the card's drawing keeps every word and bar inside its width. Item 39 of
+// docs/recommendations/deck-content-and-new-decks.md; the 21 audited trials of guidelines/trials-audit-2026-11-14.md (14 Nov 2026).
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -13,6 +14,7 @@ import teaching from '../src/ui/ext-teaching.js';
 import { EXT } from '../src/ui/slide-ext.js';
 import { DECKS } from '../src/ui/decks.js';
 import { DEMO_ALL } from '../src/ui/test-decks/demo-all-new-visuals.js';
+import { FIT_TESTS, VALUE_TESTS } from '../src/ui/trial-fit.js';
 
 const md = readFileSync(new URL('../guidelines/trials.md', import.meta.url), 'utf8');
 /** guidelines/trials.md read into { id: { status, text } }: a section is "## <id>" to the next heading. */
@@ -37,22 +39,74 @@ test('every trial is listed in guidelines/trials.md with the same status, and th
     // (Every percent on the card is in the section's own reading of the abstract.)
     for (const a of t.arms) assert.ok(sec.text.includes(`${a.rate}%`), `${id}: trials.md reads ${a.rate}% for ${a.label}`);
     if (t.n) assert.ok(sec.text.includes(String(t.n)), `${id}: trials.md reads ${t.n} randomized`);
+    for (const a of t.arms) for (const k of ['n', 'events']) if (a[k] != null) assert.ok(new RegExp(`\\b${a[k]}\\b`).test(sec.text), `${id}/${a.label}: trials.md reads ${k} ${a[k]}`);
+    assert.ok(t.doi == null || sec.text.includes(`DOI ${t.doi}`), `${id}: trials.md gives the DOI the app holds`);
+    // (Every ratio is on the section's Ratios line as "HR 0.51 (0.26–0.97)", a trailing zero allowed: 0.5 is printed 0.50.)
+    const ratioLine = /^Ratios:(.*)$/m.exec(sec.text)?.[1] ?? '';
+    const num = (x) => `${String(x).replace('.', '\\.')}0*`;
+    for (const r of t.ratios) assert.match(ratioLine, new RegExp(`${r.kind} ${num(r.est)} \\(${num(r.lo)}–${num(r.hi)}\\)`), `${id}: trials.md's Ratios line gives ${r.kind} ${r.est} (${r.lo}–${r.hi})`);
+    if (!t.ratios.length) assert.match(ratioLine, /none reported/, `${id}: trials.md says no ratio was reported`);
+    // (The Baveno VIII line names exactly the statements the trial holds, or says none; each was found in guidelines/baveno-viii-2026.pdf.)
+    const bavLine = /^Baveno VIII:\s*(.*)$/m.exec(sec.text)?.[1] ?? '';
+    const named = bavLine.split(/\(|\.\s/)[0].match(/\b\d\.\d{1,2}\b/g) ?? [];
+    assert.deepEqual(named, t.bav, `${id}: trials.md's Baveno VIII line names ${t.bav.join(', ') || 'none'}`);
+    if (!t.bav.length) assert.match(bavLine, /^none\b/, `${id}: trials.md says no Baveno VIII statement corresponds`);
   }
 });
 
-test('a trial is two arms of whole percents from 0 to 100, the treated arm first, with the words a card needs', () => {
+// Trials that reported no result per arm, so the card has no bars (MACHT: the audit says not to show efficacy counts until they are verified).
+const NO_ARMS = new Set(['macht']);
+const GROUPS = ['decomp', 'bleed', 'ascites', 'kidney', 'infection', 'he'];
+
+test('a trial is two or three arms of percents from 0 to 100 (at most one decimal), the treated arm first, with the words a card needs', () => {
+  const shorts = new Set();
   for (const id of TRIAL_IDS) {
     const t = TRIALS[id];
-    assert.equal(t.arms.length, 2, `${id}: two arms`);
-    assert.deepEqual(t.arms.map((a) => a.side), ['treat', 'control'], `${id}: treated arm first`);
+    if (NO_ARMS.has(id)) assert.equal(t.arms.length, 0, `${id}: listed as a trial with no arms`);
+    else {
+      assert.ok(t.arms.length === 2 || t.arms.length === 3, `${id}: two or three arms`);
+      assert.equal(t.arms[0].side, 'treat', `${id}: treated arm first`);
+      assert.deepEqual(t.arms.slice(1).map((a) => a.side), t.arms.slice(1).map(() => 'control'), `${id}: the other arms are controls`);
+    }
     for (const a of t.arms) {
-      assert.ok(Number.isInteger(a.rate) && a.rate >= 0 && a.rate <= 100, `${id}/${a.label}: a whole percent`);
+      assert.ok(typeof a.rate === 'number' && a.rate >= 0 && a.rate <= 100 && /^\d{1,3}(\.\d)?$/.test(String(a.rate)), `${id}/${a.label}: a percent from 0 to 100 with at most one decimal`);
       assert.ok(a.n == null || (Number.isInteger(a.n) && a.n > 0 && a.n <= t.n), `${id}/${a.label}: people in the arm`);
+      if (a.events != null) {
+        assert.ok(Number.isInteger(a.events) && a.events >= 0 && a.n != null && a.events <= a.n, `${id}/${a.label}: events are a whole number of the arm's people`);
+        // (The reported percent is the count's share: within a point for a whole percent, a tenth for one decimal, as reported, cut or rounded.)
+        assert.ok(Math.abs((100 * a.events) / a.n - a.rate) < (Number.isInteger(a.rate) ? 1 : 0.1), `${id}/${a.label}: ${a.events} of ${a.n} is ${a.rate}%`);
+        assert.equal(t.km, false, `${id}: counted events are not Kaplan–Meier rates`);
+      }
     }
     assert.ok(Number.isInteger(t.n) && t.n > 0, `${id}: n`);
     assert.ok(['lower', 'higher'].includes(t.better), `${id}: better`);
-    for (const k of ['name', 'journal', 'firstAuthor', 'setting', 'followUp', 'endpoint']) assert.ok(typeof t[k] === 'string' && t[k].trim(), `${id}: ${k}`);
-    assert.ok(t.pmid == null || /^\d+$/.test(t.pmid), `${id}: pmid`);
+    for (const k of ['name', 'short', 'journal', 'firstAuthor', 'setting', 'endpoint', 'verified']) assert.ok(typeof t[k] === 'string' && t[k].trim(), `${id}: ${k}`);
+    assert.ok(t.followUp === null || (typeof t.followUp === 'string' && t.followUp.trim()), `${id}: followUp is words or null`);
+    assert.ok(t.short.length <= 22, `${id}: short "${t.short}" is at most 22 characters`);
+    assert.ok(!shorts.has(t.short), `${id}: short "${t.short}" is not another trial's`); shorts.add(t.short);
+    assert.ok(GROUPS.includes(t.group), `${id}: group ${t.group}`);
+    assert.ok(typeof t.pmid === 'string' && /^\d+$/.test(t.pmid), `${id}: pmid`);
+    assert.ok(t.doi === null || /^10\.\d{4,}\//.test(t.doi), `${id}: doi`);
+    assert.equal(typeof t.km, 'boolean', `${id}: km`);
+    // (Ratios: the trial's own, with a 95% CI around the estimate.)
+    assert.ok(Array.isArray(t.ratios), `${id}: ratios`);
+    for (const r of t.ratios) {
+      assert.ok(['HR', 'OR', 'RR'].includes(r.kind), `${id}: ratio kind ${r.kind}`);
+      assert.ok([r.est, r.lo, r.hi].every((x) => Number.isFinite(x) && x > 0) && r.lo <= r.est && r.est <= r.hi, `${id}: ${r.kind} ${r.est} (${r.lo}–${r.hi}) has lo ≤ est ≤ hi`);
+      assert.ok(typeof r.of === 'string' && r.of.trim(), `${id}: a ratio names its endpoint`);
+      assert.ok(r.vs == null || (typeof r.vs === 'string' && r.vs.trim()), `${id}: vs`);
+    }
+    if (t.arms.length > 2) for (const r of t.ratios) assert.ok(r.vs, `${id}: a three-arm trial's ratio names its comparison`);
+    // (Baveno VIII statement numbers, panel.statement, no repeats; the trials.md test above ties each to the section that found it in the PDF.)
+    assert.ok(Array.isArray(t.bav) && t.bav.every((b) => /^[1-9]\.\d{1,2}$/.test(b)) && new Set(t.bav).size === t.bav.length, `${id}: bav`);
+    // (Entry rules: short sentence-case words, a test from the trial-fit vocabulary or null, a value only for a test that compares one.)
+    assert.ok(Array.isArray(t.entry) && t.entry.length > 0, `${id}: entry rules`);
+    for (const e of t.entry) {
+      assert.ok(typeof e.rule === 'string' && /^[A-Z0-9]/.test(e.rule) && !/\.$/.test(e.rule), `${id}: rule "${e.rule}" is sentence case with no full stop`);
+      assert.ok(e.test === null || FIT_TESTS.includes(e.test), `${id}: test ${e.test} is in the vocabulary or null`);
+      if (VALUE_TESTS.has(e.test)) assert.ok(Number.isFinite(e.value) && e.value > 0, `${id}: ${e.test} has a value`);
+      else assert.equal(e.value, undefined, `${id}: only a comparing test has a value`);
+    }
     for (const k of ['setting', 'followUp', 'endpoint', 'effect', 'note']) assert.ok(t[k] == null || !/\b(utilize|leverage|crucial|important to note)\b/i.test(t[k]), `${id}: ${k} is plain`);
   }
 });
@@ -113,10 +167,11 @@ test('the drawing keeps every word and bar inside the card, the bars proportiona
       assert.ok(LOOKS[s.look], `${s.look} exists`);
     }
     const bars = L.rects.filter((r) => r.look === 'trial.bar');
-    assert.deepEqual(bars.map((b) => Math.round((b.w / W) * 100)), t.arms.map((a) => a.rate), `${id}@${W}: bars are the rates on a 0 to 100 scale`);
-    assert.equal(L.rects.filter((r) => r.look === 'trial.track').length, 2);
+    assert.equal(bars.length, t.arms.length, `${id}@${W}: a bar per arm`);
+    bars.forEach((b, i) => assert.ok(Math.abs((b.w / W) * 100 - t.arms[i].rate) < 1e-6, `${id}@${W}: bar ${i} is the rate ${t.arms[i].rate} on a 0 to 100 scale`));
+    assert.equal(L.rects.filter((r) => r.look === 'trial.track').length, t.arms.length);
     const words = L.texts.map((s) => s.t);
-    for (const a of t.arms) assert.ok(words.includes(`${a.rate}%`) && words.includes(a.label), `${id}@${W}: ${a.label} and its percent`);
+    for (const a of t.arms) assert.ok(words.includes(`${a.rate}%`) && (words.includes(a.label) || (a.short && words.includes(a.short))), `${id}@${W}: ${a.label} (or its short name) and its percent`);
     assert.ok(words.includes(trialSource(t) + ` · ${t.n} randomized`) || words.some((w) => w.startsWith(t.journal) || w.endsWith('randomized')), `${id}@${W}: the source line`);
     assert.deepEqual(trialLayout(t, W, f, measure), L, `${id}@${W}: the same drawing every time`);
   }
@@ -131,4 +186,13 @@ test('a trial not yet read against its paper says so on the card, in the handout
   assert.match(trialWords(t), /Not yet checked against the paper\.$/);
   assert.doesNotMatch(trialWords(TRIALS.predesci), /Not yet checked/);
   assert.match(trialWords(TRIALS.predesci), /Beta-blocker 16%, Placebo 27%/);
+});
+
+test('a trial card never cuts a caveat: no drawn line ends in an ellipsis, at any width (B17, 16 Nov 2026)', () => {
+  for (const id of Object.keys(TRIALS)) for (const W of [240, 340, 360, 480]) for (const compact of [false, true]) {
+    const L = trialLayout(TRIALS[id], W, 12, measure, { verdict: 'fits', rows: [] }, { compact });
+    for (const s of L.texts) assert.ok(!s.t.endsWith('…'), `${id}@${W}${compact ? ' compact' : ''}: "${s.t}"`);
+    const words = L.texts.filter((s) => s.look === 'trial.note').map((s) => s.t).join(' ');
+    if (TRIALS[id].note) assert.equal(words.replace(/\s+/g, ' '), TRIALS[id].note.replace(/\s+/g, ' '), `${id}@${W}: the whole note is drawn`);
+  }
 });

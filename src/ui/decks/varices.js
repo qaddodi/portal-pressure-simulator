@@ -8,12 +8,12 @@ export const VARICES = {
   id: 'varices', level: 'core', title: 'Collaterals and varices', minutes: 14,
   sections: [['How collaterals form', ['Collaterals']], ['Esophageal varices', ['Varices']], ['Other routes', ['Other collaterals']], ['Heart failure', ['Heart failure']]],
   summary: 'Six months of progression, then the esophageal varices, carvedilol at CSPH, and the other collateral routes. Ends with why heart failure rarely causes varices.',
-  objectives: ['Name the main portosystemic collaterals and where they form', 'Relate varix size and HVPG to bleeding risk', 'Start carvedilol at clinically significant portal hypertension (CSPH) to prevent decompensation, not only bleeding', 'Explain why heart failure rarely produces varices'],
+  objectives: ['Name the main portosystemic collaterals and where they form', 'Relate varix size and HVPG to bleeding risk', 'Start carvedilol at CSPH to prevent decompensation, not only bleeding'],
   checks: [
     ['Name three places where portosystemic collaterals open.', 'Any three of: the gastroesophageal junction, the umbilicus, the rectum and the retroperitoneum, including splenorenal and gastrorenal shunts.'],
     ['How does the risk of a variceal bleed change with the HVPG?', 'Varices rarely bleed at an HVPG <12 mmHg; above it the risk rises with the gradient, varix size and red wale marks.'],
     ['Why are varices rare in heart failure?', 'Portal and systemic venous pressures are both high, so the PPG stays low and there is no gradient to drive collateral flow.'],
-    ['On a nonselective beta-blocker (NSBB) the HVPG falls from 16 to 11 mmHg. Is the bleeding risk gone?', 'Much lower, not gone: the fall is >10% and to <12 mmHg, a good response, but varices can still bleed at <12 mmHg, so the NSBB continues.'],
+    ['On a nonselective beta-blocker (NSBB) the HVPG falls from 16 to 11 mmHg. Is the bleeding risk gone?', 'Much lower, not gone: the fall is >10% and to <12 mmHg, a good response, but varices can still bleed at <12 mmHg, so the NSBB is continued.'],
   ],
   slides: [
     {
@@ -33,7 +33,7 @@ export const VARICES = {
     {
       id: 'lapse', lens: 'flow', days: 180, ramp: { cirrhosis: [0.6, 0.85] }, lapse: { seconds: 10, cam: 'varices' }, cam: 'fit', calipers: ['varix'], tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'varix'], title: 'HVPG and varix over the days' }, data: 'tiles', tiles: ['hvpg', 'varix'], delta: true,
       kicker: 'Collaterals', site: 'sin', title: 'Varices grow as the gradient climbs',
-      line: 'Over six months, years compressed in the model, the HVPG climbs from {hvpg@collat} to {hvpg}, and small varices become large.',
+      line: 'Over six months in the model (years in a patient), the HVPG climbs from {hvpg@collat} to {hvpg}, and small varices become large.',
       notes: 'The time-lapse runs the model\'s disease clock for 180 days while the cirrhosis advances; in patients this takes years, and about 1 in 10 small varices become large each year. As the gradient rises, collateral flow increases (by the end about two thirds of portal flow is shunted) and the varices enlarge. Congestive splenomegaly sequesters platelets (hypersplenism): thrombocytopenia with a high liver stiffness measurement (LSM) suggests CSPH. Baveno VIII\'s endoscopy-sparing rule: screening endoscopy can be avoided when LSM is <20 kPa and the platelet count is ≥150,000/µL.',
       ask: ['Over six months the HVPG climbs. What happens to the varices?', 'They grow from small to large as the gradient rises, and more portal flow is shunted through collaterals.'],
     },
@@ -58,7 +58,7 @@ export const VARICES = {
       id: 'predesci', preset: 'csph', params: { drugs: { carvedilol: true } }, cam: 'liver', glow: ['liver'], tool: { kind: 'hvpg' }, data: 'tiles', tiles: ['map', 'hr'], key: ['hvpgFall'], hvpgResp: 'collat', delta: 'collat',   // (no varix tile: it follows the pressure at once in the model, as a drug does not; put 'varix' back once the slow varix lag is in the engine)
       kicker: 'Varices', site: 'sin', title: 'Carvedilol at CSPH prevents decompensation, not only bleeding',
       line: 'An NSBB is now given for CSPH itself, to prevent ascites and other decompensation, not only for large varices. Carvedilol lowers his HVPG from {hvpg@collat} to {hvpg}.',
-      notes: 'This is the largest change in practice of the last decade. In PREDESCI, patients with compensated cirrhosis and CSPH (HVPG ≥10 mmHg) but no high-risk varices were given propranolol or carvedilol, or placebo: the beta-blocker lowered decompensation or death, mostly by preventing ascites. Baveno VIII therefore recommends a nonselective beta-blocker, carvedilol preferred, for compensated cirrhosis with CSPH (3.15), and a patient who takes one needs no screening endoscopy, because what it finds would not change treatment (3.18). Carvedilol starts at 6.25 mg/day and is increased to 12.5 mg/day if the systolic blood pressure stays >90 mmHg. Without CSPH an NSBB does not prevent decompensation and is not used for it. The model shows the HVPG response; the fall in decompensation is a trial result the model does not simulate. A beta-blocker does not shrink varices within days, so the varix is not shown here; in the model it follows the pressure at once.',
+      notes: 'This is the largest change in practice of the last decade. In PREDESCI, patients with compensated cirrhosis and CSPH (HVPG ≥10 mmHg) but no high-risk varices were given propranolol or carvedilol, or placebo: the beta-blocker lowered decompensation or death, mostly by preventing ascites. Baveno VIII therefore recommends a nonselective beta-blocker, carvedilol preferred, for compensated cirrhosis with CSPH (3.15), and a patient who takes one needs no screening endoscopy, because what it finds would not change treatment (3.18). Carvedilol is started at 6.25 mg/day and increased to 12.5 mg/day if the systolic blood pressure stays >90 mmHg. Without CSPH an NSBB does not prevent decompensation and is not used for it. The model shows the HVPG response; the fall in decompensation is a trial result the model does not simulate. A beta-blocker does not shrink varices within days, so the varix is not shown here; in the model it follows the pressure at once.',
       ask: ['A man with compensated cirrhosis has CSPH and only small varices. Does he need an NSBB?', 'Yes: carvedilol, to prevent decompensation, not only bleeding. On carvedilol he needs no screening endoscopy.'],
     },
     {
@@ -75,7 +75,7 @@ export const VARICES = {
     },
     {
       id: 'nograd', preset: 'rhf', cam: 'varices', labels: ['AZY'], glow: ['azy'], tool: { kind: 'profile' }, data: 'tiles', tiles: ['varix'], key: ['ppg'],
-      compare: [{ label: 'Heart failure', short: 'Heart', own: true }, { label: 'Budd–Chiari', short: 'Budd–Chiari', preset: 'budd-chiari' }],
+      compare: [{ label: 'Heart failure', short: 'Heart', own: true }, { label: 'Budd–Chiari', short: 'Budd–Chiari', preset: 'budd-chiari', site: 'post', kicker: 'Budd–Chiari syndrome', title: 'In Budd–Chiari syndrome a portal pressure gradient forms, and varices develop', line: 'The block lies between the liver and the heart, so the portal pressure is high while the azygos and the right atrium stay at normal pressure: the PPG is {ppg} and the varix measures {varix}.' }],
       kicker: 'Heart failure', site: 'cardiac', title: 'Varices are rare in heart failure because there is no portal pressure gradient',
       vignette: 'A 73-year-old man with severe TR has ascites, leg edema and an elevated JVP. Screening EGD shows no varices.',
       line: 'Collaterals need a portal pressure gradient, and in heart failure portal and systemic venous pressures are both high, so the PPG is {ppg} and varices are rare.',
@@ -89,7 +89,7 @@ export const VARICES = {
       tool: { kind: 'curve', x: 'hvpg', xCuts: [10], cuts: 'ticks', patient: { preset: 'healthy' }, param: 'cirrhosis', from: 0.3, to: 1, step: 0.05, days: 365, lines: ['varix', 'wall'],
         dots: [{ slide: 'collat', name: 'CSPH' }] },
       kicker: 'Summary', site: 'sin', title: 'Varices grow once the HVPG exceeds 10 mmHg',
-      line: 'At an HVPG <10 mmHg the vein keeps a normal caliber. Above it, varix size and wall stress climb together: at {hvpg}, the varix is {varix}.',
+      line: 'At an HVPG <10 mmHg the esophageal veins keep a normal caliber. Above it, varix size and wall stress climb together. In decompensated cirrhosis, at {hvpg}, the varix is {varix}.',
       notes: 'Each point is the model\'s cirrhosis settled for a year, the varix diameter and its wall stress (as a fraction of the rupture stress) read against the HVPG. Collaterals form once the gradient reaches about 10 mmHg (AASLD 2024 Fig. 2), and the varix then widens with it. The wall stress rises faster than the size, because by Laplace\'s law it grows with the transmural pressure and the radius together (AASLD 2024 p. 1193). Red wale marks appear from about 70% of the rupture stress. The amber 2.5 and red 5 on the left scale are the small and large varix cut-offs, in mm. The ring is decompensated cirrhosis; the point is CSPH, the first slide\'s patient. (AASLD 2024 Fig. 2, p. 1193.) One model patient per point; real patients vary far more.',
       ask: ['Why does the wall stress climb faster than the varix diameter?', 'Wall stress is proportional to transmural pressure × radius, so the two rising together multiply.'],
     },

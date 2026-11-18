@@ -7,6 +7,17 @@
   <meta name="author" content="Mohammad Almeqdadi, MD" />
   <meta name="copyright" content="&copy; 2026 Mohammad Almeqdadi, MD" />
   <meta name="description" content="An interactive, physics-based simulator of the portal circulation for medical education: collaterals, varices, flow reversal, HVPG, TIPS and more." />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Portal Pressure Simulator" />
+  <meta property="og:title" content="Portal Pressure Simulator" />
+  <meta property="og:description" content="An interactive, physics-based simulator of the portal circulation for medical education: collaterals, varices, flow reversal, HVPG, TIPS and more." />
+  <meta property="og:url" content="https://qaddodi.github.io/portal-pressure-simulator/" />
+  <meta property="og:image" content="https://qaddodi.github.io/portal-pressure-simulator/brand/share/healthy.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="The portal circulation of a healthy patient, drawn in the simulator." />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://qaddodi.github.io/portal-pressure-simulator/brand/share/healthy.jpg" />
   <meta name="theme-color" content="#F1EBE0" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#1A1917" media="(prefers-color-scheme: dark)" />
   <link rel="icon" href="brand/mark.svg" type="image/svg+xml" />
@@ -20,16 +31,29 @@
   <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="fonts/source-serif-4-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="fonts/fonts.css" />
+  <script>try{if(/[?&]embed(?=[=&#]|$)/.test(location.search))document.documentElement.setAttribute('data-embed','')}catch(e){}</script>
   <script>document.documentElement.setAttribute('data-boot','hold');try{var t=localStorage.getItem('pps.theme'),pb=t==='navy'?'#0E1422':t==='black'?'#000000':'';if(pb){document.documentElement.setAttribute('data-theme','dark');document.documentElement.setAttribute('data-palette',t)}else if(t==='dark'||t==='light'||t==='soft')document.documentElement.setAttribute('data-theme',t);var d=!!pb||t==='dark'||(t!=='light'&&t!=='soft'&&matchMedia('(prefers-color-scheme: dark)').matches);if(d){document.documentElement.style.background=pb||'#1A1917';document.documentElement.style.colorScheme='dark'}localStorage.removeItem('pps.uiZoom');(function(){if(localStorage.getItem('pps.figV')==='1')return;for(var i=localStorage.length-1;i>=0;i--){var k=localStorage.key(i);if(k==='pps.renderScale'||(k&&k.indexOf('pps.fig.')===0))localStorage.removeItem(k)}localStorage.setItem('pps.figV','1')})();}catch(e){}</script>
   <link rel="preload" href="fonts/jetbrains-mono-latin.woff2" as="font" type="font/woff2" crossorigin />
   <script>/* Fonts the first screen uses are asked for once the page's styles are in (the build puts them last) and the loading cover waits for them (1.5 s cap), so no text swaps typeface or changes width after the cover lifts. */(function(){try{if(!document.fonts||!document.fonts.load||!window.Promise)return;var load=new Promise(function(done){function go(){try{Promise.all(['400 16px Inter','600 16px Inter','500 14px "JetBrains Mono"','600 24px "Source Serif 4"'].map(function(x){return document.fonts.load(x,'Ag0123456789').catch(function(){})})).then(function(){done()},function(){done()})}catch(e){done()}}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',go);else go()});(window.ppsHold=window.ppsHold||[]).push(Promise.race([load,new Promise(function(r){setTimeout(r,1500)})]))}catch(e){}})();</script>
   <script>/* Can this browser run the app? ES5 on purpose so even Internet Explorer gets the message. Hard needs stop it with a plain note; soft ones only warn. */(function(){var w=window,why=[];try{if(!('noModule' in document.createElement('script')))why.push('modules');try{new Function('var a={};a.b??=1;return a?.b')}catch(e){if(!(e instanceof EvalError))throw e}if(typeof w.ResizeObserver!=='function')why.push('ResizeObserver');if(typeof w.structuredClone!=='function')why.push('structuredClone');if(!Array.prototype.at)why.push('Array.at')}catch(e){why.push('syntax')}w.ppsUnsupported=why.length?why:null;var soft=[];try{if(!CSS.supports('selector(:has(a))'))soft.push(':has');if(!CSS.supports('container-type','inline-size'))soft.push('container queries');if(!CSS.supports('color','color-mix(in srgb, red, blue)'))soft.push('color-mix')}catch(e){}w.ppsOldBrowser=soft.length?soft:null;w.ppsBootErrors=[];w.ppsStale=function(name,give){var K='pps.fresh',last;if(!w.fetch||!w.URL)return false;try{last=+sessionStorage.getItem(K)||0}catch(e){return false}if(Date.now()-last<60000)return false;if(!name){var s=document.querySelector('script[type=module][src*="assets/"]');name=s?String(s.src).split('/').pop().split('?')[0]:''}if(!name)return false;w.ppsRecovering=true;var n=0;function go(){try{sessionStorage.setItem(K,String(Date.now()))}catch(e){}try{var v=new URL(location.href);v.searchParams.set('r',Date.now());location.replace(v.href)}catch(e){location.reload()}}function stop(){w.ppsRecovering=false;give()}function again(){if(++n<6)setTimeout(look,1500*n);else stop()}function look(){fetch(location.pathname+'?r='+Date.now(),{cache:'no-store',credentials:'same-origin'}).then(function(r){return r.ok?r.text():''}).then(function(t){var m=/<script type="module" src="assets\/([^"?]+)"/.exec(t);if(!m)return again();if(m[1]!==name)return go();return fetch('assets/'+name,{cache:'reload'}).then(function(r){if(r.ok)go();else again()})})['catch'](again)}look();return true};function note(m){if(w.ppsFigureReady)return;w.ppsBootErrors.push(String(m||'Unknown error').slice(0,300));if(w.ppsBootFail&&/SyntaxError/.test(m))w.ppsBootFail()}w.addEventListener('error',function(e){if(e&&e.message&&!/ResizeObserver loop/.test(e.message))note((e.error&&e.error.name?e.error.name+': ':'')+e.message+(e.filename?' ('+String(e.filename).split('/').pop().split('?')[0]+':'+e.lineno+')':''))});w.addEventListener('error',function(e){var t=e&&e.target;if(t&&t.tagName==='SCRIPT'){var tries=t.getAttribute('data-try')|0;if(t.type==='module'&&/assets\//.test(t.src)&&tries<3&&!w.ppsFigureReady){setTimeout(function(){if(w.ppsFigureReady)return;var s=document.createElement('script');s.type='module';s.setAttribute('data-try',tries+1);s.src=t.src.split('?')[0]+'?r='+Date.now();document.head.appendChild(s)},700*(tries+1));return}var name=String(t.src).split('/').pop().split('?')[0],give=function(){note('Could not load '+name);if(w.ppsBootFail&&!w.ppsFigureReady)w.ppsBootFail()};if(t.type==='module'&&/assets\//.test(t.src)&&!w.ppsFigureReady&&w.ppsStale(name,give))return;give()}},true);w.addEventListener('unhandledrejection',function(e){var r=e&&e.reason;note('Unhandled: '+(r&&r.message?r.message:r))})})();</script>
   <link rel="stylesheet" href="styles/tokens.css" />
   <link rel="stylesheet" href="styles/icons.css" />
-  <link rel="stylesheet" href="styles/app.css" />
+  <link rel="stylesheet" href="styles/app-01-chrome.css" />
+  <link rel="stylesheet" href="styles/app-02-controls.css" />
+  <link rel="stylesheet" href="styles/app-03-layouts.css" />
+  <link rel="stylesheet" href="styles/app-04-presenter.css" />
+  <link rel="stylesheet" href="styles/app-05-presenter-cards.css" />
+  <link rel="stylesheet" href="styles/app-06-plate.css" />
+  <link rel="stylesheet" href="styles/app-07-floating.css" />
+  <link rel="stylesheet" href="styles/app-08-cards.css" />
+  <link rel="stylesheet" href="styles/app-09-tests.css" />
+  <link rel="stylesheet" href="styles/app-10-thumb-dock.css" />
+  <link rel="stylesheet" href="styles/app-11-deck-visuals.css" />
   <link rel="stylesheet" href="styles/path.css" />
   <link rel="stylesheet" href="styles/scope-card.css" />
   <link rel="stylesheet" href="styles/tests-card.css" />
+  <link rel="stylesheet" href="styles/from-readings.css" />
+  <link rel="stylesheet" href="styles/guideline-sides.css" />
   <style>
     #boot { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; height: 100lvh; z-index: 2147483647; display: grid; place-items: center; overflow-y: auto; background: var(--bg, #F1EBE0); transition: opacity var(--d-surface) var(--ease), visibility var(--d-surface); animation: boot-failsafe .01s 20s forwards; }
     /* The last word, in CSS so it needs no script: if nothing has lifted the cover after 20 s (a script that never ran, a page whose
@@ -110,7 +134,7 @@ var lifting=false;function lift(){if(lifting||w.ppsUnsupported)return;failed=fal
         </div>
         <div class="sb-right">
           <button class="chip-btn" id="btnLobuleLayers" aria-haspopup="menu" title="Layers: what to show on the lobule" hidden><i class="ic ic-layers" aria-hidden="true"></i><span>Layers</span><i class="ic ic-chev-down chev" aria-hidden="true"></i></button>
-          <button class="chip-btn" id="btnBlood" aria-haspopup="menu" title="Moving blood: streaks and chevrons"><i class="ic ic-drop" aria-hidden="true"></i><span>Blood</span><i class="ic ic-chev-down chev" aria-hidden="true"></i></button>
+          <button class="chip-btn" id="btnBlood" aria-haspopup="menu" title="Moving blood: chevrons"><i class="ic ic-drop" aria-hidden="true"></i><span>Blood</span><i class="ic ic-chev-down chev" aria-hidden="true"></i></button>
           <div class="lens-btn" id="btnLayers" role="button" tabindex="0" aria-haspopup="dialog" title="Color the vessels by… (L cycles)"><span class="lens-name" id="colorModeLabel">Pressure</span><div class="legend" id="legend" role="img" aria-label="Color legend"></div><i class="ic ic-chev-down chev" aria-hidden="true"></i></div>
         </div>
       </div>
@@ -120,7 +144,7 @@ var lifting=false;function lift(){if(lifting||w.ppsUnsupported)return;failed=fal
         <button class="tb-act" id="btnHistory" aria-haspopup="dialog" aria-expanded="false" aria-controls="historyCard" title="History: every change and event, with a way back to each"><i class="ic ic-clock" aria-hidden="true"></i><span>History</span><b class="tb-hc" aria-hidden="true"></b></button>
         <span class="tb-sep" aria-hidden="true"></span>
         <button class="ib" id="btnSettings" aria-haspopup="dialog" aria-label="Settings" title="Settings"><i class="ic ic-gear" aria-hidden="true"></i></button>
-        <button class="pal-btn" id="btnPalette" title="Search (Ctrl K)" aria-label="Search"><i class="ic ic-search" aria-hidden="true"></i><span class="pal-l">Search</span><kbd>Ctrl K</kbd></button>
+        <button class="pal-btn" id="btnPalette" title="Search" aria-label="Search"><i class="ic ic-search" aria-hidden="true"></i><span class="pal-l">Search</span><kbd>Ctrl K</kbd></button>
       </div>
     </header>
 

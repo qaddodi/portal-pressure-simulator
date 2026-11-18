@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { lobuleSource } from './split-src.js';
 
 const UI = fileURLToPath(new URL('../src/ui/', import.meta.url));
 const read = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
@@ -26,9 +27,9 @@ function staticGraph(entry) {
   return seen;
 }
 
-test('the first load does not reach the lobule, the sinusoid view, the Doppler or the FibroScan', () => {
+test('the first load does not reach the lobule, the sinusoid view, the Doppler, the FibroScan or the Trials tab', () => {
   const first = staticGraph(UI + 'main.js');
-  for (const f of ['lobule-zoom', 'sinusoid-view', 'sinusoid-gl', 'doppler', 'doppler-gl', 'fibroscan', 'fibroscan-gl']) {
+  for (const f of ['lobule-zoom', 'sinusoid-view', 'sinusoid-gl', 'doppler', 'doppler-gl', 'fibroscan', 'fibroscan-gl', 'trials-pane', 'trial-forest']) {
     const from = first.get(resolve(UI, f + '.js'));
     assert.equal(from, undefined, `${f}.js is in the first load (imported by ${from})`);
   }
@@ -58,15 +59,15 @@ test('a dive asked for before the layer exists goes on when it does, with the sl
 test('the first dive is prepared ahead as before: the code is fetched as the figure is shown, the layer built when the page is quiet', () => {
   const stage = stageSource();
   const prep = stageFn('prepLobule');
-  assert.match(prep, /if \((?:live\.)?(?:live\.)?figureShown && !(?:live\.)?(?:live\.)?lzLoad && !(?:live\.)?(?:live\.)?lzSoon\) \{ (?:live\.)?(?:live\.)?lzSoon = true; lobuleCode\(\)\.catch\(lobuleNoop\); prepIdle\(prepLoad\);/);
+  assert.match(prep, /if \((?:live\.)?figureShown && !(?:live\.)?lzLoad && !(?:live\.)?lzSoon\) \{ (?:live\.)?lzSoon = true; lobuleCode\(\)\.catch\(lobuleNoop\); prepIdle\(prepLoad\);/);
   assert.match(stage, /const prepLoad = \(\) => lobuleReady\(\)\.then\(prepLobule, prepLoadLost\);/);
-  assert.match(stage, /const lobuleCode = \(\) => \(lzCode \|\|= import\('\.\/lobule-zoom\.js'\)/);
+  assert.match(stage, /const lobuleCode = \(\) => \((?:live\.)?lzCode \|\|= import\('\.\/lobule-zoom\.js'\)/);
   assert.match(prep, /if \(prepBusy \|\| !(?:live\.)?figureShown \|\| now - prepAt < 1000\) return;/);
-  assert.match(prep, /(?:live\.)?lz\.preparePieces\(\)/);
+  assert.match(prep, /(?:live\.)?lz\.preparePieces\((?:now < prepRush)?\)/);
 });
 
 test('a layer built after the store was set reads the slide\'s callout and a sinusoid already asked for', () => {
-  const lobule = read('lobule-zoom.js');
+  const lobule = lobuleSource();
   assert.match(lobule, /const onCallout = \(\) => \{/);
   assert.match(lobule, /store\.on\('lobuleCallout', onCallout\);/);
   assert.match(lobule, /\n {2}onCallout\(\);\n {2}if \(store\.get\(\)\.sinusoid\) diveSinusoid\(true\);\n {2}return api;\n\}/);
@@ -213,7 +214,8 @@ test('the dock holds the two panes, loads them when the card opens, a tab is tou
   assert.match(dock, /for \(const ev of \['pointerenter', 'pointerdown', 'focus'\]\) b\.addEventListener\(ev, \(\) => byId\[id\]\.need\?\.\(\)\);/, 'and as a tab is reached');
   assert.match(dock, /function load\(\) \{ for \(const p of panes\) p\.need\?\.\(\); \}/);
   assert.match(main, /const warmUp = \[[^\n]*\(\) => dock\.load\(\)\];/, 'the rest when the app is idle (and left alone: quiet.js)');
-  assert.match(main, /lazy: \{ doppler: dopplerL, fibroscan: fibroL \}/);
+  assert.match(main, /lazy: \{ doppler: dopplerL, fibroscan: fibroL, trials: trialsL \}/);
+  assert.match(dock, /lazyPane\(\{ id: 'trials', label: 'Trials', handle: lazy\.trials, cls: 'trials-view', onReady: \(\) => \{ fitHeight\(\); queueRefresh\(\); \} \}\)/, 'the Trials tab is a lazy pane too');
   assert.match(main, /if \(wasOpen\.includes\(id\)\) openAtStart\.push\(l\.get\(\)\.catch/, 'one left open last time is asked for at the start');
   assert.match(main, /Promise\.all\(\[host\.request\('healthyProfile'\), host\.request\('presets'\), \.\.\.openAtStart\]\)/, 'and waited for with the model\'s first answers, so its pane is whole with the dock');
   // The Doppler's trace reads only these of a frame it is given (a kept frame is cut down to them):

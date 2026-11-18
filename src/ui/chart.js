@@ -14,6 +14,11 @@ import { DRUG_NOTE } from './actions.js';
 import { factTarget } from './fact-target.js';
 import { caught } from './caught.js';
 import { SURGICAL, surgicalVerbs } from './surgical-shunts.js';
+import { PROCEDURES, procLabel, procLong } from './procedure-names.js';
+import { glideCard } from './card-glide.js';
+import { readMetric } from './layout-snap.js';
+import { D_SMALL, EASE_ARRIVE } from './ease.js';
+import { reduceMotionMQ } from './motion.js';
 
 
 // The interventions treatCount counts, besides any drug.
@@ -37,6 +42,21 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     const shut = id.startsWith('adv-');
     if (open.has(id) !== shut) d.open = true;
     d.addEventListener('toggle', () => { if (d.open !== shut) open.add(id); else open.delete(id); remember(); });
+    // A section opening or closing in a card moves the card's foot: it glides there (card-glide.js), never snapping (17 Nov 2026, Mohammad's play-test of the
+    // Treat card: Changes opened and the card jumped 82 px). Done in the tap itself so no frame is drawn at the new height first: opening is the same change made
+    // at once with the lower part of it uncovered downward; closing fades the words first (a closed section's words are gone the moment it folds), then folds and glides.
+    let glides = [], closing = false;
+    d.firstElementChild.addEventListener('click', (e) => {
+      const card = d.closest('.has-plate');
+      if (!card || reduceMotionMQ.matches || closing) { if (closing) e.preventDefault(); return; }
+      e.preventDefault();
+      const h0 = readMetric(card, 'offsetHeight');
+      if (!d.open) { d.open = true; glides = glideCard(card, h0, readMetric(card, 'offsetHeight'), { prior: glides, cut: [d, d.closest('.tc-body')], free: [d.closest('.tc-body')] }); card.dispatchEvent(new Event('sheet-refit')); return; }   // (a phone's sheet then takes the height its words now ask for: dock-sheet.js)
+      closing = true;
+      const a = d.lastElementChild.animate([{ opacity: 1 }, { opacity: 0 }], { duration: D_SMALL * 0.6, easing: EASE_ARRIVE, fill: 'forwards' });
+      const fold = () => { closing = false; const was = readMetric(card, 'offsetHeight'); d.open = false; a.cancel(); glides = glideCard(card, was, readMetric(card, 'offsetHeight'), { prior: glides }); card.dispatchEvent(new Event('sheet-refit')); };
+      a.finished.then(fold, fold);
+    });
     return d;
   }
 
@@ -77,6 +97,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       const about = active.filter((a) => baseLabels.has(a.label)), mine = active.filter((a) => !baseLabels.has(a.label));
       // (Updated in place: a new change rises in, an undone one folds away, the rest stay put: P18.)
       const keyed = (el, k) => { el.dataset.row = k; return el; };
+      list.dataset.n = String(mine.length);   // (how many: Treat's Changes row on a phone shows it, treat-page.js)
       reconcile(list, [
         ...(about.length ? [keyed(h('div', { class: 'chg-sub' }, 'About this patient'), 'sub:about'), ...about.map((a) => keyed(row(a, false), `about:${a.label}`)), keyed(h('div', { class: 'chg-sub' }, 'Your changes'), 'sub:mine')] : []),
         ...mine.map((a) => keyed(row(a, true), `mine:${a.label}`))]);
@@ -108,7 +129,8 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       drugChip('anticoag', 'Anticoagulation', 'Thrombosed veins recanalize gradually.', (p) => p.anticoag, (p, v) => { p.anticoag = v; }),
       drugChip('diuretics', 'Diuretics', 'Spironolactone + furosemide: natriuresis mobilizes ascites.', (p) => p.diuretics, (p, v) => { p.diuretics = v; }));
     // One line per order; what it does is in its tooltip, so the list stays short.
-    const btn = (ic, label, run, sub) => { const b = h('button', { class: 'order-btn', title: sub ? `${label}: ${sub}` : label }, ic ? svgIcon(ic, 'ac-ic') : null, h('span', { class: 'ob-t' }, label)); b.addEventListener('click', run); return b; };
+    // (A procedure named in procedure-names.js says its full name in its tooltip and to a screen reader: the button's label is the short one.)
+    const btn = (ic, label, run, sub, id) => { const long = id ? procLong(id) : label; const b = h('button', { class: 'order-btn', title: sub ? `${long}: ${sub}` : long, 'aria-label': long }, ic ? svgIcon(ic, 'ac-ic') : null, h('span', { class: 'ob-t' }, label)); b.dataset.long = long; b.addEventListener('click', run); return b; };
     // A fluid is given at once: its line under the name says what it does, and the tile answers the press with the
     // accent tint easing in and back out (data-given), since nothing on it stays on.
     const fluid = (label, fl, sub) => {
@@ -121,63 +143,84 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       fluid('1 L crystalloid', 'crystalloid', 'about 25% stays intravascular'),
       fluid('1 unit PRBC', 'prbc', 'packed red cells'),
       fluid('Albumin', 'albumin', 'raises oncotic pressure'));
-    const proc = (ic, label, sub, run) => btn(ic, label, run, sub);
+    const proc = (ic, id, sub, run) => (PROCEDURES[id] ? btn(ic, procLabel(id), run, sub, id) : btn(ic, id, run, sub));   // (id: a procedure of the table, or a name of its own)
     // A procedure that is in place says so (data-on): the button takes the accent tint and its icon gives way to a tick
     // that draws itself in, both eased, so TIPS or BRTO reads as done without opening the figure. The tick sits in the
     // icon's own place, so no name loses room or wraps.
     const placed = (b, isOn) => {
       const t = b.querySelector('.ob-t'), tick = h('span', { class: 'ob-on', 'aria-hidden': 'true' }, icon('check'));
       b.append(tick);
-      const paint = () => { const on = !!isOn(store.get().params); b.toggleAttribute('data-on', on); b.setAttribute('aria-label', on ? `${t.textContent}, in place` : t.textContent); };
+      const paint = () => { const on = !!isOn(store.get().params); b.toggleAttribute('data-on', on); b.setAttribute('aria-label', on ? `${b.dataset.long || t.textContent}, in place` : (b.dataset.long || t.textContent)); };
       paint(); live.push(paint); return b;
     };
     // A procedure that continues on the figure (a card, a shunt to draw) puts the Treat card away.
     const procs = h('div', { class: 'order-grid' },
-      proc('band', 'Band ligation', 'on the esophageal varices', () => { select({ type: 'organ', id: 'varices' }); action({ kind: 'band' }); }),
-      placed(proc('balloon', 'Balloon tamponade', 'gastric balloon first, then esophageal', () => { select({ type: 'organ', id: 'varices' }); toast('Inflate the gastric balloon in the varices card; the esophageal balloon is the second step.'); }), (p) => p.balloonGas || p.balloonEso),
+      proc('band', 'band', 'on the esophageal varices', () => { select({ type: 'organ', id: 'varices' }); action({ kind: 'band' }); }),
+      // (A procedure is done by its Treat button, as the TIPS is: the gastric balloon is the first step and goes up at once; the esophageal balloon, the second, is the varices card's switch.)
+      placed(proc('balloon', 'balloon', 'gastric balloon first, then esophageal', () => {
+        const up = store.get().params.balloonGas;
+        if (!up) updateParams({ balloonGas: true }, { label: 'Gastric balloon' });
+        select({ type: 'organ', id: 'varices' });
+        toast(up ? 'The gastric balloon is already up; the esophageal balloon is the second step, in the varices card.' : 'Gastric balloon inflated. The esophageal balloon is the second step, in the varices card.');
+      }), (p) => p.balloonGas || p.balloonEso),
       // A TIPS is always right portal vein → right hepatic vein, so it is placed at once.
-      placed(proc('stent', 'TIPS', 'right portal vein → right hepatic vein', () => {
+      placed(proc('stent', 'tips', 'right portal vein → right hepatic vein', () => {
         const on = store.get().params.tips.on;
         if (!on) updateParams({ tips: { on: true, d: store.get().params.tips.d || 8 } }, { label: 'TIPS' });
         select({ type: 'edge', id: 'TIPS' });
         toast(on ? 'The TIPS is already in place.' : 'TIPS placed: right portal vein → right hepatic vein.');
       }), (p) => p.tips.on),
-      // A DIPS is always right portal vein → the intrahepatic IVC, so it is placed at once too.
-      placed(proc('stent', 'DIPS', 'right portal vein → intrahepatic IVC', () => {
+      // A DIPS is always portal vein → the intrahepatic IVC, so it is placed at once too.
+      placed(proc('stent', 'dips', 'portal vein → intrahepatic IVC', () => {
         const on = store.get().params.dips.on;
         if (!on) updateParams({ dips: { on: true, d: store.get().params.dips.d || 8 } }, { label: 'DIPS' });
         select({ type: 'edge', id: 'DIPS' });
-        toast(on ? 'The DIPS is already in place.' : 'DIPS placed: right portal vein → IVC, through the caudate lobe.');
+        toast(on ? 'The DIPS is already in place.' : 'DIPS placed: portal vein → IVC, through the caudate lobe.');
       }), (p) => p.dips.on),
       // The surgical shunts, each its own order (surgical-shunts.js: the same parameters the talks' slides set). A tap makes the shunt and
       // shows its vessel, whose card takes it down. The Meso-Rex bypass is always listed: for a patient without a clotted trunk the tap
       // says why it is not made. (A shunt of the learner's own, between any two veins, is still drawn from a vein's card: Add shunt.)
-      ...SURGICAL.map((x) => placed(proc('stent', x.label, x.sub, () => surgical.placeShunt(x.id)), x.on)),
-      placed(proc('occlude', 'BRTO', 'occlude the gastrorenal shunt', () => { select({ type: 'organ', id: 'gastric' }); if (store.get().params.spontaneous.C5 === false) toast('There is no gastrorenal shunt (see Advanced › anatomical variants).'); }), (p) => !!p.occluded?.C5),
-      // One button cycles the spleen: untreated → partial embolization → splenectomy → untreated.
-      (() => {
-        const NAME = ['Spleen', 'Embolization', 'Splenectomy'], SUB = ['embolization or splenectomy', 'partial splenic artery embolization', 'spleen removed'];
-        const b = proc('occlude', 'Spleen', SUB[0], () => {
-          const v = ((store.get().params.splenicRx | 0) + 1) % 3;
-          updateParams((p) => { p.splenicRx = v; return p; }, { label: ['Spleen untreated', 'Partial splenic embolization', 'Splenectomy'][v] });
-          select({ type: 'organ', id: 'spleen' });
-        });
-        b.append(h('span', { class: 'ob-on', 'aria-hidden': 'true' }, icon('check')));
-        const paint = () => { const v = store.get().params.splenicRx | 0; b.querySelector('.ob-t').textContent = NAME[v]; b.title = `${NAME[v]}: ${SUB[v]} (click to change)`; b.setAttribute('aria-pressed', String(v > 0)); b.toggleAttribute('data-on', v > 0); };
-        paint(); live.push(paint); return b;
-      })(),
-      proc('needle', 'Paracentesis', 'drain ascites', () => select({ type: 'organ', id: 'abdomen' })));
+      ...SURGICAL.map((x) => placed(proc('stent', x.proc || x.label, x.sub, () => surgical.placeShunt(x.id)), x.on)),
+      placed(proc('occlude', 'brto', 'occlude the gastrorenal shunt', () => {
+        const p0 = store.get().params;
+        if (p0.spontaneous.C5 === false) { select({ type: 'organ', id: 'gastric' }); toast('There is no gastrorenal shunt (see Advanced › anatomical variants).'); return; }
+        const on = !!p0.occluded?.C5;
+        if (!on) updateParams((p) => { p.occluded = { ...p.occluded, C5: true }; return p; }, { label: 'BRTO' });
+        select({ type: 'organ', id: 'gastric' });
+        toast(on ? 'The gastrorenal shunt is already occluded; the Fundal varices card takes it down.' : 'BRTO: the gastrorenal shunt is occluded and the fundal varices are obliterated.');
+      }), (p) => !!p.occluded?.C5),
+      // The spleen's two treatments are two orders, each named for what it does (one button that cycled untreated → embolization → splenectomy
+      // was just "Spleen", and its meaning lived in a tooltip, 16 Nov 2026). Taking one in place takes the other down; pressing it again undoes it.
+      ...[[1, 'Splenic embolization', 'partial splenic artery embolization', 'Partial splenic embolization'], [2, 'Splenectomy', 'spleen removed', 'Splenectomy']].map(([v, name, sub, label]) => placed(proc('occlude', name, sub, () => {
+        const on = (store.get().params.splenicRx | 0) === v;
+        updateParams((p) => { p.splenicRx = on ? 0 : v; return p; }, { label: on ? 'Spleen untreated' : label });
+        select({ type: 'organ', id: 'spleen' });
+      }), (p) => (p.splenicRx | 0) === v)),
+      proc('needle', 'paracentesis', 'drain ascites', () => select({ type: 'organ', id: 'abdomen' })));
     for (const b of procs.querySelectorAll('button')) b.addEventListener('click', () => onDone?.());
     // Three tabs, styled as the Tests card's, so the cards read as one set; the last tab is kept.
     const panes = [['drugs', 'Drugs', drugs], ['fluids', 'Fluids', fluids], ['procs', 'Procedures', procs]];
     const tabs = h('div', { class: 'instr-tabs treat-tabs', role: 'tablist', 'aria-label': 'Treatments' });
     // All three panes share one grid cell so one tab fades out as the next rises in; the pane's height is set to the shown one's below.
     const body = h('div', { class: 'treat-pane' }, panes.map((x) => x[2]));
+    // (A tab that changes the card's height glides it, card-glide.js: the Changes row under the list rides from where it stood and the list's cut at its foot opens
+    // or closes with the plate, so a taller tab going out is not cut in half before the card has shrunk. 17 Nov 2026, Mohammad's play-test.)
+    let glides = [];
+    const goneWired = new WeakSet();
     const show = (id) => {
+      const card = body.isConnected && !reduceMotionMQ.matches ? body.closest('.has-plate') : null, h0 = card ? readMetric(card, 'offsetHeight') : 0;
       treatTab = id;
       for (const b of tabs.children) b.setAttribute('aria-selected', String(b.dataset.tab === id));
-      for (const [pid, , el] of panes) { const off = pid !== id; el.classList.toggle('tp-off', off); el.inert = off; el.setAttribute('aria-hidden', String(off)); }
+      for (const [pid, , el] of panes) {
+        const off = pid !== id;
+        el.classList.toggle('tp-off', off); el.inert = off; el.setAttribute('aria-hidden', String(off));
+        // (A tab that has faded out takes no height, so it is no part of the body's scrollable overflow: 18 Nov 2026, the tester at 390 px, a short tab under taller ones scrolled 156 px into blank.)
+        // (Its fade ends in its visibility step (app-08-cards.css .tp-off): the transition's own end says so, no timer.)
+        if (!off) el.classList.remove('tp-gone');
+        else if (!goneWired.has(el)) { goneWired.add(el); el.addEventListener('transitionend', (e) => { if (e.target === el && e.propertyName === 'visibility' && el.classList.contains('tp-off')) el.classList.add('tp-gone'); }); }
+      }
       if (body.isConnected) spare();
+      if (h0 > 0) glides = glideCard(card, h0, readMetric(card, 'offsetHeight'), { prior: glides, ride: [body.nextElementSibling], cut: [body, body.parentElement], free: [body.parentElement] });
     };
     // The card is as tall as the tab shown (U3, 13 Nov 2026: it was as tall as the tallest tab, with the spare room under Changes, which left
     // the Drugs tab's card half empty): the pane takes the shown tab's height and the card follows it.
@@ -201,7 +244,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       tabs.append(b);
     }
     show(treatTab);
-    return [tabs, body];
+    return [tabs, body, spare];   // (spare: the card puts the height on once it is in the page, openTreat, so the observer's first report finds it already so and writes nothing)
   }
   /** How many treatments are running now (drugs, shunts, balloons, BRTO). */
   function treatCount(p) {

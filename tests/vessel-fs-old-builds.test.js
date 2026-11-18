@@ -6,6 +6,8 @@
 // (the disc's mouth mask reader, called only inside that block) to the shade text. New hashes below.
 // 11 Nov 2026 (the TIPS's lit third): glowAmt's stretch ends ease over a fifth of the vessel, at most 14 units (min(14, 0.2 L), it was min(6, 0.08 L)), so a stent's
 // lit third no longer starts and stops in a hard-edged column. Only a glow asked for a stretch (a stent's third) reads it, so no other pixel changes. New hashes below.
+// 17 Nov 2026 (the Meso-Rex bypass passes under the vessels it crosses): MAX_TIERS 20 -> 21 (a tier for them, above the portal tree's), so the two tier arrays' length in the shared text
+// reads 21 where it read 20. Checked: the old hashes are the new text with [21] put back to [20]. Nothing else changed. New hashes below.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -22,8 +24,8 @@ const { vesselFS } = await import('../src/ui/veins-gl.js');
 
 const sha = (s) => createHash('sha256').update(s).digest('hex');
 const HASH = {
-  'vesselFS(false)': 'd3515f4c2b3f32e1911c82843189441f55ec4392b2992e6168bcede4ef92acb2',
-  'vesselFS(true)': '1f6163e6ac65cc5abae5fde67f1f8187e2988f770f9eaa33c52809da27a649dd',
+  'vesselFS(false)': 'c4ca8495a0e6c624bf3679de8291b4e816cf2ce70dde0085d0630ed30cb5e6e9',
+  'vesselFS(true)': 'a0510c43817c7ec62861640249bcf1f6040e4694a5041373b98bf9265aadb5a8',
 };
 
 test('the general and one-vessel (classic) builds are byte for byte what they were at 363a81c', () => {

@@ -3,106 +3,28 @@
 import { EDGES, STENT_SPANS, isStent, stentGate } from '../engine/topology.js';
 import { makeProbeDraw, makeProbePose } from './dop-probe.js';
 import { D_SMALL, D_SURFACE } from './ease.js';
-import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { store } from './store.js';
 
 export function createGlow(st, live) {
-  const { ALL_EDGES, E, EI, geo, nextFrame } = st;
-  // ── Vessel glow: one engine for every highlight ──
-  // Hover, a slide's glows, a step's focus, the Doppler's vessel and a change in pressure all light a vessel the same
-  // way: a thin soft band hugging its live wall on both sides, fading to nothing at a free end, drawn by the GPU with
-  // the vessels (veins-gl.js, tube rows 10 and 11). It follows every move and pulse for free: no blur, no mask, no
-  // outline to rebuild. Each source asks for vessels in a colour (null: the vessel's own); a vessel several sources
-  // light takes the colour of the last in GLOW_RANK. Each eases in and out on its own, so a change cross-fades.
+  const { E, EI } = st;
+  // ── Vessel glow sources: who asks for which vessels to be lit ──
+  // Hover, a slide's glows, a step's focus, the Doppler's vessel and a change in pressure each name vessels, in a colour. No vessel takes a glow or a
+  // halo any more (owner, 13 Nov 2026: "remove it"; the glow program, its passes and this engine's easing were deleted 15 Nov 2026, app review R1-7, with the
+  // classic renderer: Q1), so there is nothing to ease and no frame to ask for. What is kept is the bookkeeping other code reads: `glow.src` (what each
+  // source named: the steady-glow check, the Doppler's glow on a stent) and `glow.lit` (the vessels any source names now: the chevrons stay on a vessel
+  // the key is on, see stage-blood.js).
   const GLOW_RANK = ['spot', 'sel', 'hover', 'flash', 'delta', 'dop', 'slide', 'focus', 'shunt', 'key'];
   // (A Map for every source GLOW_RANK names, made here once: setGlowSrc is asked only for those, so none is made on a call.)
   const glow = { src: new Map(GLOW_RANK.map((k) => [k, new Map()])), lit: new Map(), raf: 0, t: 0 };
-  /** list: [{ id, col (a CSS colour, or null), amt (strength, 1 by default), wide (band width ×, ≤ 1.3), at (ms to wait before easing in),
-   *  span ([from, to] along the vessel, 0–1: only that stretch glows, as a stent's third) }] */
-  const glowWant = new Map();   // (the vessels wanted: emptied and filled again by each setGlowSrc)
-  const glowPairs = [];   // (each wanted vessel's two ends, as node, colour, node, colour…: how many glow in which colour at a node)
-  // (Two sources lighting a vessel in one colour are merged into one of these, written in place: one per vessel, made once, and read only
-  // within the call that fills glowWant.)
-  const glowLitPool = {};
-  for (const id in E) glowLitPool[id] = { v: 0, to: 0, col: null, from: null, cu: 1, rgb: undefined, end: [0, 0], endT: [0, 0], span: [0, 0], spanT: [0, 1] };
-  const glowMergePool = ALL_EDGES.map(() => ({ merged: true, id: undefined, col: undefined, amt: undefined, wide: undefined, at: undefined, top: undefined, dur: undefined, span: undefined }));
-  // How far from its end a glow fades: a free end over a third of the vessel, an end that meets another colour over a few units, and none
-  // where it runs on into a vessel glowing in the same colour.
-  function glowEnd(n, key, len) {
-    let tot = 0, same = 0;
-    for (let i = 0; i < glowPairs.length; i += 2) if (glowPairs[i] === n) { tot++; if (glowPairs[i + 1] === key) same++; }
-    return tot < 2 ? 0.35 * len : same > 1 ? 0 : Math.min(0.3 * len, 16);
-  }
+  const LIT = { to: 1 };   // (the one record every named vessel has: only `to` is read)
+  /** list: [{ id, col, amt, wide, at, span ... }] as the sources write them; only the vessel ids matter now. */
   function setGlowSrc(src, list) {
     const mine = glow.src.get(src);
-    if (mine) { mine.clear(); if (list) for (let i = 0; i < list.length; i++) if (E[list[i].id]) mine.set(list[i].id, list[i]); }
-    const want = glowWant;
-    want.clear();
-    let merged = 0;
-    // (Two sources lighting a vessel in the same colour keep the stronger, wider glow: hovering a selected vessel never dims it.)
-    for (let ri = 0; ri < GLOW_RANK.length; ri++) {
-      const m = glow.src.get(GLOW_RANK[ri]);
-      if (m) for (const [id, g] of m) {
-        const was = want.get(id);
-        if (was && (was.col ?? null) === (g.col ?? null)) {
-          // (A vessel merged again by a third source takes its own record on: one record per vessel is all a call can need.)
-          const o = was.merged === true ? was : glowMergePool[merged++], amt = Math.max(was.amt ?? 1, g.amt ?? 1), wide = Math.max(was.wide || 1, g.wide || 1);
-          o.id = g.id; o.col = g.col; o.at = g.at; o.top = g.top; o.dur = g.dur; o.span = g.span; o.amt = amt; o.wide = wide;
-          want.set(id, o);
-        } else want.set(id, g);
-      }
-    }
-    // (The Doppler's gate on a stent outranks a slide's or a mark's glow on it: the third it samples is the one that shows.)
-    const dm = glow.src.get('dop');
-    if (dm) for (const [id, g] of dm) if (g.span) want.set(id, g);
-    // Which ends fade: an end that meets another vessel glowing in the same colour runs on into it (even where a third colour also joins, as the IMV joins the splenic vein); one that meets
-    // another colour fades over a few units, so the two meet softly; a free end fades over a third of the vessel.
-    glowPairs.length = 0;
-    for (const [id, g] of want) { const e = E[id].e, c = g.col ?? ''; glowPairs.push(e.from, c, e.to, c); }
-    const now = performance.now();
-    for (const [id, g] of want) {
-      const len = Math.max(1, geo[id]?.len || 60), key = g.col ?? '';
-      let l = glow.lit.get(id);
-      if (!l) {   // (a vessel's record from its own, made once; it is as a new one would be, taken out of glow.lit when its glow ends and put back as it starts)
-        l = glowLitPool[id];
-        l.v = 0; l.to = 0; l.col = g.col; l.from = null; l.cu = 1; l.rgb = undefined;
-        l.end[0] = 0; l.end[1] = 0; l.endT[0] = 0; l.endT[1] = 0; l.span[0] = 0; l.span[1] = 0; l.spanT[0] = 0; l.spanT[1] = 1;
-        glow.lit.set(id, l);
-      }
-      if (!l.to) l.start = now + (g.at || 0);
-      if (l.col !== g.col) { l.from = l.v > 0 && l.col && l.rgb ? l.rgb : null; l.cu = l.from ? 0 : 1; l.col = g.col; }
-      l.to = 1; l.amt = g.amt ?? 1; l.wide = g.wide || 1; l.top = !!g.top; l.dur = (g.dur || D_SURFACE) / 1000;
-      l.endT[0] = glowEnd(E[id].e.from, key, len); l.endT[1] = glowEnd(E[id].e.to, key, len);
-      if (l.v <= 0) { l.end[0] = l.endT[0]; l.end[1] = l.endT[1]; }
-      // A stretch eases along the vessel to its new place (a whole vessel is the stretch 0–1).
-      if (g.span) { l.spanT[0] = g.span[0]; l.spanT[1] = g.span[1]; } else { l.spanT[0] = 0; l.spanT[1] = 1; }
-      if (l.v <= 0) { l.span[0] = l.spanT[0]; l.span[1] = l.spanT[1]; }
-    }
-    // (A slide's halos leave in one small step with its cards and labels, not at the D_SURFACE they come in over: a leave takes the step below its
-    // entrance, and the camera sets off as the cards are gone, so no old halo is still fading as it moves. ?onemove=0: as before.)
-    for (const [id, l] of glow.lit) if (!want.has(id)) { l.to = 0; if (src === 'slide') l.dur = Math.min(l.dur, D_SMALL / 1000); }
-    if (!glow.raf) { glow.t = now; glow.raf = nextFrame(glowStep); }
-  }
-  function glowStep(now) {
-    const dt = Math.min(0.1, (now - glow.t) / 1000); glow.t = now;
-    let moving = false, waitOnly = glow.lit.size > 0;
-    for (const [id, l] of glow.lit) {
-      if (l.to && now < l.start) { moving = true; continue; }
-      waitOnly = false;
-      const k = reduceMotion.matches ? 1 : dt / l.dur;
-      // (l.v is the glow's progress, stepped linearly by k = dt / dur toward its goal; glow-texels.js eases it (easeInOut) where it is drawn, so
-      // a fade is eased at both ends over its duration, which is a step of the motion scale. A glow at its goal stays there.)
-      const goal = l.to ? 1 : 0;
-      l.v = l.v < goal ? Math.min(goal, l.v + k) : Math.max(goal, l.v - k);
-      l.cu = Math.min(1, l.cu + k);
-      for (let i = 0; i < 2; i++) { const d = l.endT[i] - l.end[i]; l.end[i] = Math.abs(d) < 0.5 ? l.endT[i] : l.end[i] + d * Math.min(1, k * 2); }
-      for (let i = 0; i < 2; i++) { const d = l.spanT[i] - l.span[i]; l.span[i] = Math.abs(d) < 0.003 ? l.spanT[i] : l.span[i] + d * Math.min(1, k * 1.5); }
-      if (l.v <= 0 && !l.to) glow.lit.delete(id);
-      else if (l.v !== l.to || l.cu < 1 || l.end[0] !== l.endT[0] || l.end[1] !== l.endT[1] || l.span[0] !== l.spanT[0] || l.span[1] !== l.spanT[1]) moving = true;
-    }
-    // (C5: a frame in which every glow only waits for its start changes nothing: the vessel layer is not synced for it.)
-    if (!waitOnly) { live.glowSync = true; live.stageWake(); }
-    glow.raf = moving ? nextFrame(glowStep) : 0;
+    if (!mine) return;
+    mine.clear();
+    if (list) for (let i = 0; i < list.length; i++) if (E[list[i].id]) mine.set(list[i].id, list[i]);
+    glow.lit.clear();
+    for (const m of glow.src.values()) for (const id of m.keys()) glow.lit.set(id, LIT);
   }
   // The watched vessels (REVERSAL_WATCH) whose flow runs against its healthy direction, as shown: their stations' value
   // pills carry ⟲. In an imaging case it waits, as the blood does, until a Doppler has looked at the flow.

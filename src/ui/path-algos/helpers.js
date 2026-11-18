@@ -10,6 +10,8 @@ export function inheritTone(tree, tone = 'n') {
 }
 
 /** Child–Pugh class of a score. */
+/** The readings the card's header row already shows as tiles (none by default): a chip that would say one again is left out of chips(p, tiled). */
+export const NONE = new Set();
 export const cpClass = (cp) => (cp <= 6 ? 'A' : cp <= 9 ? 'B' : 'C');
 
 /** Leaves under a node (a node with none counts one). */

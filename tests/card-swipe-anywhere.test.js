@@ -5,8 +5,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { cardSwipe, ownsTouch, swipeDir, CARD_SWIPE_MIN } from '../src/ui/swipe.js';
+import { presenterSource } from './split-src.js';
 
-const pz = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const pz = presenterSource();
 
 // A tiny element: tag, classes and attributes, matched against the simple selectors swipe.js uses.
 function el(tag, { cls = [], attrs = {} } = {}, parent = null) {

@@ -13,7 +13,7 @@ off the GPU.
 | UI modules (`src/ui/*.js`) | 314 files, about 96,500 lines | 456 files, about 120,000 lines |
 | `stage.js` | 15,286 lines in one closure | 3,368 lines, plus 47 `stage-*.js` modules |
 | `presenter.js` | 6,328 | 6,623 (with `presenter-tools.js`, `presenter-view*.js`, `presenter-visuals.js` beside it) |
-| `lobule-zoom.js`, `veins-gl.js` | 4,909 and 4,207 | 5,378 and 5,461 |
+| `lobule-zoom.js`, `veins-gl.js` | 4,909 and 4,207 | 5,378 and 5,461  (15 Nov 2026, B5: `lobule-zoom.js` 5,328 to 3,347, with `lobule-zoom-{field,records,labels}.js` beside it) |
 | `main.js` | about 2,500 | 2,457 |
 | `styles/app.css` | one 7,600-line file | 7,608 lines, with `tokens.css`, `icons.css`, `path.css`, `scope-card.css` split out |
 | `alloc-rare` annotations | 2,472 | 2,732 |
@@ -26,14 +26,14 @@ The engine (`src/engine`) is small, pure and well tested. The weight, and the ri
 | Item | State | What is there |
 |---|---|---|
 | H1 stage.js closure | Done | `createStage` split into the `stage-*.js` modules; `docs/stage-map.md` (from `scripts/stage-map.mjs`) maps what is left; `scripts/stage-split/` holds the move and check tooling used for the split |
-| H2 presenter.js | Open | `presenter-*.js` modules exist, but `presenter.js` is still 6.6k lines with 22 bare timers. Registering every timer with the slide transaction (a behaviour change) is not done |
+| H2 presenter.js | Part | B5 (15 Nov 2026): `presenter.js` went from 6,712 to 2,224 lines; 11 parts (`presenter-words`, `-cards`, `-library`, `-start`, `-scales`, `-ladders`, `-zoom`, `-question`, `-case`, `-lapse`, `-proc`) hold the rest, cut by `scripts/stage-split/` (`--host presenter`, specs in `parts-presenter/`), each move proved equivalent by `check.mjs`. The shared lets are read through the `live` record. Registering every timer with the slide transaction (a behaviour change) is still not done |
 | H3 five ways to defer a DOM write | Part | `class-batch.js` is deleted. No `defer.js` exists; `class-soon.js`, `rest-pass.js`, `store.setSoon` and plain zero-delay timers remain. Scheduler roles: `docs/scheduling.md` |
 | H4 theme observers | Part | `look.js` holds the one `prefers-color-scheme: dark` list (`darkMQ`) and `rules-lint.mjs` keeps new code from making its own; `theme-epoch.js` `onTheme` runs every surface's colour work in one frame (fixed TH1). A shared reduced-motion list is `reduceMotionMQ` in `motion.js`. The 14 observers are not all converted: not verified |
 | H5 duplicated helpers | Open | no `math.js`; `clamp` and the ease helpers are still defined in many files |
 | H6 dead exports | Part | `class-batch.js` and the `layout-snap.js` kept-box API are gone, and `num-words.js` is trimmed. No `knip` or equivalent runs in lint. The remaining candidates were not re-scanned |
 | H7 comments that read as a changelog | Open | the dated comments are still in the source; no line-length rule |
 | H8 ownership of shared surfaces | Open | no `CODEOWNERS`; `scripts/off-gpu-owners.json` is the only map |
-| H9 `app.css` | Part | split into five files, but `app.css` is still 7.6k lines and the doubled-class specificity is not replaced by `@layer` (not verified) |
+| H9 `app.css` | Part | `app.css` is now 11 files, `styles/app-01-chrome.css` to `app-11-deck-visuals.css` (15 Nov 2026), cut between rules in source order so the built stylesheet is byte for byte the old one (`scripts/app-css.mjs` lists them). The doubled-class specificity is not replaced by `@layer`: reordering rules into layers changes the cascade, so it needs `scripts/look-diff.mjs` first |
 | H10 error handling | Part | an `unhandledrejection` listener reports through `caught` (`report.js`). Some `caught()` tags are still hand-numbered with a line (13 `main:<number>` style tags); empty-catch lint not verified |
 | H11 untyped engine boundary | Open | no `src/protocol.js`; messages are still object literals through `host.send` / `host.request`. The queue for sends during a restart is done (`host.js`, B3) |
 | H12 many schedulers | Done as a document | `docs/scheduling.md` (scopes) and the header of each helper; the helpers were not folded |

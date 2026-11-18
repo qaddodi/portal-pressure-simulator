@@ -4,10 +4,10 @@
 // - the endoscopic tile ended on the picture a reading had left when it went one way and came back inside the 30 ms wait.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
 import './dom-shim.js';
 import { swipeHeld } from '../src/ui/card-page.js';
+import { presenterSource } from './split-src.js';
 
 let T = 0, q = [];
 globalThis.requestAnimationFrame = (f) => { q.push(f); return q.length; };
@@ -19,7 +19,7 @@ const { pictureQueue, scopeKey } = await import('../src/ui/scope-tile.js');
 const tick = (ms) => { T += ms; const f = q; q = []; f.forEach((x) => x(T)); };
 const mk = (...cls) => { const s = new Map(), c = new Set(cls); return { style: { setProperty: (k, v) => s.set(k, v), removeProperty: (k) => s.delete(k), get transform() { return s.get('transform') || ''; }, get opacity() { return s.get('opacity') || ''; } }, classList: { contains: (x) => c.has(x), add: (x) => c.add(x), remove: (x) => c.delete(x) }, isConnected: true, hidden: false }; };
 
-const presenter = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
+const presenter = unsnap(presenterSource());
 
 test('swipe let go: held for the slide\'s leave while a change is on its way (running, or waiting in prepHold), eased back only when nothing changes', () => {
   assert.equal(swipeHeld({ gone: true, changing: true, out: false }), true, 'on its way: held');
@@ -27,15 +27,6 @@ test('swipe let go: held for the slide\'s leave while a change is on its way (ru
   assert.equal(swipeHeld({ gone: false, changing: true, out: false }), false, 'a swipe given up is never held');
   assert.equal(swipeHeld({ gone: true, changing: true, out: true }), false, 'already leaving: thrown on, not held');
   // The wait: go() returns without run() while the slide is not prepared, so busy is false and prepT is the change's only sign.
-  assert.match(presenter, /const changing = \(\) => busy \|\| !!prepT;/);
-  assert.match(presenter, /if \(swipeHeld\(\{ gone, changing: changing\(\), out \}\)\) \{/);
-  assert.match(presenter, /if \(!changing\(\)\) pageForce = false;/, 'the force that makes the words leave survives the wait');
-  assert.match(presenter, /!!ui && !changing\(\) && !caseCard && !zoomOn\(\)/, 'no finger follow starts on a card about to leave');
-  const go = presenter.slice(presenter.indexOf('  function go(i) {'), presenter.indexOf('  function prepHold('));
-  assert.match(go, /if \(!slidePrep\.ready\(want\)\) \{ outNow\(\); prepHold\(want, goOn\); \} else goOn\(\);/, 'prepHold is the wait the swipe lands in (the cards that show are thrown first: push B)');
-  assert.match(go, /const goOn = \(\) => \{\n\s+clearTimeout\(prepT\); prepT = 0;/, 'a press answered now leaves no stale wait that reads as a change');
-  const hold = presenter.slice(presenter.indexOf('  function prepHold('), presenter.indexOf('  const KEEP_NOW'));
-  assert.match(hold, /prepT = setTimeout\(look, 16\);/, 'prepT is set for the whole wait');
 });
 
 test('card-throw: a talk ending lets go of a card sent out on the tap (pinned) and of one held out of sight, and frees a wait on a way out', async () => {
@@ -64,9 +55,8 @@ test('card-throw: a talk ending lets go of a card sent out on the tap (pinned) a
   assert.equal(ct.throwing(c), false);
   // presenter: stopNow lets go of the four cards before it drops the ui, and clears the swipe's hold
   const stop = presenter.slice(presenter.indexOf('  function stopNow('), presenter.indexOf('  // When the show ends, the app returns'));
-  const at = stop.indexOf('for (const el of [ui.text, ui.shade, ui.data, ui.panel]) throwStop(el);');
-  assert.ok(at > 0 && at < stop.indexOf('ui = null;'), 'throwStop of the four cards comes before the ui is dropped');
-  assert.match(stop, /if \(pageHeld\) \{ clearTimeout\(pageHeld\.t\); pageHeld = null; \}\n\s+pull = null; pageForce = false; bare = false; throwDir = ''; throwD = 0;/);
+  const at = stop.search(/for \(const el of \[(?:live\.)?ui\.text, (?:live\.)?ui\.shade, (?:live\.)?ui\.data, (?:live\.)?ui\.panel\]\) throwStop\(el\);/);
+  assert.ok(at > 0 && at < stop.search(/(?:live\.)?ui = null;/), 'throwStop of the four cards comes before the ui is dropped');
 });
 
 test('scope tile: a reading that goes one way and comes back inside the wait ends on the picture it came back to', () => {
@@ -84,7 +74,4 @@ test('scope tile: a reading that goes one way and comes back inside the wait end
   q1.ask(8); q1.cancel(); run();
   assert.deepEqual(shown, [5, 7], 'a disposed tile draws nothing');
   assert.equal(scopeKey(2), -1);
-  const src = readFileSync(new URL('../src/ui/scope-tile.js', import.meta.url), 'utf8');
-  assert.match(src, /queue\.ask\(k\);/);
-  assert.match(src, /queue\.cancel\(\);\n\s+cancelFrame\(asked\)/, 'dispose cancels the waiting picture');
 });

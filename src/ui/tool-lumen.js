@@ -5,13 +5,15 @@
 // a compare button or the days of anticoagulation, easing from one state to the next.
 
 import { h, clamp } from './util.js';
-import { EDGES } from '../engine/topology.js';
+import { EDGES, STENT_SITES as SITE_U, edgeById, tightSite } from '../engine/topology.js';
+import { endSiteOf, geomOf, kindOf, profileAt } from '../engine/stent-geom.js';
 import { store } from './store.js';
 import { frameFor, cancelFrame, frameAnimating, easeNow } from './frame.js';
 import { createSvgGL, svgModel, snapOp, setWords, wordsOf, setGeo, setPts } from './svg-gl.js';
 import { restPass } from './rest-pass.js';
 import { reduceMotionMQ } from './motion.js';
 import { easeArrive, D_SURFACE } from './ease.js';
+import { withPieces } from './part-names.js';
 const nextFrame = frameFor('lumen');
 
 // ── How the picture follows the model (6 Nov 2026, Mohammad on iPhone: "This cross section animation is super laggy") ──
@@ -63,9 +65,10 @@ const STENTS = new Set(['TIPS', 'DIPS']);
 /** Whether the vessel carries a stent: the TIPS and DIPS always, any other vein when the slide on screen stents it (store.stented). */
 export const hasStent = (id, stented) => STENTS.has(id) || (Array.isArray(stented) && stented.includes(id));
 // The systemic veins the tool may show (the rest of the venous side carries portal blood, as a stent does; an artery is red).
-const SYSTEMIC = new Set(['RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'IVCS_RA', 'IVCI', 'IVCS']);
+const SYSTEMIC = new Set(['RHV_IVC', 'RHV_IVC_1', 'MHV_IVC', 'LHV_IVC', 'IVCS_RA', 'IVCI', 'IVCS']);
 const NAME = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein',
   SMV_CONF: 'superior mesenteric vein', RHV_IVC: 'right hepatic vein', MHV_IVC: 'middle hepatic vein', LHV_IVC: 'left hepatic vein', IVCS_RA: 'inferior vena cava', TIPS: 'TIPS', DIPS: 'DIPS' };
+withPieces(NAME);
 export const lumenName = (id) => NAME[id] || EDGES.find((e) => e.id === id)?.label?.toLowerCase() || 'portal vein';
 // The name written in the circle above the %, short enough to fit inside the lumen at the 12 px floor (a deck may set its own,
 // tool.name, kept to about a dozen letters): "Right PV" and "Middle HV" abbreviate, as crowded vessel labels do. A stent is
@@ -73,10 +76,20 @@ export const lumenName = (id) => NAME[id] || EDGES.find((e) => e.id === id)?.lab
 // hepatic vein end ("Distal TIPS").
 const LABEL = { PV_TRUNK: 'Portal vein', PVH_R: 'Right PV', PVH_L: 'Left PV', SV_CONF: 'Splenic vein', SV_MID: 'Splenic vein', V_SPL: 'Splenic vein',
   SMV_CONF: 'SMV', RHV_IVC: 'Right HV', MHV_IVC: 'Middle HV', LHV_IVC: 'Left HV', IVCS_RA: 'IVC', IVCI: 'IVC', IVCS: 'IVC' };
+withPieces(LABEL);
 export const STENT_SITES = ['proximal', 'mid', 'distal'];
-/** Where along a stent the section is cut: the slide's tool.site, else the segment its narrowing sits in
- *  (params.stenosisSite, distal if unset, as scenario.js and the Doppler take it). */
-export const lumenSite = (params, id, site) => STENT_SITES.includes(site) ? site : STENT_SITES.includes(params?.stenosisSite?.[id]) ? params.stenosisSite[id] : 'distal';
+/** Where along a stent the section is cut: the slide's tool.site, else the segment its tightest narrowing sits in (topology.js tightSite: the
+ *  end stenosis's end, or mid stent when the waist is the narrower). */
+export const lumenSite = (params, id, site) => STENT_SITES.includes(site) ? site : tightSite(params, id);
+const CUT_G = { len: 0, waist: 0, trans: 0, red: 0 };   // (read at once by stentCut)
+/** A stent's narrowing where it is cut at `site` (0 to 1 of the diameter): the end stenosis there if it is at that end, the waist there if
+ *  mid stent (stent-geom.js profileAt, the one profile every picture of the stent reads), none in an open segment. */
+export function stentCut(params, id, site) {
+  const kind = kindOf(edgeById(id));
+  if (!kind) return clamp(+params?.stenosis?.[id] || 0, 0, 1);
+  const g = geomOf(params, id, kind, CUT_G), s = clamp(+params?.stenosis?.[id] || 0, 0, 1);
+  return 1 - profileAt(g, s, SITE_U[endSiteOf(params, id)], SITE_U[site] ?? 0.5);
+}
 export const lumenLabel = (id, name, site = 'distal') => (typeof name === 'string' && name.trim())
   || (STENTS.has(id) ? `${site[0].toUpperCase()}${site.slice(1)} ${id}` : LABEL[id]) || (([c, ...r]) => c.toUpperCase() + r.join(''))(lumenName(id));
 
@@ -266,8 +279,8 @@ export function createLumen() {
     const prm = store.get().params, L = lumenOf(prm, id), site = lumenSite(prm, id, tool?.site);
     const was = wordsOf(inName);
     set(inName, lumenLabel(id, tool?.name, site));
-    // A stent cut away from its narrowed segment shows an open stent there (a clot fills the whole stent).
-    if (L.stent && site !== lumenSite(prm, id)) L.stenosis = 0;
+    // A stent shows its lumen where it is cut: its end stenosis at that end, its waist mid stent, open elsewhere (a clot fills the whole stent).
+    if (L.stent) L.stenosis = stentCut(prm, id, site);
     if (!hasShown || reduce?.matches || !el.isConnected) {
       fol.snap(L.stenosis, L.thrombus); hasShown = true;
       if (raf) { cancelFrame(raf); raf = 0; }

@@ -1,3 +1,4 @@
+import './dom-shim.js';
 // The HVPG against PPG plane on Sites and causes' patients (Mohammad, 19 Oct): no key beside it on a Mac or an iPad, so
 // every zone keeps its words there (an iPhone keeps the key under the plot: a 0 to 5 mmHg column some 50 px wide holds no
 // zone's words); each name sits beside its own point, on the point's side of every cut-off line, and goes out on a thin
@@ -5,7 +6,6 @@
 // column), it sits right beside its point across the line, which breaks 4 px clear of it, rather than far out on a long line
 // ("They should be closer to the dots", Mohammad 19 Oct). Checked at the plot sizes the panel takes on a Mac, an iPad and an iPhone
 // (upright and sideways).
-import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DECKS } from '../src/ui/decks.js';
@@ -13,11 +13,12 @@ import { readFileSync } from 'node:fs';
 import { PLANES, planeOf, frame, scaler, layoutPlane, plotNumbers, cutNumbers, widen, crosses, cutSegs, gapSegs } from '../src/ui/visual-plane.js';
 import { deckStates } from './deck-states.js';
 import { TOKENS } from '../src/ui/theme-tokens.js';
+import { appCss } from './split-src.js';
 
 const touch = (a, o) => a[0] < o[2] && a[2] > o[0] && a[1] < o[3] && a[3] > o[1];
 // [W, H, caption px, where]: the summary panel's plot, from an iPhone upright to a wide Mac.
-const SIZES = [[345, 300, 16, 'iPhone upright', 1], [390, 340, 16, 'iPhone wide upright', 1], [620, 260, 14, 'iPhone sideways', 1], [700, 480, 15, 'iPad upright'],
-  [800, 450, 16, 'iPad'], [1000, 500, 16, 'iPad sideways'], [1180, 460, 16, 'small Mac'], [1290, 570, 18, 'Mac'], [1500, 620, 18, 'large Mac']];
+const SIZES = [[345, 288, 16, 'iPhone upright', 1], [390, 325, 16, 'iPhone wide upright', 1], [620, 260, 14, 'iPhone sideways', 1], [700, 370, 15, 'iPad upright'],
+  [800, 348, 16, 'iPad'], [1000, 386, 16, 'iPad sideways'], [1180, 355, 16, 'small Mac'], [1290, 440, 18, 'Mac'], [1500, 478, 18, 'large Mac']];   // (the summary's compact plot, 17 Nov 2026, styles .pze-short: 34 of the 44 it was, an iPhone 1.2 wide to 1 high)
 
 test('HVPG against PPG: no key, every zone named, names beside their points and clear of every line', async () => {
   const d = DECKS.find((x) => x.id === 'sites'), st = await deckStates(d);
@@ -26,11 +27,8 @@ test('HVPG against PPG: no key, every zone named, names beside their points and 
   const rows = [[healthy, 'Healthy'], [fp('pvt'), 'Portal vein thrombosis', 'PVT'], [fp('presin'), 'Schistosomiasis'], [fp('sin'), 'Cirrhosis'],
     [fp('postsin'), 'Sinusoidal obstruction', 'SOS'], [fp('post'), 'Budd–Chiari'], [fp('cardiac'), 'Heart failure']];
   const pl = planeOf('hvpg-ppg');
-  assert.equal(pl.key, false, 'the zones name themselves: no key beside the plot');
+  assert.equal(pl.noWords, true, 'the legend names the zones: no words written on the plot (17 Nov 2026)');
   assert.equal(planeOf('csph').key, 'never', 'the stiffness plane names its zones on the drawing everywhere, no key');
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  assert.match(css, /\.pze-planewrap\.pze-nokey > \.pze-key \{ display: none; \}/, 'no key beside the plot');
-  assert.match(css, /\.pz\.stack \.pze-planewrap\.pze-nokey > \.pze-key \{ display: block; \}/, 'an iPhone keeps the key under it');
   for (const [W, H, fs, where, phone] of SIZES) {
     const fr = frame(W, H), { X, Y } = scaler(pl, fr);
     const pts = rows.map(([f, name, short]) => ({ x: X(f.hvpg), y: Y(f.ppg), name, short, f }));
@@ -49,17 +47,19 @@ test('HVPG against PPG: no key, every zone named, names beside their points and 
       const gapOf = (a, b) => Math.hypot(Math.max(a[0] - b[2], b[0] - a[2], 0), Math.max(a[1] - b[3], b[1] - a[3], 0));
       for (const [i, [an, ab]] of items.entries()) for (const [bn, bb] of items.slice(i + 1)) assert.ok(gapOf(ab, bb) >= pl.nameGap - 0.01, `${where}: ${an} and ${bn} keep ${pl.nameGap} px apart`);
       for (const [i, n] of names.entries()) if (!n.lead) assert.ok(Math.hypot(Math.max(n.box[0] - pts[i].x, 0, pts[i].x - n.box[2]), Math.max(n.box[1] - pts[i].y, 0, pts[i].y - n.box[3])) <= 24, `${where}: ${pts[i].name} sits beside its dot`);
-      assert.ok(names.filter((n) => n.lead).length <= 1, `${where}: at most one name goes out on a line`);
+      // (An iPhone's plot, 345 px wide: the clot and Schistosomiasis stand 22 px apart since the decks read the bedside state (16 Nov), a 0 to 5 mmHg column
+      // holds neither name and the zone's own words take the room over them, so both go out on a thin line, never across one another or a word. Wider plots keep one.)
+      assert.ok(names.filter((n) => n.lead).length <= (phone ? 2 : 1), `${where}: at most ${phone ? 'two names go' : 'one name goes'} out on a line`);
     }
     // (2 Nov: the cut-offs' numbers are set down before the names and the zones' words, so no axis name or low point takes one away.)
     for (const v of ['5', '10', '6', '12']) assert.ok(nums.some((n) => n.text === v), `${where}: the cut-off ${v} is numbered`);
     // The two lines carry their own names (Mohammad, 26 Oct: "make it clear that the 10/12 line is clinically significant portal
-    // hypertension"): CSPH at the HVPG 10 line, Bleed risk at the PPG 12 line (not the CSPH definition), each beside its own line; the four
+    // hypertension"): CSPH at the HVPG 10 line, the PPG's own 12 line, named for its quantity (not a bleed word: that is the HVPG's), each beside its own line; the four
     // quadrants stay as they were.
-    assert.deepEqual(lines.map((l) => l.text), ['CSPH ≥10', 'Bleed risk ≥12'], `${where}: both lines named`);
+    assert.deepEqual(lines.map((l) => l.text), ['CSPH ≥10', 'PPG ≥12'], `${where}: both lines named`);
     const [cs, bl] = lines;
     assert.ok(cs.box[0] >= X(10) + 5 && cs.box[1] >= fr.T && cs.box[3] <= fr.B, `${where}: CSPH ≥10 right of its line, 5 px clear`);
-    assert.ok(bl.box[3] <= Y(12) - 5 || bl.box[1] >= Y(12) + 5, `${where}: Bleed risk ≥12 beside its line, 5 px clear`);
+    assert.ok(bl.box[3] <= Y(12) - 5 || bl.box[1] >= Y(12) + 5, `${where}: PPG ≥12 beside its line, 5 px clear`);
     for (const l of lines) {
       assert.ok(l.box[0] >= fr.L && l.box[2] <= fr.R && l.box[1] >= fr.T && l.box[3] <= fr.B, `${where}: ${l.text} inside the plot`);
       assert.ok(!cutSegs(pl, X, Y, fr).some((c) => touch(l.box, [Math.min(c.x1, c.x2) - 4, Math.min(c.y1, c.y2) - 4, Math.max(c.x1, c.x2) + 4, Math.max(c.y1, c.y2) + 4])), `${where}: ${l.text} keeps 4 px off every line`);
@@ -102,10 +102,8 @@ test('HVPG against PPG: no key, every zone named, names beside their points and 
         assert.ok(Math.hypot(n.lead[0] - p.x, n.lead[1] - p.y) <= 4 * fs, `${where}: ${p.name}'s line ${Math.round(Math.hypot(n.lead[0] - p.x, n.lead[1] - p.y))} px, short`);
       }
     }
-    // Every zone keeps its words (where no key stands under the plot), clear of the names, the points and the lines.
-    // (On an iPad upright the 0 to 5 by 0 to 6 corner is about 120 by 80 px around two points: no room for its words there.)
-    const named = zw.map((w) => w.z.t);
-    if (!phone) for (const z of pl.zones) if (W >= 1000 || z.tone !== 'ok') assert.ok(named.includes(z.t), `${where}: ${z.t} named`);
+    // No zone name is written on the plot, at any size: the legend names them (Mohammad, 17 Nov 2026: "no need to mention both raised, PPG only etc. on the chart itself").
+    assert.equal(zw.length, 0, `${where}: no zone words on the plot`);
     for (const w of zw) {
       assert.ok(fs >= 12);
       for (const o of [...names.map((n) => n.box), ...rules, ...dots]) assert.ok(!touch(w.box, o), `${where}: ${w.z.t} clear`);
@@ -117,7 +115,7 @@ test('HVPG against PPG: no key, every zone named, names beside their points and 
 // The zones' fills read as the tiles' green, amber and red, and their words keep 4.5:1 on them in every theme
 // (Mohammad, 19 Oct: "where is the amber area?" on the stiffness plane, whose indeterminate zone read olive).
 test('the plane\'s green, amber and red zones: words 4.5:1 on their fills, light, soft and dark', () => {
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8'), tok = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
+  const css = appCss(), tok = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
   const pick = (block, k) => block.match(new RegExp(`--${k}: (#[0-9A-Fa-f]{6})`))?.[1];
   const blocks = { light: tok.slice(0, tok.indexOf('@media (prefers-color-scheme: dark)')), soft: tok.slice(tok.indexOf(':root[data-theme="soft"]')), dark: tok.slice(tok.indexOf(':root[data-theme="dark"] {')) };
   const theme = (b) => Object.fromEntries(Object.entries({ surface: pick(b, 'surface'), text: pick(b, 'text'), ok: pick(b, 'ok'), caution: pick(b, 'caution'), danger: pick(b, 'danger'), 'tr-hv': pick(b, 'tr-hv'), 'ramp-violet': pick(tok, 'ramp-violet'), 'ramp-wine': pick(tok, 'ramp-wine'), black: pick(tok, 'black') }).filter(([, v]) => v));
@@ -155,7 +153,6 @@ test('the plane\'s green, amber and red zones: words 4.5:1 on their fills, light
     }
   }
   assert.deepEqual(PLANES['hvpg-ppg'].zones.map((z) => z.tone), ['ok', 'ppg', 'hvpg', 'both'], 'each of the four zones has its own colour');
-  assert.match(tok, /@media \(prefers-color-scheme: dark\) \{\n {2}:root:not\(\[data-theme="light"\]\):not\(\[data-theme="soft"\]\) \{[^}]*--pze-ok: color-mix\(in srgb, var\(--ok\) 42%, var\(--black\)\)/, 'the system dark theme matches');
   for (const k of ['ok', 'mid', 'hi', 'ppg', 'hvpg', 'both']) assert.ok(css.includes(`.pze-key li[data-tone="${k}"] i { background: var(--pze-${k}); }`) && css.includes(`.pze-ckey li[data-tone="${k}"] i { background: var(--pze-${k}); }`), `${k}: the keys' swatches are the plot's fills`);
 });
 

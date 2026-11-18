@@ -1,6 +1,7 @@
 // What a label says and where it attaches: change references, pressure runs, node, velocity and scan items, blockers and the label anchor.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { EDGES, NODES, dopplerK, stentSegments, stentSite, tiedOff } from '../engine/topology.js';
+import { EDGES, NODES, dopplerK, stentReadsOf, tiedOff } from '../engine/topology.js';
+import { stentFacts } from './stent-waist.js';
 import { ABBR, ATLAS_LABELS, LABEL_VESSEL, SHORT } from './anatomy.js';
 import { oxygenFor } from './blood.js';
 import { flowColor, heatColor, oxygenColor, pressureColor, velColorOf, velocityColor } from './colormap.js';
@@ -9,11 +10,13 @@ import { explainText } from './label-explain.js';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js';
 import { D_SURFACE } from './ease.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
+import { labelRoll } from './count-roll.js';
 import { restPass } from './rest-pass.js';
 import { sceneBegin, sceneStyle } from './scene-store.js';
 import { shownVel, store, varicesPresent } from './store.js';
+import { shownOr } from './shown.js';
 import { clamp, fmt, fmtFlow, fp } from './util.js';
-import { STATION_VESSEL, judgeFlow, meanVel, velNormal } from './velNormal.js';
+import { STATION_VESSEL, judgeFlow, meanVel, velNormal } from './velNormal.js'; import { labelCourse } from './label-course.js';
 
 // The vessels whose reversed flow a station's label tells with ⟲: the one the velocity layer reads there, the one its label is anchored on, and, for the
 // Circuit's stations that stand at a vein's end, that vein (the splenic vein and its middle, the jejunal and ileal vein, the gastric vein).
@@ -64,6 +67,9 @@ export function createLabelItems(st, live) {
   const edgeVel = meanVel;
   // Blood entering a node per minute (L/min), from every model vessel.
   function throughput(Q, id) {
+    // (The portal vein's station reads the portal vein's flow, the tile's "Portal flow" and the words'. Its confluence's own inflow runs about 0.2 L/min higher
+    // where a coronary vein drains the trunk before the hilum, so "PV 0.7" stood beside "portal inflow falls to 0.5": play-test B18/B19, 16 Nov 2026.)
+    if (id === 'CONF') return Q[EI.PV_TRUNK] * 0.06;
     let sum = 0;
     for (let k = 0; k < EDGES.length; k++) {
       const e = EDGES[k];
@@ -82,9 +88,9 @@ export function createLabelItems(st, live) {
     badges.set(key, shown);
     return shown;
   }
-  function pressureRuns(P, id, compact) {
+  function pressureRuns(P, id, compact, Pv = P) {   // (Pv: the number shown, the roll's; P the model's, which the change badge reads)
     if (!store.get().layers.chips || isImaging()) return null;
-    const [v, u] = fp(P);
+    const [v, u] = fp(Pv);
     const runs = [{ t: v, size: 14, weight: 650, cls: 'lb-val' }];
     if (unitHere(id, u)) runs.push({ t: u, size: 10, weight: 500, cls: 'lb-unit', gap: 2.5 });
     // A change from healthy is shown only once it matters clinically (5 mmHg, the upper limit
@@ -103,7 +109,10 @@ export function createLabelItems(st, live) {
   const deltaHere = (id) => { const st = store.get(); return st.presenting ? !!termTone(id) : selStation(id) || st.colorMode === 'delta' || !!st.compareSnap; };
   // The unit is said once, in the lens legend ("Pressure mmHg"); a label carries it only when it differs from the legend's (the
   // pressure unit setting) or when the label is selected. (Not a teaching-number change: every number stays; the unit moves.)
-  const unitHere = (id, u) => u !== 'mmHg' || selStation(id);
+  // (On a slide the legend may be out of sight or be a different lens's: B2, play-test 16 Nov 2026, "Varices 14.4" and "Varices 0.3" on two slides, a pressure and a flow, neither with a unit.
+// A label on a slide always carries its unit: unitNow, and shortenItem keeps it when it trims the change badge.)
+const unitNow = () => !!store.get().presenting;
+  const unitHere = (id, u) => u !== 'mmHg' || selStation(id) || unitNow();
   // Flow layer: blood entering the station (L/min) and its change; velocity layer: the fastest
   // velocity in a vessel at the station as the Doppler reads it (peak, cm/s); oxygen layer: the blood's
   // oxygen saturation at the station (%), the value the lens colours by. Other layers read pressure.
@@ -113,7 +122,7 @@ export function createLabelItems(st, live) {
     if (!store.get().layers.chips) return null;
     const big = { size: 14, weight: 650, cls: 'lb-val' }, unit = { size: 10, weight: 500, cls: 'lb-unit', gap: 2.5 };
     // (These lenses' legends name their unit too (L/min, cm/s, % O₂), so the label says it only when selected.)
-    const withUnit = (t) => (selStation(id) ? [{ ...unit, t }] : []);
+    const withUnit = (t) => (selStation(id) || unitNow() ? [{ ...unit, t }] : []);
     if (lm === 'oxygen') {
       const sat = oxygenFor(EDGES, NODES, f).node[NI[id]];
       return { runs: [{ ...big, t: fmt(sat * 100, 0), pad: 3 }, ...withUnit('% O₂')], color: oxygenColor(sat) };
@@ -163,17 +172,42 @@ export function createLabelItems(st, live) {
   // and change badge (keeping "Azygos 6.7"), then keeps the name alone (see placeMulti and the overlap pass). it.short: 1 trimmed,
   // 2 the name alone. (abbr false: the trimming steps only, as the circuit's one unit rule takes them.)
   function shortenItem(it, abbr = true) {
+    // A stent's geometry label gives up its lines from the last: the end stenosis, then the waist, then stands as "TIPS 8 mm", the one line that is always the stent's own. Never a line cut to its numbers ("6 2.0", Mohammad, 17 Nov).
+    if (it.geom) {
+      const next = it.geomSets[(it.short || 0) + 1];
+      if (!next) return false;
+      it.lines = next; it.w = Math.max(...next.map(lineW)); it.h = next.reduce((a, l) => a + LINE_H(l), 0); it.short = (it.short || 0) + 1;
+      return true;
+    }
     if (abbr && abbrevName(it)) return true;
     if (it.short === 2 || (it.lines.length < 2 && it.lines[0].length < 2)) return false;
     // (The reversal icon stays through every step: a label may lose its unit, change and number, never the news that the flow turned.)
-    const val = !it.short && it.lines.length === 2 ? it.lines[1].filter((r) => r.cls === 'lb-val' || r.cls === 'lb-rev') : [];
+    const val = !it.short && it.lines.length === 2 ? it.lines[1].filter((r) => r.cls === 'lb-val' || r.cls === 'lb-rev' || (unitNow() && r.cls === 'lb-unit')) : [];
     if (val.length && val.length < it.lines[1].length) {
       it.lines = [it.lines[0], val]; it.w = Math.max(...it.lines.map(lineW)); it.h = it.lines.reduce((a, l) => a + LINE_H(l), 0); it.short = 1;
       return true;
     }
+    // (A reading is never cut to its name alone: a name with no number says nothing, and the number is there to read (play-test A3, 16 Nov 2026:
+    // "Right sinusoids", "PV", "LGV" and "RHV" stood bare). Where "Azygos 6.7" has no room either, the label is let go whole.)
+    if (it.lines.some((l) => l.some((r) => r.cls === 'lb-val'))) return false;
     const rev = it.lines.flat().find((r) => r.cls === 'lb-rev');
     it.lines = [[it.lines[0][0], ...(rev ? [{ ...rev, gap: 4 }] : [])]]; it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]); it.short = 2;
     return true;
+  }
+  // One name rule, as the one unit rule: where any reading took its abbreviation for room ("RPV 9.8"), every reading that has one does, so the figure never
+  // mixes "PV" with "Right hepatic vein" (play-test A3, 16 Nov 2026). Narrower only, toward its station; recorded in the solution so a carry keeps it.
+  function oneName(out, sols) {
+    const named = out.filter((it) => it.node && it.src && !it.hide && it.canShort);
+    if (!named.some((it) => it.abbr)) return;
+    for (const it of named) {
+      if (it.abbr) continue;
+      const w0 = it.w;
+      shortenTo(it, it.short || 0, true);
+      if (!it.abbr) continue;
+      it.x += it.dir?.includes('W') ? w0 - it.w : it.dir?.includes('E') ? 0 : (w0 - it.w) / 2;
+      const sol = sols.get(it.key);
+      if (sol && !sol.drop) sol.abbr = true;
+    }
   }
   const shortenTo = (it, lvl, abbr = false) => { if (abbr) abbrevName(it); while ((it.short || 0) < lvl && shortenItem(it, false)); };
   // A Circuit reading set on one line, its name then its value (a rescued reading where two lines have no room: layoutLabels).
@@ -185,11 +219,11 @@ export function createLabelItems(st, live) {
     const st = store.get();
     const meta = ATLAS_LABELS[id];
     let P = (f.Pf || f.P)[NI[id]];
-    // On a slide, a station the tiles and words also read shows their reading: the measured one (the wedge, not the
+    // A station the tiles and the bar also read shows their reading everywhere (Anatomy Healthy read PV 8.1 and IVC 3.9 beside a Tests card of 8.0 and 4.0), and on a slide the slide's settled value itself: the measured one (the wedge, not the
     // sinusoid node), and once it has settled, the slide's settled value itself, so the callouts, tiles and words agree.
     // (The right atrium is read over two breaths, as the tiles and the bar read it: its a and v waves swing the beat-by-beat
     // value 0.8 mmHg, which put "RA 3.6" beside a card and words saying 2.9 on the IVC web slide.)
-    const pin = pinned(), mk = pin && LADDER_KEY[id], live = mk && (mk === 'ra' ? f.metrics?.vitals?.ra ?? f.metrics?.ra : f.metrics?.[mk]), fp = mk && pin[mk];
+    const pin = pinned(), mk = LADDER_KEY[id], live0 = mk && (mk === 'ra' ? f.metrics?.vitals?.ra ?? f.metrics?.ra : f.metrics?.[mk]), live = Number.isFinite(live0) ? shownOr(mk, live0) : live0, fp = mk && pin?.[mk];
     if (Number.isFinite(live)) P = Number.isFinite(fp) && Math.abs(live - fp) < breath(fp) ? fp : live;
     else if (pin && Number.isFinite(P)) {   // (a station the tiles do not read: the slide's own number while the model agrees, else its mean over several breaths)
       const at = pin.at?.P[NI[id]];
@@ -209,7 +243,7 @@ export function createLabelItems(st, live) {
     // (The coronary vein a Warren shunt has tied off reads "—": the stomach side's own pressure is not the vein's.)
     const tied = tiedOff(f.viewParams || st.params, id);
     const lr = isImaging() || id === 'HA' || tied ? null : layerRuns(f, id, compact);
-    const pr = id === 'HA' ? null : tied ? [{ t: '—', size: 14, weight: 650, cls: 'lb-val' }] : lr ? lr.runs : pressureRuns(P, id, compact);
+    const pr = id === 'HA' ? null : tied ? [{ t: '—', size: 14, weight: 650, cls: 'lb-val' }] : lr ? lr.runs : pressureRuns(P, id, compact, Number.isFinite(P) ? labelRoll('n:' + id, P, 0.5, performance.now(), reduceMotion.matches) : P);   // (review LBL-7: the station's number counts over COUNT_MS like a site's and a card's, count-roll.js)
     // A station whose own vessel's flow has reversed carries ⟲ after its value, in the reversed-flow orange (blueprint §6.2).
     // (Any vessel the station stands on or names (revVessels), and with or without a number: the figure's chevrons turn orange on every
     // such vessel, so every label on one says so, even where the readings are off. 13 Nov 2026, "PV doesn't have the reversal icon".)
@@ -247,17 +281,40 @@ export function createLabelItems(st, live) {
     const fixed = at && Math.abs(edgeVel(at, k)) * dopplerK(EDGES[k]);
     return Number.isFinite(fixed) && Math.abs(now - fixed) < Math.max(4, fixed * 0.12) ? fixed : beatMean('v:' + id, now, 6);
   }
+  // A TIPS or DIPS shunt's own label says what the stent is, not how fast the blood goes through it (Mohammad, 17 Nov: "no need to show the velocity; show the
+  // diameter and the waist and length"): "TIPS 10 mm", under it its waist "6.3 mm × 3.0 cm" and its end stenosis "distal stenosis 5.0 mm" where it has them,
+  // one label for all of it, a line each (the waist's bracket on the figure carries no words, and no clamp of the stent has any). The points a slide reads in cm/s are the Doppler's.
+  const MM = (v) => (Math.abs(v - Math.round(v)) < 0.05 ? String(Math.round(v)) : v.toFixed(1));
+  function geomItem(it, sid, f) {
+    const x = E[sid], p = f.viewParams || store.get().params, g = x?.e && stentFacts(x.e, p), head = it.lines[0][0];
+    const num = (v, gap = 4, size = 14) => ({ t: v, size, weight: 650, cls: 'lb-val', gap, pad: 3 }), unit = (v, gap = 2.5) => ({ size: 10, weight: 500, cls: 'lb-unit', gap, t: v });
+    // (The stent on a line of its own, then what narrows it: one label, as tall as the narrowings it has, never one very wide line the stage has no room for.)
+    const lines = [[{ ...head, t: sid }, num(g ? MM(g.d) : ''), unit('mm')]];
+    let say = `${sid}: ${g ? MM(g.d) : ''} millimeters`;
+    if (g?.waist != null) { lines.push([num(MM(g.waist), 0, 12), unit('mm'), unit('×', 4), num(MM(g.wLen), 3, 12), unit('cm')]); say += `, waist ${MM(g.waist)} millimeters by ${MM(g.wLen)} centimeters`; }
+    if (g?.sten != null) { lines.push([{ ...head, t: `${g.end} stenosis` }, num(MM(g.sten), 4, 12), unit('mm')]); say += `, ${g.end} stenosis ${MM(g.sten)} millimeters`; }
+    it.lines = lines;
+    // (Its forms, one step each, never more than two: the whole; the end stenosis let go; the stent's line alone. The waist's line is its numbers only, "6 mm × 4 cm": Mohammad, 17 Nov.)
+    it.geomSets = [lines, ...(lines.length > 2 ? [lines.slice(0, 2)] : []), ...(lines.length > 1 ? [lines.slice(0, 1)] : [])];
+    it.canShort = it.geomSets.length > 1; it.geom = true; it.short = 0;   // (shortened by whole lines, shortenItem: never to a line's bare numbers, "6 2.0" for "waist 6 mm × 2.0 cm", and never to nothing: Mohammad, 17 Nov)
+    it.key = `n:${sid}`; it.src = ['vel', sid, null]; it.node = undefined; it.sel = false; it.swatch = null;
+    it.w = Math.max(...lines.map(lineW)); it.h = lines.reduce((a, l) => a + LINE_H(l), 0); it.label = say;
+    return it;
+  }
   // A TIPS or DIPS shunt's callout: the velocity through it (cm/s), as Doppler reads it (its own mean while it is on that shunt).
   // point: one of the stent's three points ('proximal' | 'mid' | 'distal'), on a slide that calls out all three (dop.all); each
   // reads what the Doppler's tile for that point reads, and the sampled one is named in the Doppler's green.
   function velItem(sid, f, point = null) {
     const it = nodeItem('RPV', f, 'inline', stageBox().width < 700);
+    if (!point) return geomItem(it, sid, f);
     const dop = shownVel.get(sid), at = pinned()?.at, now = Math.abs(edgeVel(f, EI[sid])) * dopplerK(EDGES[EI[sid]]);
     const fixed = at && Math.abs(edgeVel(at, EI[sid])) * dopplerK(EDGES[EI[sid]]);   // (the slide's own velocity, as its tiles read the slide)
     const live = Number.isFinite(fixed) && Math.abs(now - fixed) < Math.max(4, fixed * 0.12) ? fixed : beatMean('v:' + sid, now, 6);
     // (Between Doppler reports, the callout reads the third the Doppler samples itself, so it never falls back to the open stent's number.)
     const gated = dopGateOf(sid), p = f.viewParams || store.get().params, pt = point || gated, fresh = dop && performance.now() - dop.t < 1000;
-    const factor = pt ? stentSegments(1, 1 - (1 - (p?.stenosis?.[sid] || 0)) * (1 - (p?.thrombus?.[sid] || 0)), stentSite(p, sid), STENT_FACTORS)[pt === 'proximal' ? 0 : pt === 'mid' ? 1 : 2] : 1;
+    const pi = pt === 'proximal' ? 0 : pt === 'mid' ? 1 : 2;
+    // (the Doppler's own factors while it reads this stent, so a point reads its tile; the narrowing's now otherwise: doppler.js shownReads)
+    const factor = pt ? (fresh && dop.fOk ? dop.f[pi] : stentReadsOf(p, sid, 1, STENT_FACTORS)[pi]) : 1;
     // (The sampled point reads the monitor's own number; the other two, the open stent's velocity the monitor's tiles read them from.)
     const vel = fresh && pt === gated ? dop.v : (fresh && Number.isFinite(dop.open) ? dop.open : live) * factor;
     // (Read by the Doppler at one third of the stent, the callout names it: "TIPS distal".)
@@ -301,7 +358,6 @@ export function createLabelItems(st, live) {
   // that begins ends any other first. The probe's boxes are copies, from a pool made once, as many as the probe's own lists hold.)
   const calloutBuf = [], PROBE_BOXES = [];
   for (let i = 0; i < 1600; i++) PROBE_BOXES.push({ x0: 0, y0: 0, x1: 0, y1: 0, probe: true });
-  const PLATE_BOX = { x0: 0, y0: 0, x1: 0, y1: 0 };
   function calloutBoxes() {
     const out = calloutBuf;
     let n = 0;
@@ -315,7 +371,6 @@ export function createLabelItems(st, live) {
         out[n++] = c;
       }
     }
-    if (live.plateBox?.(PLATE_BOX)) out[n++] = PLATE_BOX;   // (the cutouts plate's ring on the liver, a button: no label covers it)
     out.length = n;
     return out;
   }
@@ -336,7 +391,6 @@ export function createLabelItems(st, live) {
     let h = 2166136261;
     for (const el of sites.made.values()) h = sigFoldEl(h, el);
     if (cath.made && !cath.labels.hidden) for (const el of cath.made.values()) h = sigFoldEl(h, el);
-    if (live.plateBox) h = sigFold(h, 77);   // (the plate stands: its ring is a box the labels keep clear of; where it is, a solve reads afresh)
     if (dpr.on && dpr.box) h = sigFold(sigFold(sigFold(h, 100), Math.round((dpr.box.x1 - dpr.box.x0) / 8)), Math.round((dpr.box.y1 - dpr.box.y0) / 8));
     return h;
   };
@@ -395,7 +449,7 @@ export function createLabelItems(st, live) {
     const eid = LABEL_VESSEL[id], x = eid && E[eid], a = ANCHOR;
     if (x && x.vis && !x.ghost && geo[eid]?.cur?.length > 1) {
       // The middle of the vessel along its course (the sinusoids too: the middle of their bed, not their venous half).
-      const m = arcMid(geo[eid].cur), wx = m[0], wy = m[1], tx = m[2], ty = m[3];
+      const m = arcMid(labelCourse(geo, eid)), wx = m[0], wy = m[1], tx = m[2], ty = m[3];
       worldToLocalInto(ANCHOR_P, wx, wy); worldToLocalInto(ANCHOR_Q, wx + tx, wy + ty);
       const ax = ANCHOR_P[0], ay = ANCHOR_P[1], bx = ANCHOR_Q[0], by = ANCHOR_Q[1];
       const n = Math.hypot(bx - ax, by - ay) || 1;
@@ -508,5 +562,5 @@ export function createLabelItems(st, live) {
     for (let k = 0; k < rs.length; k++) { const r = rs[k]; outer.x0 = Math.min(outer.x0, r.x0); outer.y0 = Math.min(outer.y0, r.y0); outer.x1 = Math.max(outer.x1, r.x1); outer.y1 = Math.max(outer.y1, r.y1); }
     return edgeOfRects(rs, outer, it.ax, it.ay) || (SEEN_XY.x = it.ax, SEEN_XY.y = it.ay, SEEN_XY);
   };
-  return { ANAT_EXTRA, ANAT_PRI, BLOCK_IO, beatMean, blockersRead, calloutBoxes, calloutSig, changeRef, hasVarices, isImaging, labelAnchor, labelHidden, layerMode, leadRectOf, leaderEnd, nodeItem, oneLine, pzInset, readBlockersRead, ripple, scanItem, seenEnd, shortenItem, shortenTo, sigFold, stationRev, velItem };
+  return { ANAT_EXTRA, ANAT_PRI, BLOCK_IO, beatMean, blockersRead, calloutBoxes, calloutSig, changeRef, hasVarices, isImaging, labelAnchor, labelHidden, layerMode, leadRectOf, leaderEnd, nodeItem, oneLine, oneName, pzInset, readBlockersRead, ripple, scanItem, seenEnd, shortenItem, shortenTo, sigFold, stationRev, velItem };
 }

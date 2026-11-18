@@ -1,0 +1,1 @@
+{ "factory": "createAscites", "file": "stage-ascites.js", "about": "The ascites picture in the SVG plate", "names": ["ascitesSvg","ascitesPath","ascitesLine","fluidSurf","ascStale","ascWroteH","ascWroteAmp","ascWroteAt"] }

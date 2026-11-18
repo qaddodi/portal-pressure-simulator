@@ -29,5 +29,5 @@ export default [
   { file: DOP, forbid: [inPart(probes, 'a range literal in PROBES', (s) => /normal: \[/.test(s)), 'no range written again in PROBES'] },
   { file: DOP, forbid: [inPart(tipsRead, 'a literal stent limit in the stent reading', (s) => /\b190\b|\b90\b/.test(s)), 'the stent\'s limits are its probe\'s normal'] },
   { file: DOP, need: [inPart(tipsRead, 'hiV = normal[1] and jet > hiV in the stent reading', (s) => s.includes('const hiV = normal[1];') && s.includes('jet > hiV')), 'the stent\'s ceiling is read from its normal'] },
-  { file: DOP, need: ['p.rangeNote = `Stent velocities <${p.normal[0]} or >${p.normal[1]} cm/s, or a change of >50 cm/s from the baseline scan, suggest stenosis.`', 'the stent note is made from its normal'] },
+  { file: DOP, need: ['`Stent velocities <${normal[0]} or >${normal[1]} cm/s, ${NOTE_TAIL}`', 'the stent note is made from its normal (the stent\'s own range for its diameter: rangeNoteOf)'] },
 ];

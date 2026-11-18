@@ -50,18 +50,20 @@ function boot(cost = { joins: 0, set: 0, prep: 0 }) {
   const EV = [mk('a', 0, 'collateral'), mk('b', 1)];
   const geo = { a: { cur: true, wig: 0, spr: 1 }, b: { cur: true, wig: 0, spr: 1 } };
   const shown = { a: true, b: true };
-  const log = { sets: [], sweeps: [], units: 0, preps: [] };
+  const log = { sets: [], sweeps: [], units: 0, preps: [], steps: [] };
   const veins = {
     lost: false, useMorphSet() {}, dropMorphSet() {},
     // (vesselAt writes t into a vessel's points: the stretch a binning is for, in b.t0)
     makeMorphSet(b) { clock.T += cost.set; log.sets.push(b.t0 / 100); return { owner: veins, t0: b.t0 }; },
     prepareMorphSet(S) { clock.T += cost.prep || 0; log.preps.push(S.t0 / 100); },
+    // (In steps, when the cost says so (cost.steps): each step costs its share, and a piece is logged when its last step has run.)
+    ...(cost.steps ? { prepareMorphStep(S, step) { clock.T += (cost.prep || 0) / cost.steps; log.steps.push(step); if (step + 1 < cost.steps) return true; log.preps.push(S.t0 / 100); return false; } } : {}),
   };
   const live = {
     F: {}, morph: 0, morphTarget: 0, lobuleOn: false, rotU: 0, rotTarget: 0, coilEasing: false, veins, using: null,
     easeInOut: (t) => t, glStraight: null, glRadDirty: null, glStore: null, vBinReach: new Map(), binShown: null, bendShown: null, lenOfArc: null,
     smoothRunOn: () => new Map(),
-    sweepBin: (msg) => { log.sweeps.push(msg.tubes[0].path[0][0][0]); return Promise.resolve({ rows: 2, entRows: 1, posBase: 1, joinBase: 1, t0: msg.tubes[0].path[0][0][0] }); },
+    sweepBin: (msg) => { log.sweeps.push(msg.tubes[0].flat[0]); return Promise.resolve({ rows: 2, entRows: 1, posBase: 1, joinBase: 1, t0: msg.tubes[0].flat[0] }); },
   };
   const st = {
     BLOOD_PAD: 2, EV, GL_ROWS: 2, N_SAMPLES, cavaAsOne: (items) => items, cbAt: () => [], geo, itemRadii: () => [0, () => 1], reachOf: () => 12, strandAt: () => [],
@@ -177,6 +179,9 @@ test('a slice is cut inside 8 ms from units that are small; a unit that cannot b
   const last = m.mt.stats.last, units = Object.values(m.mt.stats.units).reduce((n, u) => n + u.n, 0);
   assert.ok(last.slices < units, `${units} units in ${last.slices} slices: several share one`);
   assert.equal(m.mt.stats.over, 6, 'only the six uploads (20 ms each) are over');
+  // (18 Nov 2026: a moment's joins in two units each, the Compare stop's 'joins own' ran 94.3 ms in one: the reach pass, then the joins and the run-on state they leave. Each pass once.)
+  const U = m.mt.stats.units;
+  for (const k of ['joins own', 'joins all', 'joins between']) assert.equal(U[`${k} (reach)`]?.n, U[k]?.n, `${k}: one reach pass each, not made again`);
   assert.ok(last.longestMs >= 20 && last.longestMs < 30);
   assert.ok(log.units > 0);
   for (const [k, u] of Object.entries(m.mt.stats.units)) if (k !== 'upload') assert.ok(u.max < 8, `${k} unit ${u.max} ms`);
@@ -212,5 +217,57 @@ test('a change between the views under way makes the stretch it is crossing firs
   await frames(7000);
   assert.ok(Math.abs(second.log.sets[0] - 1 / 3) < 1e-9, `first set made is the one it is in (${second.log.sets[0]})`);
   assert.deepEqual(second.log.sets.slice(0, 3).map((t) => Math.round(t * 6)), [2, 1, 0]);
+  cancelMay('view-switch pieces');
+});
+
+// 15 Nov 2026, his Safari ?perf in a time-lapse: "builds 11", one under way 14 s, each collateral that opened made all six pieces again at once.
+test('vessels shown that keep changing (a time-lapse) are built for once they hold still; a lone change still at once', async () => {
+  const { m, shown } = boot();
+  m.morphTrackSoon();
+  await frames(4000);
+  assert.equal(ready(m), 6);
+  shown.b = false; m.morphTrackSoon(); await frames(500);
+  assert.equal(builds(m), 2, 'a lone change is built for at once');
+  // A lapse: the shown set changes every second for 7 s (and ends unlike the set the pieces were made for).
+  for (let i = 0; i < 7; i++) { shown.b = !shown.b; m.morphTrackSoon(); await frames(1000); }
+  assert.equal(builds(m), 2, `nothing made again while the shown vessels keep changing: ${m.mt.stats.restart.reason}`);
+  await frames(4000);
+  assert.equal(builds(m), 3, 'once they hold still for 3 s, built once');
+  assert.match(m.mt.stats.restart.reason, /vessels shown/);
+  await frames(4000);
+  assert.equal(ready(m), 6);
+  cancelMay('view-switch pieces');
+});
+
+// 17 Nov 2026, his Mac's readout: "longest unit: prepare 98 ms", 63 slices over 8 ms. A piece's preparing runs in steps, each its own unit, so no unit
+// is the whole of it, and the build still prepares each piece once and ends with all six made.
+test('a piece is prepared in steps, one unit each, and every piece is prepared once', async () => {
+  const { m, log } = boot({ joins: 0, set: 0, prep: 90, steps: 3 });
+  m.morphTrackSoon();
+  await frames(6000);
+  assert.equal(ready(m), 6, 'six pieces made');
+  assert.equal(log.preps.length, 6, 'each piece prepared once');
+  assert.equal(log.steps.length, 18, 'in three steps each');
+  assert.ok(m.mt.stats.units.prepare.max <= 31, `the longest prepare unit is a step, not the whole (${m.mt.stats.units.prepare.max} ms)`);
+  assert.equal(m.mt.stats.last.bad, 0);
+  cancelMay('view-switch pieces');
+});
+
+test('no slice of the pieces runs while a slide change or the camera\'s glide goes on (the tester: pieces ran 117 ms in a deck jump and 218 ms in a swipe)', async () => {
+  const { beginChange } = await import('../src/ui/frame.js');
+  const { m, live } = boot({ joins: 0, set: 0, prep: 90, steps: 3 });
+  m.morphTrackSoon();
+  await frames(60);
+  const before = m.mt.build ? m.mt.build.slices : -1;
+  const end = beginChange();
+  await frames(1500);
+  assert.equal(m.mt.build ? m.mt.build.slices : -1, before, 'a slide change holds the build');
+  end();
+  live.vtGliding = true;
+  await frames(1500);
+  assert.equal(m.mt.build ? m.mt.build.slices : -1, before, 'the camera\'s glide holds it too');
+  live.vtGliding = false;
+  await frames(6000);
+  assert.equal(ready(m), 6, 'and it goes on, whole, once both are over');
   cancelMay('view-switch pieces');
 });

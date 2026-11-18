@@ -3,7 +3,6 @@
 import { EDGES, edgePresent } from '../engine/topology.js';
 import { NODE_POS } from './anatomy.js';
 import { dotRadius } from './circuit-nodes.js';
-import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { store } from './store.js';
 import { clamp, fmt } from './util.js';
 
@@ -129,7 +128,7 @@ export function createResistors(st, live) {
     let st = resMade.get(k);
     const want = live.sites.list?.includes(k) && ratio != null;
     const now = performance.now();
-    if (!want) { if (st) { resMade.delete(k); live.resSegRev++; live.labelKey = null; recs.drop(RES_KEYS[k], now, reduceMotion.matches); live.recKick(); } return; }   // (faded out whole first, over D_SURFACE, then gone)
+    if (!want) { if (st) { resMade.delete(k); live.resSegRev++; live.labelKey = null; recs.drop(RES_KEYS[k], now); live.recKick(); } return; }   // (faded out whole first, over D_SURFACE, then gone)
     if (!st) { st = { _segs: null, cur: null, d, ratio, lens: [] }; resMade.set(k, st); }   // alloc-rare: a resistor's record, made when it first shows
     // (Sizes kept in screen px are worked out at the scale now stepped a quarter octave, so a zoom rebuilds the record a few times, not each frame.)
     const sc = live.CTM?.sc > 0 ? live.CTM.sc : 1, scQ = 2 ** (Math.round(Math.log2(sc) * 4) / 4);
@@ -188,7 +187,7 @@ export function createResistors(st, live) {
         if (lit) parts.push({ polys, kind: 'stroke', nss: true, cap: 1, a: 0.3, w: w + 2 * RES_OUTLINE + 8, rgb: [K[4], K[5], K[6]] });
         parts.push({ polys, kind: 'stroke', nss: true, cap: 1, a: 1, w: w + 2 * RES_OUTLINE, rgb: BLACK }, { polys, kind: 'stroke', nss: true, cap: 1, a: 1, w, rgb: ink });
       }
-      recs.put(RES_KEYS[k], parts, now, reduceMotion.matches);
+      recs.put(RES_KEYS[k], parts, now);
       live.recKick();
     }
   }

@@ -7,13 +7,14 @@ import { fmt, clamp } from './util.js';
 import { LABEL_VESSEL } from './anatomy.js';
 import { judgeFlow } from './velNormal.js';
 
+import { piecesOf, withPieces } from './part-names.js';
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
 const VESSEL = {
   V_INT: 'Drain the small bowel, carrying absorbed nutrients toward the liver.',
   V_COL: 'Drain the colon into the inferior mesenteric vein.',
-  V_IMV: 'Drains the left colon and rectum into the splenic vein. Its rectal branches meet systemic veins: a portosystemic crossroads.',
+  V_IMV: 'Drains the left colon and rectum into the splenic vein. Its rectal branches anastomose with systemic rectal veins: the site of anorectal varices.',
   SV_MID: 'The splenic vein midway, where a splenorenal shunt leaves it.',
   V_SPL: 'Drains the spleen. Portal hypertension causes congestive splenomegaly.',
   V_STO: 'Drain the stomach toward the coronary vein.',
@@ -32,7 +33,7 @@ const VESSEL = {
   ILI_IVC: 'The iliac veins joining to form the IVC.',
   LRV_IVC: 'The left renal vein: the usual outflow of spontaneous splenorenal and gastrorenal shunts.',
   RRV_IVC: 'The right renal vein.',
-  V_KID_L: 'Left renal venules.', V_KID_R: 'Right renal venules.',
+  V_KID_L: 'The veins inside the left kidney, draining into the left renal vein.', V_KID_R: 'The veins inside the right kidney, draining into the right renal vein.',
   V_LOW: 'Valved veins of the lower extremities: flow runs only toward the heart.',
   EPI_ILI: 'Abdominal-wall veins draining down to the iliac veins. With the paraumbilical vein open they form the caput medusae.',
   EPI_SVC: 'Abdominal-wall veins draining up to the superior vena cava.',
@@ -51,12 +52,13 @@ const VESSEL = {
   C8: 'Periportal collaterals that form around a thrombosed portal vein: a cavernoma.',
   AP_R: 'An arterioportal shunt: arterial blood straight into the portal vein, raising its pressure.', AP_L: 'An arterioportal shunt: arterial blood straight into the portal vein, raising its pressure.',
   TIPS: 'A stent through the liver from a portal branch to a hepatic vein: bypasses the sinusoids and lowers portal pressure at once.',
-  DIPS: 'A stent through the caudate lobe from the right portal vein into the intrahepatic IVC, below the hepatic veins. Used when the hepatic veins are occluded and the cava is open.',
+  DIPS: 'A stent through the caudate lobe from the portal vein into the intrahepatic IVC, below the hepatic veins. Used when the hepatic veins are occluded and the cava is open.',
   S_PC: 'A surgical portocaval shunt: the portal vein joined to the IVC. End-to-side divides the portal vein at the liver (total diversion); side-to-side keeps it, so the portal trunk can also carry hepatofugal outflow from the liver.',
-  S_DSR: 'The Warren distal splenorenal shunt: decompresses the varices through the splenic vein while keeping some portal flow to the liver.',
+  S_DSR: 'The distal splenorenal shunt (DSRS), the selective surgical shunt also called the Warren shunt: decompresses the varices through the splenic vein while keeping some portal flow to the liver.',
   S_MC: 'A surgical mesocaval shunt from the superior mesenteric vein to the IVC.',
   REX: 'The Meso-Rex bypass: a vein graft from the superior mesenteric vein to the left portal vein at the Rex recess, past a thrombosed main portal vein. It restores splanchnic venous inflow to the liver instead of diverting it to the systemic veins.',
 };
+withPieces(VESSEL);
 // A stent between two portal-system veins (13 Nov 2026): the blood stays in the portal system, so it bypasses a segment of the portal system, not the liver.
 const PORTAL_LINK = 'A stent between two veins of the portal system. It bypasses the segment between them, and its flow stays hepatopetal: portal blood still reaches the liver.';
 const BY_KIND = {
@@ -69,7 +71,7 @@ const BY_KIND = {
 
 // The station a vessel's pressure is read at, by the vessel (the first station named for it).
 const STATION_OF = new Map();
-for (const n of Object.keys(LABEL_VESSEL)) if (!STATION_OF.has(LABEL_VESSEL[n])) STATION_OF.set(LABEL_VESSEL[n], n);
+for (const n of Object.keys(LABEL_VESSEL)) for (const id of piecesOf(LABEL_VESSEL[n])) if (!STATION_OF.has(id)) STATION_OF.set(id, n);
 const JF_OPTS = { ref: 1 };   // (judgeFlow reads it as it is called)
 // A card asks for its words with every frame the model sends. The words are made again only when something they say moved: each vessel keeps the
 // numbers its words were made from (whether it is still, reversed, how far open, how much clot and narrowing, how far above normal) and the
@@ -155,7 +157,7 @@ export function aboutOrgan(id, f, st) {
         for (let i = 0; i < LIVER_STAGE.length; i++) if (c < LIVER_STAGE[i][0]) { w = LIVER_STAGE[i][1]; break; }
         out.push(w);
       }
-      if (hv != null) out.push(`HVPG ${fmt(m.hvpg, 1)} mmHg (normal <5, CSPH ≥10).`);
+      if (hv != null) out.push(`HVPG ${fmt(m.hvpg, 1)} mmHg (normal ≤5, CSPH ≥10).`);
       M.c = c; M.hv = hv; M.lines = out;
       return out;
     }

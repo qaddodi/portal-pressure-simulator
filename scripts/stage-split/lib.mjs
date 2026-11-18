@@ -10,6 +10,12 @@ import { parse } from 'espree';
 import { analyze } from 'eslint-scope';
 import estraverse from 'estraverse';
 
+// The closure being split. createStage (src/ui/stage.js) unless useHost() says otherwise: the factory function, how its parts are told in its
+// imports (a part is a file the tool wrote: its header carries MOVED), and what to call the file in messages. (Presenter and lobule-zoom, 15 Nov 2026.)
+export const MOVED = 'by scripts/stage-split/move.mjs';
+let H = { fn: 'createStage', isPart: (s) => /^\.\/stage-[^/]+\.js$/.test(s), label: 'stage.js' };
+export const useHost = (h) => { H = { ...H, ...h }; };
+export const host = () => H;
 export const STUB_MARK = '// <stage-split stub>';
 export const MARK_A = '// <stage-split live>', MARK_B = '// </stage-split live>';
 
@@ -20,7 +26,7 @@ function annotate(ast) {
 }
 const isFn = (n) => n && (n.type === 'FunctionDeclaration' || n.type === 'FunctionExpression' || n.type === 'ArrowFunctionExpression');
 
-export function findStage(ast, name = 'createStage') {
+export function findStage(ast, name = H.fn) {
   for (const n of ast.body) {
     const d = n.type === 'ExportNamedDeclaration' ? n.declaration : n;
     if (d?.type === 'FunctionDeclaration' && d.id.name === name) return d;
@@ -63,7 +69,7 @@ function runsCode(n) {
   return hit;
 }
 
-export function analyse(src, stageName = 'createStage') {
+export function analyse(src, stageName = H.fn) {
   const ast = parseSrc(src);
   annotate(ast);
   const fn = findStage(ast, stageName);
@@ -83,8 +89,17 @@ export function analyse(src, stageName = 'createStage') {
   return { src, ast, fn, body, units, unitAt, vars, runs: body.map(runsCode), fnOnly: body.map(declaresFnOnly), comments: ast.comments };
 }
 
-export function planSplit(src, spec, A = analyse(src, spec.stage || 'createStage')) {
+export function planSplit(src, spec, A = analyse(src, spec.stage || H.fn)) {
   const { body, units, unitAt, vars } = A, refusals = [];
+  // (The parts read the shared lets through a record named `live`: a local of that name in the host would be read as the record. Rename the local first.)
+  estraverse.traverse(A.fn.body, { enter(n, parent) {
+    if (n.type !== 'Identifier' || n.name !== 'live' || !parent) return;
+    const binds = (parent.type === 'VariableDeclarator' && parent.id === n) || (/Function|Class/.test(parent.type) && (parent.id === n || parent.params?.includes(n))) || (parent.type === 'CatchClause' && parent.param === n)
+      || (parent.type === 'ArrayPattern') || parent.type === 'RestElement' || parent.type === 'AssignmentPattern' && parent.left === n || (parent.type === 'Property' && parent.value === n && parent.shorthand);
+    if (!binds) return;
+    if (parent.type === 'VariableDeclarator' && A.body.some((st) => st.type === 'VariableDeclaration' && st.declarations.includes(parent) && st.declarations.length === 1 && parent.init?.type === 'ObjectExpression')) return;   // (the live record itself)
+    refusals.push(`line ${n.loc.start.line}: a local named live would be read as the live record`);
+  } });
   const byName = new Map(); for (const i of vars.values()) byName.set(i.name + '|' + i.scope, i);
   const stay = new Set(spec.stay || []);
   let M = new Set();
@@ -99,6 +114,7 @@ export function planSplit(src, spec, A = analyse(src, spec.stage || 'createStage
     const i = body.findIndex((b, k) => b.type === 'ExpressionStatement' && src.slice(units[k].stmt.range[0], units[k].stmt.range[1]).split('\n')[0].trim() === text.trim());
     if (i < 0) refusals.push(`also: no expression statement starting "${text}"`); else M.add(i);
   }
+  for (let i = 0; i < body.length; i++) if (body[i].type === 'ReturnStatement') M.delete(i);   // (the closure's own return is the host's, never a part's)
   for (const s of stay) { const i = [...vars.values()].find((x) => x.name === s && x.scope === 'stage'); if (i) M.delete(i.unit); }
   if (refusals.length || !M.size) return { ok: false, refusals: refusals.length ? refusals : ['nothing to move'] };
 
@@ -188,7 +204,7 @@ export function planSplit(src, spec, A = analyse(src, spec.stage || 'createStage
   const imp = [...importLines].sort((a, b) => a[0].localeCompare(b[0])).map(([s, r]) => `import ${[r.def, r.ns && `* as ${r.ns}`, r.named.length && `{ ${r.named.sort().join(', ')} }`].filter(Boolean).join(', ')} from '${s}';`);
   const stNames = [...st.keys()].sort(), retNames = [...returned.keys()].sort();
   const usesLive = lives.size > 0;
-  const part = [`// ${spec.about || spec.file}`, '// (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)', ...imp, '',
+  const part = [`// ${spec.about || spec.file}`, `// (moved out of ${H.label} by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every \`let\` of the stage is read through live, never copied.)`, ...imp, '',
     `export function ${fname}(${stNames.length ? 'st' : ''}${usesLive ? (stNames.length ? ', live' : '_st, live') : ''}) {`,
     ...(stNames.length ? [`  const { ${stNames.join(', ')} } = st;`] : []),
     ...moved.map((i) => sliceUnit(i)),
@@ -252,15 +268,23 @@ export function planSplit(src, spec, A = analyse(src, spec.stage || 'createStage
 }
 
 // The live record: one getter (and a setter when the let is reassigned) per shared let. Rewritten whole each move so names only ever accumulate.
-export function writeLive(stageSrc, liveInfo, stageName = 'createStage') {
+export function writeLive(stageSrc, liveInfo, stageName = H.fn) {
   const A = analyse(stageSrc, stageName);
   const a = stageSrc.indexOf(`  ${MARK_A}`), b = stageSrc.indexOf(MARK_B);
-  const old = new Map();
-  if (a >= 0 && b > a) for (const m of stageSrc.slice(a, b).matchAll(/^ {4}(get (\w+)\(\) \{[^\n]*)$/gm)) old.set(m[2], m[1].replace(/^ +/, ''));
-  for (const i of liveInfo) old.set(i.name, i.reassigned ? `get ${i.name}() { return ${i.name}; }, set ${i.name}(v) { ${i.name} = v; },` : `get ${i.name}() { return ${i.name}; },`);
-  const lines = [...old].sort((x, y) => x[0].localeCompare(y[0])).map(([, l]) => `    ${l}`);
-  const block = `  ${MARK_A}\n  // The stage's shared lets (and consts made after a part), read at the moment of use by the part files: never copied, so a part cannot draw a frame late.\n  const live = {\n${lines.join('\n')}\n  };\n  ${MARK_B}\n`;
-  if (a >= 0 && b > a) return stageSrc.slice(0, a) + block + stageSrc.slice(stageSrc.indexOf('\n', b) + 1);
+  const getter = (i) => (i.reassigned ? `get ${i.name}() { return ${i.name}; }, set ${i.name}(v) { ${i.name} = v; },` : `get ${i.name}() { return ${i.name}; },`);
+  if (a >= 0 && b > a) {
+    // The record keeps every line it has (hand-written members too: a flag, a method); only the names a move newly shares are added, sorted in among the getters.
+    const block = stageSrc.slice(a, b), have = new Set([...block.matchAll(/\bget (\w+)\(\)/g)].map((m) => m[1]));
+    const members = new Set([...block.matchAll(/^ {4}(?:get |set )?(\w+)\s*[:(]/gm)].map((m) => m[1]));
+    const fresh = liveInfo.filter((i) => !have.has(i.name));
+    for (const i of fresh) if (members.has(i.name)) throw new Error(`${i.name}: the live record already has a member of that name that is not a getter`);
+    for (const i of liveInfo) if (i.reassigned && have.has(i.name) && !new RegExp(`\\bset ${i.name}\\(`).test(block)) throw new Error(`${i.name}: the live record has a getter only, and a moved statement now writes it`);
+    if (!fresh.length) return stageSrc;
+    const end = stageSrc.lastIndexOf('\n  };', b);
+    return stageSrc.slice(0, end + 1) + fresh.sort((x, y) => x.name.localeCompare(y.name)).map((i) => `    ${getter(i)}\n`).join('') + stageSrc.slice(end + 1);
+  }
+  const lines = liveInfo.sort((x, y) => x.name.localeCompare(y.name)).map((i) => `    ${getter(i)}`);
+  const block = `  ${MARK_A}\n  // The shared lets (and consts made after a part), read at the moment of use by the part files: never copied, so a part cannot draw a frame late.\n  const live = {\n${lines.join('\n')}\n  };\n  ${MARK_B}\n`;
   const nl = stageSrc.indexOf('\n', A.fn.body.range[0]) + 1;
   return stageSrc.slice(0, nl) + block + stageSrc.slice(nl);
 }
@@ -269,7 +293,7 @@ export function writeLive(stageSrc, liveInfo, stageName = 'createStage') {
 export function splitStage(src, spec) {
   const r = planSplit(src, spec);
   if (!r.ok) return r;
-  const stage = writeLive(r.stage, r.report.liveInfo, spec.stage || 'createStage');
+  const stage = writeLive(r.stage, r.report.liveInfo, spec.stage || H.fn);
   return { ...r, stage };
 }
 
@@ -281,7 +305,8 @@ function inlineOnce(stageSrc, readPart) {
   const ast = parseSrc(stageSrc); annotate(ast);
   const fn = findStage(ast), body = fn.body.body;
   const factories = new Map();   // local factory name -> part file
-  for (const n of ast.body) if (n.type === 'ImportDeclaration' && /^\.\/stage-[^/]+\.js$/.test(n.source.value)) for (const s of n.specifiers) if (/^create[A-Z]/.test(s.local.name)) factories.set(s.local.name, n.source.value.slice(2));
+  const taken = new Set(analyze(ast, { ecmaVersion: 2024, sourceType: 'module', range: true, childVisitorKeys: estraverse.VisitorKeys, fallback: 'iteration' }).acquire(findStage(ast)).variables.map((v) => v.name));
+  for (const n of ast.body) if (n.type === 'ImportDeclaration' && H.isPart(n.source.value)) for (const s of n.specifiers) if (/^create[A-Z]/.test(s.local.name)) factories.set(s.local.name, n.source.value.slice(2));
   const edits = [], partImports = [];
   const lr = [stageSrc.indexOf(`  ${MARK_A}`), stageSrc.indexOf(MARK_B)];
   if (lr[0] >= 0) edits.push([lr[0], stageSrc.indexOf('\n', lr[1]) + 1, '']);
@@ -297,6 +322,18 @@ function inlineOnce(stageSrc, readPart) {
       && !(k === pb.length - 1 && n.type === 'ReturnStatement'));
     const reps = [];
     estraverse.traverse(pf, { fallback: 'iteration', enter(n) { if (liveName && n.type === 'MemberExpression' && !n.computed && n.object.type === 'Identifier' && n.object.name === liveName) reps.push([n.range[0], n.range[1], n.property.name]); } });
+    // (Two parts may each keep a private const of one name; flattened into one scope they would clash, so the later one's is renamed here: the proof
+    // reads the parts as one program, and a name that was never shared is not part of what it compares.)
+    {
+      const ret = pb.at(-1)?.type === 'ReturnStatement' && pb.at(-1).argument?.type === 'ObjectExpression' ? pb.at(-1).argument.properties.map((x) => x.value?.name || x.key?.name) : [];
+      const psm = analyze(pa, { ecmaVersion: 2024, sourceType: 'module', range: true, childVisitorKeys: estraverse.VisitorKeys, fallback: 'iteration' });
+      for (const v of psm.acquire(pf).variables) {
+        if (!v.defs.length || v.defs[0].type === 'Parameter' || ret.includes(v.name)) continue;
+        const dn = v.defs[0].type === 'Variable' ? v.defs[0].parent : v.defs[0].node;
+        if (!keep.includes(dn)) continue;
+        if (taken.has(v.name)) { for (const id of [...v.identifiers, ...v.references.map((r) => r.identifier)]) reps.push([id.range[0], id.range[1], v.name + '$' + file.split('.')[0].split('-').join('_')]); } else taken.add(v.name);
+      }
+    }
     reps.sort((a, b) => a[0] - b[0]);
     let out = '';
     if (keep.length) {
@@ -345,7 +382,7 @@ export function checkEquivalence(baseSrc, newStageSrc, readPart, baseImports = [
 // No `let` of the stage is handed over by value: every name in a call's st object is a const, function, class or never-written parameter.
 export function checkNoCopies(stageSrc) {
   const A = analyse(stageSrc), problems = [], factories = new Set();
-  for (const n of A.ast.body) if (n.type === 'ImportDeclaration' && /^\.\/stage-[^/]+\.js$/.test(n.source.value)) for (const s of n.specifiers) if (/^create[A-Z]/.test(s.local.name)) factories.add(s.local.name);
+  for (const n of A.ast.body) if (n.type === 'ImportDeclaration' && H.isPart(n.source.value)) for (const s of n.specifiers) if (/^create[A-Z]/.test(s.local.name)) factories.add(s.local.name);
   const byName = new Map([...A.vars.values()].map((x) => [x.name, x]));
   for (const n of A.body) {
     const call = n.type === 'VariableDeclaration' ? n.declarations[0].init : n.type === 'ExpressionStatement' ? n.expression : null;
@@ -365,7 +402,7 @@ export function inlineFamily(stageSrc, readPart) {
   let text = stageSrc; const partImports = [];
   for (let pass = 0; pass < 8; pass++) {
     const r = inlineOnce(text, readPart); text = r.text;
-    const nested = r.partImports.filter(([src, , local]) => /^\.\/stage-[^/]+\.js$/.test(src) && /^create[A-Z]/.test(local));
+    const nested = r.partImports.filter(([src, , local]) => H.isPart(src) && /^create[A-Z]/.test(local));
     for (const x of r.partImports) if (!nested.includes(x)) partImports.push(x);
     if (!nested.length) break;
     text = nested.map(([src, imp, local]) => `import { ${imp === local ? imp : imp + ' as ' + local} } from '${src}';\n`).join('') + text;

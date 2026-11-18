@@ -15,12 +15,28 @@
 
 import { glOn } from './gl-state.js';
 
+const installed = new WeakMap();   // alloc-rare: one record per context, made when its first renderer is
+
 /** Installs the screen on `gl` (the context object itself, so every host drawing in it is covered). `onEnd(fn)`: registers fn at the
- *  scheduler's frame end, returns its removal; `ask()`: asks for a frame. */
-export function keepScreen(gl, canvas, { onEnd = null, ask = null, copied = null } = {}) {
+ *  scheduler's frame end, returns its removal; `ask()`: asks for a frame.
+ *
+ *  Once per context (15 Nov 2026, app review R1-1): the wrappers replace the context's own methods, so they are put on once, and a second
+ *  call on the same context (the stage makes a new renderer in the very same context object when a lost context is restored, stage.js
+ *  webglcontextrestored) hands the new renderer the screen that is already there, with its own frame-end hook, ask and copy step. Wrapped a
+ *  second time, the new copy's bind of the canvas went through the first wrapper, which turned it into the first screen: the frame's blit
+ *  landed in a texture nobody shows, the first copy had no hook any more, and the figure stayed blank after Safari gave the context back. */
+export function keepScreen(gl, canvas, hooks = {}) {
+  let rec = installed.get(gl);
+  if (!rec) { rec = install(gl, canvas); installed.set(gl, rec); }
+  return rec.attach(hooks);
+}
+
+function install(gl, canvas) {
   const bind = gl.bindFramebuffer.bind(gl);
   const blit = gl.blitFramebuffer.bind(gl);
   const st = { tex: null, fb: null, w: 0, h: 0, dirty: false, flushes: 0 };
+  const cb = { ask: null, copied: null };   // (the renderer that holds the screen now: replaced when a new one takes it over)
+  let owner = null, off = null;   // (owner: the handle that holds the frame-end hook; off: that hook's removal)
   let boundR = null, boundD = null;   // (what the context really has bound: the screen's fb where the code bound the canvas)
   function size() {
     const w = Math.max(1, canvas.width | 0), h = Math.max(1, canvas.height | 0);
@@ -60,7 +76,7 @@ export function keepScreen(gl, canvas, { onEnd = null, ask = null, copied = null
     if (typeof f !== 'function') return;
     const call = f.bind(gl);
     gl[name] = function written(a, b, c, d, e, g, h, i, j, k) {
-      if (!st.dirty && st.fb && boundD === st.fb) { st.dirty = true; if (ask) ask(); }
+      if (!st.dirty && st.fb && boundD === st.fb) { st.dirty = true; if (cb.ask) cb.ask(); }
       switch (arguments.length) {   // (the call with exactly its own arguments: no array made in a frame)
         case 0: return call();
         case 1: return call(a);
@@ -94,15 +110,28 @@ export function keepScreen(gl, canvas, { onEnd = null, ask = null, copied = null
     if (sc) gl.enable(gl.SCISSOR_TEST);
     if (rd) gl.enable(gl.RASTERIZER_DISCARD);
     st.flushes++;
-    if (copied) copied();   // (?perf: the copy's GPU wait, timed on a sampled frame)
+    if (cb.copied) cb.copied();   // (?perf: the copy's GPU wait, timed on a sampled frame)
   }
   const reset = () => { st.tex = st.fb = null; st.w = st.h = 0; st.dirty = false; boundR = boundD = null; };
   if (canvas && canvas.addEventListener) { canvas.addEventListener('webglcontextlost', reset); canvas.addEventListener('webglcontextrestored', reset); }
-  const off = onEnd ? onEnd(flush) : null;
   return {   // alloc-rare: once per context
     flush,
-    get fb() { return st.fb; },
-    get flushes() { return st.flushes; },
-    dispose() { if (off) off(); },
+    /** A renderer takes the screen: its hooks replace the last one's. The handle's dispose lets go only what this renderer still holds. */
+    attach({ onEnd = null, ask = null, copied = null } = {}) {
+      // (A restore's own event resets the screen first, ahead of the stage's listener; if a renderer came before it did, the screen's objects
+      // belong to the lost generation and are made again.)
+      if (st.fb && gl.isContextLost && !gl.isContextLost() && gl.isFramebuffer && !gl.isFramebuffer(st.fb)) reset();
+      if (off) { off(); off = null; }
+      cb.ask = ask; cb.copied = copied;
+      const me = {   // alloc-rare: once per renderer
+        flush,
+        get fb() { return st.fb; },
+        get flushes() { return st.flushes; },
+        dispose() { if (owner !== me) return; owner = null; cb.ask = cb.copied = null; if (off) { off(); off = null; } },
+      };
+      owner = me;
+      off = onEnd ? onEnd(flush) : null;
+      return me;
+    },
   };
 }

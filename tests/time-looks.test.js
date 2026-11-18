@@ -7,10 +7,11 @@ import { readFileSync } from 'node:fs';
 import { LOOKS } from '../src/ui/chart-looks/index.js';
 import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
 import { tokensFor } from '../src/ui/theme-tokens.js';
+import { appCss } from './split-src.js';
 
 const read = (f) => readFileSync(new URL(f, import.meta.url), 'utf8');
 const SRC = { 'flow-time': read('../src/ui/flow-time.js'), 'tool-curve': read('../src/ui/tool-curve.js'), 'tool-course': read('../src/ui/tool-course.js') };
-const css = read('../styles/app.css');
+const css = appCss();
 const ctx = (over = {}, host = 'curve') => withCtx(makeCtx({ host, layout: 'wide', scale: { sm: 12.5 }, svk: 1.2, px: 14 }), { theme: 'light', dark: false, palette: 'navy', ...over });
 const P = (k, st = {}, c = ctx(), params = { c: 'tr-pv', rx: 's3' }) => resolveProps(LOOKS[k], c, st, params);
 

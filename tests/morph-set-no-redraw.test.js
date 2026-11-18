@@ -27,7 +27,7 @@ function fakeGL() {
         if (k === 'getProgramParameter') return a[1] === enums.get('ACTIVE_UNIFORMS') ? 0 : true;
         if (k === 'getExtension') return null;
         if (k === 'getParameter') return 'stand-in';
-        if (k === 'checkFramebufferStatus') return enums.get('FRAMEBUFFER_COMPLETE') ?? 0;
+        if (k === 'checkFramebufferStatus') { if (!enums.has('FRAMEBUFFER_COMPLETE')) enums.set('FRAMEBUFFER_COMPLETE', 0x10000 + enums.size); return enums.get('FRAMEBUFFER_COMPLETE'); }   // (a complete framebuffer: the Tube is the only renderer, a refusal gives the renderer up)
         if (k.startsWith('create')) return { obj: nextObj++, kind: k };
         return undefined;
       };

@@ -27,7 +27,7 @@ test('matAttrTo writes an element\'s transform into the given array and shares t
   const none = matAttrTo([9, 9, 9, 9, 9, 9], {});
   assert.deepEqual(none, [1, 0, 0, 1, 0, 0]);
   const o = [0, 0, 0, 0, 0, 0];
-  const el = { transform: { baseVal: { numberOfItems: 1, consolidate: () => ({ matrix: { a: 2, b: 0, c: 0, d: 3, e: 4, f: 5 } }) } } };
+  const el = { transform: { baseVal: { numberOfItems: 1, getItem: () => ({ matrix: { a: 2, b: 0, c: 0, d: 3, e: 4, f: 5 } }) } } };
   assert.equal(matAttrTo(o, el), o);
   assert.deepEqual(o, [2, 0, 0, 3, 4, 5]);
   assert.equal(elMatTo(o, {}), none, 'no attribute: the shared identity');

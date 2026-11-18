@@ -553,7 +553,7 @@ export const DEMO_ALL = {
       "kicker": "Treatment bands",
       "site": "sin",
       "title": "The time-lapse runs on carvedilol and anticoagulation",
-      "line": "Anticoagulation recanalizes the portal vein over the first months, so the varix shrinks. Carvedilol continues, but the cirrhosis progresses: the HVPG climbs to {hvpg} and the varix enlarges again. The HVPG never falls, because the thrombus is prehepatic.",
+      "line": "Anticoagulation recanalizes the portal vein over the first months, so the varix shrinks. Carvedilol is continued, but the cirrhosis progresses: the HVPG climbs to {hvpg} and the varix enlarges again. The HVPG never falls, because the thrombus is prehepatic.",
       "notes": "bands on a flowtime tool: each treatment on in the slide's state gets a named bar under the clock, over the whole time-lapse. The PVT slide before runs a week, so the varix has caught up with the thrombus by day 0 and the chart starts settled."
     },
     {
@@ -1771,7 +1771,7 @@ export const DEMO_ALL = {
           "d": 9
         },
         "stenosis": {
-          "TIPS": 0.6
+          "TIPS": 0.611111
         }
       },
       "cam": "liver",
@@ -1796,7 +1796,7 @@ export const DEMO_ALL = {
           "own": true,
           "params": {
             "stenosis": {
-              "TIPS": 0.6
+              "TIPS": 0.611111
             }
           }
         }

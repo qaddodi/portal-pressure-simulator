@@ -23,12 +23,7 @@ export const CIRCUIT = withPoints({
   id: 'circuit', level: 'foundation', keepPinch: true, zoomTiles: true, title: 'Portal pressure as a circuit', minutes: 8,
   // (Every slide shares one kicker, so the outline's sections name the slides.)
   sections: [['Flow and resistance', ['ohm', 'where', 'meal']], ['Cirrhosis', ['resist', 'both']], ['Collaterals', ['parallel']], ['Treatment', ['tips']]],
-  objectives: [
-    'Interpret the portal pressure gradient as flow times resistance',
-    'Explain why a meal raises portal pressure more in cirrhosis',
-    'Explain why collaterals fail to decompress the portal system',
-    'Place a TIPS on the resistance side of ΔP = Q × R',
-  ],
+  objectives: ['Interpret the portal pressure gradient as flow times resistance', 'Explain why a meal raises portal pressure more in cirrhosis, and why collaterals fail', 'Place a TIPS on the resistance side of ΔP = Q × R'],
   checks: [
     ['How does pressure relate to flow and resistance?', 'The pressure drop equals flow times resistance: ΔP = Q × R.'],
     ['Why does a meal raise the gradient more in cirrhosis?', 'The extra flow crosses a higher resistance, so even a smaller rise in flow adds more pressure.'],
@@ -86,11 +81,11 @@ export const CIRCUIT = withPoints({
       ask: ['Why do collaterals not relieve portal hypertension?', 'Their resistance is still high and the inflow rises with them, so the gradient stays high.'],
     },
     {
-      id: 'tips', lens: 'flow', params: { tips: { on: true } }, view: C, cam: 'tips', sites: R, tool: { kind: 'causes', metric: 'ppg' }, data: 'tiles', tiles: ['ppg', 'shunt', 'liver'], delta: true,
+      id: 'tips', lens: 'flow', params: { tips: { on: true } }, view: C, cam: 'tips', sites: R, tool: { kind: 'curve', param: 'tips.d', from: 6, to: 12, step: 1, lines: ['ppg', 'liver'] }, data: 'tiles', tiles: ['ppg', 'shunt', 'liver'], delta: true,
       whatIf: { label: 'Stent width', param: 'tips.d', min: 6, max: 12, step: 1, unit: 'mm' },
       kicker: K, site: 'sin', title: 'TIPS lowers the gradient by bypassing the liver',
       line: 'A covered stent in parallel with the sinusoids has far lower resistance than they or any collateral, so it carries most portal flow and the gradient halves.',
-      notes: 'A covered 8 to 10 mm stent has a far lower resistance than the sinusoids or any collateral, so most portal flow is diverted through it. The gradient falls to <12 mmHg; the cost is reduced hepatic portal perfusion and a risk of hepatic encephalopathy. An 8 mm stent balances the two. The waterfall reads left to right from the healthy gradient: each cause adds a step, and the stent is the step down. Drag Stent width to see a wider stent divert more flow.',
+      notes: 'A covered 8 to 10 mm stent has a far lower resistance than the sinusoids or any collateral, so most portal flow is diverted through it. The gradient falls to <12 mmHg; the cost is reduced hepatic portal perfusion and a risk of hepatic encephalopathy. An 8 mm stent balances the two. The chart draws the PPG and the sinusoidal flow at each stent width, and the ring is this stent: the wider the stent, the lower the PPG and the less blood the liver receives. Drag Stent width and the ring follows.',
       ask: ['What is the cost of TIPS to the liver?', 'Most of its portal perfusion; splanchnic blood and its ammonia now bypass hepatic clearance and reach the systemic circulation.'],
     },
     {
@@ -108,7 +103,7 @@ export const CIRCUIT = withPoints({
       // resistance. The summary table's rows, each change as a ring (before) and a dot (after).)
       id: 'flowres', preset: 'csph', view: C, sites: R, visual: 'plane',
       plane: { base: 'flow-ppg', y: { key: 'ppg', min: 0, max: 24, ticks: [0, 6, 12, 18, 24] }, iso: { rays: [4, 8, 16, 24] } },
-      of: [{ id: 'ohm', name: 'Healthy' }, { id: 'meal', from: 'ohm', name: 'Healthy, after a meal', short: 'Meal' }, { id: 'resist', from: 'ohm', name: 'Cirrhosis' }, { id: 'both', from: 'resist', name: 'Cirrhosis, after a meal', short: 'Meal' },
+      of: [{ id: 'ohm', name: 'Healthy' }, { id: 'meal', from: 'ohm', name: 'Healthy, after a meal', short: 'Healthy + meal' }, { id: 'resist', from: 'ohm', name: 'Cirrhosis' }, { id: 'both', from: 'resist', name: 'Cirrhosis, after a meal', short: 'Cirrhosis + meal' },
         { id: 'parallel', name: 'Advanced cirrhosis', short: 'Advanced' }, { id: 'tips', from: 'parallel', name: 'TIPS' }],
       kicker: 'Summary', title: 'Every patient lies on a line of constant resistance',
       line: 'A meal moves a patient to the right along the same line, because flow rises. Cirrhosis moves the patient onto a steeper line, and a TIPS onto a shallower one.',

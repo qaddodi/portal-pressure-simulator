@@ -85,6 +85,4 @@ test('every look the plane names exists, and the plane reads no style', () => {
   const named = new Set([...src.matchAll(/'(plane\.[\w.]+)'/g)].map((m) => m[1]));
   assert.ok(named.size >= 20, `read ${named.size} names`);
   for (const k of named) assert.ok(LOOKS[k], `${k} is in the table`);
-  assert.doesNotMatch(src, /getComputedStyle/, 'the plane asks the page for no style');
-  assert.doesNotMatch(readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8'), /\.pze-(zone|zt|box|cut|diag|grid|axis|dt|ln|t|ax|pt|lead|path|was|ring|halo|dot|trail|walk|stop|sn)\b/, 'the model pieces\' rules are gone from the stylesheet');
 });

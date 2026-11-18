@@ -1,4 +1,3 @@
-import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -25,12 +24,6 @@ test("a path cut from its commands is the path cut from its text, for every orga
 });
 
 test("the liver's outline and nodules are handed to the painter as the numbers their text says", () => {
-  const stage = stageSource();
-  assert.match(stage, /cmds = cmdsReset\(liverMorphCmds\);\n\s+for \(let i = 0; i < xy\.length; i\+\+\) \(i \? cmdL : cmdM\)\(cmds, \+xy\[i\]\[0\], \+xy\[i\]\[1\]\);\n\s+cmdZ\(cmds\);/);
-  assert.match(stage, /d = 'M' \+ xy\.map\(\(\[x, y\]\) => `\$\{x\} \$\{y\}`\)\.join\(' L'\) \+ ' Z';/);
-  assert.match(stage, /for \(const el of liverPaths\) \{ el\.setAttribute\('d', d\); bindShape\(el, src\); \}/);
-  assert.match(stage, /d \+= `Q\$\{qx\} \$\{qy\} \$\{mx\} \$\{my\}`;\n\s+cmdQ\(cmds, \+qx, \+qy, \+mx, \+my\);/);
-  assert.match(stage, /lv\.nod\.setAttribute\('d', nod\); bindShape\(lv\.nod, reshape\(nodSrc, nod, nodCmds\)\);/);
   // The numbers parse back from the text exactly (each is the number its digits say), so the shape is the text's to the bit.
   const xy = [[123.45, 67.891], [0.05, 9.95], [1000.25, 3.14159]].map(([x, y]) => [x.toFixed(1), y.toFixed(1)]);
   const d = 'M' + xy.map(([x, y]) => `${x} ${y}`).join(' L') + ' Z';

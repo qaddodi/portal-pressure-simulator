@@ -126,6 +126,8 @@ function lookOf(o, size) {
   };
 }
 const looks = new WeakMap();
+/** The look the picture read for a piece (its fill, stroke, strength, type size, anchor…), or undefined before the piece is placed: the record the painter draws from, handed to the screen report's chart reader (selfcheck/chart-reader.js). */
+export const lookOfPiece = (el) => looks.get(el);
 // A piece whose strength the stylesheet changes (a class on or off: a ring, a value, a name) and eases (its transition on opacity): the
 // picture runs that ease itself, from the strength it drew to the new one, on the stylesheet's duration and curve, since a model is never
 // styled by the page and its own transition would not run. [from, to, t0, ms, ease]
@@ -824,13 +826,21 @@ const finalFrame = finalFrameFor('svg-gl');
 const readDraw = readFrameFor('svg-gl');
 const askDraw = (g) => (g.follows ? finalFrame(g.draw) : readDraw(g.draw));
 const CAM_HOLD_MS = 100;
+/** While the figure's camera moves the card pictures (a chart, a readout) are handed over less often, never held for good: one hand-over at least
+ *  every CAM_BEAT_MS. They were held until the camera stopped, so a slide whose time-lapse moves the camera all through it (Varices 3, lapse cam:
+ *  'varices') froze its chart, its numbers and its day count for the whole lapse, and the lines popped in at the end (Mohammad, 16 Nov 2026).
+ *  moving: the camera moved in the last 200 ms; since: ms since the last hand-over. */
+export const CAM_BEAT_MS = 250;
+export const batchHeld = (moving, since) => moving && since < CAM_BEAT_MS;
 // (The pictures that do not ride the figure, asked together: drawn in one frame on a shared beat, or held while the camera moves: createSvgGL g.paint.)
 const BATCH_MS = 120;
 const batchQ = new Set();
-let batchT = 0;
+let batchT = 0, batchAt = 0;
 function batchRun() {
   batchT = 0;
-  if (cameraMoving()) { batchT = setTimeout(batchRun, CAM_HOLD_MS); return; }
+  const now = performance.now();
+  if (batchHeld(cameraMoving(), now - batchAt)) { batchT = setTimeout(batchRun, CAM_HOLD_MS); return; }
+  batchAt = now;
   for (const g of batchQ) if (!g.ask && !g.dead) g.ask = askDraw(g);
   batchQ.clear();
 }
@@ -945,7 +955,7 @@ export function createSvgGL(box, opts = null) {
     else if (easing) { if (g.seen === false) g.loopWait = true; else g.ask = askDraw(g); }
   }
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
-  g.gpu = createTraceGL(cv, { redraw: () => draw(), name: 'svg:' + (opts?.host || (box.getAttribute?.('class') || '').split(' ')[0] || '?') });
+  g.gpu = createTraceGL(cv, { redraw: () => draw(), name: 'svg:' + (opts?.host || (box.getAttribute?.('class') || '').split(' ')[0] || '?'), big: !!opts?.big });   // (big: a layer the size of the screen draws in a pool of its own: trace-gl.js sharedGL)
   // (Drawn again as its box first gets a size, or a new one: a chart built before its card was on the page drew nothing then.)
   // (A box that changes size may take another type size or scale from the stylesheet: its roots' shared looks are read again.)
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
@@ -1016,7 +1026,10 @@ export function createSvgGL(box, opts = null) {
   g.fadeEl = (el, ms, easing = 'ease', delay = 0) => { EASES.set(el, { from: 0, to: 1, t0: easeNow() + delay, ms, ease: cssCurve(easing) }); g.wake(delay + ms + 20); };
   // (A class or a piece changed on a model after it was placed (a value turned on, a word's pieces rebuilt): its looks are read again
   // between frames, and any ease the stylesheet gives the change is run by the picture.)
-  if (typeof MutationObserver === 'function') g.mo = new MutationObserver(g.relook);
+  // (opts.still, WORDS-1, app review 15 Nov 2026: a picture with no stylesheet looks to follow, a GPU readout (gl-words.js: its fills are set from the page's own
+  // looks when it is measured). Its box is the readout's own element, which gl-words writes to for every new number (the page's words landing, the `glw-on` mark
+  // handed over and back), and each such write made the picture read its looks and draw again: three draws and three hand-overs per number instead of one.)
+  if (!opts?.still && typeof MutationObserver === 'function') g.mo = new MutationObserver(g.relook);
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.mo?.observe(box, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'data-rate'] });
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)

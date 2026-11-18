@@ -80,7 +80,7 @@ const flush = async () => { await new Promise((r) => setImmediate(r)); };
 const frame = () => { clock += 16; const q = rafs.splice(0); for (const cb of q) cb(clock); };
 const frames = async (k) => { for (let i = 0; i < k; i++) { frame(); await flush(); } };
 
-const G = createGlassGL(wrap, source, [layer], { version: () => seq, capture() {}, onFigure: (f) => { figure.add(f); return () => figure.delete(f); } });
+const G = createGlassGL(wrap, source, [layer], { markHold: false, version: () => seq, capture() {}, onFigure: (f) => { figure.add(f); return () => figure.delete(f); } });
 // (The figure's picture laid: its top hooks (veins-gl top.add) blur, then draw the glass; the host's now() lays one at once.)
 let presents = 0, may = true, between = [];
 const tops = [];

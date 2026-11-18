@@ -32,6 +32,11 @@ export function poreAt(j, sd) {
 export const poreOpenness = (th, por) => { const t = Math.min(1, Math.max(0, (por - th + 0.06) / 0.12)); return t * t * (3 - 2 * t); };
 /** Boundary j of a plate's cells (seed). */
 export const cellEdge = (j, sd) => CELL * j + 7 * (h1(j, sd) - 0.5);
+/** Where (µm along) the shader draws the bile canaliculus on border j of a plate (seed sd): the border at mid-plate, its edgeAt(j, sd, HEP / 2). */
+export function canaliculusAt(j, sd) {
+  const vm = UM.hep * (0.3 + 0.4 * h1(j, sd + 9)), bend = 4 * (h1(j, sd + 10) - 0.5);
+  return cellEdge(j, sd) + bend * (Math.abs(UM.hep * 0.5 - vm) / (0.5 * UM.hep) - 0.5);
+}
 /** The cell of a plate (seed) holding x: its ends and its nucleus (u along, v across, radius, two nuclei). */
 export function cellAt(x, sd) {
   return cellAtInto(x, sd, { j: 0, x0: 0, x1: 0, nu: 0, nv: 0, nr: 0, bi: false });   // alloc-rare: the answer for a caller that keeps it; the layout each frame writes into its own (cellAtInto)
@@ -75,6 +80,8 @@ export function calloutPore(pores, x, lo, hi, nsd) {
 export const SEED = { poreUp: 3, poreDn: 5, nucUp: 41, nucDn: 42, plateUp: 29, plateDn: 71 };
 export const UM = { lum: 5, endo: 0.8, disse: 3.4, hep: 20 };
 
+const CELL_BOX = new Int32Array(8);   // the cells pass's scissor boxes, written each draw
+
 const VS = `#version 300 es
 layout(location=0) in vec2 corner;
 uniform vec2 size;
@@ -114,6 +121,8 @@ uniform vec3 cBg, cShade, cLumen, cLymph, cCell, cUnder, cNuc, cCol, cBm, cBile,
 uniform float aBm;
 uniform vec4 uEnd;               // the end arrows: portal x, central x (µm), size (µm), alpha
 uniform vec2 uEndA;              // how much each end's name shows (0 to 1): its arrow fades with it
+uniform vec4 uWedge;              // the wedged column's wash (sinusoid-wash.js): alpha (0: none, as on every slide but one), how far it has come from the central end (0 to 1)
+uniform vec3 cWedge;             // its colour: the wedge's amber
 
 const float ENDO = ${UM.endo.toFixed(2)}, DISSE = ${UM.disse.toFixed(2)}, HEP = ${UM.hep.toFixed(1)}, LUM0 = ${UM.lum.toFixed(1)};
 const float SLOT = ${SLOT.toFixed(2)}, CELL = ${CELL.toFixed(1)};
@@ -211,11 +220,22 @@ vec3 endoInk(vec3 under, float d, float dN, float dJ, float det) {
   return mix(c, cEndoE, line(dJ, 0.09) * cov(d) * det);
 }
 
+// The wedged column's wash: 1 from the central vein's end of the sinusoid as far as the wash has come toward the portal venule's, soft at its front; 0 when off.
+float wedgeA(float x) {
+  float span = uEnd.x - uEnd.y;
+  if (uWedge.x <= 0.0 || abs(span) < 1.0) return 0.0;
+  float t = (x - uEnd.y) / span;
+  float f = uWedge.y * 1.08;
+  return uWedge.x * (1.0 - smoothstep(f - 0.08, f, t));
+}
+
 // ── The lumen, flat as the lobule's: pressure colour, a thin light line and a thin dark one, the streaks ──
 vec3 lumen(float x, float y, float hw, int lane0) {
-  vec3 c = cLumen;
+  float wz = wedgeA(x);
+  float live = 1.0 - 0.9 * wz;   // (the column is still: the flow's light and streaks die away in it)
+  vec3 c = mix(cLumen, cWedge, 0.85 * wz);
   // The flow's light (the shimmer, the sheen, the glints): white on a dark lumen, a deep shade of the lumen on a pale one, where white is
-  // 1.2 to 1.9:1; eased by the lumen's lightness (the pressure colour moves), as the vessels' streaks are (veins-gl bloodAt; visual-style B5).
+  // 1.2 to 1.9:1; eased by the lumen's lightness (the pressure colour moves), as the vessels' own light was (visual-style B5).
   float fPale = smoothstep(0.58, 0.66, dot(cLumen, vec3(0.299, 0.587, 0.114)));
   vec3 fInk = mix(vec3(1.0), mix(cLumen, vec3(0.07, 0.075, 0.13), 0.7), fPale);
   c = mix(c, vec3(1.0), 0.28 * line(y + hw - 0.5, 0.16));
@@ -231,18 +251,18 @@ vec3 lumen(float x, float y, float hw, int lane0) {
   float e = (xx - x0) / Ls;
   float yc = (lc + (h1(ki, id + 11) - 0.5) * 0.6 / NL) * hw;
   float rr = 1.0 - r * r;
-  c = mix(c, fInk, 0.07 * rr * rr * uShim / 0.5);
+  c = mix(c, fInk, 0.07 * rr * rr * uShim / 0.5 * live);
   float wy = min(max(0.35, 2.8 * uPx), 0.3 * hw / NL);
   // Light on a flowing liquid: a slow sheen drifts with the blood (two broad, warped waves), and each streak is a soft
   // glint, bright at its head and trailing off, that swells and fades as the sheen passes over it, so none blinks.
   float sx2 = x - uFlow * (0.55 + 0.45 * rr);
   float sh = 0.5 + 0.5 * sin(sx2 * 0.075 + 1.6 * sin(sx2 * 0.031 + y * 0.35) + y * 0.22);
   sh = sh * sh * (3.0 - 2.0 * sh);
-  c = mix(c, fInk, 0.11 * sh * rr * uShim / 0.5);
+  c = mix(c, fInk, 0.11 * sh * rr * uShim / 0.5 * live);
   float ed = uDir < 0.0 ? 1.0 - e : e;   // the head leads the flow
   float along = smoothstep(0.0, 0.85, ed) * (1.0 - smoothstep(0.86, 1.0, ed));
   float acr = exp(-pow((y - yc) / (wy * (0.6 + 0.6 * ed)), 2.0));
-  c = mix(c, fInk, along * acr * smoothstep(0.15, 0.35, hk) * uShim * 0.6 * (0.45 + 0.75 * sh));
+  c = mix(c, fInk, along * acr * smoothstep(0.15, 0.35, hk) * uShim * 0.6 * (0.45 + 0.75 * sh) * live);
   return c;
 }
 
@@ -333,8 +353,17 @@ vec3 plate(float x, float v, int sd, float det) {
     c = mix(c, mix(c, cNuc, 0.6), cov(length(nq - vec2(0.3, -0.25) * rr) - 0.16 * rr) * det);
   }
   vec3 outC = mix(cUnder, c, cov(d) * 0.96);
-  // Bile canaliculi between neighbouring cells, mid-plate.
-  for (int k = 0; k < 2; k++) outC = mix(outC, cBile, cov(sdE(vec2(x - edgeAt(j + k, sd, 0.5 * HEP), v - 0.5 * HEP), vec2(0.5, 0.36))) * 0.75 * det);
+  // Bile canaliculi between neighbouring cells, mid-plate, each cut across as a journal figure draws it: a small lumen of pale bile in a
+  // groove of both cells, its own membrane, and the tight junctions (a short dark bar across the border either side) that seal it off from
+  // the blood's side. Still: canalicular bile moves by diffusion, not as a stream (Vartak, Hepatology 2021). canaliculusAt() is its centre.
+  for (int k = 0; k < 2; k++) {
+    vec2 q = vec2(x - edgeAt(j + k, sd, v), v - 0.5 * HEP);
+    // (The tight junctions either side of it: each a short dark bar across the border.)
+    for (int s = -1; s <= 1; s += 2) outC = mix(outC, mix(cBile, cNuc, 0.35), cov(sdE(q - vec2(0.0, float(s) * 0.98), vec2(0.62, 0.11))) * 0.85 * det);
+    float dl = sdE(q, vec2(0.68, 0.56));
+    outC = mix(outC, mix(cBile, vec3(1.0), 0.5 - 0.3 * uDark), cov(dl) * det);
+    outC = mix(outC, mix(cBile, cNuc, 0.2), line(dl, 0.17) * det);
+  }
   return outC;
 }
 
@@ -535,6 +564,7 @@ import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompili
 import { whenQuiet, booting, holdCover } from './quiet.js';
 import { glOkAfter, glOkBefore } from './gl-state.js';
 import { caught } from './caught.js';
+import { cellBoxes } from './sinusoid-cell-box.js';
 
 // host (4 Nov 2026, Mohammad: "everything on one GPU context"): the figure's renderer's `top` ({ gl, canvas, screen, present, ... }, veins-gl.js). The view is then drawn
 // in that context into a texture of its own (host mode: `target`), which the stage lays over the figure in its present (sinusoid-view.js); no canvas context
@@ -724,7 +754,14 @@ export function createSinusoidGL(canvas, { warm = false, onReady = null, host = 
       gl.bufferData(gl.ARRAY_BUFFER, pts.subarray(0, n * 5), gl.STREAM_DRAW);
       gl.drawArrays(gl.POINTS, 0, n);
     }
-    tissue(u, 1);
+    // The cells' pass writes nothing outside two small boxes, so it is scissored to them (OG-2, sinusoid-cell-box.js): the same picture.
+    const nb = u.uF0 && u.uF1 ? cellBoxes(u, canvas.width, canvas.height, CELL_BOX) : -1;
+    if (nb < 0) tissue(u, 1);
+    else if (nb > 0) {
+      gl.enable(gl.SCISSOR_TEST);
+      for (let i = 0; i < nb; i++) { gl.scissor(CELL_BOX[i * 4], CELL_BOX[i * 4 + 1], CELL_BOX[i * 4 + 2], CELL_BOX[i * 4 + 3]); tissue(u, 1); }
+      gl.disable(gl.SCISSOR_TEST);
+    }
     gl.bindVertexArray(null);
     unbindT();
     presents++;

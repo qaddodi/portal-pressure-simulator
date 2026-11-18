@@ -2,6 +2,7 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss, presenterSource } from './split-src.js';
 
 // One set of breakpoints (codebase review 22 Oct, item 5): the presenter's phone()/tabUp() and the stage's upright rule read the
 // same media queries as styles/app.css's phone blocks, so a 700–767 px window or a near-square upright one is never laid out
@@ -22,7 +23,7 @@ test('every breakpoint constant, written once', () => {
 });
 
 test("the style sheet's phone blocks use exactly those queries", () => {
-  const css = read('../styles/app.css');
+  const css = appCss();
   const qs = [...css.matchAll(/@media ([^{]*max-width: 767px[^{]*)\{/g)].map((m) => m[1].trim());
   assert.ok(qs.length >= 30, `${qs.length} phone blocks`);
   // (Narrowed on purpose, each clause the shared one plus a condition: listed here, so a new variant is a choice, not a copy that drifts.)
@@ -38,7 +39,7 @@ test("the style sheet's phone blocks use exactly those queries", () => {
 });
 
 test('the presenter and the stage read the shared queries, not their own pixel rules', () => {
-  const pz = read('../src/ui/presenter.js'), st = stageSource(), dock = read('../src/ui/dock.js');
+  const pz = presenterSource(), st = stageSource(), dock = read('../src/ui/dock.js');
   assert.match(pz, /const stackMQ = matchMedia\(STACK_MQ\), shortMQ = matchMedia\(SHORT_SIDE_MQ\), tabMQ = matchMedia\(TABLET_UP_MQ\);/);
   assert.match(pz, /const phone = \(\) => stackMQ\.matches && !shortMQ\.matches;/);
   assert.match(pz, /const tabUp = \(\) => tabMQ\.matches;/);

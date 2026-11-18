@@ -4,9 +4,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss, presenterSource } from './split-src.js';
 
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const css = appCss();
+const js = presenterSource();
 const floors = (rule) => [...rule.matchAll(/max\(([\d.]+)px/g)].map((m) => +m[1]);
 
 test('the figure key is 12 px or more, and is wrapped, never scaled down, when wider than the card', () => {

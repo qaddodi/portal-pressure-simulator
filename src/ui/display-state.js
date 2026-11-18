@@ -171,6 +171,8 @@ export function createShownState({ tau = SHOWN_TAU, ask, cancel = () => {}, now 
       return s.v;
     },
     get(key) { return S.get(key)?.v; },
+    /** Whether the value shown for key is still on its way to its target (band-settle.js waits for it). */
+    isMoving(key) { return !!S.get(key)?.moving; },
     /** The value shown for key, or fallback where there is none. */
     or(key, fallback) { const v = S.get(key)?.v; return Number.isFinite(v) ? v : fallback; },
     delete(key) { S.delete(key); },

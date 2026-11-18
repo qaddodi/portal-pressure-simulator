@@ -26,3 +26,30 @@ test('a talk merged into another keeps its old share page, which opens the deck 
   }
   assert.equal(list.find((c) => c.file === 'deck-refractory-bleed.html').target, '../?script=variceal-bleed');
 });
+
+test('a page names the case\'s picture, absolute when the site address is known, and none when there is no picture', async () => {
+  const list = await cases();
+  assert.equal(list.find((c) => c.file === 'cirr-decomp.html').image, 'cirr-decomp.jpg');
+  assert.equal(list.find((c) => c.file === 'deck-two-inflows.html').image, 'deck-two-inflows.jpg');
+  assert.equal(list.find((c) => c.file === 'deck-refractory-bleed.html').image, 'deck-variceal-bleed.jpg');
+  const html = sharePage({ title: 'T', summary: 's', target: '../', image: 'healthy.jpg', base: 'https://x.github.io/app/preview/' });
+  assert.match(html, /og:image" content="https:\/\/x\.github\.io\/app\/preview\/brand\/share\/healthy\.jpg"/);
+  assert.match(html, /twitter:image" content="https:\/\/x\.github\.io\/app\/preview\/brand\/share\/healthy\.jpg"/);
+  assert.match(html, /twitter:card" content="summary_large_image"/);
+  assert.match(html, /og:image:width" content="1200"/);
+  const bare = sharePage({ title: 'T', summary: 's', target: '../' });
+  assert.doesNotMatch(bare, /og:image/);
+  assert.match(bare, /twitter:card" content="summary"/);
+});
+
+test('the manifest\'s theme colour is the light page colour', async () => {
+  const { readFileSync } = await import('node:fs');
+  const man = JSON.parse(readFileSync(new URL('../manifest.webmanifest', import.meta.url), 'utf8'));
+  assert.equal(man.theme_color, '#F1EBE0');
+});
+
+test('?embed is told apart from other words that start with it', () => {
+  const re = /[?&]embed(?=[=&#]|$)/;
+  for (const q of ['?embed', '?embed&preset=x', '?preset=x&embed=1', '?x=1&embed#s=1']) assert.ok(re.test(q), q);
+  for (const q of ['?embedded', '?notembed', '']) assert.ok(!re.test(q), q);
+});

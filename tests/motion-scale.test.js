@@ -12,6 +12,8 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, CAM_MS_MIN } from '../src/ui/ease.js';
+import { appCss, presenterSource } from './split-src.js';
+import { appCssFiles } from '../scripts/app-css.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');
@@ -100,11 +102,11 @@ test('the scale is one list: tokens.css and ease.js agree on the three durations
   // A leave takes the step below its entrance, so the scale is strictly increasing and each step is a clear one (about double).
   assert.ok(D_FLIP < D_SMALL && D_SMALL < D_SURFACE && D_SMALL / D_FLIP >= 2 && D_SURFACE / D_SMALL >= 1.5);
   for (const old of ['--t-fast', '--t-out', '--view-fade', '--ease-io']) assert.ok(!tokens.includes(`${old}:`), `${old} was folded into the scale`);
-  for (const f of ['styles/app.css', 'index.html']) for (const old of ['var(--t-fast)', 'var(--t-out)', 'var(--view-fade)', 'var(--ease-io)', 'var(--t)']) assert.ok(!read(f).includes(old), `${f} still reads ${old}`);
+  for (const f of [...appCssFiles(), 'index.html']) for (const old of ['var(--t-fast)', 'var(--t-out)', 'var(--view-fade)', 'var(--ease-io)', 'var(--t)']) assert.ok(!read(f).includes(old), `${f} still reads ${old}`);
 });
 
 test('app.css: every transition and animation is on the scale (three durations or the camera\'s), on one of the three curves', () => {
-  const bad = problems(read('styles/app.css'), 'app.css');
+  const bad = problems(appCss(), 'app.css');
   assert.deepEqual(bad, []);
 });
 
@@ -165,8 +167,8 @@ const keyframeProblems = (css) => {
   return out;
 };
 test('R11: every @keyframes in app.css is one of the four motion primitives (with its exit) or has its named reason; every animation names a defined one', () => {
-  assert.deepEqual(keyframeProblems(read('styles/app.css')), []);
-  const css = read('styles/app.css');
+  assert.deepEqual(keyframeProblems(appCss()), []);
+  const css = appCss();
   for (const n of PRIMITIVES) assert.ok(new RegExp(`^@keyframes ${n} \\{`, 'm').test(css), `${n} is defined`);
   // Each primitive's movement is kept for the movement only; Reduce Motion keeps the fade (the keyframes in the media query replace them).
   const tail = css.slice(css.lastIndexOf('@media (prefers-reduced-motion: reduce) {'));
@@ -187,7 +189,7 @@ test('R11: the lint for keyframes catches a keyframe set of a piece\'s own and a
 });
 
 test('R11: fade-rise rises the one distance, in the sheet of keyframes and in the scripts that rise rows by hand (RISE_PX)', () => {
-  const css = read('styles/app.css'), ease = read('src/ui/ease.js');
+  const css = appCss(), ease = read('src/ui/ease.js');
   assert.match(css, /@property --rise-y \{ syntax: '<length-percentage>'; inherits: false; initial-value: (\d+)px; \}/);
   assert.equal(Number(/@property --rise-y \{[^}]*initial-value: (\d+)px/.exec(css)[1]), Number(/export const RISE_PX = (\d+);/.exec(ease)[1]));
   assert.match(css, /@keyframes scale-settle \{ from \{ opacity: 0; \} \}/);
@@ -213,7 +215,7 @@ test('the sources: curves and durations of an animation come from ease.js (D_FLI
     read(rel).split('\n').forEach((line, i) => {
       const code = line.replace(/\/\/.*$/, '').replace(/\/\*[\s\S]*?\*\//g, '');
       if (line.includes('motion-scale: own pace')) return;
-      if (/cubic-bezier\(/.test(code)) bad.push(`${rel}:${i + 1}: a curve written by hand`);
+      if (/cubic-bezier\(/.test(code) || /\bcubicBezier\(\s*-?[\d.]/.test(code)) bad.push(`${rel}:${i + 1}: a curve written by hand`);   // (ANI-1: the JS form too)
       if (/\beasing:\s*['"`]/.test(code)) bad.push(`${rel}:${i + 1}: an easing string`);
       if (/\bduration:\s*\d{2,}\b/.test(code)) bad.push(`${rel}:${i + 1}: a duration in milliseconds`);
       if (/style\.transition\s*=\s*[`'"][^'"`]*\b\d*\.?\d+m?s\b/.test(code) && !/\$\{D_/.test(code)) bad.push(`${rel}:${i + 1}: an inline transition with its own time`);
@@ -323,7 +325,7 @@ test('motion.js: the GPU tokens are the scale and the named exceptions, and smoo
 
 // ── Exits and displaced items (item 20) ─────────────────────────────────────────────────────────────────────────────────────────────────────
 test('item 20: a leaving state takes --ease-in and the step below its entrance, written on the leaving state', () => {
-  const css = read('styles/app.css'), tokens = read('styles/tokens.css');
+  const css = appCss(), tokens = read('styles/tokens.css');
   const rule = (sel) => { const i = css.indexOf(`\n${sel} {`); assert.ok(i >= 0, `${sel} is in app.css`); return css.slice(i, css.indexOf('}', i)); };
   assert.match(rule('.pz-text > .pz-leave'), /transition: opacity var\(--d-small\) var\(--ease-in\), transform var\(--d-small\) var\(--ease-in\)/);
   assert.match(rule('.pz-scales.pz-leave'), /transition: opacity var\(--d-small\) var\(--ease-in\)/);
@@ -343,7 +345,7 @@ test('item 20: what was on screen and is displaced travels on the move curve, an
   assert.match(src('menu.js'), /el\._lift = el\.animate\(\[[^\]]*\], \{ duration: D_SMALL, easing: EASE_MOVE, composite: 'add' \}\);/);
   assert.doesNotMatch(src('menu.js'), /el\._lift\?\.cancel\(\)/);
   assert.match(src('dock.js'), /b\.animate\(\[\{ translate: `\$\{dx\}px 0` \}, \{ translate: '0 0' \}\], \{ duration: D_SMALL, easing: EASE_MOVE, composite: 'add' \}\)/);
-  assert.match(src('presenter.js'), /mon\.el\.animate\(\[\{ transform: `translateY\(\$\{dy\}px\)` \}, \{ transform: 'none' \}\], \{ duration: D_SURFACE, easing: EASE_MOVE, composite: 'add' \}\)/);
+  assert.match(presenterSource(), /mon\.el\.animate\(\[\{ transform: `translateY\(\$\{dy\}px\)` \}, \{ transform: 'none' \}\], \{ duration: D_SURFACE, easing: EASE_MOVE, composite: 'add' \}\)/);
   const util = src('util.js');
   assert.match(util, /\{ duration: dur, easing: EASE_MOVE, composite: 'add' \}\)\.id = 'glide';/);
   assert.doesNotMatch(util, /a\.id === 'glide'\) \{ const m = new DOMMatrixReadOnly/, 'a running glide is not cancelled and re-read');
@@ -398,6 +400,6 @@ test('one roll speed: COUNT_MS is motion.js\'s alone, and the rolls (util.js cou
   }
   assert.deepEqual(bad, []);
   const importsCount = /import\s*\{[^}]*\bCOUNT_MS\b[^}]*\}\s*from\s*'\.\/motion\.js'/;
-  for (const f of ['src/ui/util.js', 'src/ui/stage-sites-paint.js', 'src/ui/presenter.js']) assert.match(read(f), importsCount, `${f} rolls on motion.js COUNT_MS`);
-  assert.doesNotMatch(read('src/ui/presenter.js'), /tileGlide\(to, ms = \d/, 'the tiles\' default is COUNT_MS, not a number');
+  for (const f of ['src/ui/util.js', 'src/ui/count-roll.js', 'src/ui/presenter-cards.js']) assert.match(read(f), importsCount, `${f} rolls on motion.js COUNT_MS`);
+  assert.doesNotMatch(presenterSource(), /tileGlide\(to, ms = \d/, 'the tiles\' default is COUNT_MS, not a number');
 });

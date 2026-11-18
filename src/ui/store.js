@@ -2,6 +2,7 @@
 
 import { defaultParams, deepMerge } from '../engine/scenario.js';
 import { runSoon } from './class-soon.js';
+import { hvBlocked } from '../engine/pressure-cuts.js';
 
 const listeners = new Map();
 const gone = new Map();   // (B9: key -> the listeners unsubscribed from it while a change is being told; that change skips them, only for that key. Emptied when the telling ends.)
@@ -16,10 +17,10 @@ const state = {
   selection: null,            // { type: 'edge' | 'node' | 'organ', id } — the structure whose action card is open
   details: null,              // a selection shown in full in the side panel ('Details ›')
   shunting: null,             // { src, only } while a shunt waits for its drop target
-  layers: { flow: false, chips: true, collaterals: false, organs: true, labels: true, grid: false },
+  layers: { chips: true, collaterals: false, organs: true, labels: true, grid: false },
   labelLevel: (() => { try { const v = localStorage.getItem('pps.labels'); return ['key', 'all', 'none'].includes(v) ? v : 'key'; } catch { return 'key'; } })(),   // station labels: key | all | none (Blood menu)
-  lobuleLayers: { zones: false, lymph: true },   // the Lobule view's own layers (toolbar Layers menu): zone bands, hepatic lymph
-  blood: { look: 'shimmer', phasic: false, chevrons: false, keyChevrons: false },   // look: parcels | shimmer
+  lobuleLayers: { zones: false, lymph: true, bile: true },   // the Lobule view's own layers (toolbar Layers menu): zone bands, hepatic lymph, bile
+  blood: { phasic: false, chevrons: false, keyChevrons: false },
   colorMode: 'pressure',      // pressure | delta | heat | drop | flow | velocity | direction | oxygen | origin | firstpass
   params: defaultParams(),
   frame: null,
@@ -43,6 +44,7 @@ const state = {
   hvpgMeasured: false,        // Explore: the HVPG catheter procedure has run for this patient (the live HVPG shows)
   showHvpg: (() => { try { localStorage.removeItem('pps.showHvpg'); } catch { /* storage unavailable */ } return true; })(),   // The HVPG always shows without measuring it (Settings switch removed 11 Nov 2026; an old saved choice is dropped)
   presenting: false,          // a Presenter script or the tour is running
+  sinusoidWash: false,        // a Presenter slide with `wash`: the sinusoid view washes the wedge's amber from the central vein along the vessel (sinusoid-wash.js)
   dopGate: 'mid',             // where along a stent the Doppler samples: proximal | mid | distal | site (its narrowing)
 };
 
@@ -91,6 +93,23 @@ export function viewIllegal(st = state) {
   if (st.lobule && st.view === 'circuit') return 'lobule over the circuit';
   return null;
 }
+// Only setViewKey writes view, lobule or sinusoid (R08, external production review, 15 Nov 2026). A write of any of them from anywhere else is counted in
+// viewWrites.stray (and logged once); where `globalThis.PPS_STRICT_VIEWS` is on (the unit tests, a development page) it throws, so a writer that bypasses the one
+// legal path, or leaves the three fields in a state viewIllegal names, is found where it is made and not as a flicker in a talk.
+let inViewWriter = false;
+export const viewWrites = { stray: 0, illegal: 0, last: '' };
+const VIEW_FIELDS = new Set(['view', 'lobule', 'sinusoid']);
+function checkViewWrite(keys) {
+  let touched = false;
+  for (let i = 0; i < keys.length; i++) if (VIEW_FIELDS.has(keys[i])) { touched = true; break; }
+  if (!touched) return;
+  const why = !inViewWriter ? `${keys.join(', ')} written outside setViewKey` : viewIllegal(state);
+  if (!why) return;
+  if (inViewWriter) viewWrites.illegal++; else viewWrites.stray++;
+  viewWrites.last = why;
+  if (globalThis.PPS_STRICT_VIEWS) throw new Error(`store: ${why}`);
+  if (viewWrites.stray + viewWrites.illegal === 1) console.error(`store: ${why}`);
+}
 const VIEW_PATCH = {};   // (kept: set() reads the patch's keys at once and does not keep it)
 /** Go to one of the four views with a single, legal store.set. Writes only the fields that change; returns the key. */
 export function setViewKey(k) {
@@ -102,7 +121,7 @@ export function setViewKey(k) {
   if (state.lobule !== lob) { p.lobule = lob; n++; }
   if (state.sinusoid !== sin) { p.sinusoid = sin; n++; }
   if (state.view !== view) { p.view = view; n++; }
-  if (n) store.set(p);
+  if (n) { inViewWriter = true; try { store.set(p); } finally { inViewWriter = false; } }
   return k;
 }
 export const store = {
@@ -119,6 +138,7 @@ export const store = {
     try {
       if (rest) rev++;
       Object.assign(state, patch);
+      checkViewWrite(keys);
       if (soonKeys.size) for (let i = 0; i < keys.length; i++) soonKeys.delete(keys[i]);   // (heard now, with the newest value: not again after the frame)
       wake(keys);
     } finally { depth--; }
@@ -130,6 +150,7 @@ export const store = {
     try {
       if (key !== 'frame') rev++;
       state[key] = value;
+      checkViewWrite(keys);
       if (soonKeys.size) soonKeys.delete(key);
       wake(keys);
     } finally { depth--; }
@@ -143,6 +164,7 @@ export const store = {
     for (const k in patch) { if (!hasOwn.call(patch, k)) continue; soonKeys.add(k); if (k !== 'frame') rest = true; }
     if (rest) rev++;
     Object.assign(state, patch);
+    for (const k in patch) if (VIEW_FIELDS.has(k)) { checkViewWrite([k]); break; }
     if (!soonAsked) { soonAsked = true; runSoon(wakeSoon); }
   },
   /** A model frame alone (the common set, several a second): the same as set({ frame: f }) without a patch, a key list or a
@@ -169,9 +191,15 @@ export const store = {
  *  pressures too) until the catheter procedure (Measure › HVPG) has measured it for this patient (or Settings › Always show HVPG is on). A Presenter script or
  *  the tour shows it as it is. */
 let hidCache = { base: undefined, set: null };
+// (A patient whose hepatic veins are thrombosed (Budd–Chiari) has no HVPG to measure: the catheter cannot enter, pressure-cuts.js hvBlocked. Its true HVPG stays hidden in Explore
+// whatever has been measured or switched on, so the readouts, cards, chart and screen-reader text all say "not measured" together, as the Tests dock already said "Not measurable".
+// Read per params object: one test per change of patient, not per frame.)
+let blockedFor = { params: null, on: false };
+const blockedNow = (params) => { if (blockedFor.params !== params) blockedFor = { params, on: !!params && hvBlocked(params) }; return blockedFor.on; };
 export function hiddenNow(st = state) {
   const base = st.hiddenReadouts;
-  if (st.mode !== 'explore' || st.hvpgMeasured || st.showHvpg || st.presenting || base?.has('trueHVPG')) return base;
+  if (st.mode !== 'explore' || st.presenting || base?.has('trueHVPG')) return base;
+  if ((st.hvpgMeasured || st.showHvpg) && !blockedNow(st.params)) return base;
   if (hidCache.base !== base || !hidCache.set) hidCache = { base, set: new Set([...(base || []), 'trueHVPG']) };   // alloc-rare: when the view's hidden set changes, not per frame
   return hidCache.set;
 }
@@ -210,6 +238,7 @@ export function onParamChange(fn) { changeHooks.push(fn); }
 /** Apply a params patch (object or function). Records history unless {history:false}. */
 const NO_OPTS = Object.freeze({});
 const HOOK_ARG = { label: '', history: true };   // (what the hooks are given: they read it as they are called)
+/** @param {object | ((p: any) => any)} patchOrFn @param {{ settle?: boolean, history?: boolean, label?: string }} [opts] */
 export function updateParams(patchOrFn, opts = NO_OPTS) {
   const settle = opts.settle ?? false, history = opts.history ?? true, label = opts.label ?? '';
   const prev = state.params;
@@ -238,4 +267,8 @@ export function redo() {
   return h.label || true;
 }
 export function clearHistory() { past.length = 0; future.length = 0; }
+/** The undo and redo stacks as they stand, to be put back by loadHistory (a talk keeps the viewer's own while its slides change the patient). */
+export const saveHistory = () => ({ past: past.slice(), future: future.slice() });
+/** Puts back what saveHistory kept. */
+export function loadHistory(s) { past.length = 0; future.length = 0; if (s) { past.push(...s.past); future.push(...s.future); } }
 

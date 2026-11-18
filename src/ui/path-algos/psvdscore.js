@@ -8,16 +8,16 @@
 import { scoreKit } from './helpers.js';
 
 const rows = [
-  { k: 'sg', n: 'Clinical signs of portal hypertension', d: 'Specific: medium or large esophageal varices, gastric varices, portosystemic collaterals, SSM >40 kPa without a myeloproliferative neoplasm. Non-specific: ascites, small varices, platelets <150, splenomegaly.', o: [['Specific', 3], ['Non-specific', 2], ['None', 0]] },
+  { k: 'sg', n: 'Clinical signs of portal hypertension', d: 'Specific: medium or large varices, gastric varices, collaterals, SSM >40 kPa without MPN. Non-specific: ascites, small varices, platelets <150, splenomegaly.', o: [['Specific', 3], ['Non-specific', 2], ['None', 0]] },
   { k: 'hi', n: 'Liver histology', d: 'Obliterative portal venopathy or other vascular lesions.', o: [['Major lesion', 5], ['Minor lesion', 2], ['Normal', 0]] },
-  { k: 'ac', n: 'Associated conditions', d: 'Conditions linked to PSVD.', o: [['Present', 1], ['Absent', 0]] },
+  { k: 'ac', n: 'Associated conditions', o: [['Present', 1], ['Absent', 0]] },
   { k: 'cc', n: 'Concomitant cause of cirrhosis', o: [['Present', -1], ['Absent', 0]] },
 ];
-const zones = [[0, 2, 'No PSVD or NCPF', 'n'], [3, 4, 'Possible', 'warn'], [5, 99, 'Definite', 'bad']];
+const zones = [[0, 2, 'Not PSVD', 'n'], [3, 4, 'Possible', 'warn'], [5, 99, 'Definite', 'bad']];
 const verdict = (t) => (t >= 5
   ? { head: 'Definite PSVD or NCPF', tone: 'bad', z: 2, next: '' }
   : t >= 3
-    ? { head: 'Possible PSVD or NCPF', tone: 'warn', z: 1, next: 'Further investigation (biopsy, elastography), referral to an expert vascular liver center, and follow-up for new signs.' }
+    ? { head: 'Possible PSVD or NCPF', tone: 'warn', z: 1, next: 'Biopsy or elastography, referral to an expert vascular liver center, and follow-up for new signs.' }
     : { head: 'Not PSVD or NCPF', tone: 'n', z: 0, next: '' });
 
 const defaults = { sg: 1, hi: 1, ac: 1, cc: 1 };

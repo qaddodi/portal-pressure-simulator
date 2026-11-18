@@ -6,10 +6,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { foldPlan, FOLD_EASE } from '../src/ui/pill-motion.js';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const main = read('../src/ui/main.js');
-const css = read('../styles/app.css');
+const css = appCss();
 const fn = (name) => main.match(new RegExp(`function ${name}\\([^)]*\\) \\{([\\s\\S]*?)\\n\\}`))[1];
 
 test('nothing hides or rebuilds the pill on the way: it stays in its home above the dock and only folds, in one task', () => {

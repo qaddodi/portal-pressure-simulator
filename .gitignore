@@ -4,3 +4,4 @@ _*.mjs
 __pycache__/
 test-results/
 deck-sweep/
+node_modules

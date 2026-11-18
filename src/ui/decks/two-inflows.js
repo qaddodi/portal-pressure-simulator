@@ -8,12 +8,7 @@ const INFLOW = { kind: 'flows', of: 'inflow' };
 
 export const TWO_INFLOWS = {
   id: 'two-inflows', level: 'foundation', title: 'Dual blood supply of the liver', minutes: 8,
-  objectives: [
-    'Give the portal venous and hepatic arterial shares of hepatic blood flow and oxygen delivery',
-    'Explain the hepatic arterial buffer response',
-    'Predict hepatic artery flow after portal vein thrombosis and after TIPS',
-    'Explain why the bile ducts depend on the hepatic artery',
-  ],
+  objectives: ['Give the portal venous and hepatic arterial shares of blood flow and oxygen delivery', 'Explain the hepatic arterial buffer response', 'Predict hepatic artery flow after portal vein thrombosis and after TIPS'],
   checks: [
     ['What share of hepatic blood flow comes from the portal vein?', 'About three quarters. The hepatic artery supplies about a quarter.'],
     ['What does the hepatic artery do when portal flow falls?', 'It dilates and its flow rises: the hepatic arterial buffer response.'],
@@ -52,15 +47,15 @@ export const TWO_INFLOWS = {
       tool: { kind: 'path', of: 'pvtgrid', short: 'Long-term grid', patient: { r: 'no', c: 'maj' } },
       kicker: 'The arterial buffer', site: 'pre', title: 'The arterial buffer maintains perfusion; anticoagulation treats the thrombus',
       line: 'The arterial buffer maintains hepatic perfusion but does not treat the thrombus. His myeloproliferative neoplasm is a permanent major risk factor, so the grid calls for long-term, therapeutic-dose anticoagulation.',
-      notes: 'The hepatic artery keeps the liver perfused while the portal vein is occluded, but the thrombus itself needs treatment. For portal vein thrombosis (PVT) without cirrhosis, Baveno VIII starts anticoagulation at once at a therapeutic dose (9.6) and gives at least 6 months (9.8). Whether to go on depends on the risk factors (9.10, Fig. 5). Two questions place the patient: was the thrombosis provoked by a reversible factor in the last 3 months, and is there a permanent factor, and is it major? A myeloproliferative neoplasm and thrombophilia are the examples of major permanent factors the guideline gives (9.5). A permanent major factor calls for long-term anticoagulation at a therapeutic dose (9.10a, strong); without one, long-term lower-dose DOACs can be considered (9.10b, weak); stopping can be considered after a reversible factor resolves and with no permanent one (9.10c, weak). This man has no reversible factor and a JAK2-positive neoplasm, so he falls in the red cell: therapeutic dose, long term.',
+      notes: 'The hepatic artery keeps the liver perfused while the portal vein is occluded, but the thrombus itself needs treatment. For portal vein thrombosis (PVT) without cirrhosis, Baveno VIII recommends therapeutic anticoagulation started at once (9.6) and given for at least 6 months (9.8). Whether to go on depends on the risk factors (9.10, Fig. 5). Two questions place the patient: was the thrombosis provoked by a reversible factor in the last 3 months, and is there a permanent factor, and is it major? A myeloproliferative neoplasm and thrombophilia are the examples of major permanent factors the guideline gives (9.5). A permanent major factor calls for long-term anticoagulation at a therapeutic dose (9.10a, strong); without one, long-term lower-dose DOACs can be considered (9.10b, weak); stopping can be considered after a reversible factor resolves and with no permanent one (9.10c, weak). This man has no reversible factor and a JAK2-positive neoplasm, so he falls in the red cell: therapeutic dose, long term.',
       ask: ['A man with a JAK2-positive myeloproliferative neoplasm has PVT. Is 6 months of anticoagulation enough?', 'No. A permanent major risk factor calls for long-term anticoagulation at a therapeutic dose (Baveno VIII 9.10a).'],
     },
     {
       id: 'switch', pill: false, cam: 'portal', tool: INFLOW, data: 'tiles', tiles: ['liver'], key: ['liver'], delta: 'dual',
       compare: [{ label: 'Buffer on', own: true, params: { habrStrength: 1 } }, { label: 'Buffer off', params: { habrStrength: 0 } }],
       kicker: 'The arterial buffer', site: 'pre', title: 'Without the buffer, hepatic blood flow falls much further',
-      line: 'Hepatic arterial flow adjusts to portal flow, never the reverse. With the buffer switched off, impossible in a patient, sinusoidal flow falls to about 40% of normal.',
-      notes: 'The buffer cannot be switched off in a patient, but it can in the model: sinusoidal flow falls to about 40% of normal. The regulation is one-way. Hepatic arterial flow adjusts to portal flow, but portal flow is not regulated by the liver; it is set by the splanchnic (mesenteric and splenic) arterioles. On the figure the hepatic artery and the sinusoids narrow when the buffer is off.',
+      line: 'Hepatic arterial flow adjusts to portal flow, never the reverse. With the buffer switched off, impossible in a patient, sinusoidal flow falls to about 43% of normal.',
+      notes: 'The buffer cannot be switched off in a patient, but it can in the model: sinusoidal flow falls to about 43% of normal. The regulation is one-way. Hepatic arterial flow adjusts to portal flow, but portal flow is not regulated by the liver; it is set by the splanchnic (mesenteric and splenic) arterioles. On the figure the hepatic artery and the sinusoids narrow when the buffer is off.',
       ask: ['Why does the same thrombus reduce sinusoidal flow far more with the buffer off?', 'The hepatic artery can no longer dilate, so nothing replaces the portal share, about three quarters of the flow.'],
     },
     {
@@ -75,7 +70,7 @@ export const TWO_INFLOWS = {
     {
       id: 'cirr', lens: 'origin', preset: 'cirr-decomp', cam: 'liver', tool: HA('dual'), data: 'tiles', tiles: ['liver', 'shunt'], key: ['shunt'], delta: 'dual',
       kicker: 'Cirrhosis and TIPS', site: 'sin', title: 'In cirrhosis the hepatic artery supplies a larger share',
-      vignette: 'A 60-year-old man with alcohol-associated cirrhosis has ascites controlled on spironolactone and furosemide, large esophageal varices and platelets of 60,000/µL. He could not tolerate a beta-blocker.',
+      vignette: 'A 60-year-old man with alcohol-associated cirrhosis has ascites controlled on spironolactone and furosemide, large esophageal varices and platelets of 59,000/µL. He could not tolerate a beta-blocker.',
       line: 'Portosystemic collaterals divert {shunt} of portal flow from the liver. The hepatic [artery](ha) dilates and supplies a larger share, but sinusoidal flow is only {liver} of normal.',
       notes: 'As cirrhosis advances, more portal flow is diverted through collaterals and the hepatic artery supplies a growing share of hepatic blood flow; its peak systolic velocity rises. First-pass hepatic clearance of gut-derived toxins and drugs falls. The fall in total sinusoidal flow adds to the loss of hepatic function.',
       ask: ['Why does hepatic artery velocity rise in advanced cirrhosis?', 'Portal perfusion of the liver falls, and the hepatic arterial buffer response dilates the artery.'],
@@ -93,9 +88,9 @@ export const TWO_INFLOWS = {
       id: 'relation', preset: 'pvt-acute', cam: 'portal', mark: { edges: ['PV_TRUNK'], label: 'Clot' },
       tool: { kind: 'curve', x: 'clot', xFrom: 0, xTo: 100, patient: { preset: 'healthy' }, param: 'thrombus.PV_TRUNK', from: 0, to: 1, step: 0.1, lines: ['liver'],
         against: { label: 'No buffer', params: { habrStrength: 0 }, own: 'With the buffer' } },
-      kicker: 'Summary', site: 'pre', title: 'Without the buffer, the fall in hepatic blood flow doubles',
-      line: 'With the portal vein occluded, the buffer maintains {liver} of normal sinusoidal flow. Without it, sinusoidal flow would fall below half of normal.',
-      notes: 'Each point is a normal liver with thrombus filling more of the portal vein lumen. Both lines barely change until the thrombus fills about half the lumen. With the buffer, the hepatic artery dilates as portal flow falls and most hepatic blood flow is preserved; with the buffer switched off in the model, the loss is about twice as large. This is why acute portal vein thrombosis rarely causes hepatic infarction, and why hepatic artery thrombosis, which nothing buffers, does more harm. (Iranpour 2016: hepatic artery flow and velocity rise when portal flow falls. Baveno VIII, AASLD 2024 and EASL 2025 do not give these numbers.)',
+      kicker: 'Summary', site: 'pre', title: 'Without the buffer, hepatic blood flow falls below half of normal',
+      line: 'With the portal vein occluded, the buffer maintains {liver} of normal sinusoidal flow. Without it, sinusoidal flow would fall to about 43%, below half of normal.',
+      notes: 'Each point is a normal liver with thrombus filling more of the portal vein lumen. Both lines barely change until the thrombus fills about half the lumen. With the buffer, the hepatic artery dilates as portal flow falls and most hepatic blood flow is preserved; with the buffer switched off in the model, the fall is nearly three times as large. For the patient on the clot slide, whose collaterals carry a little portal blood, sinusoidal flow is 77% of normal with the buffer and 43% without (a fall of 20 points against 54); at the end of the lines, a normal liver with the vein closed keeps 69% with the buffer and 37% without. This is why acute portal vein thrombosis rarely causes hepatic infarction, and why hepatic artery thrombosis, which nothing buffers, does more harm. (Iranpour 2016: hepatic artery flow and velocity rise when portal flow falls. Baveno VIII, AASLD 2024 and EASL 2025 do not give these numbers.)',
       ask: ['Why is most hepatic blood flow preserved in acute portal vein thrombosis?', 'The hepatic artery dilates as the portal flow falls: the arterial buffer response.'],
     },
     {

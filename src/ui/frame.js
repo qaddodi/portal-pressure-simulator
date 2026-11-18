@@ -51,7 +51,11 @@ let fin = new Batch(), finalNow = null;
 let reads = new Batch(), readsNow = null;
 let next = 1, pending = 0;
 let spareQ = new Batch(), spareL = new Batch(), spareF = new Batch(), spareR = new Batch();
-const counts = new Map(), rates = new Map(), draws = new Map(), drawRates = new Map(), totals = { asks: {}, drawn: {}, ms: {} };
+const counts = new Map(), rates = new Map(), draws = new Map(), drawRates = new Map(), totals = { asks: {}, ran: {}, drawn: {}, ms: {} };
+// (The frames each tag ran in, apart from its callbacks: the figure asks for an early and a late callback in one frame, so its callbacks a
+// second were twice its frames, and ?perf read the difference as frames the app skipped on purpose (15 Nov 2026, his Safari paste: "asked
+// for 19 frames/s, drew 10/s" at 8.4 fps). ranAt: the frame each tag last counted in.)
+const ranIn = new Map(), ranRates = new Map(), ranAt = new Map();
 let windowAt = 0, frames = 0, fps = 0, allFrames = 0;
 // Frame watchers (watchFrames). `parts` is the running frame's callbacks (surface, phase, ms), kept only while someone watches.
 // `chained`: the last frame asked for another, so the interval to this one is a frame time; `lastNow`: that frame's timestamp.
@@ -95,6 +99,14 @@ export function setFramePump(on) {
     cancelAnimationFrame(rafId); rafId = 0; pending = 0;
     if (queue.size || late.size || fin.size || reads.size) pending = askFrame();
   }
+}
+
+/** The page's clocks are being swapped (test-clock.js, pps.testClock): a frame asked of the browser's own clock is taken back, `swap()` runs, and the
+ *  frame is asked again of the new one. Else the scheduler waits for a frame the old clock, in a pane the browser is not drawing, may never send. */
+export function retimeFrames(swap) {
+  if (rafId) { cancelAnimationFrame(rafId); rafId = 0; pending = 0; }
+  if (pumpT) { clearTimeout(pumpT); pumpT = 0; pending = 0; }
+  try { swap(); } finally { if (!pending && (queue.size || late.size || fin.size || reads.size)) pending = askFrame(); }
 }
 
 function flush(now) {
@@ -167,6 +179,7 @@ function flush(now) {
   if ((queue.size || late.size || fin.size || reads.size || mayDue() || FPS_FORCE) && !pending && !(FPS_FORCE && document.hidden)) pending = askFrame();
   else if (!pending) mayTimer();
   chained = !!pending;
+  if (renderWatchers.size && !pump) sendRender();   // (?perf: the browser's rendering after this frame's script)
 }
 
 // (Rev 2 §2.8: each callback's own time is read only where something uses it: every callback while frames are watched (?perf, the
@@ -181,6 +194,7 @@ let timeFrame = false;
 export const framesTimed = () => timeFrame;
 // (The early batch runs by priority, 0 then 2 then 3, so the one rule judges the lower ones with the higher ones' time already spent.)
 const EARLY_PASSES = [0, 2, 3], ONE_PASS = [-1];
+function noteRan(tag) { if (ranAt.get(tag) !== allFrames) { ranAt.set(tag, allFrames); ranIn.set(tag, (ranIn.get(tag) || 0) + 1); totals.ran[tag] = (totals.ran[tag] || 0) + 1; } }
 function run(batch, now, phase) {
   const passes = phase === 'early' ? EARLY_PASSES : ONE_PASS;
   for (let p = 0; p < passes.length; p++) runPass(batch, now, phase, passes[p]);
@@ -198,6 +212,7 @@ function runPass(batch, now, phase, prio) {
     batch.cbs[i] = null; batch.tags[i] = null; batch.size--;
     if (phase === 'early' && shedding(tag)) { queue.add(batch.ids[i], tag, cb); continue; }   // (carried to the next frame: see the watchdog)
     counts.set(tag, (counts.get(tag) || 0) + 1); totals.asks[tag] = (totals.asks[tag] || 0) + 1;
+    noteRan(tag);
     const learn = phase === 'early' && prio > 0, timed = timeFrame || learn;
     const t0 = timed ? performance.now() : 0;
     try { if (gpuProbe.on) probed(tag, cb, now); else cb(now); } catch (e) { rethrow(e); }   // one surface's error never stops the others
@@ -220,6 +235,30 @@ const ends = new Set(), endF = { now: 0, gap: 0, script: 0 };
 let lastTask = 0;
 /** Calls fn({ now, gap, script }) at the end of every frame, cheaply (no parts; the object is reused, read it in the call). Returns the stop. */
 export function onFrameEnd(fn) { ends.add(fn); return () => ends.delete(fn); }
+// ── After the script: the browser's own rendering of a frame (15 Nov 2026, his Safari paste: 102 ms frames, 15 ms of script, 4 ms of GPU) ──
+// A frame's script is only the first part of its time. After the callbacks the browser does its own work in the same task: style, layout and
+// paint of what the frame changed, and the hand-over of every WebGL canvas drawn in it (Safari waits there for its GPU process to run the
+// frame's GL calls). A message posted at the frame's end runs once that is done, so its delay is that work, plus any task queued ahead of it.
+// watchRender(fn) calls fn(frame, ms) for each frame it measures (one in flight at a time); nothing is posted while nobody listens (?perf only).
+const renderWatchers = new Set();
+let renderPort = null, renderSent = 0, renderOf = 0;
+/** Calls fn(frameNo, ms) with each measured frame's time after its script (the browser's rendering). Returns the stop. */
+export function watchRender(fn) { renderWatchers.add(fn); return () => renderWatchers.delete(fn); }
+function renderArrived() {
+  const ms = performance.now() - renderSent;
+  renderSent = 0;
+  for (const w of renderWatchers) try { w(renderOf, ms); } catch (e) { rethrow(e); }
+}
+function sendRender() {
+  if (renderSent) return;
+  if (!renderPort) {
+    if (typeof MessageChannel === 'undefined') return;
+    const ch = new MessageChannel();   // alloc-rare: once, the first time the ?perf readout listens
+    ch.port1.onmessage = renderArrived; /** @type {any} */ (ch.port1).unref?.(); renderPort = ch.port2;   // (unref: Node, the tests; no such call in a browser)
+  }
+  renderOf = allFrames; renderSent = performance.now();
+  renderPort.postMessage(0);
+}
 /** The frames the scheduler has run since the page opened (a stamp for "once a frame"). */
 export const frameCount = () => allFrames;
 
@@ -228,12 +267,19 @@ export const frameCount = () => allFrames;
 // 240, nearest of the rates screens run at: a late frame in Safari is followed by a short one, so the shortest ones lie). Until it is
 // known the budget is 120 Hz's. screen.refreshRate (a few browsers have it) is taken as the panel's own rate when it is given.
 export const REFRESH_RATES = [30, 48, 50, 60, 72, 75, 90, 100, 120, 144, 165, 240];
+/** A measured cadence (Hz) as a screen's rate: the nearest of REFRESH_RATES when it is within 12% of one, else the cadence itself, rounded.
+ *  (15 Nov 2026: every cadence under 30 was read as 30, so frames 50 or 90 ms apart read "page frames at 30 Hz", which looked like Safari's
+ *  30 fps hold when it was not one.) */
+export function snapRate(hz) {
+  let best = REFRESH_RATES[0];
+  for (let i = 1; i < REFRESH_RATES.length; i++) if (Math.abs(REFRESH_RATES[i] - hz) < Math.abs(best - hz)) best = REFRESH_RATES[i];
+  return Math.abs(best - hz) <= best * 0.12 ? best : Math.max(1, Math.round(hz));
+}
 /** The refresh rate (Hz) closest to the lower quartile of `dts` (frame intervals, ms), or 0 with too few to tell. */
 export function refreshFrom(dts) {
   const v = dts.filter((d) => d > 2 && d < 100).sort((a, b) => a - b);
   if (v.length < 20) return 0;
-  const hz = 1000 / v[Math.floor(v.length / 4)];
-  return REFRESH_RATES.reduce((a, b) => (Math.abs(b - hz) < Math.abs(a - hz) ? b : a));
+  return snapRate(1000 / v[Math.floor(v.length / 4)]);
 }
 const gapRing = new Float32Array(240);
 let gapN = 0, gapAt = 0, hzNow = 0, hzMax = 0, hzAt = 0;
@@ -244,10 +290,7 @@ function refreshFromRing() {
   for (let i = 0; i < gapN; i++) { const d = gapRing[i]; if (d > 2 && d < 100) gapSort[k++] = d; }
   if (k < 20) return 0;
   gapSort.fill(Infinity, k); gapSort.sort();
-  const hz = 1000 / gapSort[Math.floor(k / 4)];
-  let best = REFRESH_RATES[0];
-  for (let i = 1; i < REFRESH_RATES.length; i++) if (Math.abs(REFRESH_RATES[i] - hz) < Math.abs(best - hz)) best = REFRESH_RATES[i];
-  return best;
+  return snapRate(1000 / gapSort[Math.floor(k / 4)]);
 }
 function noteGap(dt) {
   gapRing[gapAt] = dt; gapAt = (gapAt + 1) % gapRing.length; if (gapN < gapRing.length) gapN++;
@@ -256,7 +299,7 @@ function noteGap(dt) {
 /** The cadence the page's frames are observed at now (Hz; 0 until enough frames have run). A diagnostic: never the budget. */
 export const refreshHz = () => hzNow;
 /** The highest refresh seen offered on this page (Hz): the panel can do at least this, so less now is a throttle. */
-export const refreshMaxHz = () => Math.max(hzMax, +globalThis.screen?.refreshRate || 0);
+export const refreshMaxHz = () => Math.max(hzMax, +(/** @type {Screen & { refreshRate?: number }} */ (globalThis.screen))?.refreshRate || 0);
 /** The intervals of the last frames that ran one after another (ms, oldest first). */
 export const recentGaps = () => { const a = Array.from(gapRing.subarray(0, gapN)); return gapN < gapRing.length ? a : [...a.slice(gapAt), ...a.slice(0, gapAt)]; };
 // The target (recs-production-120hz §1, §5; 2 Nov 2026): one fixed rate the engine holds itself to, never the rate it happens to get.
@@ -288,8 +331,8 @@ const SHARE_OF = [1, SCRIPT_SHARE, 0.85, SCRIPT_SHARE];
 /** (The prep ledger's share of the frame: the same.) */
 export const WATCH_SHARE = SCRIPT_SHARE;
 export const DEFERRABLE = new Set(['credit', 'timeline', 'scroll-edges', 'inspector', 'dock', 'figkey', 'scale select', 'menu-profile', 'menu', 'vitals-monitor', 'main', 'debug', 'perf readout']);
-export const SECONDARY = new Set(['charts', 'doppler', 'fibroscan', 'plane plot', 'pressure-time', 'flow-time', 'tool-curve', 'tool-causes', 'col-wave', 'scope-tile', 'sinusoid-view', 'lumen']);
-const PRIO = new Map([...[...SECONDARY].map((t) => [t, 2]), ...[...DEFERRABLE].map((t) => [t, 3])]);
+export const SECONDARY = new Set(['charts', 'doppler', 'fibroscan', 'plane plot', 'pressure-time', 'flow-time', 'tool-curve', 'col-wave', 'scope-tile', 'sinusoid-view', 'lumen']);
+const PRIO = new Map([...[...SECONDARY].map((t) => /** @type {[string, number]} */ ([t, 2])), ...[...DEFERRABLE].map((t) => /** @type {[string, number]} */ ([t, 3]))]);
 /** A frame callback's priority by its tag (0, 2 or 3; the may tasks are 1). */
 export const priorityOf = (tag) => PRIO.get(tag) || 0;
 let overStreak = 0, govLevel = 0, govFrameLevel = 0, govShed = 0;
@@ -312,9 +355,14 @@ export function setPageRest(on) { on = !!on; if (on === pageRestOn) return; page
 export function onPageWake(fn) { pageWake.add(fn); return () => pageWake.delete(fn); }
 /** A surface animating on screen (on) or still (off): its frames are never carried over while it animates. */
 export function frameAnimating(tag, on) {
-  const n = (animatingTags.get(tag) || 0) + (on ? 1 : -1);
+  const was = animatingTags.has(tag), n = (animatingTags.get(tag) || 0) + (on ? 1 : -1);
   if (n > 0) animatingTags.set(tag, n); else animatingTags.delete(tag);
+  if (was !== animatingTags.has(tag)) for (const fn of animWatch) fn(tag);
 }
+// (Told when a tag starts or stops animating: main.js tells the model's worker whether a trace that records its samples is scrolling.)
+const animWatch = new Set();
+export function watchAnimating(fn) { animWatch.add(fn); return () => animWatch.delete(fn); }
+export const isAnimating = (tag) => animatingTags.has(tag);
 /** True when the last frame's script went over the share: drop detail that can wait. */
 export const overBudget = () => overLast;
 /** The last frame's main-thread script time (ms), and how many callbacks have been carried over (and forced after CARRY_MAX) since the page opened. */
@@ -361,6 +409,7 @@ const mayRecs = new Map();
 let mayPass = 0;
 const mayCost = new Map(), mayBatch = [];
 const mayStat = { ran: 0, waited: 0, aged: 0 };
+const mayAgedBy = new Map();   // tag -> how many of its runs came past their wait (17 Nov 2026: 3569 of 4615 on his Mac, and nothing said whose; ?perf names the largest)
 let mayT = 0, mayTAt = 0;
 function newMayRec(tag) {
   const m = { tag, fn: null, waited: 0, notBefore: 0, maxWait: MAY_WAIT, at: 0, cancel: () => cancelMay(tag) };   // alloc-rare: once per tag, at its first ask
@@ -381,12 +430,38 @@ export function mayTask(tag, fn, opts) {
   else if (!pending) mayTimer();
   return m.cancel;
 }
+// ── settleGate ──
+// A gate for work made for a state that may keep changing (15 Nov 2026, his Safari ?perf in a time-lapse: the labels' solve ahead and the view
+// switch's pieces were begun again at every change of the patient, every second or two for the whole lapse, and neither ever finished).
+//
+//   const gate = settleGate(ms);   // (frame.js: what a may task asks before it begins work for a state)
+//   gate(key, now)   // ms still to wait before work for `key` may begin: 0 when it may begin now
+//
+// A change that comes after a quiet spell of `ms` or more (or the first key seen) may begin at once, as before: a slide change, a tap, a
+// collateral that opens once. A change that comes less than `ms` after the one before waits until its key has held for `ms`: a patient
+// changing all the while (a time-lapse) makes nothing again until it holds still. A key found changed when the caller comes back from a wait
+// the gate gave is never calm: it changed during the wait, unseen. Pure: no timer, no allocation; the caller asks again.
+export function settleGate(ms) {
+  let key, at = -Infinity, calm = true, waited = false;
+  return (k, now) => {
+    if (k !== key) { calm = !waited && now - at >= ms; key = k; at = now; }
+    const left = calm ? 0 : Math.max(0, at + ms - now);
+    waited = left > 0;
+    return left;
+  };
+}
 /** Drops the may task of `tag` that has not run yet. */
 export function cancelMay(tag) { mays.delete(tag); }
 /** Whether a may task of `tag` waits to run. */
 export const mayWaiting = (tag) => mays.has(tag);
 /** The may tasks run, carried to a later frame and run past their wait since the page opened; the ones waiting now. */
 export const mayStats = () => ({ ...mayStat, queued: mays.size });
+/** The may tasks that ran past their wait most often, [tag, count, predicted ms a run, ms of budget left to a may task a frame], largest first: a task whose cost is over its share runs only when its wait is up. */
+export function mayAgedTop(n = 3) {
+  const out = [];   // alloc-rare: once a second, for the readout
+  for (const [tag, c] of mayAgedBy) out.push([tag, c, mayCost.get(tag) ?? 0, MAY_SHARE * frameBudget()]);
+  return out.sort((a, b) => b[1] - a[1]).slice(0, n);
+}
 function mayDue() {
   if (!mays.size) return false;
   const t = performance.now();
@@ -417,9 +492,10 @@ function runMay(now) {
     if (m.notBefore && m.notBefore > t) continue;
     const used = t - frameT0, aged = m.waited >= m.maxWait;
     if (!aged && used + (mayCost.get(tag) ?? CARRY_SEED_MS) > limit) { m.waited++; mayStat.waited++; continue; }
-    if (aged) mayStat.aged++;
+    if (aged) { mayStat.aged++; mayAgedBy.set(tag, (mayAgedBy.get(tag) || 0) + 1); }   // alloc-rare: a tag's count is made at its first aged run
     mays.delete(tag); mayStat.ran++;
     counts.set(tag, (counts.get(tag) || 0) + 1); totals.asks[tag] = (totals.asks[tag] || 0) + 1;
+    noteRan(tag);
     let more = false;
     try { more = m.fn(Math.max(0, limit - used), now) === true; } catch (e) { rethrow(e); }
     const ms = performance.now() - t, c = mayCost.get(tag);
@@ -458,6 +534,9 @@ function roll(now) {
   for (const [tag, n] of counts) rates.set(tag, Math.round(n * 1000 / span));
   drawRates.clear();
   for (const [tag, n] of draws) drawRates.set(tag, Math.round(n * 1000 / span));
+  ranRates.clear();
+  for (const [tag, n] of ranIn) ranRates.set(tag, Math.round(n * 1000 / span));
+  ranIn.clear();
   fps = Math.round(frames * 1000 / span);
   counts.clear(); draws.clear(); frames = 0; windowAt = now;
 }
@@ -568,6 +647,29 @@ function anyMoving(t) {
 }
 /** True while a move asked to be left alone (holdMotion), or a transition begun with beginMotion has not ended. */
 export const inMotion = () => { const t = wall(); return t < holdUntil || (moving.size > 0 && anyMoving(t)); };
+// A slide change, from the press to its landing (presenter.js transition): the page is waiting for the cards and the camera, a frame at a time,
+// and any piece of background work that starts in those waits (the lobule's pictures made ahead, the vessels' envelopes and stretches, the
+// morph's checks) holds the page for 100 to 250 ms a piece, so the camera set off late and its first frames came after it (16 Nov 2026, the
+// stall of 450 to 800 ms on every slide change). Such work asks settling(), not inMotion(): inMotion() also holds the labels' values and the
+// like, which must keep up with a change of patient as it eases in.
+const changes = new Map();   // (change token → the wall time it must end by)
+export const CHANGE_MAX_MS = 8000;
+/** A slide change begins: background work that can wait (settling) waits until the returned end() is called, or CHANGE_MAX_MS passes. */
+export function beginChange(maxMs = CHANGE_MAX_MS) {
+  // alloc-rare: once per slide change, when it begins; never in a frame
+  const tok = {};
+  changes.set(tok, wall() + maxMs);   // alloc-rare: the change's record, made with its begin
+  return () => { changes.delete(tok); };   // alloc-rare: the change's end function, made with its begin
+}
+/** True while a slide change runs (begun with beginChange, and not past its longest). */
+export const inChange = () => {
+  if (!changes.size) return false;
+  const t = wall();
+  for (const [tok, until] of changes) if (t >= until) changes.delete(tok);
+  return changes.size > 0;
+};
+/** Whether background work that can wait should wait: a move holds the page (inMotion), or a slide change runs (inChange). */
+export const settling = () => inMotion() || inChange();
 /** Calls fn once no move holds the page (polled with timers, never a frame loop); returns a cancel. */
 export function afterMotion(fn, poll = 60) {
   let t = 0, dead = false;
@@ -589,14 +691,15 @@ export const finalFrameFor = (tag) => askers.final.get(tag) || keepAsker(askers.
 // A surface that paces itself (asks every frame, draws only some) notes each frame it really drew, for perf().drawn.
 export function noteDraw(tag) { draws.set(tag, (draws.get(tag) || 0) + 1); totals.drawn[tag] = (totals.drawn[tag] || 0) + 1; }
 
-// Per-surface callbacks per second over the last full second, the frames each pacing surface really drew in it,
+// Per-surface callbacks per second over the last full second (surfaces), the frames each tag ran in (framesRan: one a frame however many
+// callbacks it had in it), the frames each pacing surface really drew in it,
 // which surfaces wait for a frame, and the running totals of both since the page opened (for checks over any span;
 // totals.frames: the browser frames the scheduler ran, so a surface's draws can be held against the frames on offer;
 // totals.ms: the main-thread time each surface's callbacks took, in ms: CPU time issuing work, not the GPU's own time).
 export function perf() {
   roll(performance.now());
   // (A report: read by the ?perf readout, the gates and the tests, never by a frame of the figure.)
-  return { fps, surfaces: Object.fromEntries(rates), drawn: Object.fromEntries(drawRates), totals: { asks: { ...totals.asks }, drawn: { ...totals.drawn }, ms: { ...totals.ms }, frames: allFrames }, waiting: [...fin.waitingTags(late.waitingTags(queue.waitingTags(new Set())))],   // alloc-rare: a report for the ?perf readout, the gates and the tests
+  return { fps, surfaces: Object.fromEntries(rates), framesRan: Object.fromEntries(ranRates), drawn: Object.fromEntries(drawRates), totals: { asks: { ...totals.asks }, ran: { ...totals.ran }, drawn: { ...totals.drawn }, ms: { ...totals.ms }, frames: allFrames }, waiting: [...fin.waitingTags(late.waitingTags(queue.waitingTags(new Set())))],   // alloc-rare: a report for the ?perf readout, the gates and the tests
     get inputToPaint() { return inputMeasure(); }, frames: frameRecording };   // alloc-rare: part of the same report
 }
 
@@ -655,7 +758,9 @@ export const SAVER_MS = 1000 / 15 - 4;
 // (labels, cards, the instruments' readings) are not on those canvases and stay sharp. 1 (Full) changes nothing.
 // 'auto' (30 Oct): the anatomy follows its zoom (stage.js autoScale), 100% zoomed out down to 10% zoomed in; the lobule and the
 // sinusoid stay at Full.
+/** @type {(number | 'auto')[]} */
 export const RENDER_SCALES = ['auto', 1, 0.75, 0.5, 0.25];
+/** @type {number | 'auto'} */
 let renderK = 1;
 try { const t = localStorage.getItem('pps.renderScale'), v = t === 'auto' ? t : +t; if (RENDER_SCALES.includes(v)) renderK = v; } catch (e) { caught('frame:577', e); /* storage unavailable */ }
 const renderSubs = new Set();
@@ -675,18 +780,18 @@ export function onRenderScale(f) { renderSubs.add(f); return () => renderSubs.de
 // move: the share while the view moves (a pinch, a pan, a glide), Full again once it has settled; 1 = off.
 // glow: the share the glow layers (an organ's soft glow, a lit organ's warm edge) are drawn at, the vessels and organs at Full.
 // cap: the most megapixels the canvas holds (a big screen draws fewer); 0 = off. The default is per device since 11 Nov 2026 (Mohammad:
-//   "Default Mac to 2MP, iPad to 2MP and iPhone to 1MP for now"); since 12 Nov 2026 ("default phone 0.5MP and default Mac 1.5MP", for heat)
-//   1.5 on a Mac and an iPad (iPad Safari names itself a Mac), 0.5 on a phone (capDefault below). It was 8
+//   "Default Mac to 2MP, iPad to 2MP and iPhone to 1MP for now"); 12 Nov 2026 ("default phone 0.5MP and default Mac 1.5MP", for heat);
+//   16 Nov 2026 (Mohammad: "On iPhone make Sharper the standard default one and move the scale accordingly"): 1.5 MP on every device, a
+//   phone's old "Sharper" step is now its Standard (capDefault below), and the words move with it (fig-detail-words.js). It was 8
 //   since 1 Nov 2026 (the GPU move, step 4: a pixel budget). Settings › Figure size still picks any step; a choice is stored (pps.fig.cap),
 //   and only the device's own default stores nothing.
 // floor: the lowest share Auto goes to (10%, 25% or 50%).
 // adapt: after each move, one step lower if the frames came slowly, one step back up when they came at the screen's pace.
 export const FIG_OPTS = { move: [1, 0.75, 0.5, 0.25], glow: [1, 0.5, 0.25], cap: [8, 0, 0.25, 0.5, 1, 1.5, 2, 3, 4, 6], adapt: [false, true], floor: [0.1, 0.25, 0.5] };
-/** Whether this device is a phone (an iPhone, an iPod, an Android phone), by its user agent: the figure's size and the blur default by it. */
-export const isPhone = () => /iPhone|iPod|Android.*Mobile/.test((typeof navigator !== 'undefined' && navigator?.userAgent) || '');
-// The cap's default for this device: a phone 0.5 MP, a Mac, an iPad and anything else 1.5 MP (12 Nov 2026).
-const capDefault = isPhone() ? 0.5 : 1.5;
-/** The value a figure option has when nothing is chosen: the first of FIG_OPTS[k], but the cap's is the device's (capDefault). */
+// The cap's default, one for every device: 1.5 MP (a phone's was 0.5 from 12 Nov 2026; its old "Sharper" step is its Standard since 16 Nov).
+// A phone's own frame cost is held by the move tiers and Adapt (adapt-tier.js), not by a lower still picture.
+const capDefault = 1.5;
+/** The value a figure option has when nothing is chosen: the first of FIG_OPTS[k], but the cap's is capDefault. */
 export const figDefault = (k) => (k === 'cap' ? capDefault : FIG_OPTS[k][0]);
 const figOpts = { move: 1, glow: 1, cap: capDefault, adapt: false, floor: 0.1 };
 for (const k of Object.keys(figOpts)) {
@@ -707,17 +812,14 @@ export function setFigOpt(k, v) {
 // glassCache: the callouts' GPU glass keeps each callout's box, fade and shadow until something says they changed (glass-gl.js).
 // creditLean: in Present, the corner credit's once-a-second look runs only when the layout may have changed (credit.js). ON by default since
 //   31 Oct (laptop heat H7): the look measures every card and label, and in Present it ran every second whatever had happened.
-// pinchReuse: while a hand zooms, all but one in 2 (2) or in 3 (3) of the one-pass zoom frames lay the last shaded picture again,
-//   moved and scaled to the view now (veins-gl.js reuseDraw); a zoom out, which uncovers the edges, is shaded every frame.
 // upscale: under Full, the anatomy's canvas stays at Full and the figure, drawn at its share into the renderer's own buffer, is upscaled
 //   onto it by a sharper filter than the browser's (veins-gl.js UP_FS). The lobule and the sinusoid are not included.
 // lymphBoxes: in the lobule with the GPU's vessels, the lymph's layer is cleared and drawn again only in the tiles its drops left or
 //   reached, while nothing else on it changed (lobule-zoom.js lyKey).
 // lightArt: the colon's and small bowel's lines with about half their points, none more than 0.05 units off (stage.js syncArtLite).
-// pinchLow: a zoom frame under a hand draws the vessel layer at PINCH_LOW_K of its width and height and stretches it; the view a
-//   pinch stops at is drawn at Full (veins-gl.js lowPass). Pinch frame reuse, when on, takes those frames instead.
 // (The first of a switch's values is its default.)
-export const FIG_LAB = { motion60: [true, false], glassCache: [false, true], creditLean: [true, false], lymphBoxes: [false, true], pinchReuse: [0, 2, 3], upscale: [false, true], lightArt: [false, true], pinchLow: [false, true] };
+export const FIG_LAB = { motion60: [true, false], glassCache: [false, true], creditLean: [true, false], lymphBoxes: [false, true], upscale: [false, true], lightArt: [false, true] };
+/** @type {Record<string, number | boolean>} */
 const figLabs = Object.fromEntries(Object.entries(FIG_LAB).map(([k, v]) => [k, v[0]]));
 for (const k of Object.keys(figLabs)) {
   try { const t = localStorage.getItem(`pps.fig.${k}`), v = t === 'true' ? true : t === 'false' ? false : +t; if (t != null && FIG_LAB[k].includes(v)) figLabs[k] = v; } catch (e) { caught('frame:631', e); /* storage unavailable */ }
@@ -738,8 +840,6 @@ try { for (const k of ['pps.vesselRenderer', 'pps.vesselTube', 'pps.vesselMesh']
 // (Motion at 60: a frame of steady motion is skipped when the last was drawn under 10 ms ago. A 120 Hz screen's frames come 8.3 ms
 // apart, so every other one is drawn; a 60 Hz screen's 16.7 ms, so all of them, as before; a 90 Hz screen's 11.1 ms, all of them.)
 export const MOTION60_MS = 10;
-/** Vessels lower while pinching: the share of the layer's width and height (0.71: half its pixels). */
-export const PINCH_LOW_K = 0.71;
 /** The least time between two drawn frames of steady motion: 0 (every frame) unless Battery saver or Motion at 60 is on. */
 export const paceMs = () => frameGapFor('glide');
 

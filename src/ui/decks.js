@@ -50,6 +50,9 @@
 //                            (pressure drop), 'delta' (change from healthy), 'oxygen' (oxygen saturation), 'origin' (blood origin) or 'firstpass' (gut blood the liver cleaned against blood that went round it), with a key under the line; pressure when absent
 //   sites                    readings on the figure: 'pv', 'ivc', 'ra', 'web' (pressures; web: the IVC below a web), 'rLiver', 'rColl' (the circuit's resistors), 'split' (portal blood to liver and shunts)
 //   cath                     the HVPG catheter instead of a camera: 'route', 'free', 'wedge', 'result' or 'blocked'
+//   cathKeep                 true on a slide between two catheter slides (a dive into the lobule between the wedge and the HVPG): the catheter goes out under the move as on any slide, but the
+//                            slide after it brings it back in place, balloon up, and not down the whole route again (presenter-lapse.js cathOut, cathTo)
+//   wash                     true on a sinusoid slide that shows the wedged column: once the view has landed, the wedge's amber spreads from the central vein along the sinusoid (sinusoid-wash.js)
 //   monitor                  the catheter's pressure monitor (Measure › HVPG's tracing) under the slide's words: 'free', 'wedge' or 'result'
 //                            (the built-in talks put it in the data card instead: tool { kind: 'hvpg', catheter: true } on a slide with that cath)
 //   tick                     a few words for what happened at this slide's time point, over its line, at 45°, on a talk trace (else its title)
@@ -81,14 +84,6 @@
 //                            callout, layers }, sinusoid: {} }: where its camera goes and what it calls out (the slide's own call-outs stay at
 //                            its own scale). Sinusoid only on a pressure-lens slide; never on a question, catheter, Doppler, calipers or Circuit
 //                            slide (scale-switch.js; guide 5.10). Built-in slides list it in tests/deck-adopted.js
-//   cutouts                  three scales on one plate: ['lobule', 'sinusoid'] lays the slide out as an atlas plate, the anatomy the main figure
-//                            and a round window beside it for each scale named, the real lobule and sinusoid views drawn from the one model
-//                            state, a ring on the figure and a cone to each window. Use it where the cause and the effect sit at different
-//                            scales (scarring and the varices, a drug and the sinusoid, the wedge and the sinusoids it reads). Mac and iPad on its
-//                            side only (a phone keeps the scale pill); the anatomy must be the slide's main figure (no lobule or sinusoid cam),
-//                            never on a question, visual or Circuit slide; the sinusoid only on a pressure-lens slide (cutouts.js; docs/cutouts.md).
-//                            Built-in slides list it in tests/deck-adopted.js
-//   cutoutSubject            'anatomy' (default), 'lobule' or 'sinusoid': the one scale that runs its blood; the others hold still
 //   caveat                   one short sentence in small print under the line, where the model differs from patients
 //   notes, ask               speaker notes, and [question, expected answer] for the room
 //   whatIf                   { label, param, min, max, step?, ends?: [low, high], unit? }: a slider that drags one parameter
@@ -115,7 +110,7 @@
 //                            figure: spot, normalOutline, ripple, lens 'system' | 'since' (since, sinceLabel), calipers,
 //                            lapseGlow ['bowel'] (those organs glow from the time-lapse's start, while the slide is up), steps (with glowSeq), span, zone,
 //                            mark { organ } and {tokens} in a mark's label, '@sets' in glow/spot/edges;
-//                            words: cite; card: tool kinds 'profile' (from, fromLabel), 'flows', 'curve', 'causes', 'course',
+//                            words: cite; card: tool kinds 'profile' (from, fromLabel), 'flows', 'curve', 'course',
 //                            'plane', 'lumen', 'fluid', Doppler mode/calipers/pair, bands on trace and flowtime;
 //                            panels: visual 'plane', table col 'wave', focusRow
 //
@@ -164,6 +159,10 @@ import { CARVEDILOL } from './decks/carvedilol.js';
 import { ALBUMIN_DECK } from './decks/albumin.js';
 import { BUDD_CHIARI } from './decks/budd-chiari.js';
 import { GRADIENTS } from './decks/gradients.js';
+import { SAME_GRADIENT } from './decks/same-gradient.js';
+import { TWO_LESIONS } from './decks/two-lesions.js';
+import { TIPS_CANDIDACY } from './decks/tips-candidacy.js';
+import { TIPS_COMPLETE } from './decks/tips-complete.js';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {
@@ -212,6 +211,11 @@ export function withOverview(d) {
   return { ...d, slides: [open, place(firstNow), ...rest.map(place), ...check] };
 }
 
+// How many slides the presenter shows for a deck: the deck's own plus the outline slide before them and the quick check after them. Every
+// count a person reads (the Present menu, a row's resume point, the handout) comes from here, never from `slides.length` plus a number.
+// (`mine`: a deck whose slides already carry the outline, as presenter.js makes it for a script the person imported.)
+export const slideCount = (d) => (d?.slides?.length ? (d.mine ? d : withOverview(d)).slides.length : 0);
+
 // The site tag by a slide's title: the level of its block (its site), on the slides of a deck that teaches more than one
 // level, so the learner always knows which type of portal hypertension the slide is about. A deck about cirrhosis alone
 // (every site sinusoidal) carries none, nor does a slide whose level rail already marks the block, or a visual.
@@ -247,6 +251,10 @@ DECKS.push(CARVEDILOL);
 DECKS.push(ALBUMIN_DECK);
 DECKS.push(BUDD_CHIARI);
 DECKS.push(GRADIENTS);
+DECKS.push(SAME_GRADIENT);
+DECKS.push(TWO_LESIONS);
+DECKS.push(TIPS_CANDIDACY);
+DECKS.push(TIPS_COMPLETE);
 
 // Old links and bookmarks: a talk that was merged into another, or renamed, still opens by its old id (?script=<old id>, a shared
 // c/deck-<old id>.html page), at slide 1 of the deck that took its slides. The self-running tour became the Sites presentation, the
@@ -266,13 +274,17 @@ export const TOPICS = [
   ['more', 'More talks', [
     ['two-inflows', 'Dual hepatic blood supply', 'Dual supply'], ['hyperdynamic', 'The circulation in cirrhosis', 'Hyperdynamic'],
     ['prehepatic', 'Portal vein thrombosis', 'PVT'], ['ncph', 'Presinusoidal PH', 'Presinusoidal PH'], ['outflow', 'Postsinusoidal and posthepatic', 'Postsinusoidal'], ['lobule', 'Inside the lobule', 'Lobule'], ['where-resistance', 'Where is the resistance?', 'Find the resistance'],
-    ['endoscopy', 'The varix and insufflation', 'Insufflation'], ['gastric-varices', 'Gastric varices', 'Gastric varices'], ['recompensation', 'Decompensation and recovery', 'Recompensation'], ['pregnancy', 'Cirrhosis in pregnancy', 'Pregnancy'], ['ten-years', 'One patient, ten years', 'Ten years'], ['kidney', 'The kidney in cirrhosis', 'Kidney'], ['carvedilol', 'Carvedilol, start to finish', 'Carvedilol'], ['albumin', 'Albumin: when to give it', 'Albumin'], ['budd-chiari', 'Budd–Chiari syndrome', 'Budd–Chiari'],
+    ['endoscopy', 'The varix and insufflation', 'Insufflation'], ['gastric-varices', 'Gastric varices', 'Gastric varices'], ['recompensation', 'Decompensation and recovery', 'Recompensation'], ['pregnancy', 'Cirrhosis in pregnancy', 'Pregnancy'], ['ten-years', 'One patient, ten years', 'Ten years'], ['kidney', 'The kidney in cirrhosis', 'Kidney'], ['carvedilol', 'Carvedilol, start to stopping', 'Carvedilol'], ['albumin', 'Albumin: when to give it', 'Albumin'], ['budd-chiari', 'Budd–Chiari syndrome', 'Budd–Chiari'],
     ['masld', 'MASLD and portal hypertension', 'MASLD'],
     ['treatment', 'Lowering portal pressure', 'Lowering pressure'], ['choose-treatment', 'Choose the treatment', 'Choose treatment'], ['cause-treated', 'Treating the cause', 'Treating the cause'], ['shunts', 'TIPS and shunts', 'TIPS and shunts'], ['tips-doppler', 'Doppler after TIPS', 'TIPS Doppler'],
     ['meso-rex', 'Pediatric PVT: Meso-Rex bypass', 'Rex bypass'],
     ['tipping', 'Precipitants of decompensation', 'Precipitants'],
     ['day', 'A day in the portal vein', 'Portal day'],
     ['landmark-trials', 'Landmark trials replayed', 'Landmark trials'],
-    ['gradients', 'HVPG, PPG and EUS-PPG compared', 'Compare gradients']]],
+    ['gradients', 'HVPG, PPG and EUS-PPG compared', 'Compare gradients'],
+    ['same-gradient', 'Same gradient, different patient', 'Same gradient'],
+    ['two-lesions', 'Two lesions, one circulation', 'Two lesions'],
+    ['tips-candidacy', 'Who should get a TIPS', 'TIPS candidacy'],
+    ['tips-complete', 'TIPS: indication to follow-up', 'TIPS course']]],
 ];
 for (const [topic, , list] of TOPICS) for (const [id, short, head] of list) { const d = DECKS.find((x) => x.id === id); if (d) Object.assign(d, { topic, short, head }); }

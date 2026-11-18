@@ -2,19 +2,24 @@
 // Used inside a Web Worker (src/worker.js) or on the main thread as a fallback.
 
 import { Engine } from './engine/engine.js';
+import { stentMix } from './engine/stent-ease.js';
 import { easeMove } from './ui/ease.js';
 import { computeMetrics } from './engine/metrics.js';
 import { fingerprintOf } from './engine/fingerprint.js';
 import { detectEvents } from './engine/events.js';
 import { explain } from './engine/explain.js';
+import { healthyAtBedside, restingEngine } from './engine/bedside-rest.js';
 import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js';
+import { EDGES } from './engine/topology.js';
+import { setYours } from './engine/yours.js';
+import { calmTrail } from './engine/trail-calm.js';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
 
 // A state's fingerprint (engine/fingerprint.js: the presenter builds the live model's from the same function).
 const fingerprint = (m, e) => fingerprintOf(m, {
-  P: e.Pf || e.P, Q: e.Qf || e.Q, D: Float32Array.from(e.edges, (ed) => e.diameter(ed.id)), copy: true,
-  params: e.params, fluid: e.starling() });
+  P: e.Pf || e.P, Q: e.Qf || e.Q, D: Float32Array.from(e.edges, (/** @type {{ id: string }} */ ed) => e.diameterShown(ed.id)), copy: true,
+  params: e.params, fluid: e.starling(true) });   // (the shown means, as the metrics read them: the card's made, drained and net are one set of numbers)
 // A time-lapse's params on day d of n: each ramped key eased linearly from its first value to its last.
 // (A dotted key names a nested param: 'fibrosis.R.post'.)
 const rampAt = (ramp, d, n) => ramp.reduce((o, [k, [a, b]]) => {   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; only while a time-lapse ramp is under way
@@ -40,7 +45,12 @@ function mix(a, b, k) {
   }
   return k < 0.5 ? a : b;
 }
-const morphAt = (from, to, k) => ({ ...to, ...Object.fromEntries(MORPH_KEYS.map((key) => [key, mix(from[key], to[key], k)])) });   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; only while an eased change of patient (a morph) is under way
+function morphAt(from, to, k) {
+  const o = { ...to, ...Object.fromEntries(MORPH_KEYS.map((key) => [key, mix(from[key], to[key], k)])) };   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; only while an eased change of patient (a morph) is under way
+  // (A stent's switch is not flipped at the halfway step: its width eases, so the shunt opens and closes with the stent, engine.js stentMix.)
+  if (o.params) for (const id of ['tips', 'dips']) { const m = stentMix(from.params?.[id], to.params?.[id], k); if (m) o.params[id] = m; }
+  return o;
+}
 const easeInOut = easeMove;   // (the patient's change: the app's one in-out curve, ui/ease.js)
 
 // A slide's extra work, asked for by a deck visuals package (slide-ext.js steps), on scratch engines so the chain is untouched:
@@ -80,6 +90,11 @@ function* stepExtras(e, st) {
 // again, to a hair's difference each time) comes back with it, so the restored model is the loaded one; the events a load starts
 // over are cleared as a load clears them.
 const KEPT_MAX = 24;
+export const WARM_DT = 0.008, WARM_STEPS = 1500;   // (a loaded patient's run-in at the bedside clock: 12 s, the steps of the 4× clock, whose means differ by about 0.01 mmHg, see hemoStep)
+/** A settled model run at the bedside clock's own steps for WARM_STEPS (12 s): its beat and breath on, so the readings it gives are the shown means the live
+ *  figure holds. The quiet settle has neither, and its numbers sit 0.1 to 0.6 mmHg off (HVPG, PPG), MAP about 1: a slide's words said 7.7 where the live card
+ *  settled at 7.5 or 8.0 after about 20 s (play-test B12, 16 Nov 2026). Every state the page is handed (a slide's, a patient menu's) is read from here. */
+export function atBedside(e) { e.beat = true; for (let i = 0; i < WARM_STEPS; i++) e.step(WARM_DT); }
 const REFS = ['refP', 'refQ', 'Vbase'];
 function* loadPresetKept(e, kept, id, opts) {
   const key = `${id}|${opts.days ?? ''}|${e.params.seed}`, k = kept.get(key);
@@ -103,8 +118,9 @@ export const hemoStep = (pulse, speed) => (pulse ? (speed >= 4 ? 0.008 : 0.004) 
 // The history's step (the bedside clock's own 4 ms), the longest window it will make, its run-in before the window, and the work it does between ticks.
 const HIST_DT = 0.004, HIST_MAX_S = 14, HIST_RUNIN_S = 1.5, HIST_SLICE_MS = 6;
 
+const PROBE_IDS = new Set(EDGES.map((e) => e.id));   // alloc-rare: made once at load
 export function createCore(post) {
-  let eng = new Engine();
+  let eng = restingEngine();   // (a healthy patient at the bedside's rest: its readings hold still from the first frame, bedside-rest.js)
   let running = true;
   let speed = 1;
   let clock = 'hemo'; // 'hemo' | 'disease'
@@ -124,6 +140,9 @@ export function createCore(post) {
   const MORPH_PARAMS_MS = 250;
   // Until this time (ms) every tick also relaxes a hidden copy of the model quietly, so a live change settles while the clock runs on.
   let relaxUntil = 0;
+  // A trace that draws the samples as they come (the Doppler, the pressure trace, the vitals strip) runs a fraction of a second behind the
+  // newest one, so while the page says one scrolls the frames go out at every check, moved or not. Until a page says, as before.
+  let traces = true;
   let beat = true; // the heartbeat always runs (the Over time trace is beat to beat from the start)
   const newSamples = () => ({ t: [], ph: [], vel: [], pvVel: [], hvVel: [], whvp: [], hvpg: [], ...Object.fromEntries(SAMPLE_NODES.map((n) => [n, []])) });   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; a sample set is begun when a history or a stretch of samples starts
 
@@ -240,7 +259,7 @@ export function createCore(post) {
     wstat.frames++; if (paramsDirty) wstat.params++;
     const m = detectEvents(eng);
     const D = new Float32Array(eng.E);   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; a posted frame's buffers are transferred to the page, so each frame needs fresh ones
-    for (let k = 0; k < eng.E; k++) D[k] = eng.diameter(eng.edges[k].id);
+    for (let k = 0; k < eng.E; k++) D[k] = eng.diameterShown(eng.edges[k].id);   // (the widths the figure draws: from the shown pressures, so a vein does not breathe)
     const f = {   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; the posted frame message itself
       type: 'frame',
       changed: frameDirty || held, gen,
@@ -260,6 +279,7 @@ export function createCore(post) {
       Q: Float32Array.from(eng.Q),
       Qf: Float32Array.from(eng.Qf || eng.Q),
       ext: Float32Array.from(eng.ext),
+      extf: Float32Array.from(eng.extf || eng.ext),   // (the outside pressures over the breath, as Pf: the readouts' transmural pressure)
       D,
       metrics: m,
       slow: eng.slow,
@@ -275,7 +295,7 @@ export function createCore(post) {
     if (samples) { postedT = sampT; postedCyc = sampCyc; }
     samples = null;
     unpainted = ackOn;
-    const xfer = [f.P.buffer, f.Pf.buffer, f.Q.buffer, f.Qf.buffer, f.ext.buffer, f.D.buffer];   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; the transfer list of the posted frame
+    const xfer = [f.P.buffer, f.Pf.buffer, f.Q.buffer, f.Qf.buffer, f.ext.buffer, f.extf.buffer, f.D.buffer];   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; the transfer list of the posted frame
     if (f.samples) xfer.push(f.samples.t.buffer);
     post(f, xfer);
   }
@@ -308,24 +328,32 @@ export function createCore(post) {
   // (Perf C5: a slider's change that waits for the page's paint: the frame it owes is built by painted(), once, however many inputs came meanwhile.)
   let held = false;
   const ACK_MAX_MS = 400;
-  // A frame goes out only when the model moved past a small hysteresis since the last one posted, or once a second as a heartbeat (the
-  // samples taken meanwhile wait in `samples` and go out with it, so the traces lose nothing). Anything that changes the model sets
-  // frameDirty/paramsDirty and posts at once, so nothing waits on the heartbeat.
+  // A frame goes out only when what the screen shows moved since the last one posted, or once a second as a heartbeat (the samples taken
+  // meanwhile wait in `samples` and go out with it, so the traces lose nothing). Anything that changes the model sets frameDirty/paramsDirty
+  // and posts at once, so nothing waits on the heartbeat.
+  // (What the screen shows is the breath and beat means, engine shownMean: at rest they hold still, so a settled patient posts only the
+  // heartbeat (full app review ENG-1: the 0.02% test passed at every check, as the old filters let the breath through, and the worker
+  // posted 10 frames a second forever). The bands are under what any reading prints or any colour or width shows: half a printed tenth of
+  // a mmHg, a percent of a flow, half a percent of a width. What is left at rest is smaller still or slower: the beat's length follows the
+  // breath by a fifth of a beat a minute, so a beat-locked flow keeps a jitter of about 0.4%, and the arterial pressure wanders by
+  // about 0.07 mmHg over 20 s as the baroreflex hunts.)
   let still = null;
-  const HEARTBEAT_MS = 1000, EPS_REL = 2e-4, EPS_ABS = 1e-5;
-  const near = (a, b) => { if (!b || a.length !== b.length) return false; for (let i = 0; i < a.length; i++) if (Math.abs(a[i] - b[i]) > EPS_ABS + EPS_REL * Math.abs(b[i])) return false; return true; };
+  const HEARTBEAT_MS = 1000;
+  const NEAR_P = [0.05, 0], NEAR_Q = [0.01, 0.01], NEAR_D = [1e-3, 0.005];
+  const near = (a, b, /** @type {number[]} */ tol) => { const [abs, rel] = tol; if (!b || a.length !== b.length) return false; for (let i = 0; i < a.length; i++) if (Math.abs(a[i] - b[i]) > abs + rel * Math.abs(b[i])) return false; return true; };
   // (The figure's colours, widths and readouts follow the eased Pf, Qf and D; the beat-by-beat P, Q and ext ride the heartbeat frame and the samples.)
   // (The last posted state, kept in buffers made once and written in place: no arrays made a posted frame, rev 2 step 3.)
   function keepStill() {
     const pf = eng.Pf || eng.P, qf = eng.Qf || eng.Q;
     if (!still || still.Pf.length !== pf.length || still.Qf.length !== qf.length || still.D.length !== eng.E) still = { Pf: new Float64Array(pf.length), Qf: new Float64Array(qf.length), D: new Float64Array(eng.E) };   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; the kept copy is made once and written in place after (reallocated only if the engine's size changes)
     still.Pf.set(pf); still.Qf.set(qf);
-    for (let k = 0; k < eng.E; k++) still.D[k] = eng.diameter(eng.edges[k].id);
+    for (let k = 0; k < eng.E; k++) still.D[k] = eng.diameterShown(eng.edges[k].id);
   }
   function movedSincePost() {
     if (!still) return true;
-    if (!near(eng.Pf || eng.P, still.Pf) || !near(eng.Qf || eng.Q, still.Qf)) return true;
-    for (let k = 0; k < eng.E; k++) { const d = eng.diameter(eng.edges[k].id); if (Math.abs(d - still.D[k]) > EPS_ABS + EPS_REL * Math.abs(still.D[k])) return true; }
+    if (!near(eng.Pf || eng.P, still.Pf, NEAR_P) || !near(eng.Qf || eng.Q, still.Qf, NEAR_Q)) return true;
+    const [abs, rel] = NEAR_D;
+    for (let k = 0; k < eng.E; k++) { const d = eng.diameterShown(eng.edges[k].id); if (Math.abs(d - still.D[k]) > abs + rel * Math.abs(still.D[k])) return true; }
     return false;
   }
   // (The ?perf frame panel's physics row (frame-hud.js, 8 Nov 2026): what the clock really did since it last asked, 'perfStats'. A few
@@ -406,7 +434,7 @@ export function createCore(post) {
     // (Held only by the page's paint: owed, and built the moment its 'painted' comes, not on the next 33 ms tick (rev 2 step 3).)
     owed = held || (running && !due && ackOn && unpainted && now - lastFrame > 95);
     if (owed) wstat.held++;
-    if (frameDirty || paramsDirty || eng.newEvents.length || (due && (now - lastFrame > HEARTBEAT_MS || morph || lapse || eng.easing() || movedSincePost()))) {
+    if (frameDirty || paramsDirty || eng.newEvents.length || (due && (now - lastFrame > HEARTBEAT_MS || morph || lapse || traces || eng.easing() || movedSincePost()))) {
       lastFrame = now; frame();
       keepStill();
     }
@@ -457,6 +485,7 @@ export function createCore(post) {
     switch (a.kind) {
       case 'infuse': e.infuse(a.fluid); break;
       case 'hemorrhage': e.hemorrhage(a.mL); break;
+      case 'retain': e.addVolume(a.mL, 0.35, true); break;   // salt and water kept (a failing or constricted heart, as a preset's `volume`) or given up again (negative mL): the patient's own volume, which the tissues do not refill away
       case 'band': e.band(); break;
       case 'paracentesis': e.paracentesis(a.mL, a.albumin); break;
       case 'valsalva': e.startValsalva(a.sec || 10); break;
@@ -485,10 +514,24 @@ export function createCore(post) {
     *preset({ id, days, reqId }) {
       stateChanged();
       endTransitions();
-      yield* eng.loadPresetSteps(id, days != null ? { days: days + (PRESETS.find((p) => p.id === id)?.days || 0) } : {});
+      // (Healthy, with no days, is the bedside's rest itself: its readings hold still from the first frame and equal the reference, bedside-rest.js.)
+      if (id === 'healthy' && days == null) { const seed = eng.params.seed; eng = restingEngine(); eng.params.seed = seed; }
+      else {
+        // (16 Nov 2026, style play-test: "loading a patient freezes the sim clock for 5-8 s" on a slow laptop. The settle and the years of disease are the
+        // cost, about 1.3 s a load of Decompensated on a fast machine; a patient loaded before comes back from its kept snapshot, as a deck's chain has it,
+        // so picking the same patient again, or one a slide or a "work backward" fit loaded already, is not paid for twice.)
+        yield* loadPresetKept(eng, keptPresets, id, days != null ? { days: days + (PRESETS.find((p) => p.id === id)?.days || 0) } : {});
+        // The other patients open at their bedside rest too (play-test A1, 16 Nov 2026): the settle that made them runs without the breath and the pulse, and the
+        // beating model's means sit a little off it (HVPG 0.1 to 0.6 mmHg, MAP about 1), so a patient picked drifted for 8 to 10 s (Decompensated 16.7, then 16.0).
+        // Twelve seconds of the live clock's own steps, before the page is told, start it there.
+        if (beat) { eng.beat = true; for (let i = 0; i < WARM_STEPS; i++) { eng.step(WARM_DT); if (i % 250 === 249) yield; } }
+        // The patient's starting state, for the History's events (events.js), is taken from where the patient now stands, after the run-in: taken before it, a reading a
+        // few tenths from its cut-off crossed it in the first seconds and "Ascites forming" fired on a patient that began with ascites (play-test, 16 Nov 2026).
+        if (beat) { eng.evState = {}; eng.evAvg = null; detectEvents(eng, true); eng.newEvents = []; }
+      }
       post({ type: 'presetLoaded', reqId, id, params: eng.params });
     },
-    reset() { stateChanged(); endTransitions(); eng = new Engine(); paramsDirty = true; },
+    reset() { stateChanged(); endTransitions(); eng = restingEngine(); paramsDirty = true; },
     run({ running: r, speed: s, clock: c }) {
       if (r !== undefined) running = r;
       if (s !== undefined) speed = s;
@@ -546,17 +589,29 @@ export function createCore(post) {
       if (reqId) post({ type: 'prerolled', reqId });
     },
     // (The samples already taken belong to the old vessel: they go out under its name first, so the new one's record starts clean.)
-    probe({ id }) { if (id !== probe && samples?.t.length) frame(); probe = id; },
+    // (Only a vessel the model has: a null or unknown id, from a presentation that ended before it had a frame to remember the vessel from, left every
+    // later frame with no vessel, and the Doppler's spoken summary threw "reading 'label'" in a rest pass, 16 Nov 2026.)
+    probe({ id }) { if (!PROBE_IDS.has(id)) return; if (id !== probe && samples?.t.length) frame(); probe = id; },
     beat({ on }) { if (beat !== !!on) { beat = !!on; frameDirty = true; } },
+    // (Whether a trace drawing the samples scrolls on the page, main.js: while one does, a frame goes out at every 95 ms check.)
+    traces({ on }) { traces = !!on; },
     snapshot({ reqId }) { post({ type: 'snapshot', reqId, snap: eng.snapshot() }); },
     // The steady state's last `secs` seconds, for an instrument whose window opens empty (see History above).
     history({ secs, reqId }) { startHistory(secs, reqId); },
-    restore({ snap }) { stateChanged(); morph = null; relaxUntil = 0; eng.restore(snap); lapse = null; paramsDirty = true; },
+    // keepBeat: the presenter's restore as an easing lands (applyState): the heart goes on from the beat it is at, as the morph carried it,
+    // not from the phase the slide's snapshot was taken at (that put a beat in the wrong place, or twice, on every slide that changes the patient).
+    restore({ snap, keepBeat }) {
+      stateChanged(); morph = null; relaxUntil = 0;
+      const cyc = eng.cyc, COf = eng.COf;
+      eng.restore(snap);
+      if (keepBeat && Number.isFinite(cyc)) { eng.cyc = cyc; if (COf !== undefined) eng.COf = COf; }
+      lapse = null; paramsDirty = true;
+    },
     // The presenter's change of patient, eased over ms from the live state (wherever it is, a change under way included) to snap.
     morph({ snap, ms }) {
       stateChanged();
       lapse = null; clock = 'hemo'; speed = 1; diseaseAcc = 0; relaxUntil = 0;
-      if (!(ms > 0)) { morph = null; eng.restore(snap); paramsDirty = true; return; }
+      if (!(ms > 0)) { morph = null; const cyc = eng.cyc, COf = eng.COf; eng.restore(snap); if (Number.isFinite(cyc)) { eng.cyc = cyc; if (COf !== undefined) eng.COf = COf; } paramsDirty = true; return; }   // (a change with no easing keeps the beat too)
       morph = { from: eng.snapshot(), to: snap, t0: performance.now(), ms };
       morphParamsAt = morph.t0; paramsDirty = true;   // (the start posts the params once; the ticks then post them about 4 times a second)
       stoppedAt = timer ? null : morph.t0;   // (begun while the model stands still, the page hidden: it has not begun to play)
@@ -566,9 +621,17 @@ export function createCore(post) {
       const r = explain(eng, metric);
       post({ type: 'explain', reqId, result: r });
     },
+    // The Trials tab's Model line (trials-pane.js): the live patient settled as it is and settled with one change (a drug, a TIPS), each on a
+    // copy, so the live model is left as it is. Its hemodynamics only: the copies run no disease days.
+    whatIf({ patch, reqId }) {
+      const read = (e) => { const m = computeMetrics(e); return { hvpg: m.hvpg, ppg: m.ppg, pv: m.pv, hr: m.hr, map: m.map, varix: m.varix.d }; };
+      const copy = (p) => { const e = new Engine({ params: eng.params }); e.restore(eng.snapshot()); if (p) e.setParams(sanitizeParams(deepMerge(e.paramsTarget(), p))); e.settle(); return read(e); };
+      post({ type: 'whatIf', reqId, result: { base: copy(null), rx: copy(patch || {}) } });
+    },
     healthyProfile({ reqId }) {
-      const h = new Engine();
-      post({ type: 'healthy', reqId, P: Array.from(h.P), Q: Array.from(h.Q), D: h.edges.map((e) => h.diameter(e.id)), metrics: computeMetrics(h) });
+      // (The healthy patient as the model shows it at rest, the shown means: what the live healthy patient reads, so "Healthy" and the reference agree, bedside-rest.js.)
+      const h = healthyAtBedside().eng;
+      post({ type: 'healthy', reqId, P: Array.from(h.Pf), Q: Array.from(h.Qf), D: h.edges.map((e) => h.diameterShown(e.id)), metrics: computeMetrics(h) });
     },
     // The presenter tour's fingerprint: the live state, or each listed preset loaded fresh.
     metrics({ reqId }) { post({ type: 'metrics', reqId, result: fingerprint(computeMetrics(eng), eng) }); },
@@ -577,7 +640,7 @@ export function createCore(post) {
       for (const id of ids || []) {
         const e = new Engine(), g = loadPresetKept(e, keptPresets, id, {});
         for (let n = g.next(); !n.done; n = g.next());
-        e.settle();
+        e.settle(); atBedside(e);
         result[id] = fingerprint(computeMetrics(e), e);
       }
       post({ type: 'presetMetrics', reqId, result });
@@ -590,7 +653,7 @@ export function createCore(post) {
     // A step with restart: true starts again from base (a fresh model without one): a chart's points, each its own change
     // from the slide's state (tool-curve.js).
     *sequence({ steps, base, reqId }) {
-      let e = new Engine();
+      let e = new Engine(), w = null;
       if (base) e.restore(base);
       for (let i = 0; i < (steps || []).length; i++) {
         const st = steps[i] || {};
@@ -609,9 +672,12 @@ export function createCore(post) {
         // trail: two readings on each day of the time-lapse, [day, a, b] (the presenter's flow-time chart): the fingerprint
         // keys st.trail names, or (true) the portal pressure and flow.
         const tk = Array.isArray(st.trail) ? st.trail : ['pv', 'pvFlow'];
-        const at = (d, m) => { const f = fingerprint(m, e); return [d, ...tk.map((k) => f[k])]; }, trail = st.trail && st.days ? [at(0, computeMetrics(e))] : null;
+        const vals = (m, eng) => { const f = fingerprint(m, eng); return tk.map((k) => f[k]); };
+        const at = (d, m) => [d, ...vals(m, e)], trail = st.trail && st.days ? [at(0, computeMetrics(e))] : null;
+        // (The chart's two ends are what the slide's tiles read, i.e. the bedside readings; the days between are the quiet model's, moved by the gap to each end in proportion.)
+        const gap0 = trail ? (() => { const c = new Engine(); c.restore(e.snapshot()); atBedside(c); const b = vals(computeMetrics(c), c); return b.map((v, j) => v - trail[0][j + 1]); })() : null;
         // start: a time-lapse with its own params plays from here (params set and settled, no day run yet), not from the slide before.
-        const start = st.fine && st.days && st.params ? { snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(computeMetrics(e), e) } : null;
+        const start = st.fine && st.days && st.params ? (() => { const c = new Engine(); c.restore(e.snapshot()); atBedside(c); return { snap: c.snapshot(), params: structuredClone(e.params), fp: fingerprint(computeMetrics(c), c) }; })() : null;
         for (let done = 0; done < (st.days || 0);) {
           const n = fine ? 1 : Math.min(30, st.days - done);
           if (ramp) e.setParams(deepMerge(e.params, rampAt(ramp, done + 1, st.days)));
@@ -620,17 +686,24 @@ export function createCore(post) {
           if (trail && done < st.days) trail.push(at(done, computeMetrics(e)));
         }
         if (st.preset || st.params || st.action || st.days) e.settle();
-        const m = computeMetrics(e);
-        if (trail) trail.push(at(st.days, m));
+        // (What the page is handed is read from a copy run at the bedside; the chain goes on from the settled model, so a slide's state never depends on the warm-up of the one before.)
+        const moved = !!(st.preset || st.params || st.action || st.days || st.relax || st.restart);
+        if (moved || !w) { w = new Engine(); w.restore(e.snapshot()); atBedside(w); }   // (a slide that changes nothing is the one before)
+        const m = computeMetrics(w);
+        if (trail) {
+          const last = at(st.days, computeMetrics(e)), gap1 = vals(m, w).map((v, j) => v - last[j + 1]);
+          trail.push(last);
+          for (const row of trail) { const u = row[0] / st.days; for (let j = 0; j < tk.length; j++) row[j + 1] += gap0[j] * (1 - u) + gap1[j] * u; }
+        }
         const extra = yield* stepExtras(e, st);
         // before: a slide that plays a procedure opens on its state with the procedure not done yet (st.before undoes it, settled on a
         // copy, so the chain goes on from the slide's own state).
         let before = null;
         if (st.before) {
-          const b = new Engine(); b.restore(e.snapshot()); b.setParams(deepMerge(b.params, st.before)); b.settle();
+          const b = new Engine(); b.restore(e.snapshot()); b.setParams(deepMerge(b.params, st.before)); b.settle(); atBedside(b);
           before = { snap: b.snapshot(), params: structuredClone(b.params), fp: fingerprint(computeMetrics(b), b) };
         }
-        post({ type: 'seqStep', reqId, i, snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(m, e), trail, start, before, ...(extra ? { extra } : {}) });
+        post({ type: 'seqStep', reqId, i, snap: w.snapshot(), base: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(m, w), trail: trail && calmTrail(trail, tk.length), start, before, ...(extra ? { extra } : {}) });
         yield;
       }
       post({ type: 'sequence', reqId });
@@ -644,6 +717,9 @@ export function createCore(post) {
       w.ticks = w.steps = w.busy = w.maxBusy = w.maxGap = w.late = w.dropped = w.frames = w.params = w.held = w.samples = w.days = w.jobMs = 0; w.jobs = {}; w.since = now;   // alloc-rare: once a second while the ?perf panel shows
     },
     presets({ reqId }) { post({ type: 'presets', reqId, presets: PRESETS.map(({ id, label, group, summary, note, days }) => ({ id, label, group, summary, note, days })) }); },
+    // The patients Work backward made ("Yours", src/engine/yours.js): the page sends the whole saved list, and the engine knows exactly those.
+    // The answer is the patient list, as 'presets' gives it, so the menu is made from one answer.
+    yours({ list, reqId }) { setYours(list); handlers.presets({ reqId }); },
   };
 
   // Serialize commands while a long job yields. Timer ticks must not advance
@@ -651,7 +727,7 @@ export function createCore(post) {
   const queue = [];
   let busy = false;
   // (Messages that leave the live model as it is: they do not end a kept history, see histCache.)
-  const NO_STATE = ['snapshot', 'presets', 'healthyProfile', 'presetMetrics', 'sequence', 'history', 'painted', 'ackPaint', 'visibility', 'probe', 'perfStats'];
+  const NO_STATE = ['snapshot', 'presets', 'yours', 'healthyProfile', 'presetMetrics', 'sequence', 'history', 'painted', 'ackPaint', 'visibility', 'probe', 'perfStats', 'whatIf'];
   async function drain() {
     if (busy) return;
     busy = true;
@@ -676,7 +752,7 @@ export function createCore(post) {
         if (RECOVER.includes(msg.type)) crashed = false;
         // Queries must not wake the renderer. Mutations send one immediate frame,
         // including UI-originated parameters without echoing those parameters back.
-        if (!crashed && !['snapshot', 'explain', 'healthyProfile', 'presets', 'metrics', 'presetMetrics', 'sequence', 'history', 'painted', 'ackPaint', 'perfStats'].includes(msg.type)) {
+        if (!crashed && !['snapshot', 'explain', 'healthyProfile', 'presets', 'yours', 'metrics', 'presetMetrics', 'sequence', 'history', 'painted', 'ackPaint', 'perfStats', 'whatIf'].includes(msg.type)) {
           // (Perf C5: a slider drag's input while the page has not painted the last frame is held for painted(), not posted at once.)
           if (msg.type === 'setParams' && ackOn && unpainted && running && visible && timer && performance.now() - lastFrame <= ACK_MAX_MS) { held = true; owed = true; }
           else {

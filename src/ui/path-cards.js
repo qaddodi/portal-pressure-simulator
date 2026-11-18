@@ -1,6 +1,6 @@
 // The guideline path card's other kinds (7 Nov 2026): the score card and the checklist (kind 'score', allOf for the checklist), the grid
 // (kind 'grid') and the ladder (kind 'ladder'). The tree kinds are drawn by tool-path.js; this module lays these out and builds their
-// model, and tool-path.js keeps the head (the source's pill and the patient's chips), the rule and the foot.
+// model, and tool-path.js keeps the head (the patient's chips the header tiles do not show, often none), the rule and the foot (the figure's number and the source's pill, 16 Nov 2026).
 //   score    rows of answers to choose from (the chosen one lit), the total on a bar of zones, the verdict and what to do next
 //   grid     two questions, one cell (the column and the row headers, the cells, the lit one in its own colour), then the reading
 //   ladder   the stages as steps (a staircase across on a Mac, a stack on a phone), the lit stage with what it means, and the way back
@@ -17,7 +17,7 @@ export const cardCompact = (W, phone) => !!phone || !(W >= CARD_WIDE_MIN);
 export const CARD_KINDS = ['score', 'grid', 'ladder'];
 export const isCardKind = (kind) => CARD_KINDS.includes(kind);
 
-const ROW_PAD = 9, PAD_X = 9, PAD_Y = 4, PILL_GAP = 6, COL_GAP = 14, STAIR = 18, STEP_GAP = 10;
+const ROW_PAD = 9, PAD_X = 9, PAD_Y = 4, PILL_GAP = 6, COL_GAP = 14, STAIR = 18, STEP_GAP = 10, STAGE_COL = 52, NAME_MIN = 110;   // (STAGE_COL: the small ladder's column of "Stage n" ahead of each name)
 const memo = new WeakMap();   // alloc-rare: lines broken once for each helpers object, text and width, kept (a card has a dozen)
 function fl(H, paras, width, o = {}) {
   let m = memo.get(H);
@@ -56,7 +56,7 @@ export const zoneText = (z, allOf) => (allOf ? z[2] : `${z[2]} · ${z[1] === 99 
 // ── score ──
 function drawScore(spec, W, compact, p, H) {
   const { ROLE, TOKEN } = H, ops = [], allOf = !!spec.allOf, { t, v } = scoreState(spec, p), tone = TOKEN[v.tone];
-  const pillH = ROLE.op.lh + 2 * PAD_Y;
+  const padY = compact ? 3 : PAD_Y, pillH = ROLE.op.lh + 2 * padY, rowPad = compact ? 6 : ROW_PAD;   // (the small layout's rows stand a little closer)
   const pillW = (o) => 2 * PAD_X + wOf(H, 'op', o[0]) + (allOf ? 0 : PILL_GAP + wOf(H, 'pt', pointsText(o[1])));
   const natural = Math.max(...spec.rows.map((r) => r.o.reduce((s, o) => s + pillW(o), 0) + (r.o.length - 1) * PILL_GAP));
   const avail = W - COL_GAP, optsW = Math.min(Math.max(natural, avail * 0.28), avail * 0.68), namesW = avail - optsW;   // (the answers' column as wide as its widest row needs; the names get the rest)
@@ -68,22 +68,34 @@ function drawScore(spec, W, compact, p, H) {
       if (x > 0 && x + w > width + 0.01) { x = 0; y += pillH + PILL_GAP; }
       const on = p[r.k] === oi, px = x0 + x, py = y0 + y;
       ops.push(rect('path.opt', px, py, w, pillH, 8, on, tone));
-      ops.push(text('op', px + PAD_X, py + PAD_Y + baseOf(ROLE.op), o[0], on, tone));
-      if (!allOf) ops.push(text('pt', px + PAD_X + wOf(H, 'op', o[0]) + PILL_GAP, py + PAD_Y + baseOf(ROLE.op), pointsText(o[1]), on, tone));
+      ops.push(text('op', px + PAD_X, py + padY + baseOf(ROLE.op), o[0], on, tone));
+      if (!allOf) ops.push(text('pt', px + PAD_X + wOf(H, 'op', o[0]) + PILL_GAP, py + padY + baseOf(ROLE.op), pointsText(o[1]), on, tone));
       x += w + PILL_GAP;
     });
     return y + pillH;
   };
   let y = 0;
   spec.rows.forEach((r, ri) => {
-    if (ri) { ops.push(line('path.rule', 0, y + 0.5, W, y + 0.5)); y += 1 + ROW_PAD; }
+    if (ri) { ops.push(line('path.rule', 0, y + 0.5, W, y + 0.5)); y += 1 + rowPad; }
     const paras = [[{ text: r.n, face: 'rn' }], ...(r.d ? [[{ text: r.d, face: 'rd' }]] : [])];
-    const name = fl(H, paras, compact ? W : namesW, { gap: 2 });
-    put(ops, name.items, 0, y, false, 'text');
     let rowH;
-    if (compact) rowH = name.h + 6 + pills(r, 0, y + name.h + 6, W);
-    else rowH = Math.max(name.h, pills(r, namesW + COL_GAP, y, optsW));
-    y += rowH + ROW_PAD;
+    // (the small layout: the answers stand at the right of the row on one line, whatever the name's length, and the name wraps in the room they
+    // leave, to two lines or three, the definition under: a long name used to push its answers below it, at the left, on the first row of the
+    // recompensation card only, Mohammad 17 Nov 2026. Only a card too narrow to leave the name NAME_MIN stacks them, as before)
+    const rowPills = r.o.reduce((s, o) => s + pillW(o), 0) + (r.o.length - 1) * PILL_GAP, nameW = W - rowPills - 10;
+    if (compact && nameW >= NAME_MIN) {
+      const nm = fl(H, [[{ text: r.n, face: 'rn' }]], nameW), off = Math.max(0, (pillH - ROLE.rn.lh) / 2);
+      put(ops, nm.items, 0, y + off, false, 'text');
+      const ph = pills(r, W - rowPills, y, rowPills);
+      rowH = Math.max(ph, off + nm.h);
+      if (r.d) { const d = fl(H, [[{ text: r.d, face: 'rd' }]], W); put(ops, d.items, 0, y + rowH + 4, false, 'text'); rowH += 4 + d.h; }
+    } else {
+      const name = fl(H, paras, compact ? W : namesW, { gap: 2 });
+      put(ops, name.items, 0, y, false, 'text');
+      if (compact) rowH = name.h + 6 + pills(r, 0, y + name.h + 6, W);
+      else rowH = Math.max(name.h, pills(r, namesW + COL_GAP, y, optsW));
+    }
+    y += rowH + rowPad;
   });
   // the total: the bar of zones (as wide as the totals each covers), their names, the verdict and what is next
   ops.push(line('path.rule', 0, y + 0.5, W, y + 0.5));
@@ -203,7 +215,7 @@ function drawGrid(spec, W, compact, p, H) {
     for (const [t, face] of parts) { if (!t) continue; paras.push(...wrap(t, face, width)); ends.add(paras.length - 1); }
     return fl(H, paras, width, { align: 'center', gap: (pi) => (ends.has(pi) ? gapAfter : 0) });
   };
-  const word = (ce, width) => block([[ce[0], cFace], [ce[1], 'cs']], width);
+  const word = (ce, width) => block([[ce[0], cFace], [ce[1], compact ? 'csc' : 'cs']], width);
   const pTone = H.TOKEN[spec.cells[`${p.r}|${p.c}`][2]];
   // (each word of the grid is centred in its frame, kept on the op as box [x0, x1, y0, y1] so a test can hold it inside: nothing spills)
   const putIn = (items, ox, oy, on, tone, box) => { const n = ops.length; put(ops, items, ox, oy, on, tone); for (let i = n; i < ops.length; i++) ops[i].box = box; };
@@ -300,10 +312,27 @@ function drawLadder(spec, W, compact, p, H) {
       y = Math.max(y, top + 3 + 8 + stepWords(st, i, x, top + 3 + 8, cw, true));
     });
   } else {
+    // the small layout (a phone, an iPad held upright): the lit stage in full, every other stage one line, its number and its name (their criteria
+    // are the lit stage's own words and the slide's; Mohammad, 16 Nov 2026: the Stages card filled 60 % of an iPhone)
     spec.steps.forEach((st, i) => {
-      const top = y, h = stepWords(st, i, 13, top, W - 13, false);
-      ops.push(line('path.step', 1.5, top, 1.5, top + h, i === s, TOKEN[st[3]]));
-      y = top + h + (i < n - 1 ? 8 : 0);
+      const top = y, on = i === s, tone = TOKEN[st[3]], nameW = W - 13 - STAGE_COL;
+      let yy = top;
+      if (on) { ops.push(text('yo', 13, yy + baseOf(ROLE.yo), 'Patient is here', true, tone)); yy += ROLE.yo.lh; }
+      ops.push(text('sn', 13, yy + (ROLE.r.lh - ROLE.sn.lh) / 2 + baseOf(ROLE.sn), `Stage ${i + 1}`, on, tone));
+      const name = fl(H, [[{ text: hyphenate(H, 'r', st[0], nameW), face: 'r' }]], nameW);
+      put(ops, name.items, 13 + STAGE_COL, yy, on, tone);
+      yy += name.h;
+      if (on) {
+        yy += 4;
+        const sd = fl(H, [[{ text: st[1], face: 't' }]], W - 13);
+        put(ops, sd.items, 13, yy, true, tone);
+        yy += sd.h + 4;
+        const sw = fl(H, [[{ text: st[2], face: 'sw' }]], W - 13);
+        put(ops, sw.items, 13, yy, true, tone);
+        yy += sw.h;
+      }
+      ops.push(line('path.step', 1.5, top, 1.5, yy, on, tone));
+      y = yy + (i < n - 1 ? 8 : 0);
     });
   }
   if (s >= 2) {
@@ -323,11 +352,13 @@ export function drawCard(spec, W, compact, p, H) {
 
 /**
  * The room a card of this kind needs at this width: the tallest body over every patient the algorithm can have (and the one given), so the
- * card never changes size with the case. → { kind, W, compact, H } (H in px, whole).
+ * card never changes size with the case (own: this patient's alone, for a slide that fixes it). → { kind, W, compact, H } (H in px, whole).
  */
-export function layout(spec, W, compact, patient, H) {
+export function layout(spec, W, compact, patient, H, own = false) {
   let max = 0;
-  for (const q of [...patientsOf(spec), ...(patient ? [patient] : [])]) max = Math.max(max, drawCard(spec, W, compact, q, H).h);
+  // (own: the slide's one patient alone. A guideline card's patient is the slide's own facts and never changes while it is up, so reserving the
+  // tallest body of every other patient left dead space: the Stages card on an iPhone, 16 Nov 2026. Without it, every patient's, as before.)
+  for (const q of own && patient ? [patient] : [...patientsOf(spec), ...(patient ? [patient] : [])]) max = Math.max(max, drawCard(spec, W, compact, q, H).h);
   return { kind: spec.kind, W, compact, H: Math.ceil(max) };
 }
 

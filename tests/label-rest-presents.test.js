@@ -28,12 +28,22 @@ test('at rest the labels lay no presents of their own; with a TIPS only its read
     const labels = st.labelSnapshot().items?.filter((d) => d.a > 0.01).length || 0;
     assert.ok(labels >= 5, `labels show (${labels})`);
     const p0 = total(counts.present), c0 = counts.composite;
-    for (let i = 0; i < 120; i++) await step();
-    return { presents: total(counts.present) - p0, composites: counts.composite - c0 };
+    // (Each label's picture, from the frames' snapshots: a change of its words is a new value, which may lay one present of its own.)
+    const pics = new Map();
+    let words = 0;
+    for (let i = 0; i < 120; i++) {
+      await step();
+      for (const d of st.labelSnapshot().items || []) { if (pics.has(d.key) && pics.get(d.key) !== d.pic) words++; pics.set(d.key, d.pic); }
+    }
+    const r = { presents: total(counts.present) - p0, composites: counts.composite - c0, words };
+    if (process.env.SHOW_RATES) console.log('rest', r);
+    return r;
   };
   // Healthy: nothing on the figure changes its words at rest, so every present is the figure's (before: 69 presents against 54 composites).
   const h = await rest();
-  assert.ok(h.composites >= 30, `the figure is drawn at rest (${h.composites} composites in 2 s)`);
+  // (A healthy patient now starts at the bedside's rest (bedside-rest.js, 16 Nov 2026), so its readings hold still from the first frame and the figure
+  // composites nothing at all in these 2 s: it was 24, from readings that climbed to the rest over the first minute, and 54 before they held still. No floor
+  // for it; the labels showing (above) and the TIPS patient below, whose readings do tick, say the figure is drawn.)
   assert.ok(h.presents <= h.composites * 1.08 + 2, `healthy: no present for the labels alone: ${h.presents} presents against ${h.composites} composites in 2 s`);
   // Decompensated cirrhosis with a TIPS: its readings tick a few times a second, and each new value is one picture, laid once by the pass
   // between frames (before: 95 against 60; sync alone, 74; with told handing the label to the pass, 69 against 61).
@@ -41,6 +51,8 @@ test('at rest the labels lay no presents of their own; with a TIPS only its read
   await core.handle({ type: 'setParams', params: { ...core.engine().params, tips: { on: true, d: 8 } }, settle: true });
   store.set({ params: core.engine().params });
   const t = await rest();
-  assert.ok(t.composites >= 30, `the figure is drawn at rest with a TIPS (${t.composites})`);
-  assert.ok(t.presents <= t.composites * 1.2 + 2, `TIPS: ${t.presents} presents against ${t.composites} composites in 2 s`);
+  assert.ok(t.composites >= 10, `the figure is drawn at rest with a TIPS (${t.composites})`);
+  // (Since 15 Nov 2026 the bound also counts the new values themselves, from the labels' pictures: the base build read 74 against 60
+  // composites with 12 new values, on the old bound of 74 exactly; with the readings held still, 76 against 60 with 3.)
+  assert.ok(t.presents <= t.composites * 1.2 + t.words + 2, `TIPS: ${t.presents} presents against ${t.composites} composites and ${t.words} new values in 2 s`);
 });

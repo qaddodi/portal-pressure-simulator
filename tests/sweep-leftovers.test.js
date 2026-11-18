@@ -2,10 +2,11 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 // The overnight screenshot sweep's leftovers (16 Oct). The browser check tests/e2e/sweep-leftovers.mjs measures each one on
 // screen; these hold the rules in the source.
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
 const stage = stageSource();
 const rule = (sel) => { const i = css.indexOf(sel + ' {'); assert.ok(i >= 0, `${sel} has a rule`); return css.slice(i, css.indexOf('}', i)); };
@@ -20,7 +21,8 @@ test('the patient name and the menu titles are never cut with an ellipsis', () =
 });
 
 test('the compact names are the short names that cannot fit two lines of 84 px', () => {
-  const m = main.match(/const COMPACT = (\{[^}]*\})/);
+  const names = readFileSync(new URL('../src/ui/scenario-names.js', import.meta.url), 'utf8');   // (the forms moved out of main.js: scenario-names.js)
+  const m = names.match(/const COMPACT = (\{[^}]*\})/);
   assert.ok(m, 'COMPACT map');
   const map = Function(`return ${m[1]}`)();
   assert.equal(map['Sinusoidal obstruction syndrome'], 'SOS');
@@ -38,7 +40,7 @@ test('a wide Treat card lays the procedures out three or four to a row', () => {
 
 test('every framing of the whole circuit keeps clear of the zoom pill', () => {
   assert.doesNotMatch(stage, /insetVT\(\{ k: 1, x: 0, y: 0 \}, circVB\(\)\)(?!, circVB\(\)\))/, 'the whole map is always circWhole()');
-  assert.match(stage, /const circWhole = \(\) => clearPill\(live\.rotTarget \? uprightFit\(\) : insetVT\(\{ k: 1, x: 0, y: 0 \}, circVB\(\)\), circVB\(\)\);/);
+  assert.match(stage, /const circWhole = \(\) => cardPanVT\(clearPill\(live\.rotTarget \? uprightFit\(\) : insetVT\(\{ k: 1, x: 0, y: 0 \}, circVB\(\)\), circVB\(\)\), circVB\(\), artBox\(\)\);/);
 });
 
 test("Treat's card is as tall as the tab shown: no spare room under Changes (U3, 13 Nov 2026)", () => {

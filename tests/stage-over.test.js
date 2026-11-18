@@ -2,6 +2,7 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 // The figure's overlays on the GPU (31 Oct, recs A1; ?stageover=gpu, off by default): the lowest run of #stageOver's groups the organs'
 // painter can read is painted in the vessel canvas over the picture; the first group it cannot read, and every group above it,
@@ -16,7 +17,7 @@ globalThis.document ??= { documentElement: { dataset: {}, style: { setProperty()
 globalThis.addEventListener ??= () => {};
 globalThis.getComputedStyle ??= () => ({ getPropertyValue: () => '' });
 
-const { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } = await import('../src/ui/stage-over.js');
+const { overUnits, overRun, needsReread, netChanges, styleKey, OVER_CLASS, OVER_ALL } = await import('../src/ui/stage-over.js');
 const { strictRefused, readGroup, cssLocal, elMat, liveOf } = await import('../src/ui/organ-paint.js');
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 
@@ -58,6 +59,21 @@ test('a new reading only for what the painter does not read at each paint, and n
   assert.equal(needsReread({ type: 'attributes', attributeName: 'class', oldValue: 'circuit', target: el(`circuit ${OVER_ALL}`) }), false);
 });
 
+test('a frame of the camera or of a change between the views asks for no new reading of the overlays', () => {
+  // The root's view box moves on every such frame: no reading holds it. A nested svg's own view box is a group's frame.
+  assert.equal(needsReread({ type: 'attributes', attributeName: 'viewBox', oldValue: '300.0 0.0 820.0 920.0', target: { ownerSVGElement: null, getAttribute: () => '300.0 0.0 820.1 920.0' } }), false);
+  assert.equal(needsReread({ type: 'attributes', attributeName: 'viewBox', oldValue: '0 0 1 1', target: { ownerSVGElement: {}, getAttribute: () => '0 0 2 2' } }), true);
+  const st = (old, now) => needsReread({ type: 'attributes', attributeName: 'style', oldValue: old, target: { getAttribute: () => now } });
+  assert.equal(st('opacity: 0.99998;', 'opacity: 0.99984;'), false, 'a fade of the calipers: the painter reads the opacity at each paint');
+  assert.equal(st('opacity: 0.5; fill-opacity: 1;', 'fill-opacity: 0.4; opacity: 0.2;'), false);
+  assert.equal(st('', 'opacity: 0.5;'), true, 'an opacity set where there was none: the painter takes it from another place now');
+  assert.equal(st('opacity: 0.5;', ''), true, 'and one taken off');
+  assert.equal(st('opacity: 1; fill: red;', 'opacity: 0.5; fill: blue;'), true, 'anything else in the style is read again');
+  assert.equal(st('--shade: 1.150;', '--shade: 1.149;'), true, 'a custom property a style rule reads');
+  assert.equal(st('--halo-k: 1.150;', '--halo-k: 1.149;'), false, 'except the camera\'s three sizes on screen, which no painted group reads (the test below)');
+  assert.equal(styleKey('Opacity : 1 ;stroke-width:2px;;'), 'opacity;stroke-width:2px');
+});
+
 test('a batch of changes that came to nothing (the marks\' data-gl taken off and put back) asks for no new reading', () => {
   const el = (attrs) => ({ getAttribute: (a) => (a in attrs ? attrs[a] : null) });
   const a = el({ 'data-gl': '', fill: 'red' }), b = el({ fill: 'blue' });
@@ -70,7 +86,7 @@ test('a batch of changes that came to nothing (the marks\' data-gl taken off and
 });
 
 // A stand-in element with the transform attribute's matrix (matOf reads transform.baseVal).
-const elWith = (m) => ({ transform: { baseVal: m ? { numberOfItems: 1, consolidate: () => ({ matrix: { a: m[0], b: m[1], c: m[2], d: m[3], e: m[4], f: m[5] } }) } : { numberOfItems: 0 } } });
+const elWith = (m) => ({ transform: { baseVal: m ? { numberOfItems: 1, getItem: () => ({ matrix: { a: m[0], b: m[1], c: m[2], d: m[3], e: m[4], f: m[5] } }) } : { numberOfItems: 0 } } });
 const cs0 = { animationName: 'none', translate: 'none', rotate: 'none', scale: 'none', transform: 'none', vectorEffect: 'none', markerStart: 'none', markerMid: 'none', markerEnd: 'none', paintOrder: 'normal', shapeRendering: 'auto' };
 
 test('a strict reading refuses what the painter would paint otherwise than the browser', () => {
@@ -183,7 +199,7 @@ test('a strict reading takes visibility as the page computes it, and refuses a m
 });
 
 test('the stage: off unless asked for; the painted groups\' SVG hidden by an empty clip; read again on a change, and while a CSS ease runs', () => {
-  const st = stageSource(), css = read('../styles/app.css');
+  const st = stageSource(), css = appCss();
   assert.match(st, /const OVER_ASK = typeof location !== 'undefined' && \/\[\?&\]stageover=gpu\\b\/\.test\(location\.search\);/);
   assert.doesNotMatch(st, /OVER_GPU|stageover=svg/);
   assert.match(st, /let OVER_ON = !!(?:live\.)?veins\?\.overlay && \(!(?:live\.)?SOFTWARE \|\| OVER_ASK\);/);
@@ -205,10 +221,10 @@ test('the stage: off unless asked for; the painted groups\' SVG hidden by an emp
   // (Read again when a class outside the overlays changes how they show: the app's, the page's, the stage's.)
   // (A version stepped when a part differs from the last ask's: the app's classes without a gesture's own, the page's, the stage's,
   // the overlays' without OVER_ALL, the theme and palette, reduced motion.)
-  assert.match(st, /if \(a !== okAppRaw\) \{ okAppRaw = a; const f = gestureFree\(a\); if \(f !== okApp\) \{ okApp = f; changed = true; \} \}/);
+  assert.match(st, /if \(a !== okAppRaw\) \{ okAppRaw = a; const f = overClsFree\(a\); if \(f !== okApp\) \{ okApp = f; changed = true; overWhyAdd\(`app class: \$\{f\}`\); \} \}/);
   assert.match(st, /const a = appEl\?\.className \|\| '', d = document\.documentElement\.className, w = wrapCls\(\)/);
   assert.match(st, /\.filter\(\(c\) => c !== OVER_ALL\)\.join\(' '\)/);
-  assert.match(st, /if \(d !== okDoc \|\| w !== okWrap \|\| th !== okTheme \|\| pal !== okPal \|\| rm !== okRM\)/);
+  assert.match(st, /if \(dk !== okDoc \|\| w !== okWrap \|\| th !== okTheme \|\| pal !== okPal \|\| rm !== okRM\)/);
   assert.match(st, /if \(!(?:live\.)?veins\?\.overlay \|\| (?:live\.)?veins\.lost \|\| !wrap\.classList\.contains\('gl-on'\)\) \{ if \(overPainted\.length \|\| svgOver\?\.classList\.contains\(OVER_ALL\)\) overClear\(\); return; \}/);
   assert.match(st, /vCanvas\.addEventListener\('webglcontextlost', \(\) => \{\n\s+wrap\.classList\.remove\('gl-on'\);\n\s+overClear\(\);/);
   assert.match(st, /function overClear\(\) \{\n\s+for \(const u of overPainted\) u\.classList\.remove\(OVER_CLASS\);\n\s+overPainted = \[\];\n\s+svgOver\?\.classList\.remove\(OVER_ALL\);/);
@@ -220,6 +236,58 @@ test('the stage: off unless asked for; the painted groups\' SVG hidden by an emp
   assert.match(st, /groups\.set\(n, \[\{ spec, get m\(\) \{ const own = elMat\(u\); return up \? mulTo\(sc, elMat\(up\), own\) : own; \} \}\]\);/);
   assert.match(st, /for \(const u of overPainted\) if \(!now2\.has\(u\)\) u\.classList\.remove\(OVER_CLASS\);\n\s+for \(const u of now2\) u\.classList\.add\(OVER_CLASS\);/);
   // (Read each frame before the figure decides to sleep, and laid again alone, after the frame's draw, when only they changed: perf A3.)
-  assert.match(st, /syncOver\(\);\n(?:\s+\/\/ [^\n]*\n)+\s+const overAt = OVER_ON && (?:live\.)?veins\?\.top \? (?:live\.)?veins\.top\.presents : -1;\n\s+const rowsWait/);
+  assert.match(st, /framePart\('stage: overlays', syncOver\);\n(?:\s+\/\/ [^\n]*\n)+\s+const overAt = OVER_ON && (?:live\.)?veins\?\.top \? (?:live\.)?veins\.top\.presents : -1;\n\s+const rowsWait/);
   assert.match(st, /function overAlone\(at\) \{ if \(at >= 0 && (?:live\.)?veins\?\.overlay\?\.stale && !(?:live\.)?veins\.lost && (?:live\.)?veins\.top\.presents === at\) (?:live\.)?veins\.present\(\); \}/);
+});
+
+test('the camera\'s three sizes on screen (a zoom writes them every step) drop no group\'s reading, and nothing the painter reads uses them', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const el = (style) => ({ getAttribute: (a) => (a === 'style' ? style : null) });
+  assert.equal(needsReread({ type: 'attributes', attributeName: 'style', oldValue: '--clamp-sw: 14.67px; --clamp-fs: 25.15px;', target: el('--clamp-sw: 14.38px; --clamp-fs: 24.65px;') }), false);
+  assert.equal(needsReread({ type: 'attributes', attributeName: 'style', oldValue: '--halo-k: 2.096;', target: el('--halo-k: 2.054;') }), false);
+  assert.equal(needsReread({ type: 'attributes', attributeName: 'style', oldValue: '--halo-k: 2.096;', target: el('--halo-k: 2.054; stroke-width: 3px') }), true, 'another declaration is still a change');
+  // Their readers in the stylesheets: text (never painted by the overlays) and the SVG halos' css scale; a new reader needs this list, and the rule above, looked at.
+  const dir = new URL('../styles/', import.meta.url), found = [];
+  for (const f of readdirSync(dir).filter((n) => n.endsWith('.css'))) {
+    for (const m of readFileSync(new URL(f, dir), 'utf8').matchAll(/([^{}]+)\{[^{}]*var\(--(clamp-sw|clamp-fs|halo-k)\b[^{}]*\}/g)) found.push(m[1].trim().replace(/\s+/g, ' ').replace(/^\/\*.*?\*\/\s*/, ''));
+  }
+  const ok = [/^\.clamp-label, \.clamp-label-out$/, /^\.guide-label$/, /^\.halo-in$/];
+  for (const sel of found) assert.ok(ok.some((r) => r.test(sel)), `a reader of the camera's sizes the overlays do not know: ${sel}`);
+  assert.ok(found.length >= 3, `found ${found.length}`);
+});
+
+test('the classes of an open card or sheet change no overlay look: no rule on them reaches the figure', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const { OVER_CARD_CLASSES, OVER_CARD_RE } = await import('../src/ui/stage-over.js');
+  assert.equal('app dock-open panel-open stage-view'.replace(OVER_CARD_RE, ''), 'app stage-view');
+  assert.equal('vessel-card'.replace(OVER_CARD_RE, ''), '');
+  assert.equal('app not-dock-open dock-opened'.replace(OVER_CARD_RE, ''), 'app not-dock-open dock-opened', 'whole class names only');
+  const dir = new URL('../styles/', import.meta.url), bad = [];
+  // (What a group of the overlays can be: the figure's own boxes and layers, and the marks drawn in its SVG. A rule on a card or sheet state that names any of them fails here, for the
+  // reader to look at; the rules on the stage's own box that set no look a group's reading holds are the one allowed.)
+  const figure = /#stage\b|#stageOver|#stageView|#stageTop|#stageCenter|\.stage-view|#veins|#organs|#overlay|\.halo|\.clamp|\.guide|\.org-|\.caud|\.vein\b|\.vessel|\.lumen|\.leader|\.callout|\.mark\b|\bsvg\b|\bpath\b|\bcircle\b/;
+  const inChrome = /#labels|\.instrument-workspace|\.panel\b|\.action-card|\.dock\b|\.vdock|\.treat-card/;   // (the labels' own SVG, the cards and the chrome: not the overlays)
+  const boxRule = /^(\.app|#app)\.presenting #stageView(\.pz-out:not\(\.unframed\) > :not\(#veins\)| > #overlay)?$|^\.app\.presenting \.stage-view$|^\.app\.presenting #stageCenter$/;
+  for (const f of readdirSync(dir).filter((n) => n.endsWith('.css'))) {
+    const css = readFileSync(new URL(f, dir), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const m of css.matchAll(/([^{}]+)\{/g)) {
+      for (const part of m[1].split(',')) {
+        if (!OVER_CARD_CLASSES.some((c) => new RegExp(`\\.${c}(?![-\\w])`).test(part))) continue;
+        const one = part.trim().replace(/\s+/g, ' ');
+        if (figure.test(one) && !boxRule.test(one) && !inChrome.test(one)) bad.push(`${f}: ${one.slice(0, 140)}`);
+      }
+    }
+  }
+  assert.deepEqual(bad, [], 'a rule on a card or sheet being open that reaches something other than the cards and the chrome: take its class off OVER_CARD_CLASSES (stage-over.js)');
+});
+
+test('the overlays\' root svg takes the camera\'s frames (transform, origin, will-change, transition) without a new reading; a group does not', () => {
+  const root = (now) => ({ localName: 'svg', ownerSVGElement: null, getAttribute: () => now }), grp = (now) => ({ localName: 'g', ownerSVGElement: {}, getAttribute: () => now });
+  const rec = (target, old) => ({ type: 'attributes', attributeName: 'style', oldValue: old, target });
+  assert.equal(needsReread(rec(root('transform: matrix(1.2,0,0,1.2,3,4); will-change: transform;'), 'transform: matrix(1.1,0,0,1.1,3,4);')), false);
+  assert.equal(needsReread(rec(root('transform-origin: 0 0; transition: none;'), '')), false);
+  assert.equal(needsReread(rec(root('clip-path: polygon(0 0, 10px 0, 10px 10px); transform: none;'), 'clip-path: polygon(0 0, 20px 0, 20px 20px);')), false, 'the glass\'s cut under a card (glass-cut.js): no group reads it');
+  assert.equal(needsReread(rec(grp('clip-path: inset(1px);'), 'clip-path: inset(2px);')), true, 'a group\'s own clip is its reading');
+  assert.equal(needsReread(rec(root('visibility: hidden;'), '')), true, 'its visibility is inherited by every group');
+  assert.equal(needsReread(rec(grp('transform: matrix(1.2,0,0,1.2,3,4);'), 'transform: matrix(1.1,0,0,1.1,3,4);')), true, 'a group\'s own style is its reading');
 });

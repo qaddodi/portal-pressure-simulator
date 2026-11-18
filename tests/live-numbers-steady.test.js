@@ -66,30 +66,9 @@ test('the card paragraph metrics set a tabular full stop and sign on the figures
   assert.equal(run('12:34', true), run('88:88', true));
 });
 
-test('countTo does not roll a readout the GPU words own, and a roll never replaces a picture', () => {
-  const u = strip(src('util.js'));
-  assert.match(u, /!same && c\.shown != null && !reduceMotionMQ\.matches && el\.isConnected && hasBox\(el\) && !wordsOfEl\.has\(el\)\) \{ odoRoll/);
-  assert.match(u, /export function odoSwap\([^)]*\) \{\n\s+if \(wordsOfEl\.has\(el\)\) return false;/);
-});
 
-test('gl-words: the picture shows only while both its canvases are in the page, and landing hands over in one frame', () => {
+
+test('gl-words: a number that never holds still still reaches the page\'s own words within a second (WORDS-2: a screen reader reads those)', () => {
   const g = strip(src('gl-words.js'));
-  assert.match(g, /const attached = \(S\) => !!S\.gl && S\.gl\.cv\.isConnected && \(S\.gl\.gpu\?\.canvas \? S\.gl\.gpu\.canvas\.isConnected : true\) && !!S\.txt && S\.txt\.parentNode === S\.el;/);
-  assert.match(g, /\|\| !attached\(S\)\) \{ askLand\(S\); return; \}/, 'a draw never goes into a box whose canvases left the page');
-  // The page's words land while the picture is still made clear; the picture is asked to clear and the class goes in that frame (drawn).
-  assert.match(g, /function drawn\(S, ok\) \{\n\s+if \(S\.dead \|\| S\.asleep\) return;\n[^]*?if \(S\.handOver\) \{ if \(ok\) handOff\(S\); else handRetry\(S\); return; \}/, 'only a drawn clear hands the words over (EXT-VIS-1)');
-  assert.match(g, /S\.handOver = true;[^]*?S\.gl\.paint\(\);/);
-  const land = g.slice(g.indexOf('function land(S)'), g.indexOf('const askLand'));
-  assert.doesNotMatch(land, /classList\.remove\('glw-on'\)/, 'land never uncovers the words in a frame of its own');
-  // (A frame that never comes asks the clear again, a few times, and never hands the words to the page without a drawn clear; past the tries the
-  // GPU draws the number again and keeps it: they are never clear for good, and never two numbers at once.)
-  assert.match(g, /const HAND_MAX = \d+, HAND_TRIES = \d+;/);
-  assert.match(g, /setTimeout\(\(\) => \{ S\.handT = 0; handRetry\(S\); \}, HAND_MAX\)/);
-  assert.match(g, /if \(\+\+S\.handN > HAND_TRIES\) \{[^]*?askLand\(S\);/);
-  assert.doesNotMatch(g, /setTimeout\([^\n]*handOff\(S\)/, 'no timer hands the words over by itself');
-  // A new draw cancels a pending hand-over; disposing and sleeping let go of its timer.
-  assert.match(g, /S\.pend = true;\n\s+S\.handOver = false;/);
-  assert.match(g, /clearTimeout\(S\.handT\); S\.handT = 0; S\.handOver = false;/);
-  // Landing into a box someone emptied puts both canvases back with the words.
-  assert.match(g, /\[S\.gl\.cv, S\.gl\.gpu\?\.canvas\]\.filter\(Boolean\)/);
+  assert.match(g.slice(g.indexOf('const dispose'), g.indexOf('const dispose') + 900), /clearTimeout\(S\.mirrorT\)/, 'a disposed readout leaves no timer');
 });

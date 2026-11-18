@@ -3,10 +3,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const chart = read('src/ui/chart.js');
-const css = read('styles/app.css').replace(/\/\*[\s\S]*?\*\//g, '');
+const css = appCss().replace(/\/\*[\s\S]*?\*\//g, '');
 
 test('drug rows: an empty box off, the accent edge and a tick drawn in when on', () => {
   assert.match(css, /\.order-chip \.oc-dot \{[^}]*border-radius: 5px; box-shadow: inset 0 0 0 1\.5px var\(--border-strong\)/);
@@ -15,9 +16,10 @@ test('drug rows: an empty box off, the accent edge and a tick drawn in when on',
 });
 
 test('procedures in place: TIPS, DIPS, surgical shunt, BRTO and the balloons say so, the tick in the icon\'s own place', () => {
-  for (const name of ['Balloon tamponade', 'TIPS', 'DIPS', 'BRTO']) assert.match(chart, new RegExp(`placed\\(proc\\('[a-z]+', '${name}'`), name);
-  // (The surgical shunts are one order each, from surgical-shunts.js, with the same tick: Warren, both portocaval shunts, mesocaval, Meso-Rex.)
-  assert.match(chart, /\.\.\.SURGICAL\.map\(\(x\) => placed\(proc\('stent', x\.label, x\.sub, /);
+  // (Each is a procedure of the one name table, procedure-names.js: its id, not its words, is what the order is made from.)
+  for (const id of ['balloon', 'tips', 'dips', 'brto']) assert.match(chart, new RegExp(`placed\\(proc\\('[a-z]+', '${id}'`), id);
+  // (The surgical shunts are one order each, from surgical-shunts.js, with the same tick: DSRS, both portocaval shunts, mesocaval, Meso-Rex.)
+  assert.match(chart, /\.\.\.SURGICAL\.map\(\(x\) => placed\(proc\('stent', x\.proc \|\| x\.label, x\.sub, /);
   assert.match(chart, /\(p\) => p\.tips\.on\)/);
   assert.match(chart, /\(p\) => !!p\.occluded\?\.C5\)/);
   assert.match(css, /\.order-btn \.ob-on \{ position: absolute; left: 8px;/, 'absolute: no reflow, no wrap');

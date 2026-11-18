@@ -13,6 +13,8 @@ import { clamp } from './num.js';
 import { ucOf } from './uniform-cache.js';
 import { EDGE_GLSL } from './edge.js';
 import { prestart, linkProgram } from './gl-compile.js';
+import { listMatrix } from './transform-read.js';
+const CM = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };   // (a transform list's matrix, read at once by chainMat and the group's box: never kept)
 
 
 // The path text is read with a character scanner over module state, not a regular expression's match array: a path parsed on a cache
@@ -678,7 +680,7 @@ export function chainMat(el, top) {
   for (let n = el; n && n !== top && n.transform; n = n.parentNode) {
     const l = n.transform.baseVal;
     if (!l?.numberOfItems) continue;
-    const m = l.consolidate()?.matrix;
+    const m = listMatrix(l, CM);
     if (!m) continue;
     // (m · current: the parent's transform outside the child's)
     const A = m.a * a + m.c * b, B = m.b * a + m.d * b, C = m.a * c + m.c * d, D = m.b * c + m.d * d;
@@ -749,7 +751,7 @@ export function elBox4(el, textOf) {
       for (let i = 0; i < kids.length; i++) {
         const c = kids[i], b = elBox4(c, textOf);
         if (!b) continue;
-        const m = c.transform?.baseVal?.numberOfItems ? c.transform.baseVal.consolidate()?.matrix : null;
+        const m = c.transform?.baseVal?.numberOfItems ? listMatrix(c.transform.baseVal, CM) : null;
         // (The box's corners, each through the child's transform when it has one, folded in as they come: no list of corners made.)
         const nc = m ? 4 : 2;
         for (let k = 0; k < nc; k++) {

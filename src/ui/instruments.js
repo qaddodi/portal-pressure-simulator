@@ -3,8 +3,9 @@
 
 import { NODES } from '../engine/topology.js';
 import { gastricUp } from '../engine/scenario.js';
-import { wallRead } from '../engine/wall-read.js';
+import { wallRead, wallShare, WALL_WORDS, WALL_MEANING } from '../engine/wall-read.js';
 import { pressureColor } from './colormap.js';
+import { fmtG } from './num.js';
 import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js';
 import { wordSetter } from './gl-words.js';
 import { simTime, isPaused } from './clock.js';
@@ -19,6 +20,7 @@ import { poolFill } from './blood.js';
 import { FONT } from './charts.js';
 import { store, updateParams, varicesPresent } from './store.js';
 import { classSoon, attrSoon, dataSoon, propSoon } from './class-soon.js';
+import { endoscopyLabel } from './instrument-aria.js';
 import { balanceHold, balanceLine } from './balance-hold.js';
 import { lateFrameFor, cancelFrame, framePhase, easeNow } from './frame.js';
 import { restPass } from './rest-pass.js';
@@ -27,10 +29,13 @@ import { createSvgGL, svgModel, setWords, wordsOf, setGeo } from './svg-gl.js';
 import { textWidth } from './text-gl.js';
 import { D_SURFACE, easeArrive } from './ease.js';
 import { inkBox } from './glyph-measure.js';
+import { createWallGeometry, BRACKET_A } from './wall-geometry.js';
 import { reduceMotionMQ } from './motion.js';
 import { TOKEN_OF_SEV } from '../engine/pressure-cuts.js';
+import { SAAG_PORTAL } from '../engine/ascites-cuts.js';
 import { darkMQ } from './look.js';
 import { createEusPpg } from './eus-ppg.js';
+import { DIAL_VB, dialTickRadius } from './dial-geometry.js';
 // (The endoscope's field: drawn in the late part of a frame, after the model's frame of it has been taken in, so once a frame.)
 const drawFrame = lateFrameFor('instruments');
 
@@ -41,7 +46,7 @@ const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 // a frame that shows a number it has shown before builds nothing.
 const intCache = (make) => { const c = []; return (n) => c[n] ?? (c[n] = make(n)); };
 const intTxt = intCache((n) => String(n));   // alloc-rare: the first time that number is shown
-const tearTxt = intCache((n) => `${n}% of the rupture point`);   // alloc-rare: the first time that percent is shown
+const tearTxt = intCache((n) => `${n}% of the rupture threshold`);   // alloc-rare: the first time that percent is shown
 const slideTxt = intCache((k) => `${k / 10 - 100}% 0px`);   // alloc-rare: the first time that fill is set (slid in from the left inside its track, by tenths of a percent)
 const riseTxt = intCache((p) => `0px ${100 - p}%`);   // alloc-rare: the first time that height is set (risen by sliding up inside the belly, by whole percents)
 // A reading's words: fmt(v, d) then a suffix, rebuilt only when the number it shows changes (a cell is { k, s }, one for each place that prints).
@@ -84,7 +89,7 @@ export function createEndoscopy({ onAction }) {
     h('div', { class: 'endo-g', title: 'Small, <5 mm; Large, ≥5 mm.' }, h('dt', {}, 'Grade'), grade),
     item('endo-tile', h('dt', {}, 'Diameter'), diam),
     item('endo-tile', h('dt', {}, 'Wall', h('span', { class: 'endo-dt-x' }, ' thickness')), wall),
-    h('div', { class: 'endo-chip endo-red', title: 'In the model, red wale marks and cherry-red spots appear once the wall stress exceeds 70% of the rupture point.' }, h('dt', {}, 'Stigmata'), red));
+    h('div', { class: 'endo-chip endo-red', title: 'In the model, red wale marks and cherry-red spots appear once the wall stress exceeds 70% of the rupture threshold.' }, h('dt', {}, 'Stigmata'), red));
   // EUS-PPG, played on the anatomy from here (eus-ppg.js): in Tests › Scope, not on a slide's card unless the slide asks (configure).
   const eus = createEusPpg();
   const side = h('div', { class: 'chart-side' }, stats, bandBtn, eus.el);
@@ -102,12 +107,14 @@ export function createEndoscopy({ onAction }) {
     // The size seen: the size at rest (the slide's own number when there is one) at the air's pressure (airRatio, the beat-averaged table).
     // The grade above stays the size at rest.
     const pinTo = view === 'eso' && pinned, rest = pinTo && Number.isFinite(pinned.d) ? pinned.d : vx.d, inV = pinTo && Number.isFinite(pinned.ptm) ? pinned.ptm : vx.ptm;
-    set(diam, shownNum(cDiam, rest * airRatio(mv?.air ?? vx.air, opt.air), 1, ' mm')); set(wall, shownNum(cWall, vx.w, 1, ' mm'));
+    const diamTxt = shownNum(cDiam, rest * airRatio(mv?.air ?? vx.air, opt.air), 1, ' mm');
+    set(diam, diamTxt); set(wall, shownNum(cWall, vx.w, 1, ' mm'));
     if (opt.readings) { set(pIn, shownNum(cIn, inV, 1, ' mmHg')); set(pLum, shownNum(cLum, opt.air, 1, ' mmHg')); set(pAcross, shownNum(cAcross, inV - opt.air, 1, ' mmHg')); }
     const redV = !vx.present ? 'None' : (opt.red ?? vx.redWale) ? 'Red wale, cherry spots' : 'None';
     set(redWord, redV === 'None' ? redV : 'Red wale'); set(redMore, redV === 'None' ? '' : ', cherry spots'); dataSoon(red, 'long', redV === 'None' ? null : ''); dataSoon(red.parentNode, 'on', redV !== 'None');
     const nb = Math.round(f.bands || 0);
     set(bands, intTxt(nb)); dataSoon(bands.parentNode, 'on', nb !== 0);
+    attrSoon(cv, 'aria-label', endoscopyLabel({ present: vx.present, grade: vx.grade.label, diam: diamTxt, red: redV !== 'None', bands: nb }));   // (the picture's values, for a screen reader: A11-1)
     // A model frame taken in at the start of a frame is drawn by the field's own late callback of that frame (one already asked
     // for by an ease, or one asked now): the field is drawn once a frame, with the newest state. Anywhere else, at once.
     if (framePhase() === 'early') { last = lastS; lastS.f = f; lastS.vx = vx; if (!raf) raf = drawFrame(redraw); return; }
@@ -377,48 +384,21 @@ export function createEndoscopy({ onAction }) {
 // ── Varix wall cross-section (L3) ───────────────────
 // Scope's Wall mechanics tab: a cross-section of the esophagus with the varix in its wall, and Laplace's
 // law as readings in the same tiles and meter as the scope view.
-const WALL_SEV = { ok: 'Low', caution: 'High', danger: 'Near rupture', critical: 'Rupture risk' };
+const WALL_SEV = WALL_WORDS;
 // The meter's four states by the stress's share of the tear point (one rule, read by the bar, the readout and the rim of the varix drawn below).
 const wallState = (r) => (r > 1 ? 'critical' : r > 0.7 ? 'danger' : r > 0.4 ? 'caution' : 'ok');
 const RIM_INK = { ...TOKEN_OF_SEV, critical: '--critical' };
 // A name's ink as drawn (centred, baseline middle): the box round its glyphs' own ink, from the GPU atlas (glyph-measure.js inkBox: no
 // canvas is drawn and read back). Names are placed by the ink itself, not their line box.
 const inkRows = (font, t) => inkBox(t, font);
-// How far a name's ink at (x, y) keeps from things round it, in px: inside a circle (its edge), outside one, from a box.
-// (Each row is [top, bottom, left, right]; the rows are looked over by index, so a search that tries a name at hundreds of places makes nothing.)
-const inkIn = (rows, x, y, ox, oy, r) => {
-  let m = Infinity;
-  for (let i = 0; i < rows.length; i++) { const q = rows[i]; m = Math.min(m, r - Math.hypot(Math.max(Math.abs(x + q[2] - ox), Math.abs(x + q[3] - ox)), Math.max(Math.abs(y + q[0] - oy), Math.abs(y + q[1] - oy)))); }
-  return m;
-};
-const inkOut = (rows, x, y, ox, oy, r) => {
-  let m = Infinity;
-  for (let i = 0; i < rows.length; i++) { const q = rows[i]; m = Math.min(m, Math.hypot(Math.max(0, x + q[2] - ox, ox - x - q[3]), Math.max(0, y + q[0] - oy, oy - y - q[1])) - r); }
-  return m;
-};
-/** box: [left, top, right, bottom]. */
-const inkFrom = (rows, x, y, box) => {
-  const bl = box[0], bt = box[1], br = box[2], bb = box[3];
-  let m = Infinity;
-  for (let i = 0; i < rows.length; i++) {
-    const q = rows[i], dx = Math.max(bl - (x + q[3]), x + q[2] - br), dy = Math.max(bt - (y + q[1]), y + q[0] - bb);
-    m = Math.min(m, dx > 0 && dy > 0 ? Math.hypot(dx, dy) : Math.max(dx, dy));
-  }
-  return m;
-};
-/** The least / the most of column k (0 top, 1 bottom, 2 left, 3 right) over a name's rows. */
-const colMin = (rows, k) => { let m = Infinity; for (let i = 0; i < rows.length; i++) m = Math.min(m, rows[i][k]); return m; };
-const colMax = (rows, k) => { let m = -Infinity; for (let i = 0; i < rows.length; i++) m = Math.max(m, rows[i][k]); return m; };
-/** The ink box of rows set at (x, y), into out as [left, top, right, bottom]. */
-const inkBoxInto = (out, rows, x, y) => { out[0] = x + colMin(rows, 2); out[1] = y + colMin(rows, 0); out[2] = x + colMax(rows, 3); out[3] = y + colMax(rows, 1); };
 // The picture's names, in the order they are drawn, as the checks read them from data-labels: one text for each set of them drawn (bit i: name i).
 const WALL_NAMES = ['r', 'σ', 'w', 'lumen', 'muscle'];
 const WALL_LABELS = Array.from({ length: 32 }, (_, m) => WALL_NAMES.filter((_n, i) => m & (1 << i)).join(','));
 const DASH_RADIUS = [3, 3], NO_DASH = [];
 export function createVarixWall() {
-  const geo = { w: NaN, hh: NaN, fs: NaN, wc: NaN, R: 0, cy: 0, off: new Set() };   // (the picture's fitted size, for the size, type size and wall it was fitted to, and the names left out at it, drawWall below)
+  const geom = createWallGeometry();   // (where everything in the picture goes, from its size and the beat's varix: wall-geometry.js)
   const el = h('div', { class: 'dock-pane', 'data-pane': 'varixwall' });
-  const box = h('div', { class: 'chart-box square' });
+  const box = h('div', { class: 'chart-box square wall-box' });
   const cv = h('canvas', { role: 'img', 'aria-label': 'Varix cross-section: transmural pressure stretches the varix wall' });
   box.append(cv);
   // (the cross-section drawn by the GPU's chart drawer over this canvas: trace-gl.js, ?tracegl=0 on the canvas)
@@ -435,7 +415,7 @@ export function createVarixWall() {
   const name = (long, short) => h('dt', {}, h('span', { class: 'wall-long' }, long), h('span', { class: 'wall-short' }, short));
   const ptm = num('mmHg'), rad = num('mm'), wal = num('mm'), idx = num('');
   // A slide's screen reads the stress as one number top left and its state top right (the pane keeps its sentence).
-  const wPct = h('span'), wBig = h('b', { class: 'wall-big' }, wPct, h('small', {}, '%', h('span', { class: 'wall-of' }, ' of rupture point'))), wSev = h('span', { class: 'wall-sev' });
+  const wPct = h('span'), wBig = h('b', { class: 'wall-big' }, wPct, h('small', {}, '%', h('span', { class: 'wall-of' }, ' of rupture threshold'))), wSev = h('span', { class: 'wall-sev' });
   const stats = h('dl', { class: 'endo-read' },
     item('endo-g wall-law', h('dt', {}, 'Laplace’s law'), h('dd', { class: 'wall-formula' }, 'σ = ΔP · r / w')),
     item('endo-stress', name('Wall stress (model)', 'Wall stress'), stressTxt, wBig, wSev, stressBar),
@@ -444,11 +424,11 @@ export function createVarixWall() {
     item('endo-tile', h('dt', {}, 'Wall w'), wal),
     item('endo-tile', name('Stress index', 'Index'), idx));
   const side = h('div', { class: 'chart-side' }, stats,
-    h('div', { class: 'ctl-sub' }, 'A wider varix, higher transmural pressure and a thinner wall all raise the stress. Remodeling enlarges the varix and thins its wall over months; a balloon raises the pressure outside it.'));
+    h('div', { class: 'ctl-sub' }, 'A wider varix, higher transmural pressure and a thinner wall all raise the stress. Remodeling enlarges the varix and thins its wall over months; a balloon raises the pressure outside it. ' + WALL_MEANING));
   el.append(stage, side);
   // (The readings change with the model: drawn on the GPU while they change, gl-words.js.)
   const set = wordSetter([ptm.v, rad.v, wal.v, idx.v, stressTxt, wPct, wSev]);
-  let wMean = null, wT = 0, wN = 0, wPin = NaN, wPinT = 0;
+  let wMean = null, wPin = NaN, wPinT = 0;
   // (A what-if or a time-lapse pins a new state every few frames: each eases into the last, so the figure does not flicker.)
   function pin(fp) {
     const x = fp?.wall, now = performance.now();
@@ -462,51 +442,24 @@ export function createVarixWall() {
     const v = f.metrics.varix;
     const wr = wallRead(v);   // (the index is worked out from the shown ΔP, r and w, so the tiles multiply out)
     set(ptm.v, wr.ptm); set(rad.v, wr.r); set(wal.v, wr.w); set(idx.v, wr.index);
-    set(stressTxt, v.ratioShown > 1 ? 'above the rupture point' : tearTxt(Math.round(v.ratioShown * 100)));
-    const sev = wallState(v.ratioShown);
+    const share = wallShare(v);   // (the engine's two-breath mean: every screen reads this one number, A6)
+    set(stressTxt, share > 1 ? 'above the rupture threshold' : tearTxt(Math.round(share * 100)));
+    const sev = wallState(share);
     dataSoon(stressBar, 'sev', sev);
-    // (The stress swings with each beat and each breath: the number is its mean over the last several breaths, a plain
-    // average while that many have not passed yet, so it reads steady and the same on every screen, folded or open.)
-    const now = performance.now();
-    if (wMean == null || now - wT > 3000) { wMean = v.ratioShown; wN = 1; } else { wN++; wMean += (v.ratioShown - wMean) * Math.max(1 / wN, 1 - Math.exp(-(now - wT) / 6000)); }
-    wT = now;
+    // (The stress swings with each beat and each breath: the engine already gives its mean over two breaths, wallShare, so the number reads steady and the same on every screen, folded or open.)
+    wMean = share;
     // (On a slide the figure is the slide's own, the state its tiles show (pin), so every screen reads the same number.)
     if (Number.isFinite(wPin)) wMean = wPin;
     const ms = wallState(wMean);
     set(wPct, intTxt(Math.round(wMean * 100))); set(wSev, WALL_SEV[ms]);
     dataSoon(wSev, 'sev', ms); dataSoon(wBig, 'sev', ms);
-    const wPctW = slideTxt(Math.round(clamp(v.ratioShown, 0, 1) * 1000));   // (slid in from the left inside its track: app.css .endo-bar i)
+    const wPctW = slideTxt(Math.round(clamp(share, 0, 1) * 1000));   // (slid in from the left inside its track: app.css .endo-bar i)
     if (stressFill.style.translate !== wPctW) stressFill.style.translate = wPctW;
     const pen = fitPen(cv, wallGL), ctx = pen.ctx;
     try { drawWall(ctx, pen.w, pen.h, v, f); } finally { ctx.end?.(); }
   }
-  // drawWall's parts are made once and read this draw's values from W; its answers are written into kept objects (a draw makes none).
-  const W = { v: null, fs: 12, cx: 0, hh: 0, fsInk: NaN, f6: '', f5: '', inkT: null, inkR: null, inkW: null, inkL: null, inkM: null };
-  const PP = { Rl: 0, rr: 0, vy: 0, lw: 0, ro: 0, len: 0, tx: 0, ty: 0, top: 0 };
-  const boxDash = [0, 0, 0, 0], boxW = [0, 0, 0, 0], boxBrk = [0, 0, 0, 0];
-  const gR = { fill: 0, dash: 0 }, gSig = { ring: 0, top: 0 }, gW = {}, gLumen = { edge: 0, w: 0, arrows: 0 }, gMuscle = { outer: 0, band: 0 }, gPic = { R: 0, cy: 0, h: 0 };
-  const gaps = { r: undefined, 'σ': undefined, w: undefined, lumen: undefined, muscle: undefined, picture: gPic };   // (what the checks read as cv.wallGaps: a name not drawn is undefined)
-  // The varix and its marks for a picture of radius R round (cx, cy), at this beat's radius, wall and ΔP, into PP.
-  // (most: the largest varix and ΔP the picture can show, which set its size, so the ring holds still through every beat)
-  const parts = (R, cy, most) => {
-    const { v, fs, cx, inkT } = W;
-    const Rl = R * 0.52, rr = most ? R * 0.3 : clamp(v.r * R * 0.05, 4, R * 0.3), vy = cy - Rl - rr * 0.25, lw = clamp((most ? Math.ceil(v.w * 10) / 10 : v.w) * R / 20, 1, 10);
-    const ro = rr + lw / 2 + Math.max(5, R / 30), len = (most ? 30 : clamp(v.ptm, 0, 30)) / 30 * rr * 0.9 + 4;
-    // σ beside the ΔP arrow's shaft, just right of its head; where it would sit on the wall's outline it rises until its
-    // ink is 2 px or more clear of the line's soft edge (it follows the varix through the beat, so it never touches it).
-    const tx = cx + (4 + R / 60) * 0.45 + 2 - colMin(inkT, 2);
-    let ty = vy - ro - fs * 0.75;
-    if (inkIn(inkT, tx, ty, cx, cy, R - 1) < 2) for (let k = 0; k < 400 && inkOut(inkT, tx, ty, cx, cy, R + 1) < 2; k++) ty -= 0.25;
-    const tTop = ty + colMin(inkT, 0);
-    PP.Rl = Rl; PP.rr = rr; PP.vy = vy; PP.lw = lw; PP.ro = ro; PP.len = len; PP.tx = tx; PP.ty = ty;
-    PP.top = Math.min(vy - Math.max(rr + lw / 2, ro + 2.5, rr + 3 + len + 1), tTop);
-    return PP;
-  };
-  const atR = (R) => { const c0 = W.hh - 6 - R; return Math.min(W.hh - 1 - R, c0 + Math.max(0, 1 - parts(R, c0, true).top)); };
-  const okR = (R) => parts(R, atR(R), true).top >= 1;
-  // (A name that once misses at this size stays out until the size changes: r and the w label move with the beat, and a name
-  // blinking in and out with it would read as a glitch.)
-  const keepName = (t, ok) => { if (!ok) geo.off.add(t); return !geo.off.has(t); };
+  // drawWall reads the picture's layout (wall-geometry.js: where the ring, the varix and every name go; no canvas there) and paints it.
+  const W = { fsInk: NaN, f6: '', f5: '', ink: { T: null, R: null, W: null, L: null, M: null } };
   function drawWall(ctx, w, hh, v, f) {
     if (w < 32 || hh < 32) return;
     ctx.clearRect(0, 0, w, hh);
@@ -520,31 +473,21 @@ export function createVarixWall() {
       W.fsInk = fs;
       // alloc-rare: only when the type size changes (a resize, or the card's size read)
       W.f6 = FONT(600, fs); W.f5 = FONT(500, fs);
-      W.inkT = inkRows(W.f6, 'σ'); W.inkR = inkRows(W.f6, 'r'); W.inkW = inkRows(W.f6, 'w'); W.inkL = inkRows(W.f5, 'lumen'); W.inkM = inkRows(W.f5, 'muscle');
+      const k = W.ink;
+      k.T = inkRows(W.f6, 'σ'); k.R = inkRows(W.f6, 'r'); k.W = inkRows(W.f6, 'w'); k.L = inkRows(W.f5, 'lumen'); k.M = inkRows(W.f5, 'muscle');
     }
-    const { f6, f5, inkT, inkR, inkW, inkL, inkM } = W;
-    const cx = w / 2;
-    W.v = v; W.fs = fs; W.cx = cx; W.hh = hh;
-    // The wall stress's σ and the ΔP arrow rise above the varix at the top of the wall: the picture, its foot 6 px above the box's
-    // foot (or lower, into those 6 px, where that is all it needs), is the largest whose σ and arrow ink at the largest varix
-    // and ΔP stays 1 px or more inside the canvas (a 12 px T, the symbol before σ, had its crossbar cut). The ring is set once for the box, and only
-    // the varix and its marks move with the beat.
-    const wc = Math.ceil(v.w * 10);
-    if (geo.w !== w || geo.hh !== hh || geo.fs !== fs || geo.wc !== wc) {
-      let lo = 20, hi = Math.min(w, hh) / 2 - 6;
-      if (okR(hi)) lo = hi; else for (let k = 0; k < 30; k++) { const m = (lo + hi) / 2; if (okR(m)) lo = m; else hi = m; }
-      if (geo.w !== w || geo.hh !== hh || geo.fs !== fs) geo.off.clear();
-      geo.w = w; geo.hh = hh; geo.fs = fs; geo.wc = wc; geo.R = lo; geo.cy = atR(lo);
-    }
-    const { R, cy } = geo;
-    const { Rl, rr, vy, lw, ro, len, tx, ty } = parts(R, cy, false);
+    const { f6, f5 } = W;
+    // The ring is the largest whose arrows and stress arcs stay inside the canvas (by its height, or its width where that is less) and
+    // whose σ has a clear place outside the wall; it is set once for the box, and only the varix and its marks move with the beat.
+    const L = geom.place(w, hh, fs, W.ink, v);
+    const { cx, cy, R, Rl, rr, vy, lw, ro, len } = L;
     // The wall: muscle outside, mucosa inside, the lumen in the middle.
     ctx.fillStyle = cssVar('--organ-stomach'); ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.fill();
     ctx.globalAlpha = 0.55; ctx.beginPath(); ctx.arc(cx, cy, R * 0.74, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
     ctx.strokeStyle = cssVar('--hairline'); ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.stroke();
     ctx.fillStyle = cssVar('--surface'); ctx.beginPath(); ctx.arc(cx, cy, Rl, 0, 7); ctx.fill();
     // The varix in the submucosa at the top, bulging into the lumen; its size follows the model's radius.
-    const rim = cssVar(RIM_INK[wallState(v.ratioShown)]);   // (the stress meter's four states, below: ok, caution, danger, critical)
+    const rim = cssVar(RIM_INK[wallState(wallShare(v))]);   // (the stress meter's four states, below: ok, caution, danger, critical)
     // Transmural pressure pushes outward on the varix wall: longer arrows for a higher ΔP.
     ctx.strokeStyle = cssVar('--text-2'); ctx.fillStyle = cssVar('--text-2'); ctx.lineWidth = Math.max(1.25, R / 140);
     for (let a = -Math.PI; a < Math.PI - 0.01; a += Math.PI / 4) {
@@ -554,31 +497,20 @@ export function createVarixWall() {
       ctx.beginPath(); ctx.moveTo(x1, y1);
       ctx.lineTo(x1 - Math.cos(a - 0.45) * hd, y1 - Math.sin(a - 0.45) * hd); ctx.lineTo(x1 - Math.cos(a + 0.45) * hd, y1 - Math.sin(a + 0.45) * hd); ctx.fill();
     }
-    ctx.fillStyle = pressureColor(f.P[NI.VAR]); ctx.beginPath(); ctx.arc(cx, vy, rr, 0, 7); ctx.fill();
+    ctx.fillStyle = pressureColor((f.Pf || f.P)[NI.VAR]); ctx.beginPath(); ctx.arc(cx, vy, rr, 0, 7); ctx.fill();
     ctx.strokeStyle = rim; ctx.lineWidth = lw; ctx.stroke();
     // The radius, drawn across the varix.
     ctx.strokeStyle = cssAlpha('--white', 0.85); ctx.lineWidth = 1.25; ctx.setLineDash(DASH_RADIUS);
     ctx.beginPath(); ctx.moveTo(cx, vy); ctx.lineTo(cx + rr, vy); ctx.stroke(); ctx.setLineDash(NO_DASH);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    gaps.r = gaps['σ'] = gaps.w = gaps.lumen = gaps.muscle = undefined;
-    let drawn = 0;   // (bit i: WALL_NAMES[i] is drawn)
-    // "r" just under the dashed radius, its ink 2 px or more clear of the dashes and 1 px or more inside the varix's fill;
-    // on a small varix it moves in toward the centre, still under the dashes.
-    const rTop = colMin(inkR, 0), rL = colMin(inkR, 2);
-    const ry = vy + 3.4 - rTop;
-    boxDash[0] = cx; boxDash[1] = vy - 1.1; boxDash[2] = cx + rr; boxDash[3] = vy + 1.1;   // (the dashes' soft edge included)
-    let rx = cx + rr / 2, rFill = inkIn(inkR, rx, ry, cx, vy, rr - lw / 2 - 0.5), rDash = inkFrom(inkR, rx, ry, boxDash);
-    if (rFill < 2) {
-      const qx = cx + 1.5 - rL, qFill = inkIn(inkR, qx, ry, cx, vy, rr - lw / 2 - 0.5);
-      if (qFill > rFill) { rx = qx; rFill = qFill; rDash = inkFrom(inkR, qx, ry, boxDash); }
-    }
     // (The one label style: the theme's text ink over its --label-halo, 3 px, laid under the fill, so the "r" reads on every pressure fill.)
-    if (keepName('r', rFill >= 1 && rDash >= 2)) {
-      ctx.font = f6; ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = cssVar('--label-halo'); ctx.strokeText('r', rx, ry);
-      ctx.fillStyle = cssVar('--text'); ctx.fillText('r', rx, ry); drawn |= 1; gR.fill = rFill; gR.dash = rDash; gaps.r = gR;
+    if (L.r.show) {
+      ctx.font = f6; ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = cssVar('--label-halo'); ctx.strokeText('r', L.r.x, L.r.y);
+      ctx.fillStyle = cssVar('--text'); ctx.fillText('r', L.r.x, L.r.y);
     }
     // Laplace's other two terms on the picture: the wall stress σ along the wall (two arrows pulling apart round the top,
-    // heavier as the stress rises) and the wall thickness w across the rim (a bracket, in the faded label ink).
+    // heavier as the stress rises) and the wall thickness w across the rim (a bracket, in the faded label ink). Each name stands in
+    // free space beside the varix, a short leader running to it (wall-geometry.js).
     const ink = cssVar('--text-3');
     ctx.strokeStyle = rim; ctx.fillStyle = rim; ctx.lineWidth = clamp(1.25 + 2.5 * clamp(v.ratio, 0, 1.2), 1.25, 4);
     for (let si = 0; si < 2; si++) {
@@ -589,40 +521,30 @@ export function createVarixWall() {
       ctx.beginPath(); ctx.moveTo(ex + ux * hd * 0.2, ey + uy * hd * 0.2);
       ctx.lineTo(ex - ux * hd + uy * hd * 0.55, ey - uy * hd - ux * hd * 0.55); ctx.lineTo(ex - ux * hd - uy * hd * 0.55, ey - uy * hd + ux * hd * 0.55); ctx.fill();
     }
-    ctx.font = f6; ctx.fillText('σ', tx, ty); drawn |= 2;
-    gSig.ring = Math.max(inkIn(inkT, tx, ty, cx, cy, R - 0.5), inkOut(inkT, tx, ty, cx, cy, R + 0.5)); gSig.top = ty + colMin(inkT, 0); gaps['σ'] = gSig;
-    const aw = Math.PI * 0.62, bx = Math.cos(aw), by = Math.sin(aw);
-    const i0 = rr - lw / 2, o0 = rr + lw / 2 + 3;
+    if (L.sigma.show) {
+      const s = L.sigma;
+      if (s.lead) { ctx.strokeStyle = ink; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(s.sx, s.sy); ctx.lineTo(s.ex, s.ey); ctx.stroke(); }
+      ctx.fillStyle = rim; ctx.font = f6; ctx.fillText('σ', s.x, s.y);
+    }
+    const wl = L.w;
     ctx.strokeStyle = ink; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(cx + bx * i0, vy + by * i0); ctx.lineTo(cx + bx * (o0 + 6), vy + by * (o0 + 6)); ctx.stroke();
-    for (let di = 0; di < 2; di++) { const d = di === 0 ? i0 : rr + lw / 2; ctx.beginPath(); ctx.moveTo(cx + bx * d - by * 3, vy + by * d + bx * 3); ctx.lineTo(cx + bx * d + by * 3, vy + by * d - bx * 3); ctx.stroke(); }
-    const wx = cx + bx * (o0 + 6 + fs * 0.6), wy = vy + by * (o0 + 6 + fs * 0.6);
-    ctx.fillStyle = ink; ctx.font = f6; ctx.fillText('w', wx, wy); drawn |= 4; gaps.w = gW;
-    // "lumen" as high in the lumen as its ink keeps 1 px inside the lumen's edge and 2 px clear of the w label, its bracket
-    // and the ΔP arrows; "muscle" where its ink keeps the most room inside the muscle ring, 1 px or more on each side.
-    // A name is drawn only where its ink fits, never across a ring's edge.
-    ctx.fillStyle = cssVar('--text-3');
-    inkBoxInto(boxW, inkW, wx, wy);
-    boxBrk[0] = cx + bx * (o0 + 6) - 3.5; boxBrk[1] = vy + by * i0 - 3.5; boxBrk[2] = cx + bx * i0 + 3.5; boxBrk[3] = vy + by * (o0 + 6) + 3.5;
-    let lumenY = 0, lumenFound = false;
-    for (let y = cy + Rl * 0.35; y < cy + Rl; y += 0.25) {
-      const edge = inkIn(inkL, cx, y, cx, cy, Rl - 0.35), gw = Math.min(inkFrom(inkL, cx, y, boxW), inkFrom(inkL, cx, y, boxBrk)), arrows = inkOut(inkL, cx, y, cx, vy, rr + 3 + len + 1);
-      if (edge < 1) break;
-      if (gw >= 2.5 && arrows >= 2) { lumenFound = true; lumenY = y; gLumen.edge = edge; gLumen.w = gw; gLumen.arrows = arrows; break; }   // (2.5: both names' soft edges)
+    ctx.beginPath(); ctx.moveTo(wl.bx0, wl.by0); ctx.lineTo(wl.bx1, wl.by1); ctx.stroke();
+    // (the two ticks across the rim's thickness)
+    const bx = Math.cos(BRACKET_A), by = Math.sin(BRACKET_A);
+    for (let di = 0; di < 2; di++) { const d = di === 0 ? rr - lw / 2 : rr + lw / 2; ctx.beginPath(); ctx.moveTo(cx + bx * d - by * 3, vy + by * d + bx * 3); ctx.lineTo(cx + bx * d + by * 3, vy + by * d - bx * 3); ctx.stroke(); }
+    if (wl.show) {
+      if (wl.lead) { ctx.beginPath(); ctx.moveTo(wl.sx, wl.sy); ctx.lineTo(wl.ex, wl.ey); ctx.stroke(); }
+      ctx.fillStyle = ink; ctx.font = f6; ctx.fillText('w', wl.x, wl.y);
     }
-    if (keepName('lumen', lumenFound)) { ctx.font = f5; ctx.fillText('lumen', cx, lumenY); drawn |= 8; gaps.lumen = gLumen; }
-    let muscleY = 0, muscleOuter = 0, muscleBand = 0, muscleFound = false;
-    for (let y = cy + R * 0.74; y < cy + R; y += 0.25) {
-      const outer = inkIn(inkM, cx, y, cx, cy, R - 0.5), band = inkOut(inkM, cx, y, cx, cy, R * 0.74);
-      if (!muscleFound || Math.min(outer, band) > Math.min(muscleOuter, muscleBand)) { muscleFound = true; muscleY = y; muscleOuter = outer; muscleBand = band; }
-    }
-    if (keepName('muscle', muscleFound && Math.min(muscleOuter, muscleBand) >= 1)) { ctx.font = f5; ctx.fillText('muscle', cx, muscleY); drawn |= 16; gMuscle.outer = muscleOuter; gMuscle.band = muscleBand; gaps.muscle = gMuscle; }
+    // "lumen" and "muscle" inside the rings they name.
+    ctx.fillStyle = ink;
+    if (L.lumen.show) { ctx.font = f5; ctx.fillText('lumen', cx, L.lumen.y); }
+    if (L.muscle.show) { ctx.font = f5; ctx.fillText('muscle', cx, L.muscle.y); }
     // (What the picture shows, for the checks: the names drawn and how far each keeps from its neighbours.)
-    dataSoon(cv, 'labels', WALL_LABELS[drawn]);
-    gPic.R = R; gPic.cy = cy; gPic.h = hh;
-    cv.wallGaps = gaps;
+    dataSoon(cv, 'labels', WALL_LABELS[L.drawn]);
+    cv.wallGaps = L.gaps;
   }
-  return { id: 'varixwall', label: 'Varix wall', el, update, pin };
+  return { id: 'varixwall', label: 'Varix wall', el, update, pin, dispose() { wallGL?.dispose(); } };
 }
 
 // ── Ascites (L2c) ───────────────────────────────────
@@ -651,7 +573,7 @@ function iapDial() {
   const C = 64, R = 56, TX = 42;   // pivot on the flat (belly) side, ring radius, the text column
   const pt = (v, r) => { const t = Math.PI / 2 + (v / IAP_MAX) * Math.PI; return [C + r * Math.cos(t), C + r * Math.sin(t)]; };
   const arc = (a, b, r) => { const [x0, y0] = pt(a, r), [x1, y1] = pt(b, r); return `M${x0.toFixed(2)} ${y0.toFixed(2)}A${r} ${r} 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`; };
-  const svg = s('svg', { class: 'ab-dial', 'data-look': 'inst.root', viewBox: '-12 0 76 128', preserveAspectRatio: 'xMidYMid meet' });
+  const svg = s('svg', { class: 'ab-dial', 'data-look': 'inst.root', viewBox: `${DIAL_VB[0]} 0 ${DIAL_VB[2]} 128`, preserveAspectRatio: 'xMidYMid meet' });
   const live = [];
   for (const [a, b, sev] of IAP_BANDS) {
     const a1 = a ? a + 0.3 : a, b1 = b < IAP_MAX ? b - 0.3 : b, d = arc(a1, b1, R);
@@ -692,8 +614,11 @@ function iapDial() {
     key.setAttribute('font-size', fk.toFixed(2)); unit.setAttribute('font-size', fu.toFixed(2)); word.setAttribute('font-size', fw.toFixed(2));   // (a model's size is its attribute: the table sets none for these)
     const yu = 74 + 0.72 * fu, yw = yu + 3.5 + 0.72 * fw;
     unit.setAttribute('y', yu.toFixed(2)); word.setAttribute('y', yw.toFixed(2));
+    // (The 12 and 20 stand outside the ring, at the type size the screen asks for. A small dial makes that size large in the drawing, and the
+    // "12", on the ring's far left, ran past the drawing's left edge and was cut there: so the ring's radius they stand at is held to what keeps
+    // the whole word inside, DIAL_LEFT of the edge, as near the ring as that needs. 16 Nov 2026, the Ascites card's play-test.)
     for (const [v, tl] of tls) {
-      const [lx, ly] = pt(v, R + 10 + 0.65 * ft);
+      const [lx, ly] = pt(v, dialTickRadius(v, ft, IAP_MAX, C, R));
       tl.setAttribute('font-size', ft.toFixed(2)); tl.setAttribute('x', lx.toFixed(2)); tl.setAttribute('y', (ly + 0.36 * ft).toFixed(2));
     }
     gl.relook();   // (the new type sizes are styles: the model's looks are read again, between frames)
@@ -719,7 +644,8 @@ function iapDial() {
     wrapMO = new MutationObserver(() => gl.setCtx({ view: viewNow() }));
     wrapMO.observe(w, { attributes: true, attributeFilter: ['class'] });
   };
-  if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const b = es[es.length - 1].contentBoxSize?.[0]; boxW = b ? b.inlineSize : es[es.length - 1].contentRect.width; hookView(); fit(); }).observe(el);
+  const dialRO = typeof ResizeObserver === 'function' ? new ResizeObserver((es) => { const b = es[es.length - 1].contentBoxSize?.[0]; boxW = b ? b.inlineSize : es[es.length - 1].contentRect.width; hookView(); fit(); }) : null;
+  dialRO?.observe(el);
   // The knob's turn, eased on the frame clock as the page's transition was (D_SURFACE on the arrive curve); reduced motion: at once.
   let ang = 90, turn = null, turnAsk = 0;
   const KNOB_STILL = typeof matchMedia === 'function' ? reduceMotionMQ : { matches: false };
@@ -752,7 +678,9 @@ function iapDial() {
     if (fitK) fitWord(); else gl.paint();
   }
   el.setAttribute('role', 'img');
-  return { el, set };
+  /** The dial is let go: its observers and the knob's turn stop, and its picture's GPU context is given back. */
+  const dispose = () => { dialRO?.disconnect(); wrapMO?.disconnect(); cancelFrame(turnAsk); turnAsk = 0; turn = null; gl.dispose(); };
+  return { el, set, dispose };
 }
 /** A stepper's number rolls to its new value over a small step instead of jumping (the tiles' number roll, util.js countTo); the
  *  first paint is written at once, the unit stays put beside it. */
@@ -821,7 +749,7 @@ export function createAbdomen({ onAction }) {
   const rateArrow = h('i', { class: 'ab-rate-a', 'aria-hidden': 'true' }), rateTxt = h('span');
   const rateEl = h('span', { class: 'ab-rate', 'data-dir': 'steady' }, rateArrow, rateTxt);
   const rateHold = balanceHold(), showRate = balanceLine(rateEl, rateArrow, rateTxt);
-  const rateLabel = (b) => (b === 0 ? ['steady', '', 'Steady'] : b > 0 ? ['up', '▲', `${fmt(b, 0)} mL/day`] : ['down', '▼', `${fmt(-b, 0)} mL/day`]);   // alloc-rare: called only when the held balance changes (below)
+  const rateLabel = (b) => (b === 0 ? ['steady', '', 'Steady'] : b > 0 ? ['up', '▲', `${fmtG(b, 0)} mL/day`] : ['down', '▼', `${fmtG(-b, 0)} mL/day`]);   // alloc-rare: called only when the held balance changes (below)
   function paintRate(raw) {
     const b = rateHold.step(raw, performance.now());
     if (b != null) showRate(...rateLabel(b));   // alloc-rare: balanceHold gives a value only when the shown hundred changes, at most once every 1.5 s
@@ -894,7 +822,7 @@ export function createAbdomen({ onAction }) {
       const ka = r1(p.albumin), kb = r1(a.albumin);   // (the two parts as the line prints them, to a tenth)
       if (!Object.is(cTip.a, ka) || !Object.is(cTip.b, kb)) {
         cTip.a = ka; cTip.b = kb;
-        cTip.s = `SAAG ${fmt(ka, 1)} − ${fmt(kb, 1)} = ${fmt(saag, 1)} g/dL. SAAG ≥1.1 g/dL indicates portal hypertension.`;   // alloc-rare: only when either albumin, to a tenth, changes
+        cTip.s = `SAAG ${fmt(ka, 1)} − ${fmt(kb, 1)} = ${fmt(saag, 1)} g/dL. SAAG ≥${SAAG_PORTAL} g/dL indicates portal hypertension.`;   // alloc-rare: only when either albumin, to a tenth, changes
       }
       tip = cTip.s;
     }
@@ -906,5 +834,5 @@ export function createAbdomen({ onAction }) {
     const bh = riseTxt(Math.round(a.volume > 150 ? 15 + clamp(a.volume / 8000, 0, 1) * 70 : 0));   // (risen by sliding up inside the belly: app.css .ab-belly-fill)
     if (bellyFill.style.translate !== bh) bellyFill.style.translate = bh;
   }
-  return { id: 'abdomen', label: 'Ascites and paracentesis', el, update };
+  return { id: 'abdomen', label: 'Ascites and paracentesis', el, update, dispose() { dial.dispose(); } };
 }

@@ -52,6 +52,14 @@ export function needsReread(rec) {
   if (rec.type !== 'attributes') return true;
   const a = rec.attributeName;
   if (a === 'd' || a === 'transform' || a === 'opacity' || a === 'fill-opacity' || a === 'stroke-opacity') return false;
+  // (The overlays' own view box, written on every frame the camera or a change between the views moves: no group's reading holds it. The painter takes each
+  // group's frame from the page at each paint, and the frames it undoes by a parent's (getCTM against getCTM) both hold the view box. Left to the rule below
+  // it dropped every kept reading of every group on every frame of a move: a read of each overlay element's styles at the start of each frame, 40 to 400 ms
+  // at the play-tester's Mac and iPhone, 18 Nov 2026, in view changes, presets, deck slides, zoom and pan.)
+  if (a === 'viewBox') return rec.target?.ownerSVGElement != null;   // (a nested svg's own view box is a group's frame: read again)
+  // (An inline style whose only change is an opacity the painter reads at each paint, the calipers' fade: the same as the attributes above.)
+  // (The overlays' root svg: a zoom's, a dive's and a card's camera frames write its transform, its origin, its will-change and its transition; none is part of any group's reading, which holds the group's own frame.)
+  if (a === 'style' && rec.oldValue != null) { const root = rec.target?.localName === 'svg' && rec.target.ownerSVGElement == null; return styleKey(rec.oldValue, root) !== styleKey(rec.target.getAttribute('style'), root); }
   if (a === 'class') {
     const strip = (v) => String(v || '').split(/\s+/).filter((c) => c && c !== OVER_CLASS && c !== OVER_ALL).sort().join(' ');
     return strip(rec.oldValue) !== strip(rec.target.getAttribute('class'));
@@ -59,6 +67,36 @@ export function needsReread(rec) {
   return true;
 }
 
+// An inline style as what a reading depends on: each declaration, the three opacities the painter reads at each paint (liveOf) by name alone
+// (whether the element sets one or not decides where the painter takes it from, the page's computed value or its own).
+const PAINT_READ = new Set(['opacity', 'fill-opacity', 'stroke-opacity']);
+// The three sizes on screen the camera writes to the clamps' and halos' groups on every step of a zoom (stage-camera.js applyClampFs). Their only readers are
+// the clamp and guide labels' text (never painted by the GPU: a group holding one is not read at all) and the SVG halos' css scale (the GPU's halos carry the
+// scale as an attribute), so a zoom that wrote them dropped those groups' readings on every frame, and each was read again (the picking and zooming judder,
+// 18 Nov 2026). tests/stage-over.test.js reads the stylesheets for any other reader.
+export const CAMERA_SIZES = new Set(['--clamp-sw', '--clamp-fs', '--halo-k']);
+// (clip-path too, 18 Nov 2026: the glass's cut (glass-cut.js) writes the root's clip-path whenever a card's shape changes, each step of a sheet's refit; the cut shapes what the SVG copy shows, and a clip-path is
+// not inherited: no group's reading holds it (the painter reads each group's own clip and those inside it). A Treat sheet refit read every group again, 18 to 30 ms in 11 of 12 frames.)
+const ROOT_FREE = new Set(['transform', 'transform-origin', 'will-change', 'transition', 'clip-path']);
+export function styleKey(text, root = false) {
+  const out = [];
+  for (const d of String(text || '').split(';')) {
+    const i = d.indexOf(':');
+    if (i < 0) continue;
+    const name = d.slice(0, i).trim().toLowerCase();
+    if (CAMERA_SIZES.has(name) || (root && ROOT_FREE.has(name))) continue;
+    if (name) out.push(PAINT_READ.has(name) ? name : `${name}:${d.slice(i + 1).trim()}`);
+  }
+  return out.sort().join(';');
+}
+
+/** The names of the declarations that differ between two inline styles (for the ?perf readout's reason), at most four. */
+export function styleDiff(a, b) {
+  const m = (t) => { const o = new Map(); for (const d of String(t || '').split(';')) { const i = d.indexOf(':'); if (i > 0) o.set(d.slice(0, i).trim().toLowerCase(), d.slice(i + 1).trim()); } return o; };
+  const A = m(a), B = m(b), out = [];
+  for (const k of new Set([...A.keys(), ...B.keys()])) if (A.get(k) !== B.get(k)) out.push(k);
+  return out.slice(0, 4).join(', ') || 'none';
+}
 /**
  * A batch of mutation records with what came to nothing left out: per element and attribute, the first record (it holds the value
  * before the batch), kept only when the value now differs from it (an attribute written again with its value, or taken off and put
@@ -75,3 +113,11 @@ export function netChanges(records) {
   for (const m of first.values()) for (const [a, r] of m) if (r.target.getAttribute(a) !== r.oldValue) out.push(r);
   return out;
 }
+
+/**
+ * The classes of an open card or sheet, and of a deck being on (presenting, its hush and cover, a held figure, the black screen, the projector), on the page or
+ * the app: nothing they select is part of the figure's groups (see stage.js overKey). A deck's start and stop put several of them on or off at once, and each read
+ * every overlay group again (167 ms, then 91 ms; 83 ms twice at a stop, 18 Nov 2026).
+ */
+export const OVER_CARD_CLASSES = ['vessel-card', 'dock-open', 'panel-open', 'menu-sheet-open', 'presenting', 'pz-hush', 'pz-hush-in', 'pz-held', 'pz-blacked', 'pz-covered', 'projector', 'thumb', 'thumb-ui'];
+export const OVER_CARD_RE = new RegExp(`(?:^|\\s)(?:${OVER_CARD_CLASSES.join('|')})(?=\\s|$)`, 'g');

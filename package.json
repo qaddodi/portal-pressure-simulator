@@ -11,6 +11,7 @@
     "model": "node scripts/model-cli.mjs",
     "warm:states": "node scripts/warm-deck-states.mjs",
     "card-fit": "node scripts/card-fit.mjs",
+    "gallery:affected": "node scripts/gallery-affected.mjs",
     "lint": "eslint . && node scripts/off-gpu-scan.mjs && node scripts/rules-lint.mjs && node scripts/clinical-wording.mjs && node scripts/gen-theme-css.mjs --check",
     "typecheck": "npx --yes -p typescript@5.6.3 tsc -p jsconfig.json",
     "offgpu": "node scripts/off-gpu-scan.mjs --doc",
@@ -53,7 +54,6 @@
     "check": "npm run lint && npm test && npm run build && npm run check:static",
     "check:static": "node scripts/check-static.mjs",
     "smoke:lite": "node scripts/smoke-lite.mjs",
-    "scorm": "node scripts/scorm.mjs",
     "visual": "node tests/e2e/visual.mjs",
     "smoke:order": "node tests/e2e/card-order.mjs",
     "smoke:credit": "node tests/e2e/credit-steady.mjs",
@@ -73,6 +73,6 @@
     "playwright": "^1.56.1"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22 <23"
   }
 }

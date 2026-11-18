@@ -10,9 +10,10 @@ import { COLS } from '../src/ui/table-marks.js';
 import { DECKS } from '../src/ui/decks.js';
 import { adopted } from './deck-adopted.js';
 import { createCore } from '../src/worker-core.js';
+import { presenterSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(`../src/${p}`, import.meta.url), 'utf8');
-const PRESENTER = read('ui/presenter.js'), TOOLS = read('ui/presenter-tools.js');
+const PRESENTER = presenterSource(), TOOLS = read('ui/presenter-tools.js');
 const block = (src, open, close) => { const i = src.indexOf(open); assert.ok(i >= 0, open); return src.slice(i, src.indexOf(close, i)); };
 const keys = (src, re) => [...src.matchAll(re)].map((m) => m[1]);
 
@@ -38,11 +39,8 @@ function edgeTone(rows) {
 }
 
 test('the presenter, its instruments and the worker read the registry', () => {
-  assert.match(PRESENTER, /import \{ EXT, expandIds, stepExtra, markLabel, figureHooks, safe, warmOf \} from '\.\/slide-ext\.js'/);
-  assert.match(TOOLS, /import \{ EXT, guard, safe \} from '\.\/slide-ext\.js'/);
-  assert.match(TOOLS, /import \{ talkTrace \} from '\.\/talk-trace\.js'/);
-  assert.deepEqual(Object.keys(PACKAGES), ['A', 'B', 'C', 'E', 'F', 'G', 'H']);
-  for (const k of ['A', 'B', 'C', 'E', 'F', 'G', 'H']) assert.equal(typeof PACKAGES[k], 'object', `package ${k} exports its registry`);
+  assert.deepEqual(Object.keys(PACKAGES), ['A', 'B', 'C', 'E', 'F', 'G', 'H', 'S']);
+  for (const k of ['A', 'B', 'C', 'E', 'F', 'G', 'H', 'S']) assert.equal(typeof PACKAGES[k], 'object', `package ${k} exports its registry`);
   assert.ok(TG_ROWS.length > 30 && BUILT.lenses.has('origin') && BUILT.visuals.has('table') && BUILT.tools.has('doppler'), 'the built-in names were read');
 });
 
@@ -70,7 +68,7 @@ test('nothing a built-in deck produces changes: targets, glows, marks and steps'
   const newNames = new Set([...Object.keys(EXT.targets), ...Object.values(EXT.targets).map((t) => t.node).filter(Boolean)]);
   for (const d of DECKS) for (const s of d.slides) {
     const at = `${d.id}/${s.id}`;
-    if (!adopted(d, s, 'cols.wave') && !adopted(d, s, 'kind:causes')) assert.equal(stepExtra(s), null, `${at}: no extra work on a built-in slide`);
+    if (!adopted(d, s, 'cols.wave')) assert.equal(stepExtra(s), null, `${at}: no extra work on a built-in slide`);
     if (s.glow) assert.equal(expandIds(s.glow), s.glow, `${at}: its glow is read as it is`);
     for (const m of s.marks || (s.mark ? [s.mark] : [])) {
       if (m.organ && adopted(d, s, 'mark.organ')) continue;

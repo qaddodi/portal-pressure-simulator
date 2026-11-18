@@ -26,3 +26,12 @@ export function wallRead(v) {
   READ.ptm = shown(TXT_P, ptm, DP); READ.r = shown(TXT_R, r, DR); READ.w = shown(TXT_W, w, DW); READ.index = shown(TXT_I, Math.round(w > 0 ? ptm * r / w : 0), 0);
   return READ;
 }
+
+/** The wall stress as a share of the tear point (1 = at it) that EVERY screen prints, the engine's two-breath mean (metrics ratioMean) so the Scope's Wall mechanics, the Readouts tile, Compare and the
+ *  explainer give one number, not the breath's own (A6, play-test 16 Nov 2026: 139% on one tab, 153% on the other, for one patient). v: metrics.varix. */
+export const wallShare = (v) => (Number.isFinite(v.ratioMean) ? v.ratioMean : v.ratioShown);
+
+/** The wall stress's bands in words, one table (B7, play-test 16 Nov 2026: "143% of rupture threshold / Rupture risk" in a patient who never bleeds). Past 100% the model's tear point is passed; whether the varix then tears is a separate switch. */
+export const WALL_WORDS = Object.freeze({ ok: 'Low', caution: 'High', danger: 'Near rupture threshold', critical: 'Past rupture threshold' });
+/** What a share over 100% means, said once for the tile's tooltip, the card's note and the explainer. */
+export const WALL_MEANING = 'Above 100% the varix is past the stress at which this model can tear it. The model tears a varix only when spontaneous bleeding is switched on (off by default), so a patient above 100% with it off stays intact: read it as risk, never as a bleed.';

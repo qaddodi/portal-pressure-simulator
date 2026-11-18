@@ -30,6 +30,24 @@ export const viewGeom = (v, vb) => geomInto(v, vb, { cx: 0, cy: 0, w: 0 });
 export const geomView = (g, vb) => viewInto(g, vb, { k: 0, x: 0, y: 0 });
 const copyView = (v, out) => { out.k = v.k; out.x = v.x; out.y = v.y; return out; };
 
+/**
+ * The viewBox units the stage really shows, written into `out`: { w, h, cx, cy }, the `vb` every path here is worked out in.
+ * `sw`, `sh`: the svg's box in px; `box`: the view box as it stands ({ x, y, width, height }: the anatomy's, the circuit's, or between them
+ * mid-change); the svg meets it, so the spare room on one axis shows more. `free` ({ l, t, r, b } in the svg's px, or null): the rectangle
+ * the framing was fitted into (between the cards); its middle is the point the path travels, so the middle of one framing goes to the
+ * middle of the next in a straight line, as the framing itself centres its box there.
+ * (Until 15 Nov 2026 the arcs, the vessel-following glides and their times read a fixed 1400 x 1000 plate that no stage shows any more, so
+ * every width, overlap test and pull-back was out by the plate's ratio, differently on each device: the figure bowed off its line on a
+ * Mac and streamed past on a phone.)
+ */
+export function camWindow(sw, sh, box, free = null, out = { w: 0, h: 0, cx: 0, cy: 0 }) {
+  const s0 = Math.min(sw / box.width, sh / box.height);
+  out.w = sw / s0; out.h = sh / s0;
+  out.cx = box.x + box.width / 2; out.cy = box.y + box.height / 2;
+  if (free && Number.isFinite(free.l + free.r + free.t + free.b)) { out.cx += ((free.l + free.r) / 2 - sw / 2) / s0; out.cy += ((free.t + free.b) / 2 - sh / 2) / s0; }
+  return out;
+}
+
 /** Whether the parts of the world two views show overlap at all. */
 export function viewsOverlap(a, b, vb) {
   const ga = geomInto(a, vb, GA), gb = geomInto(b, vb, GB), ha = ga.w * vb.h / vb.w, hb = gb.w * vb.h / vb.w;

@@ -9,12 +9,7 @@ const ON = { drugs: { propranolol: true } };
 
 export const PREGNANCY_DECK = {
   id: 'pregnancy', level: 'advanced', title: 'Cirrhosis in pregnancy', minutes: 10,
-  objectives: [
-    'Explain why pregnancy raises portal pressure in cirrhosis',
-    'Name when the risk of variceal bleeding is highest',
-    'Plan screening EGD and treatment, band ligation or a beta-blocker, in pregnancy',
-    'Describe how delivery is managed in a patient with varices',
-  ],
+  objectives: ['Explain why pregnancy raises portal pressure in cirrhosis, and when bleeding risk peaks', 'Plan screening EGD and treatment in pregnancy: band ligation or a beta-blocker', 'Describe how delivery is managed in a patient with varices'],
   summary: 'One woman with compensated cirrhosis through pregnancy: increased blood volume and portal inflow, enlarging varices, second-trimester EGD, band ligation and propranolol, and delivery.',
   checks: [
     ['When is variceal bleeding most likely in pregnancy?', 'In the second trimester, as blood volume rises toward its peak, and during labor, when repeated Valsalva in the second stage raises portal pressure.'],
@@ -25,13 +20,13 @@ export const PREGNANCY_DECK = {
   slides: [
     {
       id: 'before', preset: 'pregnancy', params: { gestation: 0 }, cam: 'varices', labels: ['VAR'],
-      vignette: 'A 31-year-old woman with cirrhosis from autoimmune hepatitis wants to become pregnant. Her platelets are 87,000/µL, and an EGD last year showed small varices.',
+      vignette: 'A 31-year-old woman with cirrhosis from autoimmune hepatitis wants to become pregnant. Her platelets are 87,000/µL, and her last EGD, 3 years ago, showed small varices.',
       caseQ: 'What will pregnancy do to her varices?',
       data: 'tiles', tiles: ['hvpg', 'varix', 'plt'], key: ['hvpg'],
       kicker: 'Before pregnancy', site: 'sin', title: 'Compensated cirrhosis before pregnancy',
-      line: 'Her HVPG is {hvpg}, which is {>=10 mmHg}, so she has clinically significant portal hypertension (CSPH), with small varices.',
-      notes: 'Women with compensated cirrhosis can carry a pregnancy, but the risks rise with the severity of the liver disease. Preconception counseling includes EGD within the year before conception, with large varices treated first. Her medications are reviewed for safety in pregnancy. For her autoimmune hepatitis, the disease should be in remission for at least a year before conception; azathioprine and corticosteroids continue through pregnancy, because a flare is the greater risk, while mycophenolate is stopped and replaced at least 6 weeks before conception because it is teratogenic. That advice comes from autoimmune hepatitis guidance, not from the portal hypertension guidelines this talk cites.',
-      ask: ['What should a woman with cirrhosis have before she conceives?', 'Counseling on her risks and EGD within the year before conception, with large varices treated first.'],
+      line: 'Her HVPG is {hvpg}, which is {>=10 mmHg}: clinically significant portal hypertension (CSPH). Baveno VIII (3.15, 8.18) would start propranolol now; here it is withheld to show what pregnancy does.',
+      notes: 'Women with compensated cirrhosis can carry a pregnancy, but the risks rise with the severity of the liver disease. Preconception counseling includes EGD within the year before conception, with large varices treated first; her last EGD is older than that, so she counts as unscreened. A nonselective beta-blocker is indicated for CSPH (Baveno VIII 3.15), and propranolol is the one named for pregnancy (8.18); here it is held back until the slide that adds it, so the model can show the rise in pressure without the drug. Her medications are reviewed for safety in pregnancy. For her autoimmune hepatitis, the disease should be in remission for at least a year before conception; azathioprine and corticosteroids continue through pregnancy, because a flare is the greater risk, while mycophenolate is stopped and replaced at least 6 weeks before conception because it is teratogenic. That advice comes from autoimmune hepatitis guidance, not from the portal hypertension guidelines this talk cites.',
+      ask: ['What should a woman with cirrhosis and CSPH have before she conceives?', 'Counseling on her risks, EGD within the year before conception with large varices treated first, and a nonselective beta-blocker such as propranolol for the CSPH (Baveno VIII 3.15, 8.18; AASLD 2024 statement 55).'],
     },
     {
       id: 'weeks', params: { gestation: 24 }, cam: 'fit', labels: ['VAR', 'CONF'],
@@ -54,7 +49,7 @@ export const PREGNANCY_DECK = {
     {
       id: 'scope', cam: 'gej', labels: ['VAR', 'LGV'], calipers: ['varix'], tool: { kind: 'wall' },
       data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'],
-      kicker: 'Management', site: 'sin', title: 'Second-trimester EGD shows large varices', cite: 'AASLD 2024 55, 56 · Baveno VIII 8.17',
+      kicker: 'Management', site: 'sin', title: 'Second-trimester EGD shows an enlarging varix', cite: 'AASLD 2024 55, 56 · Baveno VIII 8.17',
       line: 'Without EGD in the year before conception, screen in the second trimester. The varix now measures {varix}, with red wale signs.',
       notes: 'AASLD 2024 recommends EGD within the year before conception (statement 55), and early in the second trimester for a woman who was not screened (statement 56); Baveno VIII 8.17, written for vascular liver disease, gives the same timing. The second trimester follows organogenesis and precedes both the peak in blood volume and labor. Varices can enlarge quickly, so a normal EGD before pregnancy does not settle the question. For medium and large varices AASLD 2024 recommends a nonselective beta-blocker or band ligation in pregnancy, and prefers band ligation when cherry-red spots or red wale signs are present, as here. It notes that few data exist to guide the management of varices in pregnancy.',
       ask: ['Why is the second trimester chosen for screening EGD?', 'Organogenesis is complete, and it precedes both the peak in blood volume and labor.'],
@@ -64,8 +59,8 @@ export const PREGNANCY_DECK = {
       data: 'tiles', tiles: ['hvpg', 'hr'], key: ['hvpg'], delta: true,
       tool: { kind: 'criteria', title: 'Monitor on propranolol', short: 'Monitor', ticks: false, rows: ['Fetal **growth restriction**', 'Neonatal **bradycardia**', 'Neonatal **hypoglycemia**'] },
       kicker: 'Management', site: 'sin', title: 'Red wale signs favor band ligation, and propranolol lowers the HVPG', cite: 'AASLD 2024 · Baveno VIII 8.18',
-      line: 'Red wale signs favor band ligation, so her varix is banded. At a starting dose, propranolol lowers the HVPG to {hvpg} and heart rate to {hr}.',
-      notes: 'AASLD 2024 recommends a nonselective beta-blocker or band ligation for medium and large varices in pregnancy, and prefers band ligation when red wale signs are present, so the varix here is banded. Baveno VIII 8.18, written for vascular liver disease, says prophylaxis in pregnancy follows the same principles as outside it, including propranolol; the case uses both. Propranolol is titrated to a resting heart rate of 55 to 60 beats/min, as outside pregnancy. Fetal growth is monitored by ultrasound. AASLD 2024 notes weak evidence, from studies in cardiac patients, that carvedilol causes less fetal growth restriction than propranolol. Neither guideline file lists neonatal monitoring for bradycardia and hypoglycemia; it is standard practice after in utero beta-blocker exposure. A beta-blocker does not shrink varices within days, so the varix is not shown here; in the model it follows the pressure at once.',
+      line: 'Red wale signs favor band ligation, so her varix is banded. Propranolol, which her CSPH calls for, lowers the HVPG to {hvpg} and heart rate to {hr}.',
+      notes: 'AASLD 2024 recommends a nonselective beta-blocker or band ligation for medium and large varices in pregnancy, and prefers band ligation when red wale signs are present, so the varix here is banded. Baveno VIII 8.18, written for vascular liver disease, says prophylaxis in pregnancy follows the same principles as outside it, including propranolol, and 3.15 recommends a nonselective beta-blocker for CSPH whatever the varices; the drug is for her CSPH and the banding is for the red wale signs, so the case uses both. Propranolol is titrated to a resting heart rate of 55 to 60 beats/min, as outside pregnancy. Fetal growth is monitored by ultrasound. AASLD 2024 notes weak evidence, from studies in cardiac patients, that carvedilol causes less fetal growth restriction than propranolol. Neither guideline file lists neonatal monitoring for bradycardia and hypoglycemia; it is standard practice after in utero beta-blocker exposure. A beta-blocker does not shrink varices within days, so the varix is not shown here; in the model it follows the pressure at once.',
       ask: ['What is monitored in the fetus and neonate when the mother takes propranolol?', 'Fetal growth before delivery and, in standard practice, neonatal heart rate and glucose after it.'],
     },
     {
@@ -74,15 +69,15 @@ export const PREGNANCY_DECK = {
       tool: { kind: 'criteria', title: 'At delivery', ticks: false, lead: 'In the absence of obstetric contraindications.', rule: 'Baveno VIII 8.18, 8.19', rows: ['**Propranolol** continues', '**Vaginal** delivery is preferred to **cesarean**', ['**Platelets** >20,000/µL', 'plt', '>', 20]] },
       kicker: 'Delivery and after', site: 'sin', title: 'Vaginal delivery with a shortened second stage',
       line: 'Repeated Valsalva in the second stage is thought to raise the risk of variceal bleeding, so the second stage is shortened. At 38 weeks her HVPG is {hvpg}.',
-      notes: 'Labor is thought to carry a high risk of variceal bleeding from repeated Valsalva, so the second stage is shortened, usually by assisted delivery with forceps or vacuum. The model does not show this risk: a sustained Valsalva lowers the transmural variceal pressure here. Baveno VIII 8.19 prefers vaginal delivery to cesarean when there is no obstetric contraindication, provided the platelet count is >20,000/µL, and 8.18 continues propranolol. Both statements are written for vascular liver disease, and this talk applies them to cirrhosis. Cesarean delivery transects abdominal wall collaterals, which can bleed, so it is reserved for obstetric indications. If a varix bleeds, AASLD 2024 advises somatostatin or octreotide rather than terlipressin, which stimulates uterine contraction, and reports band ligation in case series. Neither guideline file gives the advice on forceps or vacuum: it is standard obstetric practice.',
+      notes: 'Labor is thought to carry a high risk of variceal bleeding from repeated Valsalva, so the second stage is shortened, usually by assisted delivery with forceps or vacuum. The model does not show this risk: a sustained Valsalva lowers the transmural variceal pressure here. Baveno VIII 8.19 prefers vaginal delivery to cesarean when there is no obstetric contraindication, provided the platelet count is >20,000/µL, and 8.18 continues propranolol. Both statements are written for vascular liver disease, and this talk applies them to cirrhosis. Cesarean delivery transects abdominal wall collaterals, which can bleed, so it is reserved for obstetric indications. If a varix bleeds, AASLD 2024 advises somatostatin or octreotide rather than terlipressin, which stimulates uterine contraction, and reports band ligation in case series. EASL 2025 gives the platelet thresholds for anesthesia: above 75,000/µL is safe for an epidural and above 50,000/µL for spinal anesthesia, so her platelets of about 87,000/µL clear both. Neither guideline file gives the advice on forceps or vacuum: it is standard obstetric practice.',
       ask: ['Why is the second stage of labor shortened?', 'Repeated Valsalva is thought to raise the risk of variceal bleeding.'],
     },
     {
       id: 'after', params: { gestation: 0 }, cam: 'fit', labels: ['VAR', 'CONF'],
       data: 'tiles', tiles: ['bv', 'co', 'hvpg'], key: ['bv', 'hvpg'], delta: 'weeks',
       kicker: 'Delivery and after', site: 'sin', title: 'Hemodynamics return to baseline after delivery', cite: 'Baveno VIII 8.20',
-      line: 'Blood volume falls back to {bv} and, on propranolol, the HVPG to {hvpg}. In patients this takes 6 to 12 weeks.',
-      notes: 'The expanded blood volume and cardiac output return to baseline over the weeks after delivery, and portal pressure follows. Propranolol continues, and Baveno VIII 8.20 says nonselective beta-blockers are safe during breastfeeding. Hepatic decompensation can still occur in the months after delivery, so she is followed closely and EGD is repeated. Postpartum flares of autoimmune hepatitis are common as the immune tolerance of pregnancy ends, so her liver tests are checked every few weeks and immunosuppression is maintained. The model returns to baseline at once; in patients it takes 6 to 12 weeks.',
+      line: 'On propranolol the HVPG falls to {hvpg}, and blood volume falls back to {bv}. In patients this takes 6 to 12 weeks.',
+      notes: 'The expanded blood volume and cardiac output return to baseline over the weeks after delivery, and portal pressure follows. Propranolol is continued, and Baveno VIII 8.20 says nonselective beta-blockers are safe during breastfeeding. Hepatic decompensation can still occur in the months after delivery, so she is followed closely and EGD is repeated. Postpartum flares of autoimmune hepatitis are common as the immune tolerance of pregnancy ends, so her liver tests are checked every few weeks and immunosuppression is maintained. The model returns to baseline at once; in patients it takes 6 to 12 weeks.',
       ask: ['Can a mother on propranolol breastfeed?', 'Yes. Baveno VIII 8.20 says nonselective beta-blockers are safe during breastfeeding.'],
     },
     {

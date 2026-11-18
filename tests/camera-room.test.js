@@ -12,10 +12,11 @@ import { readFileSync } from 'node:fs';
 import { DECKS, REGIONS } from '../src/ui/decks.js';
 import { slideTargets, camOn } from '../src/ui/presenter.js';
 import { isCamOn, regionBox, unionBox, growBox } from '../src/ui/cam-frame.js';
-import { ORGANS } from '../src/ui/anatomy.js';
+import { ORGANS, caudateBox } from '../src/ui/anatomy.js';
 import { pathCmds, flattenCmds } from '../src/ui/shape-gl.js';
 import { beatCount, beatView } from '../src/ui/slide-beats.js';
 import { anchorsOf, missed, roomFor, vesselRun, middleOf, stationAnchor, ROOM, INSET } from '../src/ui/cam-room.js';
+import { presenterSource } from './split-src.js';
 
 const MAX_GROWTH = 1.75;   // (a frame may grow to this many times the region's width or height, no more)
 
@@ -23,7 +24,7 @@ const polyBox = (d) => {
   const pts = flattenCmds(pathCmds(d), 1).flatMap((p) => Array.from({ length: p.pts.length / 2 }, (_, i) => [p.pts[2 * i], p.pts[2 * i + 1]]));
   return [Math.min(...pts.map((p) => p[0])), Math.min(...pts.map((p) => p[1])), Math.max(...pts.map((p) => p[0])), Math.max(...pts.map((p) => p[1]))];
 };
-const organBox = (id) => (id === 'liver' ? REGIONS.liver : ORGANS.find((o) => o.id === id) ? polyBox(ORGANS.find((o) => o.id === id).d) : null);   // (the caudate lobe lies inside the liver's region)
+const organBox = (id) => (id === 'liver' ? REGIONS.liver : id === 'caudate' || id === 'caudate-lobe' ? caudateBox() : ORGANS.find((o) => o.id === id) ? polyBox(ORGANS.find((o) => o.id === id).d) : null);   // (the caudate lobe: its own box, stage.focusBox)
 const union = (boxes) => boxes.filter(Boolean).reduce((a, b) => (a ? [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])] : b), null);
 const runBox = (id) => { const r = vesselRun(id); return r ? union(r.map(([x, y]) => [x, y, x, y])) : null; };
 
@@ -100,6 +101,8 @@ const ROOMED = {
   'sites/pvt': 'the splenic vein label hangs from its splenic hilum stretch, past the portal region',
   'shunts/srs': 'the Doppler probe on the main portal vein lies below the splenic region',
   'tips-doppler/jet': 'the Doppler probe sits on the middle of the stent, above the close-up on the portal end',
+  'tips-complete/baseline': 'the same framing as tips-doppler/jet: the Doppler probe sits on the middle of the stent, above the close-up on the portal end',
+  'tips-complete/dips': 'the same framing as budd-chiari/shunt: the portal vein label hangs below the DIPS region and the IVC label above it',
   'varices/burst': 'the varices label hangs from the varix vessel below the close-up box',
   'varices/eso': 'the left gastric vein label, and the vein it lights, hang below the varices region',
 };
@@ -131,7 +134,7 @@ test('anchors sit where the stage hangs them: a label on the middle of its vesse
 });
 
 test('the presenter frames every slide through the room (camBox grows the frame by the room for every anchor)', () => {
-  const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const src = presenterSource();
   assert.match(src, /import \{ anchorsOf, roomFor \} from '\.\/cam-room\.js/);
   assert.match(src, /return roomFor\(growBox\(r \|\| REGIONS\.route, f\), anchorsOf\(s, tg\)\);/);
   // slideTargets keeps handing over the groups of vessels each term and glow lights, which the room reads

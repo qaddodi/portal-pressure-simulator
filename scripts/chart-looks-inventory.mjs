@@ -1,5 +1,5 @@
 // Chart look inventory (chart-looks-in-code plan, WP0). Node only, no browser, no dependencies.
-// Lists the rules in styles/app.css that look a chart's model pieces (fill, stroke, opacity, font, transition, ...), by chart,
+// Lists the rules in styles/app-*.css that look a chart's model pieces (fill, stroke, opacity, font, transition, ...), by chart,
 // with line, at-rule context (@media / @container / @supports), selector and body. Each chart's migration PR deletes its rules,
 // and scripts/chart-look-allowance.json holds the count that is left (rules-lint fails if it rises; --tighten lowers it).
 //
@@ -7,13 +7,14 @@
 //   node scripts/chart-looks-inventory.mjs --count           one line per chart: name count (for scripts)
 //   node scripts/chart-looks-inventory.mjs --chart talk      every rule of that chart (line, context, selector, body)
 //   node scripts/chart-looks-inventory.mjs --chart talk --json
-//   node scripts/chart-looks-inventory.mjs --file styles/x.css   scan another file (default styles/app.css)
+//   node scripts/chart-looks-inventory.mjs --file styles/x.css   scan another file (default: the app's stylesheet, styles/app-*.css joined)
 //
 // A rule counts when a selector in its list names a class with one of the chart's prefixes AND its body sets a look property.
 // Rules for HTML elements that share a prefix (.ab-*, .pze-key, label leaders) are counted too: the migration PR names the ones it keeps.
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { appCssText } from './app-css.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -92,8 +93,8 @@ export const countsOf = (inv) => Object.fromEntries(Object.entries(inv).map(([k,
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2), arg = (n) => { const i = args.indexOf(n); return i < 0 ? null : args[i + 1]; };
-  const file = arg('--file') || 'styles/app.css';
-  const inv = inventory(readFileSync(resolve(ROOT, file), 'utf8'));
+  const file = arg('--file');
+  const inv = inventory(file ? readFileSync(resolve(ROOT, file), 'utf8') : appCssText(ROOT));
   const chart = arg('--chart');
   if (chart) {
     if (!inv[chart]) { console.error(`unknown chart '${chart}'. Charts: ${Object.keys(CHARTS).join(', ')}`); process.exit(2); }

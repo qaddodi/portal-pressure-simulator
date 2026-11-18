@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { wrapBalanced, layoutToast } from '../src/ui/toast-gl.js';
 import { measure } from '../src/ui/glyph-measure.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const src = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 
@@ -46,12 +47,12 @@ test('the toast is drawn on the GPU: the page lays it out in script, reads nothi
   const w = src('src/ui/widget-gl.js');
   assert.match(w, /classList\.add\('wgl-on'\)/);
   assert.match(w, /ctx\.onGPU !== true\) return false/, 'a GPU that cannot draw leaves the widget as the page paints it');
-  const css = src('styles/app.css');
+  const css = appCss();
   assert.match(css, /\.toast\.wgl-on/);
 });
 
 test('the toast wears the cards\' frosted glass: listed to the glass, its tint declared in CSS, and its picture draws the card whole only where no glass comes', () => {
-  const u = src('src/ui/util.js'), m = src('src/ui/main.js'), css = src('styles/app.css'), t = src('src/ui/toast-gl.js');
+  const u = src('src/ui/util.js'), m = src('src/ui/main.js'), css = appCss(), t = src('src/ui/toast-gl.js');
   assert.match(u, /export const TOASTS = \[\]/); assert.match(u, /TOASTS\.push\(t\)/); assert.match(u, /TOASTS\.splice/);
   assert.match(m, /glass\?\.add\(\(\) => TOASTS/);
   assert.match(css, /\.toast \{ --gl-glass: 1; --gl-tint:/); assert.match(css, /\.toast-wrap \.toast\[data-gl\]/);
@@ -79,7 +80,7 @@ test('a preset note: a dot, the name and its lines, as wide as the words need up
 });
 
 test('a preset note rests in its own wrap at the foot, never over the top bars', () => {
-  const html = src('index.html'), css = src('styles/app.css'), util = src('src/ui/util.js'), main = src('src/ui/main.js');
+  const html = src('index.html'), css = appCss(), util = src('src/ui/util.js'), main = src('src/ui/main.js');
   assert.match(html, /id="toastsFoot"/);
   assert.match(css, /\.toast-wrap\.foot \{[^}]*bottom: var\(--toast-foot/);
   assert.doesNotMatch(util, /placeToasts|getElementById\('toasts'\)/, 'the top wrap is gone');
@@ -107,11 +108,11 @@ test('index.html has one toast wrap, the foot card, and no stylesheet rule docks
   assert.equal((html.match(/class="toast-wrap/g) || []).length, 1);
   assert.equal((html.match(/id="toasts"/g) || []).length, 0);
   assert.equal((html.match(/id="toastsFoot"/g) || []).length, 1);
-  assert.doesNotMatch(src('styles/app.css'), /toast-wrap\.docked|toast-tall/);
+  assert.doesNotMatch(appCss(), /toast-wrap\.docked|toast-tall/);
 });
 
 test('the presenter\'s toasts raised inside a talk carry present: true (a pop-up block, a typed slide number, a copied link)', () => {
-  const p = src('src/ui/presenter.js');
+  const p = presenterSource();
   const util = src('src/ui/util.js');
   assert.match(util, /!present && document\.getElementById\('app'\)\?\.classList\.contains\('presenting'\)/, 'toast() drops a message without present while presenting');
   for (const re of [/onBlocked: \(\) => toast\('Allow pop-ups to open the presenter view', '', \{ present: true \}\)/, /toast\(`Slide \$\{digits\}: press Enter`, '', \{ present: true \}\)/, /toast\(msg, '', \{ present: true \}\)/]) assert.match(p, re);

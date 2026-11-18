@@ -186,7 +186,7 @@ test('the constants in the GLSL text are the ones in CEL', () => {
   assert.deepEqual(/const vec2 CEL_DIR = vec2\(([^)]*)\);/.exec(CEL_TEXT)[1].split(',').map(Number), CEL.DIR);
   assert.deepEqual(/const vec2 CEL_DIR = vec2\(([^)]*)\);/.exec(CEL_TEXT)[1].split(',').map(Number), CEL.DIR);
   for (const [n, k] of [['SHADE_AT', 'SHADE_AT'], ['LIT_AT', 'LIT_AT'], ['SHADE', 'SHADE'], ['LIT', 'LIT']]) assert.equal(Number(new RegExp(`const float CEL_${n} = (-?[\\d.]+);`).exec(CEL_TEXT)[1]), CEL[k], n);
-  const wl = /float wl = clamp\(([\d.]+) \* R, ([\d.]+) \* px, ([\d.]+) \* px\);/.exec(CEL_TEXT);
+  const wl = /float wl = discWall\(rj, clamp\(([\d.]+) \* R, ([\d.]+) \* px, ([\d.]+) \* px\), px\);/.exec(CEL_TEXT);
   assert.ok(wl, 'the outline width line');
   assert.deepEqual(wl.slice(1).map(Number), [CEL.LINE_R, CEL.LINE_MIN, CEL.LINE_MAX]);
   assert.ok(!/lineA/.test(CEL_TEXT), 'no light line');

@@ -16,7 +16,7 @@ const { EDGE_GLSL } = await import('../src/ui/edge.js');
 const { ENT_W } = await import('../src/ui/veins-bin.js');
 const { LIFT_EASE_SHARE, LIFT_EASE_MAX } = await import('../src/ui/highlight-math.js');
 const { shadeGLSL } = await import('../src/ui/veins-mesh-glsl.js');
-const { tubeLumenFS, tubeLumenJS, packedPlaceJS, LUM_MIN, WEB_RATIO, LYMPH_INK, lymphInkJS } = await import('../src/ui/tube-lumen-glsl.js');
+const { tubeLumenFS, tubeLumenJS, packedPlaceJS, LUM_MIN, WEB_RATIO, LYMPH_INK, lymphInkJS, lymphLayoutJS } = await import('../src/ui/tube-lumen-glsl.js');
 const { tubeLeanFS } = await import('../src/ui/tube-lean-glsl.js');
 const { programs } = await import('../scripts/glsl-compile-list.mjs');
 
@@ -61,12 +61,10 @@ test('the lumen shader passes the lint, with and without the dye and origin swit
 });
 
 test('it runs the compositor\'s lumen section (blood, origin, dye) and declares no flow target', () => {
-  for (const call of ['bloodAt(', 'originAt(', 'dyeAt(', 'dyeEdge(', 'lymphAt(', 'castAt(', 'flowD(']) assert.ok(LUMEN.includes(call), `${call} is called`);
+  for (const call of ['originAt(', 'dyeAt(', 'dyeEdge(', 'lymphAt(', 'castAt(', 'flowD(']) assert.ok(LUMEN.includes(call), `${call} is called`);
   assert.ok(!/\bgbuf2?\b/.test(LUMEN), 'no gbuf');
   assert.ok(!/\bhalfL\b/.test(LUMEN), 'no half-size streak layer');
-  // The three blood styles are the uniform's, as in the compositor: styles 1, 2 and 3 are all in the text.
-  assert.ok(/uniform int bloodStyle;/.test(LUMEN));
-  for (const n of [1, 2, 3]) assert.ok(LUMEN.includes(`bloodStyle == ${n}`), `blood style ${n} is in bloodAt`);
+  assert.ok(!/bloodAt|bloodStyle/.test(LUMEN), 'no streak shader (the Streaks option is gone)');
 });
 
 test('it takes the vessel\'s colour and opacity from the shared vesAttrs, not a copy', () => {
@@ -87,9 +85,9 @@ test('every uniform it shares with the compositor has the compositor\'s type', (
     shared++;
     assert.equal(type, comp.get(name), `${name}: ${type} here, ${comp.get(name)} in COMP_FS`);
   }
-  assert.ok(shared >= 20, `the two share their lumen uniforms (${shared})`);
+  assert.ok(shared >= 15, `the two share their lumen uniforms (${shared})`);
   // The uniforms the compositor's lumen text needs are all declared here (the compile check judges the rest).
-  for (const n of ['flow', 'rad', 'tube', 'dye', 'pxW', 'bT', 'clock', 'originCol', 'dyeCol', 'inkLight', 'inkDark', 'noiseT', 'bloodStyle', 'lenOn', 'origin', 'dyeOn', 'blood', 'blendA', 'flowA']) {
+  for (const n of ['flow', 'rad', 'tube', 'dye', 'pxW', 'bT', 'clock', 'originCol', 'dyeCol', 'inkLight', 'inkDark', 'origin', 'dyeOn', 'blood', 'blendA', 'flowA']) {
     assert.ok(mine.has(n), `${n} is declared`);
   }
   // ...and those the vessel's colour and opacity need are tubeLeanFS's, by name.
@@ -196,13 +194,12 @@ test('past a vessel\'s clipped end the lumen ends in a round cap, as the vessel 
   assert.equal(near.coverage, 1);
 });
 
-test('a web\'s pixels (vRad 4 x a radius, vG a unit direction) are told by their vRad and take the wall: no streak', () => {
+test('a web\'s pixels (vRad 4 x a radius, vG a unit direction) are told by their vRad and take the wall', () => {
   const R = 5;
   for (const g of [[0, 1], [0.6, 0.8], [-1, 0], [0, 0]]) {
     const t = tubeLumenJS({ vI: 20, vD: -0.1, vG: g, vRad: 4 * R, ba: [1, 0], len: 100, aa: 1, R });
     assert.equal(t.web, true);
     assert.equal(t.y, 1, 'across is the wall');
-    assert.equal(1 - smoothstep(0.7, 1, Math.abs(t.y)), 0, 'bloodAt\'s wall term is 0 there');
   }
   // A strip is never taken for one: its vRad is the radius radAt gives (within the interpolation), from the axis to the wall.
   for (const f of [0, 0.4, 0.99]) {
@@ -210,47 +207,55 @@ test('a web\'s pixels (vRad 4 x a radius, vG a unit direction) are told by their
     assert.equal(t.web, false);
     assert.ok(Math.abs(t.y - f) < 1e-9);
   }
-  // Without the rule, dividing the unit direction by the radius would have put the web's pixels on the axis, where the streaks are.
-  assert.ok(1 - smoothstep(0.7, 1, 1 / R) > 0.9);
-  // bloodAt's text is the one with that wall term, whose glow along the axis is multiplied by it, and the shader says what it does with a web.
-  assert.ok(LUMEN.includes('float wall = 1.0 - smoothstep(0.7, 1.0, ay);'));
-  assert.ok(/float a = clamp\(streak \* \(0\.32 \+ 0\.26 \* dens\) \+ glowCore, 0\.0, 0\.75\) \* wall/.test(LUMEN));
   assert.ok(LUMEN.includes(`bool web = vRad > ${WEB_RATIO}.0 * R1;`));
 });
-function smoothstep(a, b, x) { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
 
 test('the compile list names the lumen programs (the web\'s waits for its vertex shader)', () => {
   const have = new Set([...programs().map((p) => p.name), ...(programs.skipped || []).map((s) => s.name)]);
   assert.ok([...have].some((n) => n.includes('tubeLumen')), 'tubeLumen is listed');
   assert.ok([...have].some((n) => n.includes('tubeWebLumen')), 'tubeWebLumen is listed');
   const built = programs().filter((p) => p.name.includes('tubeLumen'));
-  for (const p of built) { assert.equal(p.error, undefined); assert.ok(p.fs.includes('bloodAt(')); }
+  for (const p of built) { assert.equal(p.error, undefined); assert.ok(p.fs.includes('originAt(')); }
 });
 
-test('lymph with a stream is drawn as the blood\'s streaks, in an ink that contrasts with the channel and runs with the protein; a row with none keeps its dashes', () => {
+test('lymph with a stream is drawn as faint teal chevrons (the bile arrows\' head and size rule), in an ink that contrasts with the channel; a row with none keeps its dashes', () => {
   const at = LUMEN.indexOf('bool isLy');
   const ly = LUMEN.slice(LUMEN.indexOf('if (blood == 1 && isLy', at));
-  assert.ok(ly.includes('texelFetch(flow, ivec2(7, id1), 0)'), 'the stream is read from texel 7');
-  assert.ok(ly.indexOf('bloodAt(') > 0 && ly.indexOf('lymphAt(') > ly.indexOf('bloodAt('), 'streaks first, the dashes as the fallback');
-  assert.ok(ly.includes('max(A.a - glowL, 0.0)'), 'the axis glow is taken out: a streak tints, nothing else');
+  assert.ok(ly.includes('texelFetch(flow, ivec2(7, id1), 0)'), 'the stream says the way it runs, from texel 7');
+  assert.ok(ly.indexOf('chevHead(') > 0 && ly.indexOf('lymphAt(') > ly.indexOf('chevHead('), 'chevrons first, the dashes as the fallback');
+  assert.ok(!ly.includes('bloodAt('), 'no streaks: a lymph head is a chevron');
   assert.deepEqual(lintGLSL(resolve(LUMEN)), []);
   const lum = (c) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
   const light = [0.88, 0.92, 0.82], dark = [0.25, 0.3, 0.28];
-  for (const prot of [0, 0.5, 1]) {
-    const onL = lymphInkJS(prot, light), onD = lymphInkJS(prot, dark);
-    assert.equal(onL.onLight, 1); assert.equal(onD.onLight, 0);
-    assert.ok(lum(light) - lum(onL.ink) > 0.45, `a dark ink on a light channel (protein ${prot}): ${lum(onL.ink)}`);
-    assert.ok(lum(onD.ink) - lum(dark) > 0.45, `a light ink on a dark channel (protein ${prot})`);
+  const onL = lymphInkJS(light), onD = lymphInkJS(dark);
+  assert.equal(onL.onLight, 1); assert.equal(onD.onLight, 0);
+  assert.ok(lum(light) - lum(onL.ink) > 0.45, `a dark head on a light channel: ${lum(onL.ink)}`);
+  assert.ok(lum(onD.ink) - lum(dark) > 0.45, 'a light head on a dark channel');
+  // Teal in every look: the ink stays in the blue-green family on either channel (green and blue over red).
+  for (const c of [onL.ink, onD.ink]) assert.ok(c[1] > c[0] && c[2] >= c[0], `teal: ${c}`);
+  assert.ok(LYMPH_INK.strength >= 0.9, 'as strong as the blood\'s heads');
+});
+
+// WCAG contrast of the head's ink on the channel's colour (the lobule's lymph ranges from a pale green on a light look to a deep one in the dark looks).
+test('lymph heads read: contrast on every channel colour, about 110 CSS px apart at every zoom, the blood\'s size on a channel of its own, and fitted to the rim of a Disse sleeve', () => {
+  const lin = (c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4), Y = (c) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+  const ratio = (a, b) => { const x = Y(a), y = Y(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  for (const ch of [[0.88, 0.94, 0.86], [0.8, 0.9, 0.84], [0.7, 0.86, 0.78], [0.25, 0.3, 0.28], [0.12, 0.16, 0.15]]) {
+    assert.ok(ratio(lymphInkJS(ch).ink, ch) >= 3, `ink on ${ch}: ${ratio(lymphInkJS(ch).ink, ch).toFixed(2)}`);
   }
-  // The ramp: cool at 0 %, amber at 100 %, monotone in between; fainter and sparser when poor.
-  const lo = lymphInkJS(0, light), mid = lymphInkJS(0.5, light), hi = lymphInkJS(1, light);
-  assert.deepEqual(lo.ink, LYMPH_INK.onLight.low);
-  assert.deepEqual(hi.ink, LYMPH_INK.onLight.high);
-  assert.ok(lo.ink[0] < mid.ink[0] && mid.ink[0] < hi.ink[0], 'red rises toward amber');
-  assert.ok(lo.ink[2] > mid.ink[2] && mid.ink[2] > hi.ink[2], 'blue falls toward amber');
-  assert.ok(lo.strength < mid.strength && mid.strength < hi.strength && hi.strength === 1);
-  assert.ok(lo.occ < hi.occ && hi.occ < 1, 'the gaps between streaks show the channel');
-  assert.deepEqual(lymphInkJS(-1, light).ink, lo.ink);
+  for (const ch of [[0.88, 0.94, 0.86], [0.7, 0.86, 0.78]]) assert.ok(ratio(lymphInkJS(ch).ink, ch) >= 4.5, `a light channel: ${ratio(lymphInkJS(ch).ink, ch).toFixed(2)}`);
+  // Spacing: the lattice doubles by octaves, so the heads stand within a factor of two of the aim at every zoom (the finest lattice is the floor at a far zoom).
+  const base = 0.02 * 300;
+  for (const cpx of [0.05, 0.1, 0.2, 0.5, 1, 2]) {   // (the lobule is 300 world units across: at 2 it is 150 CSS px, far smaller than it is ever shown)
+    const l = lymphLayoutJS({ base, cpx, R1: 40 * cpx });
+    assert.ok(l.pitchCss >= LYMPH_INK.gapCss * 0.5 || base / cpx > LYMPH_INK.gapCss * 0.5, `cpx ${cpx}: ${l.pitchCss}`);
+    assert.ok(l.pitchCss <= LYMPH_INK.gapCss * 2.2 || cpx * LYMPH_INK.gapCss < base, `cpx ${cpx}: ${l.pitchCss}`);
+    assert.ok(l.hwCss >= 4 && l.hwCss <= 16, `cpx ${cpx}: head ${l.hwCss} css px`);
+  }
+  // A sleeve: the head fits its rim; a rim under about a pixel shows none.
+  const thin = lymphLayoutJS({ base, cpx: 1, pxW: 1, R1: 2.4, Ri: 2.0 }), wide = lymphLayoutJS({ base, cpx: 1, pxW: 1, R1: 8, Ri: 3 });
+  assert.equal(thin.shows, false); assert.equal(wide.shows, true);
+  assert.ok(wide.hw <= 5 && wide.hw > 4, `a rim of 5 carries a head of about its width: ${wide.hw}`);
 });
 
 test('the lumen layer lays the vessel layer\'s cel tones on its colour, over the blood (it replaces the fill, so without them the shading never shows)', () => {
@@ -263,10 +268,3 @@ test('the lumen layer lays the vessel layer\'s cel tones on its colour, over the
   }
 });
 
-test('V7: blood that shows trouble is wired in for style P only, and `still` is a uniform of the compositor\'s type', () => {
-  assert.ok(LUMEN.includes('vec4 troubleAt('), 'blood-trouble.js\'s text is included');
-  assert.ok(LUMEN.includes('if (bloodStyle == 3) { tr = troubleAt(id1, s1, y1, R1, len1, f0.y, f1.w > 0.5); f0.z *= tr.z; }'));
-  assert.ok(LUMEN.includes('bloodAt(id1, tr.x, tr.y, col, f0, f1, len1, R1, vc1)'));
-  assert.equal(uniformTypes(LUMEN).get('still'), 'int');
-  assert.equal(uniformTypes(gl.COMP_FS()).get('still'), 'int');
-});

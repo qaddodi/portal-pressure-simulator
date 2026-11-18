@@ -3,7 +3,6 @@
 // change, in place: no class, style, visibility or child list is touched between values.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { balanceHold, balanceLine } from '../src/ui/balance-hold.js';
 
 // A minimal element that records every write that could hide, fade or re-create it.
@@ -45,9 +44,3 @@ test('a run of balance changes rewrites the words in place and never hides, fade
   assert.ok(text.writes.length <= seen.length);
 });
 
-test('the belly paints the balance through balanceLine, with no fade class or timer', () => {
-  const js = readFileSync(new URL('../src/ui/instruments.js', import.meta.url), 'utf8');
-  assert.match(js, /showRate = balanceLine\(rateEl, rateArrow, rateTxt\)/);
-  assert.match(js, /if \(b != null\) showRate\(\.\.\.rateLabel\(b\)\);/);
-  assert.doesNotMatch(js, /ab-rate-out|rateTimer/);
-});

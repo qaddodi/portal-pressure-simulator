@@ -4,7 +4,8 @@
 // and the waveform pattern. The trace keeps recording while the instrument is closed, so it opens
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
-import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js';
+import { EDGES, dopplerK, stentReadsOf, stentGate, stentCourse } from '../engine/topology.js';
+import { gateKindsFromParams, reductionJet, kindOf } from '../engine/stent-geom.js';
 import { glWords, wordsRect } from './gl-words.js';
 import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js';
 import { FONT, textW } from './charts.js';
@@ -13,19 +14,21 @@ import { DOPPLER_MODES, THETA } from './dopplerColor.js';
 import { readFrameFor, noteDraw, paceMs, restGapFor, restPark, cancelFrame, frameAnimating, framePart } from './frame.js';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js';
 import { velNormal, dopplerVel, judgeFlow, PROBE_NORMAL } from './velNormal.js';
+import { stentStill } from '../engine/flow-cuts.js';
 import { calloutCell } from './trace-callouts.js';
-import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP, pulsatility } from './doppler-marks.js';
+import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP, pulsatility, riForms } from './doppler-marks.js';
 import { createDopplerGL } from './doppler-gl.js';
 import { lineBand } from './doppler-synth.js';
 import { surface } from './gpu-surfaces.js';
 import { olderThan } from './backfill.js';
 import { createFollow } from './display-state.js';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE } from './ease.js';
-import { smooth01 } from './motion.js';
+import { smooth01, reduced } from './motion.js';
 import { restPass } from './rest-pass.js';
 import { createTraceGL, fitPen, keepLayer } from './trace-gl.js';
 import { attrSoon, classSoon, dataSoon, propSoon, runSoon } from './class-soon.js';
 import { dropFront } from './drop-front.js';
+import { gateFactors } from './gate-factors.js';
 // (The trace is drawn and handed over in the frame's READ phase, its very start, as the cards' pictures are (svg-gl.js, 787f66b). The hand-over
 // (trace-gl.js end: transferToImageBitmap) makes Safari wait for the GPU to finish everything queued before it: drawn in the early phase, after
 // the figure (priority 0) had queued its frame, that was the figure's GPU work, and the Doppler read 5-11 ms of script a frame at rest on a
@@ -84,8 +87,23 @@ for (let i = 0; i <= 100; i++) RI_TEXT.push(`Resistive index ${fmt(i / 100, 2)}`
 // A stent's name with the gate it samples at, for each gate (the label in the strip), and the strip's settings words for each window.
 const GATE_NAME = { proximal: 'Proximal', mid: 'Mid', distal: 'Distal' };
 for (const p of PROBES) if (p.kind === 'tips') { p.byGate = {}; for (const g in GATE_NAME) p.byGate[g] = `${p.name} · ${GATE_NAME[g]}`; }
-// (A stent's note on its range, made once from its normal: "Stent velocities <90 or >190 cm/s, …".)
-for (const p of PROBES) if (p.kind === 'tips') p.rangeNote = `Stent velocities <${p.normal[0]} or >${p.normal[1]} cm/s, or a change of >50 cm/s from the baseline scan, suggest stenosis.`;
+// (A stent's note on its range, made once for each range it has had: "Stent velocities <90 or >190 cm/s, …". An 8 to 10 mm stent keeps the reference words; any other
+// diameter names its own range and says it is scaled, not reported (stent-geom.js stentBand).)
+const RANGE_NOTES = new Map();
+const REDUCTION_NOTE = 'The fast jet is at the deliberate reduction, mid stent: intended, not a stenosis. A velocity over the range at either end of the stent would still suggest stenosis.';
+const GATE_KINDS = [null, null, null];   // alloc-rare: made once (whose jet each gate reads, read at once)
+const NOTE_TAIL = 'or a change of >50 cm/s from the baseline scan, suggest stenosis.';
+function rangeNoteOf(p, normal, d) {
+  const scaled = normal !== p.normal, key = scaled ? `${normal[0]}|${normal[1]}|${d}` : '';
+  let t = RANGE_NOTES.get(key);
+  if (t === undefined) {
+    // (A scaled band is the app's own extrapolation, no study validates it: its note says so, and does not call a velocity outside it a sign of stenosis.)
+    t = scaled ? `Model band for a ${Math.round(d * 10) / 10} mm stent: ${normal[0]} to ${normal[1]} cm/s. Provisional: the reported 8 to 10 mm range (90 to 190 cm/s), scaled for this diameter by the app; no study validates it, and it is not a surveillance threshold.`
+      : `Stent velocities <${normal[0]} or >${normal[1]} cm/s, ${NOTE_TAIL}`;
+    RANGE_NOTES.set(key, t);
+  }
+  return t;
+}
 const PROBES_BY_ID = new Map(PROBES.map((p) => [p.id, p]));
 const PI_TEXT = [];   // (the calipers' index in words, for each hundredth up to 3)
 for (let i = 0; i <= 300; i++) PI_TEXT.push(`PI ${fmt(i / 100, 2)}`);
@@ -108,6 +126,13 @@ const KEEP = 16;                 // Retain enough samples for the 12 s sweep and
 // (R16: the history is a bounded queue: samples past KEEP are dropped in chunks (256, or a quarter of it), not shifted out on every
 // model frame; every reader picks its seconds by time, so the few older ones kept meanwhile change nothing drawn.)
 const MINUS = '−';
+// (A tile's hover text, one line each: what it reads and how it is made. Speed's names its usual range and is set with the reading.)
+const STAT_TITLE = {
+  Peak: 'Max: the highest velocity of the typical beat (portal vein), or of the last 3 s (other vessels).',
+  Trough: 'Trough: the lowest velocity of the same beat, or of the last 3 s.',
+  Pulsatility: 'Pulsatility = (Max \u2212 Trough) / Max, worked out from the two velocities shown. In an artery, Gosling\u2019s index: (peak \u2212 trough) / mean velocity.',
+  CI: 'Congestion index (CI) = portal vein cross-sectional area (cm\u00b2) \u00f7 mean velocity (cm/s), in cm\u00b7s. About 0.07 in health; above 0.1 suggests portal hypertension (Moriyasu).',
+};
 const num = (v, d = 0) => (v < 0 ? MINUS : '') + fmt(Math.abs(v), d);
 
 export function createDoppler({ onProbe, pickGate = true }) {
@@ -201,7 +226,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   const statEls = {};
   // (What the figure reads of the shown velocity (store shownVel), one record for each probe, written in place.)
   const SHOWN = new Map();
-  for (const pr of PROBES) SHOWN.set(pr.id, { v: 0, t: 0, seg: null, open: 0 });
+  for (const pr of PROBES) SHOWN.set(pr.id, { v: 0, t: 0, seg: null, open: 0, f: [1, 1, 1], fOk: false });
   // A row that comes with the new vessel (the congestion index, a stent's three segments) fades in rather than popping (P23).
   // (Between frames: a hidden flip is a style pass. A flip back before it lands cancels it. Each row has its own flip, made once with it,
   // that reads the row's last ask: a flip asked for and then taken back finds nothing to do.)
@@ -225,7 +250,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     if (btn) btn._label = () => attrSoon(btn, 'aria-label', `${k}, ${num(btn._v)} centimeters per second${btn._here ? ', sampling here' : ''}. Activate to sample here.`);
     // (the Peak tile is named Max: the highest point of the last 3 s, beside the big reading, which is the spectrum's peak averaged over time)
     // (the Speed tile is the reading against its usual range, in place of the long range bar: it turns to the caution colour outside it, and its title names the range)
-    const wrap = h('div', k === 'Peak' ? { title: 'Highest velocity in the last 3 s' } : k === 'Speed' ? { class: 'dop-speed', hidden: true } : {}, h('dt', {}, btn || (k === 'Peak' ? 'Max' : k)), dd); statEls[k] = { dd, wrap, btn };
+    const wrap = h('div', k === 'Speed' ? { class: 'dop-speed', hidden: true } : STAT_TITLE[k] ? { title: STAT_TITLE[k] } : {}, h('dt', k === 'CI' ? { 'aria-label': 'Congestion index' } : {}, btn || (k === 'Peak' ? 'Max' : k)), dd); statEls[k] = { dd, wrap, btn };
     wrap._flip = () => flipStat(wrap); wrap._fade = () => wrap.animate?.(FADE_KEYS, FADE_OPTS);
     return wrap;
   }));
@@ -269,6 +294,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
 
   // ── Samples ───────────────────────────────────────
   let buf = [];
+  // (A stent's gates' factors, kept with the record: each sample is read under the narrowing of its own time, gate-factors.js. EFF: the window's,
+  // weighed by speed, from reading(); effOk once there is one. gi: the gated third's index, -1 off a stent.)
+  const facs = gateFactors(), EFF = [1, 1, 1];   // alloc-rare: made once
+  let effOk = false, gi = -1;
   // (Each sample is a [t, v, paired v] triple. A sample leaving the record is kept to be written over by the next one, so a steady trace
   // makes no triple per sample: 2 Nov 2026. The pool holds more than the record ever does (16 s at 50 samples a second and a chunk);
   // with it empty the oldest sample is taken over, never a new array made.)
@@ -285,8 +314,9 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function dropSamples(n) {
     for (let i = 0; i < n && spare.length < POOL_MAX; i++) spare.push(buf[i]);
     dropFront(buf, n);
+    facs.prune(buf.length ? buf[0][0] : Infinity);
   }
-  function clearBuf() { dropSamples(buf.length); beatN = 0; lastPh = NaN; }
+  function clearBuf() { dropSamples(buf.length); beatN = 0; lastPh = NaN; facs.clear(); effOk = false; }
   // The times the heart's cycle began (the samples' phase wrapping), the newest BEAT_MAX kept in a ring: a vein's pulsatility is read
   // within each beat, as a scanner's calipers read it, not across the breath's swing as well (healthy portal vein: 0.48 over 3 s, 0.22 a beat).
   const BEAT_MAX = 16, beatT = new Float64Array(BEAT_MAX);
@@ -339,10 +369,15 @@ export function createDoppler({ onProbe, pickGate = true }) {
   }
   function ingest(f) {
     frame = f;
-    if (f.probe !== probe) { clearBuf(); wl = null; tOff = 0; synth = null; scale = null; heldTo = null; steady.probe = null; probe = f.probe; if (probeSel.value !== probe) probeSel.value = probe; }
+    if (EI[f.probe] == null) return;   // (a frame that names no vessel of the model: the Doppler keeps the one it reads)
+    if (f.probe !== probe) { clearBuf(); wl = null; tOff = 0; synth = null; scale = null; heldTo = null; steady.probe = null; probe = f.probe; calTap = false; calFresh = false; calReset(); if (probeSel.value !== probe) probeSel.value = probe; tapWire(); }
     // A new spot along a stent is a new recording, as a new vessel is: the trace starts over and finds its own scale.
     const g = isStentProbe() ? gateOf() : '';
     if (g !== gateNow) { gateNow = g; clearBuf(); wl = null; synth = null; scale = null; heldTo = null; steady.probe = null; }
+    gi = g ? gateIndex() : -1;
+    // (the gates' factors the samples coming in are read under, from the first of them on)
+    // (a stopped stent's samples read 0 at every gate: its trace runs flat and its numbers ease to 0, the engine's stasis rule)
+    if (g) { const r = stentReads(1, true), z = stentStopped() ? 0 : 1, tIn = buf.length ? buf[buf.length - 1][0] + 1e-6 : -Infinity; facs.note(tIn, r[0] * z, r[1] * z, r[2] * z); }
     const s = f.samples;
     if (f.clock === 'disease') {
       if (!synth && buf.length) synth = startSynth();
@@ -364,7 +399,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
       for (let i = 0; i < s.t.length; i++) {
         const t = s.t[i] + tOff;
         if (!buf.length || t > buf[buf.length - 1][0]) {
-          buf.push(sample(t, s.vel[i], ps?.[i] ?? NaN));
+          // (A sample with no velocity is of another vessel, from before the probe moved: frame-samples.js. It draws no line, so it is not recorded; its beat still counts.)
+          if (Number.isFinite(s.vel[i])) buf.push(sample(t, s.vel[i], ps?.[i] ?? NaN));
           const ph = s.ph?.[i];
           if (Number.isFinite(ph)) { if (ph < lastPh - 0.5) beatT[beatN++ % BEAT_MAX] = t; lastPh = ph; }
         }
@@ -381,7 +417,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   // (Nothing until 1.5 s of this vessel is recorded: a pattern judged from part of a beat is a wrong one, a red "To-and-fro" for a moment.)
   const SETTLE = 1.5;
   // (The reading, and the same scaled to a stent's gate, are two kept records written in place: a caller uses one at once and does not keep it.)
-  const READ = { mean: 0, vmax: 0, vmin: 0, vmaxMean: 0, vminMean: 0, beatPi: -1, beatB0: 0, beatB1: 0 }, GATED = { mean: 0, vmax: 0, vmin: 0, vmaxMean: 0, vminMean: 0, beatPi: -1, beatB0: 0, beatB1: 0 };
+  const READ = { mean: 0, vmax: 0, vmin: 0, vmaxMean: 0, vminMean: 0, beatPi: -1, beatB0: 0, beatB1: 0, beatHi: 0, beatLo: 0 }, GATED = { mean: 0, vmax: 0, vmin: 0, vmaxMean: 0, vminMean: 0, beatPi: -1, beatB0: 0, beatB1: 0, beatHi: 0, beatLo: 0 };
   // (What interpret() answers, written in place, and the options it hands judgeFlow.)
   const IT = { dir: '', sev: '', pattern: '', note: '', pi: 0, expected: false }, OPT_SWINGS = { swings: false }, OPT_STENT = { stent: true };
   function reading() {
@@ -398,8 +434,16 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // The record is the mean across the lumen; the scanner reads the peak of the spectrum (dopplerK)
     const k = dopplerK(EDGES[EI[probe]]);
     const r = READ;
+    // (On a stent, the extremes are the gated samples' own, each under its own narrowing, given back as the open stent's that times the window's
+    // factor makes them: a fast sample from before a narrowing times the new jet's factor is a peak the stent never had.)
+    if (gi >= 0) {
+      facs.mean(buf, from, tNow, EFF); effOk = true;
+      let gmax = -Infinity, gmin = Infinity;
+      for (let i = buf.length - 1; i >= 0 && buf[i][0] >= from; i--) { const g = buf[i][1] * facs.at(buf[i][0], gi); if (g > gmax) gmax = g; if (g < gmin) gmin = g; }
+      const e = EFF[gi] || 1; vmax = gmax / e; vmin = gmin / e;
+    }
     r.mean = k * sum / n; r.vmax = vmax * k; r.vmin = vmin * k; r.vmaxMean = vmax; r.vminMean = vmin;
-    const mb = medianBeat(from, tNow); r.beatPi = mb.pi; r.beatB0 = mb.b0; r.beatB1 = mb.b1;
+    const mb = medianBeat(from, tNow, sum / n); r.beatPi = mb.pi; r.beatB0 = mb.b0; r.beatB1 = mb.b1; r.beatHi = mb.hi * k; r.beatLo = mb.lo * k;
     return r;
   }
   // A vein's pulsatility within one beat, as a sonographer's calipers read it: of the whole beats inside [from, to] (a hair in from each
@@ -407,26 +451,26 @@ export function createDoppler({ onProbe, pickGate = true }) {
   // larger of |max| and |min| (doppler-marks.js pulsatility). The median, not the newest, so a breath's shallow beat does not swing it;
   // a real beat, not a mean, so the calipers can stand on it and read the same number (BEAT_PICK.b0, b1). −1 with no whole beat recorded
   // (a time lapse replays its template without phase, and the first second of a vessel has none).
-  const BEAT_PICK = { pi: -1, b0: 0, b1: 0 }, BEAT_PIS = new Float64Array(BEAT_MAX), BEAT_B0 = new Float64Array(BEAT_MAX), BEAT_ORD = new Int32Array(BEAT_MAX);
-  function medianBeat(from, to) {
+  const BEAT_PICK = { pi: -1, b0: 0, b1: 0, hi: 0, lo: 0 }, BEAT_HI = new Float64Array(BEAT_MAX), BEAT_LO = new Float64Array(BEAT_MAX), BEAT_MEAN = new Float64Array(BEAT_MAX), BEAT_PIS = new Float64Array(BEAT_MAX), BEAT_B0 = new Float64Array(BEAT_MAX), BEAT_ORD = new Int32Array(BEAT_MAX);
+  function medianBeat(from, to, level) {
     BEAT_PICK.pi = -1;
     const n = Math.min(beatN, BEAT_MAX), lo0 = from + 0.05, hi1 = to - 0.05;
     let nb = 0;
     for (let j = 1; j < n; j++) {
       const b0 = beatT[(beatN - n + j - 1) % BEAT_MAX], b1 = beatT[(beatN - n + j) % BEAT_MAX];
       if (b0 < lo0 || b1 > hi1 || !(b1 > b0)) continue;
-      let hi = -Infinity, lo = Infinity;
-      for (let i = buf.length - 1; i >= 0 && buf[i][0] >= b0; i--) { if (buf[i][0] > b1) continue; const v = buf[i][1]; if (v > hi) hi = v; if (v < lo) lo = v; }
+      let hi = -Infinity, lo = Infinity, bs = 0, bn = 0;
+      for (let i = buf.length - 1; i >= 0 && buf[i][0] >= b0; i--) { if (buf[i][0] > b1) continue; const v = buf[i][1]; if (v > hi) hi = v; if (v < lo) lo = v; bs += v; bn++; }
       if (!(hi > -Infinity)) continue;
-      BEAT_PIS[nb] = pulsatility(hi, lo); BEAT_B0[nb] = b0; BEAT_ORD[nb] = j; nb++;
+      BEAT_MEAN[nb] = bs / bn;
+      BEAT_PIS[nb] = pulsatility(hi, lo); BEAT_HI[nb] = hi; BEAT_LO[nb] = lo; BEAT_B0[nb] = b0; BEAT_ORD[nb] = j; nb++;
     }
     if (!nb) return BEAT_PICK;
-    // (the median by index: a short insertion sort of the few beats' places)
-    const ord = BEAT_ORD;
-    for (let i = 0; i < nb; i++) ord[i] = i;
-    for (let i = 1; i < nb; i++) { const k = ord[i]; let m = i - 1; while (m >= 0 && BEAT_PIS[ord[m]] > BEAT_PIS[k]) { ord[m + 1] = ord[m]; m--; } ord[m + 1] = k; }
-    const pick = ord[(nb - 1) >> 1];
-    BEAT_PICK.pi = BEAT_PIS[pick]; BEAT_PICK.b0 = BEAT_B0[pick];
+    // (The typical beat: the one whose own mean lies nearest the window's mean, the level the Speed tile reads, so the Max and Trough of that beat stand
+    // either side of the speed shown, the breath's high and low beats never read as the vessel's own: 36, 21 and a speed of 14 did not agree, 16 Nov 2026.)
+    let pick = 0;
+    for (let i = 1; i < nb; i++) if (Math.abs(BEAT_MEAN[i] - level) < Math.abs(BEAT_MEAN[pick] - level)) pick = i;
+    BEAT_PICK.pi = BEAT_PIS[pick]; BEAT_PICK.b0 = BEAT_B0[pick]; BEAT_PICK.hi = BEAT_HI[pick]; BEAT_PICK.lo = BEAT_LO[pick];
     // (the beat's end: the next beat's start after b0)
     for (let j = 0; j < n; j++) { const t = beatT[(beatN - n + j) % BEAT_MAX]; if (t > BEAT_PICK.b0) { BEAT_PICK.b1 = t; break; } }
     return BEAT_PICK;
@@ -446,22 +490,38 @@ export function createDoppler({ onProbe, pickGate = true }) {
     return clamp(Math.round(d / 2), 2, 15);
   };
   // A stent's proximal, mid and distal velocities from the open stent's velocity v: the narrowed segment runs faster.
-  const stentReads = (v) => {
-    const prm = store.get().params, s = 1 - (1 - (prm?.stenosis?.[probe] || 0)) * (1 - (prm?.thrombus?.[probe] || 0));
-    return stentSegments(v, s, stentSite(prm, probe), STENT_OUT);
+  // (A stent that has almost stopped reads 0 at every gate, as its tiles and its card do, flow-cuts.js stentStill; `unit` asks for the gates' factors, which are no reading.)
+  // (Whether the stent sampled has stopped: the engine's own state, engine.js stentState .still, with its memory, which the vessel card, tiles and pictures
+  // read; a stent the model keeps no state for (a drawn one), the same cut-off on the frame's flow.)
+  const stentStopped = () => {
+    const m = probe === 'TIPS' ? frame?.metrics?.tips : probe === 'DIPS' ? frame?.metrics?.dips : undefined;
+    if (m !== undefined) return !!m?.still;
+    return !!frame?.D && stentStill(frame.Qf ? frame.Qf[EI[probe]] : frame.Q?.[EI[probe]]);
+  };
+  const stentReads = (v, unit = false) => {
+    const r = stentReadsOf(store.get().params, probe, v, STENT_OUT);   // (its narrowing, site and geometry: a long waist jets at every gate inside it)
+    if (!unit && stentStopped()) { r[0] = 0; r[1] = 0; r[2] = 0; }
+    return r;
   };
   // The gated segment of a stent, and how much faster it runs than the open stent (1 elsewhere, and on any other vessel).
   const isStentProbe = () => meta().kind === 'tips';
   const gateOf = () => stentGate(store.get().dopGate, store.get().params, probe);
   let gf = 1;
+  // Whose jet a gate reads: the stent's deliberate reduction (always mid stent) or its end stenosis (stent-geom.js gateKindsFromParams). Gates over the range that sit only on the reduction read as intended.
+  const gateKinds = () => gateKindsFromParams(store.get().params, probe, kindOf(EDGES[EI[probe]]), GATE_KINDS);
+  const reductionOnly = (peaks, hi) => reductionJet(peaks, gateKinds(), hi);
   const gateIndex = () => { const g = gateOf(); for (let i = 0; i < SEGS.length; i++) if (SEGS[i][0] === g) return i; return -1; };
-  const gateFactor = () => (isStentProbe() ? stentReads(1)[gateIndex()] || 1 : 1);
+  // (the window's own factor once there is a reading, gate-factors.js: the samples behind the open stent's mean were each read under their own narrowing)
+  const gateFactor = () => (isStentProbe() ? (effOk && gi >= 0 ? EFF[gi] : stentReads(1, true)[gateIndex()]) || 1 : 1);
+  // The three thirds as the tiles show them: the open stent's shown velocity times the window's factors (0 at every gate in a stent that has stopped).
+  const shownReads = (v) => { const r = stentReads(v); if (effOk && (r[0] || r[1] || r[2])) { r[0] = v * EFF[0]; r[1] = v * EFF[1]; r[2] = v * EFF[2]; } return r; };
   // +1 when the vessel's forward flow is drawn above the baseline, −1 when below
   const effInvert = () => invert;
   const pol = () => (!meta().away !== !effInvert() ? -1 : 1);
 
-  // A vessel's usual range: with a TIPS or DIPS in, the main portal vein's is 30 cm/s and up (velNormal.js), so fast flow is not flagged.
-  const normalOf = (p) => (p.id === 'PV_TRUNK' && frame?.D ? velNormal(EI.PV_TRUNK, frame) : null) || p.normal;
+  // A vessel's usual range: with a TIPS or DIPS in, the main portal vein's is 30 cm/s and up (velNormal.js), so fast flow is not flagged; a stent's follows its
+  // own open diameter (an 8 to 10 mm stent keeps 90 to 190 cm/s, velNormal.js stentNormal).
+  const normalOf = (p) => ((p.id === 'PV_TRUNK' || p.kind === 'tips') && frame?.D ? velNormal(EI[p.id], frame) : null) || p.normal;
   // A stent is judged at its gate, as its reading, trace and tiles show it: a 90% narrowing's jet is flow, not an occlusion,
   // although the open stent around it barely moves (g, the gate's factor; open, the open stent's mean for its segment tiles).
   // (seen: the reading the strip shows, signed and at the stent's gate, and the open stent's velocity its segment tiles read from: a stent's
@@ -470,7 +530,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function interpret(r0, g = 1, seen = null) {
     const p = meta(), normal = normalOf(p), open = Math.abs(r0.mean);
     let r = r0;
-    if (g !== 1) { r = GATED; r.mean = r0.mean * g; r.vmax = r0.vmax * g; r.vmin = r0.vmin * g; r.vmaxMean = r0.vmaxMean * g; r.vminMean = r0.vminMean * g; r.beatPi = r0.beatPi; }
+    let jetOk = false;   // (a stent's jet at its deliberate reduction: expected, never drawn out of range)
+    if (g !== 1) { r = GATED; r.mean = r0.mean * g; r.vmax = r0.vmax * g; r.vmin = r0.vmin * g; r.vmaxMean = r0.vmaxMean * g; r.vminMean = r0.vminMean * g; r.beatPi = r0.beatPi; r.beatHi = r0.beatHi * g; r.beatLo = r0.beatLo * g; }
     const a = Math.abs(r.mean);
     const swing = r.vmaxMean - r.vminMean;
     const big = Math.max(Math.abs(r.vmaxMean), Math.abs(r.vminMean));
@@ -533,13 +594,23 @@ export function createDoppler({ onProbe, pickGate = true }) {
       // it is printed. Without them (no reading shown yet), the 3 s mean, as before.)
       const shown = seen && Number.isFinite(seen.gated) && Number.isFinite(seen.open);
       const m = shown ? seen.gated : r.mean, jsS = shown ? judgeFlow(m, null, normal, OPT_STENT) : js;
-      dir = jsS.none ? 'No flow' : m < 0 ? 'Reversed' : p.id === 'DIPS' ? 'Portal → IVC' : 'Portal → hepatic vein'; sev = jsS.none || m < 0 ? 'critical' : jsS.slow || jsS.fast ? 'caution' : 'ok';
-      const sr = stentReads(shown ? seen.open : open);
+      // (No flow is the stent's own state, the engine's (stentStopped), never the speed at one gate: the open stretch of a stent narrowed at one end runs at a
+      // few cm/s while its jet runs at tens, play-test 17 Nov 2026, "No flow" beside a distal 23 cm/s. A stent with no state of its own: under 2 cm/s, as before.)
+      const ms = probe === 'TIPS' ? frame?.metrics?.tips : probe === 'DIPS' ? frame?.metrics?.dips : undefined;
+      const none = ms !== undefined ? stentStopped() : jsS.none;
+      dir = none ? 'No flow' : m < 0 ? 'Reversed' : p.id === 'DIPS' ? 'Portal → IVC' : 'Portal → hepatic vein'; sev = none || m < 0 ? 'critical' : jsS.slow || jsS.fast ? 'caution' : 'ok';
+      const sr = shownReads(shown ? seen.open : open);
       const jet = shown ? Math.max(Math.round(Math.abs(m)), Math.round(sr[0]), Math.round(sr[1]), Math.round(sr[2])) : Math.max(a, sr[0], sr[1], sr[2]);   // the fastest segment: a narrowing's jet
       const hiV = normal[1];   // (the stent's ceiling: its probe's normal, from the one table of them, velNormal.js PROBE_NORMAL)
-      pattern = jsS.none ? 'Occluded' : jsS.slow ? (jet > hiV ? 'Low velocity, jet' : 'Low velocity') : jet > hiV ? 'High velocity' : 'Patent';
-      if (sev === 'ok' && jet > hiV) sev = 'caution';
-      note = jsS.none ? 'No flow in the stent: occluded.' : p.rangeNote;
+      // (A stent of 8 to 10 mm is read against the reported range. Another diameter has a band the app scaled, which no study validates: its words say where the reading sits
+      // against that model band, and its tone stays neutral, never "Patent" or "High velocity", never amber.)
+      const model = normal !== p.normal, redJet = !none && !jsS.slow && jet > hiV && reductionOnly(sr, hiV);
+      pattern = none ? 'Occluded' : redJet ? 'Reduction jet' : model ? (jsS.slow ? (jet > hiV ? 'Under band, jet' : 'Under band') : jet > hiV ? 'Over band' : 'In band')
+        : jsS.slow ? (jet > hiV ? 'Low velocity, jet' : 'Low velocity') : jet > hiV ? 'High velocity' : 'Patent';
+      if ((model || redJet) && sev === 'caution') sev = 'ok';
+      else if (sev === 'ok' && jet > hiV) sev = 'caution';
+      jetOk = redJet;
+      note = none ? 'No flow in the stent: occluded.' : redJet ? REDUCTION_NOTE : rangeNoteOf(p, normal, frame?.D?.[EI[p.id]]);
     } else if (p.kind === 'ivc') {
       dir = r.mean < 0 ? 'Reversed' : 'Toward the heart'; sev = r.mean < 0 ? 'danger' : 'ok';
       pattern = r.vminMean < -1 ? 'Phasic, with reversal' : pi > 0.3 ? 'Phasic' : 'Continuous';
@@ -550,7 +621,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       pattern = j.none ? 'No signal' : 'Open collateral';
       note = j.none ? 'This collateral carries no flow.' : 'Portal blood is bypassing the liver through this collateral.';
     }
-    return say(dir, sev, pattern, note, pi, false);
+    return say(dir, sev, pattern, note, pi, jetOk);
   }
   const say = (dir, sev, pattern, note, pi, expected) => { const o = IT; o.dir = dir; o.sev = sev; o.pattern = pattern; o.note = note; o.pi = pi; o.expected = expected; return o; };
 
@@ -576,16 +647,17 @@ export function createDoppler({ onProbe, pickGate = true }) {
     gaugeHi = Math.max(Math.round((open ? 2 * n0 : n1) * 1.7), Math.ceil(mean * 1.1));
     gaugeLo = Math.min(0, Math.floor(mean * 1.1));
     propSoon(rangeEl, 'hidden', false);
-    const outNow = !expected && (mean < n0 || mean > n1) ? 'true' : 'false';
+    const outNow = !expected && !(p.kind === 'tips' && normal !== p.normal) && (mean < n0 || mean > n1) ? 'true' : 'false';   // (a stent's model band, scaled by the app for its diameter, is never drawn as out of range)
     dataSoon(rangeEl, 'out', outNow); dataSoon(velEl, 'out', outNow); dataSoon(statEls.Speed.wrap, 'out', outNow);
     // (The gauge's numbers are kept, and its transforms, words and title written from them in a task of their own straight after the
     // frame, once however many readings came: no style or string made inside a frame.)
+    gaugeModel = p.kind === 'tips' && normal !== p.normal;
     gaugeN0 = n0; gaugeN1 = n1; gaugeOpen = open; gaugeP0 = pos(n0); gaugeP1 = pos(n1); gaugePm = pos(mean); gaugePz = pos(0);
     propSoon(gHi, 'hidden', open);
     dataSoon(gLo, 'u', open ? 'cm/s' : '');
     if (!gaugeDue) { gaugeDue = true; runSoon(gaugeWrite); }
   }
-  let gaugeN0 = 0, gaugeN1 = 0, gaugeOpen = false, gaugeP0 = 0, gaugeP1 = 0, gaugePm = 0, gaugePz = 0, gaugeDue = false;
+  let gaugeModel = false, gaugeN0 = 0, gaugeN1 = 0, gaugeOpen = false, gaugeP0 = 0, gaugeP1 = 0, gaugePm = 0, gaugePz = 0, gaugeDue = false;
   function gaugeWrite() {
     gaugeDue = false;
     // (by transform: the track and ticks are containers, so 1cqw is a hundredth of their width; the browser eases them on the compositor)
@@ -599,7 +671,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // (Each tick's number is centred on its point and the unit hangs after it: "40 cm/s" pulled left to fit put its 40 about
     // 5 cm/s short of the band's end.)
     set2(gLo, String(gaugeN0)); set2(gHi, gaugeOpen ? '' : String(gaugeN1));
-    rangeEl.title = gaugeOpen ? `Usual ≥${gaugeN0} cm/s` : `Usual ${gaugeN0}–${gaugeN1} cm/s`;
+    rangeEl.title = gaugeModel ? `Model band ${gaugeN0}–${gaugeN1} cm/s (provisional: scaled from the reported 8 to 10 mm range)` : gaugeOpen ? `Usual ≥${gaugeN0} cm/s` : `Usual ${gaugeN0}–${gaugeN1} cm/s`;
     statEls.Speed.wrap.title = rangeEl.title;
   }
   // A slide's own state (its fingerprint's network, presenter dataTo → tools.pin): the probed vessel's velocity as the scanner reads it.
@@ -659,13 +731,16 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // probe, below the baseline, so it reads "−18 · Toward the heart", and the sign, the words and the drawing agree.)
     // (And steady: the 3 s mean swings a few percent with the beat and breath, so a slide's strip, and the callout that copies it, read a
     // slow running mean of it, the same number at any moment of the slide on any screen.)
-    let mean = ovOn ? steadyMean(r.mean) : r.mean;
+    // (A stent's is steadied at its gate, where the number is read, and given back as the open stent's: a slow mean of the open stent times a factor
+    // that has already moved read a jet the stent never had, 1241 for 540 cm/s, play-test 17 Nov 2026.)
+    gf = gateFactor();
+    let mean = ovOn ? steadyMean(r.mean * gf) / gf : r.mean;
     // (While it agrees, the slide's own velocity in this vessel, as its tiles and callouts read the slide: one number on every screen.)
     const fixed = ovOn ? pinnedVel() : NaN;
     if (Number.isFinite(fixed) && Math.abs(Math.abs(mean) - fixed) < Math.max(4, fixed * 0.12)) mean = (mean < 0 ? -1 : 1) * fixed;
     // (A stent reads at its gate: the segment holding a narrowing runs faster than the open stent around it.)
     const open = Math.abs(mean);
-    gf = gateFactor(); mean *= gf;
+    mean *= gf;
     // (The reading and its gauge glide on the shown state's filter, display-state.js, premium-feel R4, as the bar's numbers do; a new
     // vessel, a paused model or a jump of the model shows the new reading at once.)
     { const t = performance.now(), dt = velShownAt && velShown.moving ? Math.min(0.1, Math.max(0, (t - velShownAt) / 1000)) : 0; velShownAt = t; mean = velShown.step(mean, dt, velProbe !== probe || !frame?.running); velProbe = probe; }
@@ -682,18 +757,25 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // (open: the open stent's velocity, from which the figure's callouts at a stent's three points read what its tiles read.)
     const sv = SHOWN.get(probe) || SHOWN.get(PROBES[0].id);
     sv.v = Math.abs(mean); sv.t = performance.now(); sv.seg = isStentProbe() ? gateOf() : null; sv.open = open;
+    sv.fOk = isStentProbe() && effOk; if (sv.fOk) { sv.f[0] = EFF[0]; sv.f[1] = EFF[1]; sv.f[2] = EFF[2]; }   // (the three thirds' factors the tiles read, for the figure's callouts)
     shownVel.set(probe, sv);
     setStat(statEls.Speed.dd, num(drawn, Math.abs(drawn) < 10 ? 1 : 0), 'cm/s');
     updateGauge(p, mean, it.expected);   // (the headline's own number: the marker read 23.5 under a headline of 22, sweep batch 04, shot 12)
     patFull = it.pattern || ''; set(patternEl, STEPS[stripStep][2] ? shortPat(patFull) : patFull);
     // peak: the extreme farthest from zero, whichever the direction
-    const big = Math.abs(r.vmax) >= Math.abs(r.vmin), pk = big ? r.vmax : r.vmin, tr = big ? r.vmin : r.vmax;
+    // (A portal vein's Max and Trough are the highest and lowest of the median beat, the beat its Pulsatility and the calipers read: one beat, one set of numbers.
+    // Over the whole 3 s they took in the breath's swing, and (Max − Trough) / Max of the two shown did not give the Pulsatility beside them: 36, 21 and 0.17, 16 Nov 2026.)
+    const beatwise = p.kind === 'portal' && r.beatPi >= 0, hiV = beatwise ? r.beatHi : r.vmax, loV = beatwise ? r.beatLo : r.vmin;
+    // (Max and Trough bracket the speed shown: the typical beat nearly always does; where its swing sits wholly to one side of the 3 s mean, the mean is the bound.)
+    const sp = Math.abs(r.mean) * Math.sign(r.mean || 1), hiB = beatwise ? Math.max(hiV, sp) : hiV, loB = beatwise ? Math.min(loV, sp) : loV;
+    const big = Math.abs(hiB) >= Math.abs(loB), pk = big ? hiB : loB, tr = big ? loB : hiB;
     setStat(statEls.Peak.dd, num(pk * gf), 'cm/s');   // (a stent's peak at its gate)
     setStat(statEls.Trough.dd, num(tr * gf), 'cm/s');
     // Pulsatility: a vein's is the portal convention, (max − min) / max (it.pi). An artery's is Gosling's index, (peak − trough) / mean: the
     // other one is the resistive index the strip already prints (Mohammad, 13 Nov 2026, "Pulsatility 0.73" beside "Resistive index 0.73").
     // The hepatic veins and the IVC have no such index (their swing passes zero, so the ratio ran past 1): their tile is hidden, the pattern says it.
-    const piV = p.kind === 'artery' ? (Math.abs(r.mean) > 0.5 ? (r.vmax - r.vmin) / Math.abs(r.mean) : 0) : it.pi;
+    // (The tile follows its formula from the two numbers shown beside it, rounded as they are printed, so the three always agree.)
+    const shownV = (v) => Math.sign(v) * Number(fmt(Math.abs(v * gf), 0)), piV = p.kind === 'artery' ? (Math.abs(r.mean) > 0.5 ? (r.vmax - r.vmin) / Math.abs(r.mean) : 0) : pulsatility(shownV(hiB), shownV(loB));
     setStat(statEls.Pulsatility.dd, fmt(piV, 2));
     // Congestion index (portal vein): cross-sectional area / mean velocity, about 0.07 cm·s in health, over 0.1 suggests portal hypertension
     const isPV = probe === 'PV_TRUNK';
@@ -709,12 +791,12 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const isStent = p.kind === 'tips';
     showTiles(p);
     if (isStent) {
-      // Each segment against the stent's usual range (90–190 cm/s, p.normal), the gated one marked.
-      const at = gateOf(), reads = stentReads(open);
+      // Each segment against the stent's usual range (90–190 cm/s for an 8 to 10 mm stent, scaled for another: normalOf), the gated one marked.
+      const at = gateOf(), reads = shownReads(open), sn = normalOf(p), kinds = gateKinds();
       for (let i = 0; i < SEGS.length; i++) {
         const seg = SEGS[i][0], name = SEGS[i][1], v = reads[i], w = statEls[name].wrap, here = seg === at;
         setStat(statEls[name].dd, num(v), 'cm/s');
-        dataSoon(w, 'out', v < p.normal[0] || v > p.normal[1]);
+        dataSoon(w, 'out', sn === p.normal && (v < sn[0] || (v > sn[1] && kinds[i] !== 'reduction')));   // (a gate on the deliberate reduction is never drawn out of range for its jet)   // (a model band is the app's own scaling, never drawn as an alarm: the card's words say where the reading sits)
         classSoon(w, 'on', here);
         const b = statEls[name].btn;
         if (b) {
@@ -730,10 +812,12 @@ export function createDoppler({ onProbe, pickGate = true }) {
     if (!ariaDue) { ariaDue = true; runSoon(ariaWrite); }
   }
   // (The canvas's spoken summary is made between frames from the last reading's kept values, once however many readings came.)
-  let ariaDir = '', ariaMean = 0, ariaPattern = '', ariaDue = false;
+  let ariaDir = '', ariaMean = 0, ariaPattern = '', ariaDue = false, calAria = '';
   function ariaWrite() {
     ariaDue = false;
-    attrSoon(cv, 'aria-label', `Spectral Doppler, ${EDGES[EI[probe]].label}, ${sweepSeconds}-second sweep: ${ariaDir}, ${num(ariaMean, 0)} centimeters per second, ${ariaPattern}.`);
+    const edge = EDGES[EI[probe]];
+    if (!edge) return;   // (no vessel yet: a frame that named none, or none has come)
+    attrSoon(cv, 'aria-label', `Spectral Doppler, ${edge.label}, ${sweepSeconds}-second sweep: ${ariaDir}, ${num(ariaMean, 0)} centimeters per second, ${ariaPattern}.${calAria ? ` ${calAria}` : ''}${meta().kind === 'artery' && !calSlide ? ` Tap the spectrum to ${calTap ? 'clear' : 'mark'} the peak and the trough.` : ''}`);
   }
 
   // ── Display ───────────────────────────────────────
@@ -797,7 +881,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     let lo = 0, hi = n - 1;
     while (hi - lo > 1) { const m = (lo + hi) >> 1; if (buf[m][0] <= t) lo = m; else hi = m; }
     const [ta, va] = buf[lo], [tb, vb] = buf[hi];
-    return g.pol * gf * (tb > ta ? va + (vb - va) * clamp((t - ta) / (tb - ta), 0, 1) : va);
+    return g.pol * (gi >= 0 ? facs.at(t, gi) : gf) * (tb > ta ? va + (vb - va) * clamp((t - ta) / (tb - ta), 0, 1) : va);   // (each moment under its own narrowing)
   }
 
   // The noise floor is worked out by the GPU's fragment shader (doppler-gl.js floorAt): exponential power, independent from one line to the next
@@ -849,7 +933,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     hepatic: [['Toward the heart', 'Reversed'], ['Large reversal', 'Triphasic', 'Biphasic', 'Monophasic'], 2],
     ivc: [['Toward the heart', 'Reversed'], ['Phasic, with reversal', 'Phasic', 'Continuous'], 2],
     artery: [['Antegrade', 'Reversed'], ['Resistive index 0.00'], 3],
-    tips: [['Portal → hepatic vein', 'Portal → IVC', 'Reversed'], ['Occluded', 'Low velocity, jet', 'Low velocity', 'High velocity', 'Patent'], 3],
+    tips: [['Portal → hepatic vein', 'Portal → IVC', 'Reversed'], ['Occluded', 'Low velocity, jet', 'Low velocity', 'High velocity', 'Patent', 'Reduction jet', 'Under band, jet', 'Under band', 'Over band', 'In band'], 3],
     collateral: [['Portal → systemic', 'Systemic → portal'], ['No signal', 'Open collateral'], 2],
   };
   function stripWords() {
@@ -1060,7 +1144,18 @@ export function createDoppler({ onProbe, pickGate = true }) {
       ctx.font = FONT(700, 12); ctx.fillStyle = cssAlpha('--doppler', 1); ctx.fillText(pi, x0, yLab);
       x0 += textW(ctx, pi) + 12; ctx.font = FONT(500, 12); ctx.fillStyle = cssAlpha('--white', .5);
     }
-    const room = w - padR - x0 - 6, settings = SETTINGS[mode === 'spectrum' ? 0 : 1][svMm()][sweepIndex];
+    const settings = SETTINGS[mode === 'spectrum' ? 0 : 1][svMm()][sweepIndex];
+    const form = calForm();
+    if (form) {
+      // (The artery's working, in the marks' colour, before the settings: the longest form that leaves the first setting its place.)
+      ctx.font = FONT(700, 12);
+      const spare = w - padR - x0 - 6 - textW(ctx, settings[0]) - 12;
+      let fi = 0; while (fi < 3 && textW(ctx, form.forms[fi]) > spare) fi++;
+      ctx.fillStyle = cssAlpha('--doppler', 1); ctx.fillText(form.forms[fi], x0, yLab);
+      x0 += textW(ctx, form.forms[fi]) + 12; ctx.font = FONT(500, 12); ctx.fillStyle = cssAlpha('--white', .5);
+      if (form.aria !== calAria) { calAria = form.aria; if (!ariaDue) { ariaDue = true; runSoon(ariaWrite); } }
+    } else if (calAria) { calAria = ''; if (!ariaDue) { ariaDue = true; runSoon(ariaWrite); } }
+    const room = w - padR - x0 - 6;
     let np = settings.length;
     while (np > 1 && textW(ctx, settings[np - 1]) > room) np--;
     if (textW(ctx, settings[np - 1]) <= room) ctx.fillText(settings[np - 1], x0, yLab);
@@ -1078,10 +1173,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // (After a hold, only what the settled model shows: the sweep still on screen from before it would fit the scale twice.)
     const since = heldTo != null && tNow - heldTo < sweepSeconds ? heldTo : -Infinity;
     const holding = scale != null && heldTo != null && tNow - heldTo < HOLD_AFTER;
-    for (const [t, v0] of buf) if (t >= Math.max(tNow - sweepSeconds, since) && t <= tNow) { const v = sgn * v0; if (v > pos) pos = v; if (-v > neg) neg = -v; }
+    for (const [t, v0] of buf) if (t >= Math.max(tNow - sweepSeconds, since) && t <= tNow) { const v = sgn * v0 * (gi >= 0 ? facs.at(t, gi) : 1); if (v > pos) pos = v; if (-v > neg) neg = -v; }
     gf = gateFactor();
     const k = dopplerK(EDGES[EI[probe]]);
-    pos *= k * gf; neg *= k * gf;
+    pos *= k; neg *= k;   // (each sample already at its gate, under its own narrowing)
     // (The scale always holds the peak the reading beside it reports, so a −31 cm/s report never sits on a ±5 scale while new
     // samples are still reaching the window; the reading spans the last 3 s of the record, inside every sweep.)
     const rd = reading();
@@ -1226,7 +1321,23 @@ export function createDoppler({ onProbe, pickGate = true }) {
   // number the pattern is named from. Each frame takes one pick (caliperFrame) for the lines and the index alike. Nothing
   // jumps (Mohammad, 19 Oct): the upright stays at the left end, and when a new extreme arrives or the old one leaves the
   // window, its line and the upright's end tick ease to the new level (CAL_FADE). The index changes at once. ──
-  let calip = false, cal = null;
+  // (calSlide: the slide's own calipers, always on; calTap: the learner's tap on an artery's spectrum, Mohammad's review, 15 Nov 2026: the two marks snap to the
+  // systolic peak and the end-diastolic trough, and the resistive index is written out once, in the bottom strip.)
+  let calSlide = false, calTap = false, calFresh = false, cal = null;
+  const calOn = () => calSlide || (calTap && meta().kind === 'artery');
+  // The tap: on an artery's spectrum (the card is a button there, for the keyboard too), it marks the peak and the trough, and again clears them. A slide that
+  // asks for calipers has them always.
+  const tapOk = () => meta().kind === 'artery' && !calSlide;
+  function tapCal() {
+    if (!tapOk()) return;
+    calTap = !calTap; calFresh = calTap; if (!calTap) calReset();
+    logAction('calipers', 'doppler', calTap);
+    if (!ariaDue) { ariaDue = true; runSoon(ariaWrite); }
+    redraw();
+  }
+  box.addEventListener('click', tapCal);
+  box.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === box && tapOk()) { e.preventDefault(); tapCal(); } });
+  const tapWire = () => { propSoon(box, 'tabIndex', tapOk() ? 0 : -1); if (!ariaDue) { ariaDue = true; runSoon(ariaWrite); } };
   // (Each caliper level's easing, kept for the two levels: where it began, where it is going, when; on false = none yet.)
   const calMk = { hi: { on: false, from: 0, to: 0, at: 0 }, lo: { on: false, from: 0, to: 0, at: 0 } };
   // (The words of the bracket's two numbers, kept: rebuilt only when the number moves.)
@@ -1242,13 +1353,14 @@ export function createDoppler({ onProbe, pickGate = true }) {
   const xAt = (t) => xPadL + (xRW - 1 - (xC - Math.floor(t * xCps))) / xDpr;
   function calNow(tNow, W) {
     // (On a portal vein, the calipers stand on the beat the reading's pulsatility and pattern come from, medianBeat: one number on screen.)
-    const mb = calip && meta().kind === 'portal' && READ.beatPi >= 0 ? READ : null;
-    cal = calip && tNow != null && probe ? caliperFrame(buf, tNow, sweepSeconds, W, CAL_W, mb ? mb.beatB0 : NaN, mb ? mb.beatB1 : NaN) : null;
+    const on = calOn(), mb = on && meta().kind === 'portal' && READ.beatPi >= 0 ? READ : null;
+    cal = on && tNow != null && probe ? caliperFrame(buf, tNow, sweepSeconds, W, CAL_W, mb ? mb.beatB0 : NaN, mb ? mb.beatB1 : NaN) : null;
     if (cal) cal.gf = gateFactor(); else calReset();
   }
   // One level's easing, moved on to the pick's level (the pick is the monitor's own record of that mark: [time, level]).
   function calLevel(m, v, now) {
-    if (!m.on) { m.on = true; m.from = v; m.to = v; m.at = now; }
+    // (A tap on the artery brings the two marks out from the middle of the two levels to their places, the snap; reduced motion, and a slide's calipers, show them placed.)
+    if (!m.on) { m.on = true; m.from = calFresh && !reduced() && cal ? (cal.hi[1] + cal.lo[1]) / 2 : v; m.to = v; m.at = now; }
     else if (m.to !== v) { m.from = caliperLevel(m.from, m.to, (now - m.at) / 1000); m.to = v; m.at = now; }
     if ((now - m.at) / 1000 < CAL_FADE) labBusy = true;
     return Math.round(calY(caliperLevel(m.from, m.to, (now - m.at) / 1000))) + 0.5;
@@ -1260,6 +1372,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     cSgn = sgn; cK = k; cPx = pxPerV; cBase = baseY; cPadT = padT; cH = H;
     const xc = caliperX(padL, CAL_TICK), x1 = padL + W;
     lvHi = calLevel(calMk.hi, cal.hi[1], now); lvLo = calLevel(calMk.lo, cal.lo[1], now);
+    calFresh = false;
     ctx.save();
     // What the index measures is the gap in speed between the two levels: each runs dashed across the trace, and the upright
     // with end ticks spans the two.
@@ -1298,7 +1411,26 @@ export function createDoppler({ onProbe, pickGate = true }) {
   }
   // (The index is read in the bottom strip, first after the probe's name, in the marks' colour: off the spectrum, always whole.
   // Its words come from a table of the hundredths, the index being at most 2.)
-  const calText = () => (cal ? PI_TEXT[Math.max(0, Math.min(PI_TEXT.length - 1, Math.round(cal.pi * 100)))] : '');
+  // (On an artery the index is the resistive index and is written out in full, calForm; the pulsatility's own words are for the veins.)
+  const calText = () => (cal && meta().kind !== 'artery' ? PI_TEXT[Math.max(0, Math.min(PI_TEXT.length - 1, Math.round(cal.pi * 100)))] : '');
+  // The artery's working, made again only when a number it shows changes: "RI = (PSV − EDV) / PSV = (62 − 20) / 62 = 0.68", then the same without the
+  // numbers' working, then the numbers alone, then "RI 0.68" for a card too narrow for any of them. The numbers are the marks' own, as they print.
+  // The strip takes the longest of them that leaves the settings their first word.
+  const FORM = { psv: NaN, edv: NaN, ri: NaN, forms: ['', '', '', ''], aria: '' };
+  function calForm() {
+    if (!cal || meta().kind !== 'artery') return null;
+    const sg0 = pol(), k0 = dopplerK(EDGES[EI[probe]]);   // (this frame's own: the marks' numbers are worked out the same way, calNum)
+    const a = Math.round(sg0 * cal.hi[1] * k0 * cal.gf), b = Math.round(sg0 * cal.lo[1] * k0 * cal.gf);
+    const flip = Math.abs(a) >= Math.abs(b) ? 1 : -1, psv = Math.abs(flip === 1 ? a : b), edv = flip === 1 ? b : a, sg = (flip === 1 ? a : b) < 0 ? -1 : 1;
+    const e = sg * edv, ri = Math.round(Math.max(0, cal.pi) * 100) / 100;
+    if (FORM.psv !== psv || FORM.edv !== e || FORM.ri !== ri) {
+      FORM.psv = psv; FORM.edv = e; FORM.ri = ri;
+      const r = fmt(ri, 2), f4 = riForms(psv, e, ri);
+      for (let i = 0; i < 4; i++) FORM.forms[i] = f4[i];
+      FORM.aria = `Resistive index ${r}: peak systolic ${num(psv)}, end diastolic ${num(e)}, centimeters per second.`;
+    }
+    return FORM;
+  }
 
   // ── A slide's paired trace (V29): the paired vessel's velocity over the same seconds as the main trace, beat for beat, as
   // the scanner would draw it (a hepatic vein's forward flow below its baseline), slim, in a band of its own under the main
@@ -1346,7 +1478,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function configure(t = {}) {
     const m = MODE_OF[t?.mode] || 'spectrum';
     if (m !== mode) { mode = m; sync(); }
-    calip = !!t?.calipers; cal = null; calReset();   // (a new slide's calipers pick from its own trace)
+    calSlide = !!t?.calipers; calTap = false; calFresh = false; cal = null; calReset(); tapWire();   // (a new slide's calipers pick from its own trace)
     if (pair !== !!t?.pair) { pair = !!t?.pair; pairSc = null; }
     // (scale: the velocity scale fixed at ± that many cm/s, the Nyquist limit, so faster flow aliases; baseline: where the
     // baseline sits, 0 at the top of the trace to 1 at the bottom, 0.5 when not given. Without scale the display fits itself.)

@@ -1,6 +1,6 @@
 // The graph of what a procedure does, drawn live as it happens (Mohammad, 7 Nov 2026: "after deploying the TIPS we see a graph of HVPG and
 // sinusoidal flow changing in real time after the TIPS gets placed; think about it make sure it's perfect"). A slide that plays a procedure
-// which changes the model (a TIPS, BRTO, BATO, a Meso-Rex bypass) carries it on its teaching card over its steps: the same chart as the
+// which changes the model (a TIPS, BRTO, BATO, a Meso-Rex bypass) carries it as its instrument card (tool { kind: 'evgraph' }, never in the teaching card; slide-instrument.js) over its steps: the same chart as the
 // time-lapse graph (flow-time.js, option A: the same plot, legend, lines, heads and looks), on a clock of its own.
 //
 // What it shows, and why:
@@ -16,13 +16,14 @@
 //  • Each scale is fixed before anything is drawn, from the state it starts at and the state it ends at, so nothing moves while the line runs:
 //    a pressure from zero to the next 5 over its highest value; the other from the tile's own scale start. The tiles' own cut-offs are drawn
 //    as tints on the side that is worse (table-marks SCALE and RATE: the sinusoidal flow's 55% and 75%, red and amber, as its tile's bar), a
-//    pressure with its red cut-off only; after a TIPS the PPG's goal, below 12 mmHg (pressure-cuts.js), is a green band named "Target <12".
+//    pressure with its red cut-off only; after a TIPS the PPG's goal, below 12 mmHg (pressure-cuts.js), is a green band named "Variceal <12" (AASLD 2024's reference for a variceal indication, not a target: TIPS deck review, 17 Nov 2026).
 //  • BRTO and BATO (Gastric varices): the fundal varix closes at once as the shunt does, and the PPG creeps up over the seconds after (16.9 to
 //    about 18 mmHg), the price the slide names.
 //  • It draws nothing until the change: before it the line stops at 0 with its value, the word for the event over a dashed line ("Stent
 //    open"), the seconds after it empty. Going back before the step clears what was drawn; coming back to the slide played through shows it
 //    whole again.
 // Drawn on the GPU (svg-gl.js), never painted by the browser; no list or string is made in a frame (the points live in one typed array).
+import { lcFirst } from '../engine/lc-first.js';
 import { frameFor, cancelFrame } from './frame.js';
 import { attrSoon, dataSoon } from './class-soon.js';
 import { plotPanel } from './plot-look.js';
@@ -34,7 +35,7 @@ import { reduceMotionMQ } from './motion.js';
 import { headStep, HEAD_DT0 } from './display-state.js';
 import { fittedType, tokName } from './chart-ctx.js';
 import { readMetric } from './layout-snap.js';
-import { LINE, withUnit, headLeft } from './flow-time.js';
+import { LINE, withUnit, headLeft, END_APART, STRETCH_MAX } from './flow-time.js';
 import { SCALE, RATE, PRESS } from './table-marks.js';
 import { PPG_CUTS } from '../engine/pressure-cuts.js';
 const nextFrame = frameFor('event-graph');
@@ -75,13 +76,13 @@ const niceStep = (raw) => { const p = Math.pow(10, Math.floor(Math.log10(Math.ma
  * the cut-off it is judged by. Cuts: the tile's own (a pressure's red one only), each named by its worse side; zones: the stretches between
  * them that rate amber or red, tinted. target: a goal below which the line should land (the PPG after a TIPS): one green zone in place of the rest.
  */
-export function eventScale(k, vals, target = null) {
+export function eventScale(k, vals, target = null, room = 1) {
   const sc = SCALE[k], x = LINE[k]?.[4] ?? 1, pr = isP(k) || PRESS.has(k);
   const min = pr ? 0 : sc[0];
   const shown = vals.filter(Number.isFinite).map((v) => v * x);
   const cutsAll = sc[2].filter((c) => c > min);
   const cutsIn = pr ? cutsAll.slice(-1) : cutsAll;
-  const need = Math.max(min + 1e-6, ...shown.map((v) => v * 1.12), ...(target ? [target * 1.25] : cutsIn.map((c) => c * 1.15)));
+  const need = min + (Math.max(min + 1e-6, ...shown.map((v) => v * 1.12), ...(target ? [target * 1.25] : cutsIn.map((c) => c * 1.15))) - min) * room;
   const step = niceStep((need - min) / 5), max = Math.ceil((need - min) / step - 1e-9) * step + min;
   if (target) return { min, max, cuts: [{ v: target, rate: 'ok' }], zones: [{ a: min, b: target, rate: 'ok', target: true }] };
   const eps = (max - min) * 1e-4;
@@ -92,6 +93,50 @@ export function eventScale(k, vals, target = null) {
   const edges = [min, ...cuts.map((c) => c.v), max];
   const zones = edges.slice(0, -1).map((a, j) => ({ a, b: edges[j + 1], rate: rateAt(k, (a + edges[j + 1]) / 2 / x) })).filter((z) => z.rate === 'mid' || z.rate === 'hi');
   return { min, max, cuts, zones };
+}
+
+/** The graph's two scales, [lower line's, upper's], for a slide's spec and where its lines start (b) and are expected to end (end: or null). Each
+ *  is fixed before anything is drawn. When the two lines would END on nearly one spot (closer than END_APART of the plot's height, the same rule as
+ *  the time-lapse graph's, flow-time.js pairScales: the dots and their values on one another), ONE axis gets more room over its line, in round steps,
+ *  until they stand clear; the line is never squeezed past STRETCH_MAX of its own fit. Mohammad, 16 Nov 2026. */
+export function eventScales(spec, b, end = null) {
+  const x = spec.lines.map((k) => LINE[k]?.[4] ?? 1);
+  const mk = (j, room = 1) => eventScale(spec.lines[j], [b[j], end?.[j]], j === 0 ? spec.target : null, room);
+  let sc = [mk(0), mk(1)];
+  if (!end || !end.every(Number.isFinite)) return sc;
+  const fr = (j, S, v) => (v * x[j] - S[j].min) / (S[j].max - S[j].min), apart = (S) => Math.abs(fr(0, S, end[0]) - fr(1, S, end[1]));
+  if (apart(sc) >= END_APART) return sc;
+  let best = null;
+  for (const j of spec.target ? [1] : [1, 0]) {
+    for (const room of [1.25, 1.5, 2, 2.5, 3]) {
+      const S = j ? [sc[0], mk(1, room)] : [mk(0, room), sc[1]], span = (S[j].max - S[j].min) / (sc[j].max - sc[j].min);
+      if (span > STRETCH_MAX) break;
+      const a = apart(S);
+      if (a >= END_APART) { if (!best || span < best.span - 1e-9) best = { S, span }; break; }
+    }
+  }
+  return best ? best.S : sc;
+}
+
+/** How far the graph's readings have taken the settled state's numbers t s after the change (0 to 1): none for the first 70% of its seconds, then a smooth
+ *  glide to them, whole at the end. The model's own course after a stent ends a little off the numbers the slide's words and tiles read (the settled
+ *  state: 8.2 against 7.6 mmHg, play-test B12, 16 Nov 2026), so the graph ends on those, the one number the card prints. */
+export function endMix(t, secs) {
+  const k = Math.min(1, Math.max(0, (t / secs - 0.7) / 0.3));
+  return k * k * (3 - 2 * k);
+}
+
+/** Where the goal's name ("Variceal <12") goes in its band: [x, anchor, baseline y]. Under the band's edge at the left, where the lines run flat at their starting
+ *  levels, else at the right, where they end, else low in the band (if it is tall enough): the first spot no line stands in. starts and ends: the y of each
+ *  line's level there. Play-test B12, 16 Nov 2026: it sat on the varix's line. o: { w, start, end }, the name's width and the boxes [x0, x1, y0, y1] the lines'
+ *  printed values stand in at the start and at the end ("2.9 mm" over the head of its line): a spot they would touch is passed over, so the name is never
+ *  cut by a value ("Target <1…" under "2.9 mm", 16 Nov 2026). */
+export function goalSpot(L, R, f, edge, bottom, starts, ends = starts, o = null) {
+  const free = (levels, yb) => levels.every((v) => v < yb - 1.1 * f || v > yb + 0.4 * f);
+  const clear = (side, x, yb) => !o?.w || !o[side]?.some(([a, b, c, d]) => a < (side === 'start' ? x + o.w : x) && b > (side === 'start' ? x : x - o.w) && c < yb + 0.3 * f && d > yb - 0.9 * f);
+  const spots = [[L + 0.5 * f, 'start', edge + 1.0 * f, starts], [R - 0.5 * f, 'end', edge + 1.0 * f, ends], [L + 0.5 * f, 'start', bottom - 0.5 * f, starts], [R - 0.5 * f, 'end', bottom - 0.5 * f, ends]];
+  const at = spots.find(([x, side, yb, lv], i) => (i < 2 || bottom - edge >= 2.6 * f) && free(lv, yb) && clear(side, x, yb)) || spots[0];
+  return at.slice(0, 3);
 }
 
 // ── The chart ──
@@ -105,9 +150,9 @@ const NO_BOXES = [];
 export function createEventGraph() {
   const reduceMQ = reduceMotionMQ;
   const el = document.createElement('div');
-  el.className = 'pz-flowtime pz-evgraph days';   // (the time-lapse graph's box and looks: styles/app.css .pz-timegraph .pz-flowtime)
+  el.className = 'pz-flowtime pz-evgraph days';   // (the time-lapse graph's box and looks: the flow-time chart's, flow-time.js)
   const gl = createSvgGL(el, { host: 'flowtime' });
-  let spec = null, before = null, scales = null, G = null, parts = null, raf = 0, lastT = 0, shown = 0, goal = 0, lastSz = '';
+  let spec = null, before = null, endv = null, scales = null, G = null, parts = null, raf = 0, lastT = 0, shown = 0, goal = 0, lastSz = '';
   // (The points after the change: [t, lower, upper] in the printed units, n of them; on: the change has happened.)
   const pts = new Float64Array(3 * CAP);
   let n = 0, on = false;
@@ -162,7 +207,12 @@ export function createEventGraph() {
           : sv('line', { class: 'cut', 'data-look': 'plot.grid.line', 'data-rate': c.rate, x1: L, x2: R, y1: y, y2: y }));
         // (The goal's name inside its band, under its edge, where the band is tall enough; else its number in the margin, green.)
         const zoneH = l.Y(sc.min) - y;
-        if (tgt && zoneH >= 1.25 * f) marks.push(sv('text', { class: 'pev-goal', 'data-look': 'cv.zone.t', x: L + 0.5 * f, y: y + 1.0 * f }, `Target <${fmtN(c.v)}`));
+        if (tgt && zoneH >= 1.25 * f) {
+          const tag = (hx, v, q) => { const tw = cw(withUnit(v, q.d, q.unit), f * 1.1, 1), hy = q.Y(v); return [hx - tw - 0.6 * f, hx + tw + 0.6 * f, hy - 1.8 * f, hy - 0.4 * f]; };   // (where a head's printed value can stand: over its line, either side of the head; paint, headLeft)
+          const at = goalSpot(L, R, f, y, l.Y(sc.min), lines.map((q) => q.Y(before[q.j])), endv ? lines.map((q) => q.Y(endv[q.j])) : undefined,
+            { w: cw(`Variceal <${fmtN(c.v)}`, f), start: lines.map((q) => tag(X(0), before[q.j], q)), end: lines.map((q) => tag(R, (endv || before)[q.j], q)) });
+          marks.push(sv('text', { class: 'pev-goal', 'data-look': 'cv.zone.t', x: at[0], y: at[2], 'text-anchor': at[1] }, `Variceal <${fmtN(c.v)}`));
+        }
         else if (room(y)) { taken.push(y); marks.push(sv('text', { 'data-look': 'cv.tc', 'data-tc': c.rate === 'ok' ? '' : c.rate, x, y: y + 0.35 * f, 'text-anchor': anchor }, fmtN(c.v))); }
       }
       for (const v of [sc.max, sc.min]) {
@@ -228,7 +278,7 @@ export function createEventGraph() {
     if (Math.abs(ls[0].hy - ls[1].hy) < 1.4 * G.f) setGeo(ls[0].val, 'y', fix1(ls[0].hy + 1.5 * G.f));
     if (printed) {
       // alloc-rare: only when a printed number changed
-      let label = `${LINE[spec.lines[0]][0]} and ${LINE[spec.lines[1]][0].toLowerCase()}, ${on ? `${fmtN(Math.round(t))} s after` : 'before'} ${spec.word.toLowerCase()}: `;
+      let label = `${LINE[spec.lines[0]][0]} and ${lcFirst(LINE[spec.lines[1]][0])}, ${on ? `${fmtN(Math.round(t))} s after` : 'before'} ${lcFirst(spec.word)}: `;
       for (let j = 0; j < ls.length; j++) label += `${j ? ', ' : ''}${LINE[spec.lines[j]][0]} ${on ? `${withUnit(before[j], ls[j].d, ls[j].unit)} to ` : ''}${ls[j].txt}`;
       attrSoon(parts.svg, 'aria-label', label);
     }
@@ -277,7 +327,8 @@ export function createEventGraph() {
       spec = s;
       const x = spec.lines.map((k) => LINE[k][4] ?? 1);
       before = [b[0] * x[0], b[1] * x[1]];
-      scales = spec.lines.map((k, j) => eventScale(k, [b[j], end?.[j]], j === 0 ? spec.target : null));
+      endv = end?.every(Number.isFinite) ? [end[0] * x[0], end[1] * x[1]] : null;
+      scales = eventScales(spec, b, end);
       el.dataset.lines = spec.lines.join(',');
       n = 0; on = false; shown = goal = 0;
       if (kept) { pts.set(kept.pts.subarray(0, 3 * kept.n)); n = kept.n; on = true; shown = goal = pts[3 * (n - 1)]; }

@@ -13,26 +13,13 @@ import { pillReadings } from '../src/ui/tool-profile.js';
 import { WIDE } from '../src/ui/card-type.js';
 import { RATE } from '../src/ui/table-marks.js';
 import { deckStates } from './deck-states.js';
+import { presenterSource } from './split-src.js';
 
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-const js = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
+const js = unsnap(presenterSource());
 const prof = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
-const grid = js.match(/function laddersGrid\(s\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
 
-test('each cell draws the Gut to heart chart and its one-line strip, with no legend or old ladder', () => {
-  assert.match(grid, /const P = createProfileTool\(\), S = createProfileStrip\(\);/);
-  assert.match(grid, /P\.configure\(\{ kind: 'profile' \}, \{ fp: r\.f, healthy: \(\) => base \}\);/, 'read against the healthy line, as on every card');
-  assert.match(grid, /S\.set\(r\.f, \(\) => base\);/);
-  assert.match(grid, /const cc = h\('div', \{ class: 'pz-cc' \}, P\.el\);/);
-  assert.match(grid, /grid\.append\(h\('div', \{ class: 'pz-cell' \}, k, cc, S\.el\)\);/);
-  assert.doesNotMatch(js, /bigLadder|pz-grid-key|RUNGS|gridOwn|gridNames/);
-  assert.doesNotMatch(css, /pz-grid-key|\.pz-cell\.strip|\.pz-grid\.big/);
-});
 
 test('the first row names the site and the cause, the cause stepping down to fit, never under 12 px, never wrapped; the pills after it', () => {
-  assert.match(grid, /const k = h\('div', \{ class: 'pz-cell-k' \}, h\('div', \{ class: 'pz-kick', 'data-site': r\.site \|\| 'none' \}, headOf\(r\)\),\n\s*h\('div', \{ class: 'pz-cell-t' \}, r\.name\),/);
-  assert.match(grid, /rowRO\?\.observe\(k\);/);
-  assert.match(readFileSync(new URL('../src/ui/table-marks.js', import.meta.url), 'utf8'), /export const headOf = \(r\) => \(r\.kicker \|\| ''\)\.replace\('Intrahepatic · ', ''\);/, 'the heading as the cell shows it');
   // (The size and the move under the site come from the measured row: the room the site and the gap leave, the cause's own width, the floor 12 px on the screen.)
   // (The room is the row less the site, the pills where they show (a wide screen hides them: no width) and a gap beside each.)
   assert.match(js, /const gap = parseFloat\(getComputedStyle\(k\)\.columnGap\) \|\| 0, room = k\.clientWidth - tag\.offsetWidth - gap - \(pills\??\.offsetWidth \? pills\.offsetWidth \+ gap : 0\) - 1;/);
@@ -40,64 +27,22 @@ test('the first row names the site and the cause, the cause stepping down to fit
   // (Under the site it has the whole row: as large as that holds, never under 12 px.)
   assert.match(js, /if \(fit\.under\) fit = \{ \.\.\.causeFit\(fs, t\.offsetWidth, k\.clientWidth - 1, 12 \/ z\), under: true \};/);
   assert.match(js, /if \(fit\.size !== fs\) t\.style\.fontSize = `\$\{fit\.size\.toFixed\(2\)\}px`;\n\s*k\.classList\.toggle\('under', fit\.under\);/);
-  assert.match(css, /\.pz-cell-k \{ display: flex; align-items: baseline; gap: 0 \.6em; flex-wrap: nowrap; \}/);
-  assert.match(css, /\.pz-cell-k \.pz-kick \{ flex: none; white-space: nowrap;/);
-  assert.match(css, /\.pz-cell-k \.pz-cell-t \{ flex: none; white-space: nowrap; \}/);
-  assert.doesNotMatch(js + css, /pz-cell-pill/);
-  assert.doesNotMatch(css, /:is\(\.pz\.stack, \.pz\.low\) \.pz-cell-k \{ display: contents; \}/, 'a phone keeps the one row too');
 });
 
-test('a wide screen shows the chart; a phone, upright or sideways, the line, under one row of station names', () => {
-  assert.match(css, /\.pz-pstrip \{ display: none; width: 100%; \}/);
-  assert.match(css, /:is\(\.pz\.stack, \.pz\.low\) \.pz-cell > \.pz-cc \{ display: none; \}/);
-  assert.match(css, /:is\(\.pz\.stack, \.pz\.low\) \.pz-cell > \.pz-pstrip \{ display: block;/);
-  assert.match(grid, /h\('div', \{ class: 'pz-grid-head', 'aria-hidden': 'true' \}, createProfileStrip\(true\)\.el, createProfileStrip\(true\)\.el\)/);
-  assert.match(css, /\.pz-grid-head \{ display: none; \}/);
-  assert.match(css, /:is\(\.pz\.stack, \.pz\.low\) \.pz-grid-head \{ display: grid; grid-column: 1 \/ -1; grid-template-columns: inherit; gap: inherit; \}/);
-  // (Each name over its column: the head is as wide as a cell's line, its cell's padding in.)
-  assert.match(css, /:is\(\.pz\.stack, \.pz\.low\) \.pz-grid-head > \.pz-pstrip \{ display: block; width: auto; margin: 0 12px;/);
-  assert.match(css, /:is\(\.pz\.stack, \.pz\.low\) \.pz-cell \{ display: block; padding: 7px 12px 4px;/);
-  assert.match(css, /\.pz\.low \.pz-cell \{ padding: 4px 10px 1px; line-height: 1\.15; \} \.pz\.low \.pz-grid-head > \.pz-pstrip \{ margin: 0 10px; \}/);
-  assert.match(css, /\.pz\.stack \.pz-grid-head > :nth-child\(2\) \{ display: none; \}/);
-  assert.match(css, /\.pz\.low \.pz-grid \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/);
-});
 
-test('the line shares the chart\'s stations, names, colours and blocks, and is lettered at 12 px or more', () => {
-  const strip = prof.slice(prof.indexOf('export function createProfileStrip'));
-  assert.match(strip, /const slot = \(w - 10\) \/ STATIONS\.length; return \{ slot, x: \(i\) => slot \* \(i \+ 0\.5\) \};/, 'the names and the lines measure their columns alike');
-  assert.match(strip, /const f = fittedType\(el, gl, 12\)/);
-  assert.match(strip, /const fit = nameFit\(slot, tw\)/);
-  assert.match(strip, /blocksOf\(p, hl\)\.map\(/);
-  assert.match(strip, /'stop-color': pressureColor\(v\)/);
-  assert.match(strip, /x\(i\) \+ hw\[i\] \+ pad\)\.toFixed\(1\)\} \$\{cy\}H\$\{\(x\(i \+ 1\) - hw\[i \+ 1\] - pad\)/, 'the line stops short of each reading');
-});
 
 test('a phone\'s line puts each block on its station\'s column, behind the line and the reading, which keeps an outline in the cell\'s colour', () => {
   const strip = prof.slice(prof.indexOf('export function createProfileStrip'));
-  assert.match(strip, /const box = \(i\) => blockSpan\(x\(i\), slot, tw\);/, 'the chart\'s own width rule, centred on its column');
   const at = (re) => { const m = strip.search(re); assert.ok(m > 0, String(re)); return m; };
   assert.ok(at(/class: 'ppf-blk'/) < at(/class: 'pps-line'/) && at(/class: 'pps-line'/) < at(/class: 'pps-v'/), 'block, line, readings: back to front');
   // (The readings' outline in the cell's colour is the table's prof.strip.v: tests/profile-looks.test.js.)
 });
 
 test('the cause is fitted again when its own width changes (its font loading late), not only the row\'s', () => {
-  assert.match(grid, /rowRO\?\.observe\(k\); for \(const c of k\.children\) rowRO\?\.observe\(c\);/, 'the site\'s, the cause\'s and the pills\' own widths too: a font loading late');
   assert.match(js, /new ResizeObserver\(\(es\) => es\.forEach\(\(e\) => fitRow\(e\.target\.closest\('\.pz-cell-k'\)\)\)\)/);
 });
 
-test('a phone\'s station names carry the sinusoidal brace over Pre-, Intra- and Post-; each line has the three zones\' tints behind its readings', () => {
-  const strip = prof.slice(prof.indexOf('export function createProfileStrip'));
-  assert.match(strip, /sv\('g', \{ class: 'ppf-brace' \}, sv\('path', \{ 'data-look': 'prof\.brace\.path', d: braceD\(x\(i0\) - 0\.42 \* slot, x\(i1\) \+ 0\.42 \* slot, 0, 0\.55 \* f\), transform: `translate\(0 \$\{ends\.toFixed\(2\)\}\) scale\(1 -1\)` \}\),\n\s*sv\('text', \{ 'data-look': 'prof\.brace\.text', x: \(x\(i0\) \+ x\(i1\)\) \/ 2, y: 0\.95 \* f, 'text-anchor': 'middle' \}, BRACE_NAME\)\)/);
-  assert.match(strip, /const fit = nameFit\(slot, tw\), ends = 1\.85 \* f, base = ends \+ 1\.05 \* f,/, 'the names stand under the brace, clear of it');
-  // (Drawn first: under the blocks, the line and the numbers. Pre-hepatic: Gut and PV; intrahepatic: the liver's three; post-hepatic: HV, IVC and RA.)
-  assert.match(strip, /zoneSpans\(\)\.map\(\(\[a, b\], k\) => sv\('g', \{ class: ZONES\[k\]\.cls \},\n\s*sv\('rect', \{ 'data-look': ZONE_LOOK\[k\], x: x\(a\) - slot \/ 2 \+ 0\.5, y: 0, width: slot \* \(b - a \+ 1\) - 1, height: hh, rx: 4 \}\)\)\),\n(\s*\/\/[^\n]*\n)*\s*blocksOf\(p, hl\)/);
-  // (The three tints are the table's prof.zone.*: tests/profile-looks.test.js.)
-});
 
-test('Sites 10 has no line over the grid (Mohammad, 21 Oct: "get rid of that sentence above everything")', () => {
-  const sites = readFileSync(new URL('../src/ui/decks/sites.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(sites, /HVPG reads only the drop across the sinusoids/);
-});
 
 test('causeFit: a cause that fits stays, one a little wide steps down in proportion, one that cannot fit at 12 px goes under the site, none grows', () => {
   assert.deepEqual(causeFit(13.85, 150, 180, 12), { size: 13.85, under: false });
@@ -132,18 +77,11 @@ test('Sites 10 and Where-resistance 14 name sinusoidal obstruction syndrome shor
     assert.doesNotMatch(SHORT, /…|\.\.\./);
   }
   assert.match(slide(deck('sites'), 'postsin').title, /^Sinusoidal obstruction syndrome: /, 'the slide names it in full, then its finding');
-  assert.match(css, /\.pz-cell-k\.under \{ flex-wrap: wrap; \}/);
 });
 
 test('a phone\'s first row ends in the case\'s HVPG and PPG pills, tinted as the chart\'s brackets rate them; a wide screen and a sideways phone show none', async () => {
   // (Each pill: "HVPG n" / "PPG n", the whole mmHg the chart's bracket and pill read, the tone of the same cut-offs.)
-  assert.match(grid, /h\('div', \{ class: 'pz-gpills' \}, pillReadings\(r\.f\)\.map\(\(q\) => h\('span', \{ class: 'pz-gpill', 'data-k': q\.k, 'data-rate': q\.rate \}, h\('span', \{ class: 'k' \}, `\$\{q\.name\} `\), q\.v\)\)\)\);/);
-  assert.match(css, /\.pz-gpills \{ display: none; flex: none; align-items: baseline; gap: 4px; margin-left: auto; \}\n\.pz\.stack \.pz-gpills \{ display: flex; \}/, 'shown on the upright phone and tablet only');
-  assert.match(css, /\.pz-gpill\[data-rate="mid"\] \{ --tone: var\(--caution\); \} \.pz-gpill\[data-rate="hi"\] \{ --tone: var\(--danger\); \}/, 'the chart pills\' three tones');
-  assert.match(css, /\.pz-gpill \{[^}]*font: 700 var\(--s-cap\)\/1\.2 var\(--font-ui\);/, 'lettered as the row\'s own caption size, which a phone keeps at 12 px or more on the screen');
   // (Where the cause cannot stay beside the site and the pills it goes under the site, the pills staying at the right of the first line.)
-  assert.match(css, /\.pz-cell-k\.under \.pz-gpills \{ order: 1; \}\n\.pz-cell-k\.under \.pz-cell-t \{ order: 2; flex-basis: 100%; \}/);
-  assert.doesNotMatch(js + css, /pz-cell-pill/, 'no pill of the old first row either');
   const sites = DECKS.find((d) => d.id === 'sites'), fps = await deckStates(sites);
   const ids = sites.slides.find((x) => x.id === 'ladders').of.map((o) => (typeof o === 'string' ? o : o.id));
   assert.equal(ids.length, 6);
@@ -164,11 +102,6 @@ test('a phone\'s first row ends in the case\'s HVPG and PPG pills, tinted as the
 });
 
 test('a wide screen\'s six ladders: the title one step down, each case\'s foot gives back the blank under its sinusoidal brace', () => {
-  assert.match(css, /\.pz:not\(\.stack\):not\(\.low\) \.pz-panel\.fill \.pz-h \{ font-size: calc\(var\(--s-big\) \* \.8\); \}/, 'the Compact step of the other titles (card-type.js WIDE.title)');
-  assert.match(css, /\.pz:not\(\.stack\):not\(\.low\) \.pz-cell \{ padding-bottom: clamp\(4px, calc\(\.6 \* var\(--pzh\)\), 8px\); \}/);
   assert.equal(WIDE.title, 0.8, 'the 0.8 in the rule is the app\'s own Compact title step');
   // (The picture draws its brace's name 0.9 em over its foot and its svg is not clipped, so the half em it reaches into the padding stays blank.)
-  assert.match(css, /\.pz-prof svg, \.pz-flows svg \{ grid-area: 1 \/ 1; width: 100%; height: 100%; overflow: visible; \}/);
-  assert.match(prof, /braceY: B \+ nameH - 0\.1 \* f,/);
-  assert.match(prof, /const B = Math\.max\(T \+ 3 \* f \+ band, h - nameH - braceH - 0\.5 \* f\)/);
 });

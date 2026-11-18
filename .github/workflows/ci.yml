@@ -24,6 +24,8 @@ jobs:
       lint: false
       static: false
 
+  # Style and static checks. A red one reports; it no longer hides the build and the smoke (PROD-1: the lint failed at its first step on every run for
+  # five weeks, so the only browser check never ran on main).
   quick:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -38,11 +40,23 @@ jobs:
         env:
           BUILD_STRICT: '1'   # (the size budget fails here; on the preview it only warns)
         run: npm run lint
-      - name: 'Types (advisory: the allow-list in jsconfig.json, PR-11)'
+      - name: 'Types (the allow-list in jsconfig.json; clean since 15 Nov 2026, so a new diagnostic fails here)'
         run: npm run typecheck
-        continue-on-error: true
       - name: Static checks (conflict markers; the app and the worker bundle)
+        if: success() || failure()
         run: npm run check:static
+
+  # The strict build, on its own: it needs neither the lint nor the unit tests, and the smoke needs only it.
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
       - name: Production build
         env:
           BUILD_STRICT: '1'
@@ -57,7 +71,7 @@ jobs:
           retention-days: 1
 
   smoke:
-    needs: [quick, tests]
+    needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -71,18 +85,18 @@ jobs:
         run: npm run smoke:lite -- dist
 
   # Every slide's card fits (recs D4): no card scrolls, no line is cut, at the Mac and the iPhone width. GL draws are stubbed (layout and words only),
-  # so no graphics card is needed. Split over three jobs by deck (scripts/card-fit.mjs). Known cases: scripts/card-fit-allowance.json.
+  # so no graphics card is needed. Split over nine jobs by deck (scripts/card-fit.mjs). Known cases: scripts/card-fit-allowance.json.
   card-fit:
-    name: Cards fit ${{ matrix.shard }}/3
-    needs: quick
+    name: Cards fit ${{ matrix.shard }}/9
+    needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9]
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-browser
-      - name: Every card fits (share ${{ matrix.shard }} of 3)
-        run: node scripts/card-fit.mjs --shard ${{ matrix.shard }}/3 --jobs 3
+      - name: Every card fits (share ${{ matrix.shard }} of 9)
+        run: node scripts/card-fit.mjs --shard ${{ matrix.shard }}/9 --jobs 3 --device mac,mac-xl,iphone

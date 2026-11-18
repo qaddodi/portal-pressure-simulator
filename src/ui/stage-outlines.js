@@ -1,23 +1,23 @@
 // The organ outlines and warm glow on the GPU, the narrowing and mark fades, the presenter's pinned and spotlit organs, and the slide's figure callouts (calipers, brackets, edge marks).
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { ORGANS, RECTUM_FADE } from './anatomy.js';
-import { acrossVessel, spanOf, spanPath, spleenCaliper, zoneBand } from './callout-math.js';
+import { acrossVessel, spanOf, spanPath, segsSame, segsSave, spleenCaliper, zoneBand } from './callout-math.js';
 import { caught } from './caught.js';
 import { D_FLIP, D_SMALL, easeMove } from './ease.js';
 import { bandRing, dashRings, normalShown } from './highlight-math.js';
 import { darkMQ } from './look.js';
 import { markFade } from './mark-fade.js';
-import { reduceMotionMQ as reduceMotion, smooth01 } from './motion.js';
+import { smooth01 } from './motion.js';
+import { framePart } from './frame.js';
 import { restPass } from './rest-pass.js';
 import { measurePath } from './shape-gl.js';
 import { store } from './store.js';
 import { onTheme } from './theme-epoch.js';
 import { s } from './util.js';
 import { inGrid, ringGrid, warmVisible } from './warm-vis.js';
-
 import { stageScope } from './stage-scope.js';
 export function createOutlines(st, live) {
-  const { E, MAP, ND_PER, ND_SEG, arcMid, caud, clampW, clampWOut, easeInOut, gFx, gFxC, geo, late, nd, nextFrame, nodeDots, organEls, organG, ov, pointAt, quietFx, readFrame, refreshCTM, resTheme, svg, themeKey, toRGB } = st;
+  const { E, MAP, ND_PER, ND_SEG, arcMid, caud, clampW, clampWOut, easeInOut, gFx, gFxC, geo, late, nd, nextFrame, nodeDots, organEls, organG, ov, pointAt, readFrame, refreshCTM, resTheme, svg, themeKey, toRGB } = st;
   // The organ outlines (selected, hovered) are drawn on the GPU with the figure, so a drag, pinch
   // or zoom moves them in the same frame (an SVG overlay is composited apart and can trail it).
   // Each one fades in and out; the SVG lines are kept only where the GPU cannot draw them.
@@ -54,7 +54,17 @@ export function createOutlines(st, live) {
   // (The arrows are drawn on the GPU, so their fade is the draw's alpha; the label, and the arrows without the GPU, take opacity.)
   const CLAMP_FADE = D_SMALL;   // ms
   const clampA = new Map();   // id → { a, on }
-  const clampFading = () => { for (const c of clampA.values()) if (c.a !== (c.on ? 1 : 0)) return true; return false; };
+  // (c.w: the words' own amount, 0 while a card covers them (live.clampCover, from the labels' solve): a narrowing's words under a card fade out
+  // whole, never stand there cut by the card's edge (glass-cut.js); its arrows stay. 17 Nov 2026.)
+  const wordsT = (c) => (c.on && !c.cov ? 1 : 0);
+  const clampFading = () => { for (const c of clampA.values()) if (c.a !== (c.on ? 1 : 0) || (c.w != null && c.w !== wordsT(c))) return true; return false; };
+  live.clampCover = (id, cov) => {
+    const c = clampA.get(id);
+    if (!c || !!c.cov === cov) return;
+    if (!clampFading()) live.clampLast = performance.now();
+    c.cov = cov; if (c.w == null) c.w = 1;
+    live.askAnimate?.();
+  };
   const clampEase = (id) => smooth01(clampA.get(id)?.a ?? 1);
   // The marks a treatment leaves (a stent's mesh, a shunt's sutures, the tie on a divided vein, the cross on a closed shunt, the splenic
   // patches, the variceal bands) fade in and out the same way (mark-fade.js): each is a group with data-mk, its key; the GPU draws it
@@ -66,7 +76,7 @@ export function createOutlines(st, live) {
   const stentAmt = new Map();
   let stentMoved = false;
   const stentFade = (key, a) => { if (a == null) stentAmt.delete(key); else stentAmt.set(key, a); stentMoved = true; live.askAnimate?.(); };
-  const fadeEase = (key) => (markA.has(key) ? markA.amount(key) : stentAmt.has(key) ? stentAmt.get(key) : clampEase(key));
+    const fadeEase = (key) => (markA.has(key) ? markA.amount(key) : stentAmt.has(key) ? stentAmt.get(key) : clampEase(key));
   // (The group's opacity, for the SVG copy the browser draws; the GPU's copy takes the amount on the draw, never from the group, or a
   // fade would be read as a new look at each step.)
   const markShade = (el, a) => {
@@ -74,8 +84,8 @@ export function createOutlines(st, live) {
     if (a < 1) el.setAttribute('opacity', a.toFixed(3)); else if (el.hasAttribute('opacity')) el.removeAttribute('opacity');
   };
   function clampShade(id) {
-    const e = clampEase(id), op = e < 1 ? e.toFixed(3) : '';
-    for (const g of [ov.clamps, ov.clampsOut, clampW, clampWOut]) for (const el of g.querySelectorAll(`[data-id="${id}"]`)) if (el._c || !glLines) el.style.opacity = op;
+    const e = clampEase(id), op = e < 1 ? e.toFixed(3) : '', ew = e * smooth01(clampA.get(id)?.w ?? 1), opw = ew < 1 ? ew.toFixed(3) : '';
+    for (const g of [ov.clamps, ov.clampsOut, clampW, clampWOut]) for (const el of g.querySelectorAll(`[data-id="${id}"]`)) if (el._c) el.style.opacity = opw; else if (!glLines) el.style.opacity = op;
   }
   // The heart a slide points at (the right atrium, the heart itself) is lit whole by a soft glow, not a line: one band
   // easing out from its edge (the GPU shades the falloff smoothly, behind the organs): reach in world units, peak opacity.
@@ -412,7 +422,7 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
   function fxTop() {
     fxFill = 0;
     while (fxSpare.length < FX_SPARE) {
-      const el = s('g', {}, s('path', { class: 'fx-halo' }), s('path', { class: 'fx-ink' }));
+      const el = s('g', {}, s('path', { class: 'fx-ink' }));
       el.fxKey = '';
       el.fxOn2 = () => el.classList.add('on');
       el.fxOn1 = () => nextFrame(el.fxOn2);
@@ -430,7 +440,7 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
       el.setAttribute('class', cls);
       el.fxKey = key;
       late('add', parent, el); fxEls.set(key, el);
-      if (!reduceMotion.matches) nextFrame(el.fxOn1); else el.classList.add('on');
+      nextFrame(el.fxOn1);   // (its .on fades it in, Reduce Motion too: an opacity transition)
     }
     el.seen = true;
     if (el._d !== d) { el._d = d; for (const p of el.children) p.setAttribute('d', d); }
@@ -468,6 +478,7 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
     t2[0][0] = bx - nx; t2[0][1] = by - ny; t2[1][0] = bx + nx; t2[1][1] = by + ny;
     return capS;
   }
+  const capKey = (id) => 'c:' + id;   // (the key a caliper's element is kept under)
   function fxSync(f, t) {
     for (const el of fxEls.values()) el.seen = false;
     // (A caliper that waited for the morph is let in: the labels are solved again for its reading, which a changed `live.fx` asks for.)
@@ -478,14 +489,19 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
     if (live.fx && t < 0.5) for (const c of live.fx.calipers) {
       const g = caliperSegs(c, f);
       if (!g) continue;
+      // (SF-3: the ticks' path text is built only when a number of it changed, a pinch zoom or a growing spleen, not on every frame it stands still.)
+      const ck = capKey(c.id), el0 = fxEls.get(ck);
+      if (el0 && !el0.going && segsSame(el0.capN, g.segs)) { el0.seen = true; continue; }
       const P = ([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`;
-      fxLine('c:' + c.id, gFx, g.segs.map(([p, q]) => `M${P(p)}L${P(q)}`).join(''), 'fx-cal-line');
+      fxLine(ck, gFx, g.segs.map(([p, q]) => `M${P(p)}L${P(q)}`).join(''), 'fx-cal-line');
+      const el1 = fxEls.get(ck);
+      if (el1) el1.capN = segsSave(el1.capN, g.segs);
     }
     if (live.fx) for (const sp of live.fx.spans) { const at = spanOf(sp.from, sp.to, fxK()); if (at) fxLine(`s:${sp.from}:${sp.to}`, gFxC, spanPath(at), 'fx-span-line'); }
     for (const el of fxEls.values()) {
       if (el.seen || el.going) continue;
       el.going = true; el.classList.remove('on');
-      stageScope.timer(el.fxGone, reduceMotion.matches ? 0 : 420);
+      stageScope.timer(el.fxGone, 420);   // (after its fade, Reduce Motion too)
     }
     for (const [k, el] of fxEls) if (el.seen && el.going) { fxEls.delete(k); }   // (a line gone and wanted again starts afresh)
     if (t !== fxOpT) { fxOpT = t; gFx.style.opacity = t > 0 ? 1 - t : ''; }   // (written when it moves: nothing else sets it)
@@ -575,26 +591,64 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
     for (let k = 0; k < 6; k++) { const m = (lo + hi) / 2; wmPoint(i - 1, i, m); if (wmAtOk === wasOk) lo = m; else hi = m; }
     wmPoint(i - 1, i, wasOk ? lo : hi);
   }
+  // (One warm layer's strips, laid out into V: its own named part of the frame, as an outline's rebuild ran 666 ms in one of them, 18 Nov 2026.)
+  function warmBuild(o, V) {
+    const mt = gMatrix(organG[o.id]), rad = warmR(o.id) * (mt ? Math.hypot(mt.a, mt.b) : 1), reachMax = Math.min(63, WARM.reach, 0.8 * rad);   // (under the tube's half width, whatever the drawing)
+    const cm = o.id === 'colon' ? null : gMatrix(organG.colon);
+    wmV = V; wmRad = rad; wmReachMax = reachMax; wmInv = cm?.inverse() || null; wmGrid = o.id === 'colon' ? null : colonMask;
+    o.runs.length = 0;
+    const seen = warmVis(o.id);
+    for (let ri = 0; ri < o.rings.length; ri++) {
+      const r = o.rings[ri];
+      wmVis = seen[ri]; wmRing = r;
+      const n = r.length, tg = wmTg, R = wmR, cs = wmCs;
+      for (let i = 0; i < n; i++) {
+        const pa = r[Math.max(0, i - 1)], pb = r[Math.min(n - 1, i + 1)];
+        let tx = pb[0] - pa[0], ty = pb[1] - pa[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l; tg[2 * i] = tx; tg[2 * i + 1] = ty;
+        const i0 = Math.max(0, i - 2), i1 = Math.min(n - 1, i + 2), ax = r[i][0] - r[i0][0], ay = r[i][1] - r[i0][1], bx = r[i1][0] - r[i][0], by = r[i1][1] - r[i][1];
+        const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by), th = Math.atan2(ax * by - ay * bx, ax * bx + ay * by);
+        R[i] = Math.fround(la < 0.5 || lb < 0.5 || Math.abs(th) < 1e-3 ? 1e9 : (la + lb) / 2 / Math.abs(th));
+        cs[i] = th > 0 ? 1 : -1;   // (the side the bend turns toward)
+      }
+      for (let si = 0; si < 2; si++) {
+        wmSide = si ? 1 : -1;
+        wmRun.length = 0;
+        let prevOk = false;
+        for (let i = 0; i < n; i++) {
+          wmPoint(i, i, 0);
+          if (wmAtOk) {
+            if (i > 0 && !prevOk) { wmCut(i, false); wmPush(); wmPoint(i, i, 0); }
+            wmPush();
+          } else { if (prevOk) { wmCut(i, true); wmPush(); wmPoint(i, i, 0); } wmEnd(o); }
+          prevOk = wmAtOk;
+        }
+        wmEnd(o);
+      }
+    }
+  }
   function olStep(now) {
     const cdu = Math.min(1, (now - live.clampLast) / CLAMP_FADE);
     live.clampLast = now;
     let clampMoved = false;
     for (const [id, c] of clampA) {
       const t = c.on ? 1 : 0;
-      if (c.a !== t) { c.a = t > c.a ? Math.min(1, c.a + cdu) : Math.max(0, c.a - cdu); clampMoved = true; clampShade(id); }
+      let sh = false;
+      if (c.a !== t) { c.a = t > c.a ? Math.min(1, c.a + cdu) : Math.max(0, c.a - cdu); sh = true; }
+      if (c.w != null) { const tw = wordsT(c); if (c.w !== tw) { c.w = tw > c.w ? Math.min(1, c.w + cdu) : Math.max(0, c.w - cdu); sh = true; } }
+      if (sh) { clampMoved = true; clampShade(id); }
       if (!c.on && c.a === 0) { for (const el of [...ov.clampsOut.querySelectorAll(`[data-id="${id}"]`), ...clampWOut.querySelectorAll(`[data-id="${id}"]`)]) el.remove(); clampA.delete(id); live.mk.ver++; }
     }
     // The treatment marks, stepped on the frame's own time (a long frame moves them no further than a short one's worth).
     if (markA.size) {
       const dt = Math.min(64, Math.max(0, now - live.markLast));
-      const r = markA.step(dt, quietFx());
+      const r = markA.step(dt);   // (Reduce Motion and imaging fade too: nothing pops)
       markA.each(markShadeEach);
       if (r.gone.length) { for (const el of r.gone) el.remove(); live.mk.ver++; }
       if (r.moving || r.gone.length) clampMoved = true;
     }
     live.markLast = now;
     if (stentMoved) { stentMoved = false; clampMoved = true; }
-    live.marksSync();
+    framePart('outlines: marks', live.marksSync);
     if (!glLines || (!live.olDirty && !live.olList.length && !live.mk.dirty && !clampMoved && !nd.dirty)) return false;
     const dt = now - live.olLast;
     live.olLast = now;
@@ -619,40 +673,7 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
       // outside the organ's outline (warmVis). Left off where the colon lies over the pile; on the inside of a tight bend the glow is
       // held short of the bend's centre (its reach follows the room there) and dropped where there is none, so it never folds back.
       if (o.kind === 'warm') {
-        if (V) {
-          const mt = gMatrix(organG[o.id]), rad = warmR(o.id) * (mt ? Math.hypot(mt.a, mt.b) : 1), reachMax = Math.min(63, WARM.reach, 0.8 * rad);   // (under the tube's half width, whatever the drawing)
-          const cm = o.id === 'colon' ? null : gMatrix(organG.colon);
-          wmV = V; wmRad = rad; wmReachMax = reachMax; wmInv = cm?.inverse() || null; wmGrid = o.id === 'colon' ? null : colonMask;
-          o.runs.length = 0;
-          const seen = warmVis(o.id);
-          for (let ri = 0; ri < o.rings.length; ri++) {
-            const r = o.rings[ri];
-            wmVis = seen[ri]; wmRing = r;
-            const n = r.length, tg = wmTg, R = wmR, cs = wmCs;
-            for (let i = 0; i < n; i++) {
-              const pa = r[Math.max(0, i - 1)], pb = r[Math.min(n - 1, i + 1)];
-              let tx = pb[0] - pa[0], ty = pb[1] - pa[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l; tg[2 * i] = tx; tg[2 * i + 1] = ty;
-              const i0 = Math.max(0, i - 2), i1 = Math.min(n - 1, i + 2), ax = r[i][0] - r[i0][0], ay = r[i][1] - r[i0][1], bx = r[i1][0] - r[i][0], by = r[i1][1] - r[i][1];
-              const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by), th = Math.atan2(ax * by - ay * bx, ax * bx + ay * by);
-              R[i] = Math.fround(la < 0.5 || lb < 0.5 || Math.abs(th) < 1e-3 ? 1e9 : (la + lb) / 2 / Math.abs(th));
-              cs[i] = th > 0 ? 1 : -1;   // (the side the bend turns toward)
-            }
-            for (let si = 0; si < 2; si++) {
-              wmSide = si ? 1 : -1;
-              wmRun.length = 0;
-              let prevOk = false;
-              for (let i = 0; i < n; i++) {
-                wmPoint(i, i, 0);
-                if (wmAtOk) {
-                  if (i > 0 && !prevOk) { wmCut(i, false); wmPush(); wmPoint(i, i, 0); }
-                  wmPush();
-                } else { if (prevOk) { wmCut(i, true); wmPush(); wmPoint(i, i, 0); } wmEnd(o); }
-                prevOk = wmAtOk;
-              }
-              wmEnd(o);
-            }
-          }
-        }
+        if (V) framePart(`outlines: warm layer ${o.id}`, warmBuild, o, V);
         for (let ci = 0; ci < o.runs.length; ci++) { const c = o.runs[ci]; olDraw(first, c, col, WARM.alpha * ease, true, true); first += c; }
         continue;
       }
@@ -709,5 +730,5 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
     live.olDirty = false;
     return moving || !!V;
   }
-  return { caliperAt, caliperSegs, clampA, clampFading, clampShade, fxBuild, fxK, fxPill, fxSync, gMatrix, glLines, markA, markShade, normal, normalSync, olFading, olGeom, olKey, olRings, olSet, olStep, orgTone, pinOrgans, setCallouts, spotOrgans, stentFade };
+  return { caliperAt, caliperSegs, clampA, clampFading, clampShade, fxBuild, fxK, fxPill, fxSync, gMatrix, glLines, markA, markShade, normal, normalSync, olFading, olGeom, olKey, olRings, olSet, olStep, orgTone, pinOrgans, setCallouts, spotOrgans, stentAmounts: fadeEase, stentFade };
 }

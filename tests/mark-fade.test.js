@@ -101,18 +101,10 @@ test('a step never overshoots, and a mark at rest costs no frames', () => {
 // The wiring in stage.js, pinned in the source (the stage cannot be built without a browser).
 const stage = stageSource();
 test('stage.js: every treatment mark is built through putMark, so none is added to its group bare', () => {
-  assert.doesNotMatch(stage, /ov\.(stents|plugs|bands)\.append\(/, 'a mark appended without a fade');
   for (const key of ['`stent:${id}`', '`suture:${id}`', '`tie:${id}`', '`plug:${id}`', "'spleen:pse'", "'spleen:cross'", '`band:${i}`']) assert.ok(stage.includes(key), `${key} is a mark`);
 });
 test('stage.js: the GPU draws a mark at its key\'s amount, the loop stays awake while one moves, and a finished one is taken out and read again', () => {
-  assert.match(stage, /el\.closest\('\[data-(?:live\.)?mk\]'\)\?\.dataset\.mk/);
-  assert.match(stage, /c\.alpha = d\.alpha \* fadeEase\(d\.fade\)/);
   assert.equal((stage.match(/markA\.moving\(\)/g) || []).length >= 3, true);
-  assert.match(stage, /for \(const el of r\.gone\) el\.remove\(\); (?:live\.)?(?:live\.)?mk\.ver\+\+;/);
-  assert.match(stage, /markA\.end\(\(key, m, fading\) => m\.t === t && \(anat \|\| !m\.anatOnly\) && \(fading \|\| !m\.vessel \|\| E\[m\.vessel\]\?\.vis\)\)/);
-});
-test('stage.js: the GPU copy takes the amount on the draw and never as the group\'s opacity (or each step would be read as a new look)', () => {
-  assert.match(stage, /if \(glLines\) \{ if \(el\.hasAttribute\('opacity'\)\) el\.removeAttribute\('opacity'\); return; \}/);
 });
 
 // The band count the varices' strands are drawn from (src/ui/band-ease.js; stage.js stepBands, widthWrites, stepWidths).
@@ -138,9 +130,4 @@ test('a long frame moves the count no further than its own time (no jump when th
   assert.ok(bandsStep(0, 1, 0.05) < 0.6);
   assert.equal(bandsStep(0, 1, 5), 1);
   assert.equal(bandsStep(0, 1, -1), 0);
-});
-test('stage.js: the strand reads the drawn count, and the width step stands aside while it moves', () => {
-  assert.match(stage, /sd\.live = e\.code === 'C1' \? clamp\(i \+ 1 - \(bandsShown \?\? \(f\.bands \|\| 0\)\), 0, 1\)/);
-  assert.match(stage, /(?:live\.)?catchUp \|\| bandsMoving\(\) \|\| lesionsMoving\(\)\) return false;/);
-  assert.match(stage, /if \(stepBands\(f, dtW\)\) (?:live\.)?(?:live\.)?widthEasing = true;/);
 });

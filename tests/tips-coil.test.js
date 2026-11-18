@@ -120,16 +120,12 @@ test('the shots, the callouts and the model: the coil step has its own shot and 
   assert.deepEqual(P.before, { tips: { on: false }, occluded: { C1a: false } }, 'the slide opens with no stent and the vein open');
 });
 
-test('the slide: the variceal bleed talk plays it after the TIPS slide, on the state it lands in, with its graph', () => {
-  const ids = BLEED.slides.map((x) => x.id), i = ids.indexOf('tipscoil'), s = BLEED.slides[i];
-  assert.equal(ids[i - 1], 'tips');
-  assert.deepEqual(s.procedure, { kind: 'tips', target: 'C1a', stented: true, then: 'tipsgrad' }, 'the stent is in from the slide before: only the coils are played, then the reading');
-  assert.equal(procKindOf(s.procedure), 'tipscoilin');
-  assert.equal(procKindOf({ kind: 'tips', target: 'C1a' }), K, 'without it, the TIPS and the coils together');
-  assert.deepEqual(s.params, { tips: { on: true }, occluded: { C1a: true } }, 'where it ends: the stent in and the vein closed');
-  assert.match(s.notes, /Baveno VIII 5\.41/);
-  assert.ok(eventLines(s), 'the PPG and varix graph');
-  assert.equal(BLEED.slides[i + 1].id, 'controlled', 'the next slide starts from its own preset');
+test('the variceal bleed talk has no coil-embolization slide: the TIPS slide is followed by the second patient (13 Nov)', () => {
+  const ids = BLEED.slides.map((x) => x.id), i = ids.indexOf('tips');
+  assert.ok(i > 0);
+  assert.ok(!ids.includes('tipscoil'), 'the coronary-vein coil slide was removed from this talk');
+  assert.equal(ids[i + 1], 'controlled', 'the next slide starts from its own preset');
+  assert.ok(!BLEED.slides.some((x) => /coil-embolized|coil embolization/i.test(`${x.title} ${x.line}`)), 'no slide text points at the removed slide');
 });
 
 test('the model: with the coronary vein coiled the esophageal varix shrinks even with no stent, and a TIPS alone shrinks it too', () => {

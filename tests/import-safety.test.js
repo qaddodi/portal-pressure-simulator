@@ -6,6 +6,7 @@ import { cleanMathML, cleanEq, safeParamPath, unsafeIn, patchOf, getAt, mergeOf 
 import { checkDeck, parseDeckSource } from '../src/ui/deck-source.js';
 import { handoutHTML } from '../src/ui/handout.js';
 import { DECKS } from '../src/ui/decks.js';
+import { presenterSource } from './split-src.js';
 
 const deck = (eq) => ({ title: 'T', slides: [{ title: 'S', eq }] });
 
@@ -62,7 +63,7 @@ test('the notes sink writes only cleaned markup, even for a deck that skipped th
 
 test('the presenter sets an equation only through the cleaner', async () => {
   const { readFileSync } = await import('node:fs');
-  const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const src = presenterSource();
   assert.match(src, /function equation\(eq\)[\s\S]{0,300}cleanEq\(eq\)/);
 });
 

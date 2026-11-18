@@ -32,7 +32,7 @@ export default {
     const q = norm(p), st = steps[+String(key || `s${q.s}`).slice(1)] || steps[q.s];
     return { head: st[0], tone: st[3], stmt: '3.1–3.5, 4.1', why: st[1], next: backOn(q) && q.rc ? `${st[2]} Recompensated since.` : st[2] };
   },
-  chips(p) { const q = norm(p); return [steps[q.s][0], backOn(q) && q.rc && 'Recompensated since'].filter(Boolean); },
+  chips: () => [],   // (the stage is lit on the card and the way back says "Recompensated": a row of chips said both again, 16 Nov 2026)
   patientFor: (tool) => norm(tool?.patient),
   worst: { s: 3, rc: true },   // (the longest stage name and the way-back chip)
   notes: 'The course of cirrhosis in four stages (Fig. 2): compensated advanced chronic liver disease (cACLD; LSM ≥10 kPa suggests it and ≥15 kPa indicates it, with no decompensation now or before), cACLD with clinically significant portal hypertension (CSPH; for example LSM ≥25 kPa, ANTICIPATE ≥75%, SSM >55 kPa, varices, portosystemic collaterals or HVPG ≥10 mmHg), first decompensation (ascites, variceal bleeding or overt hepatic encephalopathy) and further decompensation (ascites needing ≥3 large-volume paracenteses within 1 year, HRS-AKI or SBP, recurrent overt encephalopathy, variceal rebleeding, a decompensating event with jaundice, or any combination of events; 4.1). A decompensated patient can come back to a compensated state: recompensation needs the etiology removed, controlled or suppressed; no ascites off diuretics, no overt encephalopathy off prophylaxis and no variceal rebleeding (carvedilol or an NSBB allowed) for >6 consecutive months; and Child–Pugh A5 or A6 (3.1 to 3.5, 4.1, 7.4; what each stage means for treatment: 3.15 to 3.21, 4.8, 6.4).',

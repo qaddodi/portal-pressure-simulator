@@ -4,7 +4,7 @@
 // how improvement is judged, acute liver failure, and the cancer surveillance. The model has the clot, the anticoagulant, the stent and the
 // shunt; it has no bilirubin, creatinine, INR or liver failure, so the response, failure and surveillance slides are rule cards.
 //
-// Sources, checked 11 Nov 2026 against guidelines/baveno-viii-2026.pdf (EASL 2025 vascular liver disease is not in the folder yet):
+// Sources, checked 11 Nov 2026 against guidelines/baveno-viii-2026.pdf (EASL 2025 is in the folder now; its Budd-Chiari section has not yet been checked against this deck):
 // Baveno VIII (J Hepatol 2026) panel 8: 8.21 to 8.23 (obstruction from the small hepatic veins to the IVC entering the right atrium; BCS the
 // preferred name; primary or secondary), 8.24 to 8.27 (consider it in any acute, acute-on-chronic or chronic liver disease; diagnosed by the blocked
 // lumen or hepatic vein collaterals with no patent hepatic vein; no biopsy when imaging confirms; biopsy for small hepatic vein disease), 8.28 to
@@ -22,12 +22,7 @@ const HVS = ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'];
 export const BUDD_CHIARI = {
   id: 'budd-chiari', level: 'advanced', title: 'Budd–Chiari syndrome, step by step', minutes: 11,
   sections: [['What it is', ['What it is']], ['Stepwise management', ['Stepwise management']], ['Response and risks', ['Response and risks']]],
-  objectives: [
-    'Describe how Budd–Chiari syndrome (BCS) is diagnosed, and why biopsy is rarely needed',
-    'Name the four steps of management in order',
-    'Choose the anticoagulant, and name when a DOAC is avoided',
-    'Assess response, and manage acute liver failure',
-  ],
+  objectives: ['Describe how Budd–Chiari syndrome is diagnosed, and why biopsy is rarely needed', 'Name the four steps of management in order, and choose the anticoagulant', 'Assess response, and manage acute liver failure'],
   checks: [
     ['A young man has tender hepatomegaly and new ascites. When is BCS considered, and how is it diagnosed?', 'In any acute, acute-on-chronic or chronic liver disease. Imaging shows hepatic venous outflow obstruction, or hepatic vein collaterals with no patent hepatic vein; biopsy is not needed (Baveno VIII 8.24 to 8.26).'],
     ['Name the four steps of management for BCS, in order.', 'Anticoagulation, recanalization with or without a stent, TIPS, and liver transplant (Baveno VIII 8.31).'],
@@ -46,10 +41,10 @@ export const BUDD_CHIARI = {
       ask: ['Where can the obstruction lie in Budd–Chiari syndrome?', 'At any level from the small hepatic veins to the cavoatrial junction, where the IVC enters the right atrium (Baveno VIII 8.21).'],
     },
     {
-      id: 'dx', cam: 'liver', terms: ['hv', 'caudate'], tool: { kind: 'doppler', vessel: 'RHV_IVC' }, data: 'tiles', tiles: ['pv', 'ppg'], key: ['ppg'],
+      id: 'dx', cam: 'liver', terms: ['hv', 'caudate'], marks: [{ organ: 'caudate', label: 'Caudate lobe', kind: 'note' }], tool: { kind: 'doppler', vessel: 'RHV_IVC' }, data: 'tiles', tiles: ['pv', 'ppg'], key: ['ppg'],
       kicker: 'What it is', site: 'post', title: 'Imaging shows the obstruction, and biopsy is rarely needed',
-      line: 'Consider BCS in any acute, acute-on-chronic or chronic liver disease. Imaging that shows the obstructed vein or hepatic vein collaterals makes the diagnosis without biopsy.',
-      notes: 'Source: Baveno VIII 8.24 to 8.27. The presentation is highly variable, so the diagnosis is considered in any acute, acute-on-chronic or chronic liver disease (8.24). It rests on showing the obstruction of the venous lumen, or hepatic vein collaterals with no patent hepatic vein (8.25). In a patient with radiologically confirmed disease, biopsy is not necessary (8.26). Biopsy is needed only when imaging shows no large hepatic vein obstruction and small hepatic vein disease is suspected (8.27). On Doppler the hepatic vein flow is absent or reversed.',
+      line: 'Consider BCS in any acute, acute-on-chronic or chronic liver disease. Imaging that shows the obstructed vein or collaterals makes the diagnosis without biopsy. An enlarged [caudate lobe](caudate) supports it.',
+      notes: 'Source: Baveno VIII 8.24 to 8.27. The presentation is highly variable, so the diagnosis is considered in any acute, acute-on-chronic or chronic liver disease (8.24). It rests on showing the obstruction of the venous lumen, or hepatic vein collaterals with no patent hepatic vein (8.25). In a patient with radiologically confirmed disease, biopsy is not necessary (8.26). Biopsy is needed only when imaging shows no large hepatic vein obstruction and small hepatic vein disease is suspected (8.27). On Doppler the hepatic vein flow is absent or reversed. The caudate lobe drains straight into the IVC through its own short veins, so it is spared and hypertrophies; an enlarged caudate lobe supports the diagnosis but is not itself diagnostic. This is a clinical imaging sign, not a Baveno VIII statement.',
       ask: ['When is a liver biopsy needed in suspected Budd–Chiari syndrome?', 'Only when imaging does not show a large hepatic vein obstruction and small hepatic vein disease is suspected (Baveno VIII 8.27).'],
     },
     {
@@ -63,10 +58,10 @@ export const BUDD_CHIARI = {
     },
     {
       id: 'anticoag', params: { anticoag: true }, days: 60, lapse: { seconds: 7, from: 'Diagnosis', to: '2 months later' }, cam: 'liver', terms: ['hv'], tool: { kind: 'flowtime', clock: 'days', lines: ['pv', 'asc'], keepTiles: true, title: 'Portal pressure and ascites over two months' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['pv'], delta: 'bcs',
-      kicker: 'Stepwise management', site: 'post', title: 'Anticoagulation comes first and continues long term',
-      line: 'Anticoagulation starts as soon as the diagnosis is made. In the model it lowers portal pressure to {pv}, but {asc} of ascites remains.',
-      notes: 'Source: Baveno VIII 8.32, 8.10. Therapeutic anticoagulation starts as soon as possible after the diagnosis and continues long term, including after a liver transplant (8.32). It should not be postponed to wait for endoscopic prophylaxis of variceal bleeding (8.10). In the model anticoagulation prevents thrombus extension and lowers the pressure slightly; it does not recanalize the three occluded veins, which is why the next step is angioplasty and stenting.',
-      ask: ['How long does anticoagulation continue in Budd–Chiari syndrome?', 'Long term, and after a liver transplant too (Baveno VIII 8.32).'],
+      kicker: 'Stepwise management', site: 'post', title: 'Start anticoagulation first and continue it long term',
+      line: 'Start anticoagulation as soon as the diagnosis is made. In the model it lowers portal pressure to {pv}, but {asc} of ascites remains.',
+      notes: 'Source: Baveno VIII 8.32, 8.10. Therapeutic anticoagulation is started as soon as possible after the diagnosis and continued long term, including after a liver transplant (8.32). It should not be postponed to wait for endoscopic prophylaxis of variceal bleeding (8.10). In the model anticoagulation prevents thrombus extension and lowers the pressure slightly; it does not recanalize the three occluded veins, which is why the next step is angioplasty and stenting.',
+      ask: ['How long is anticoagulation continued in Budd–Chiari syndrome?', 'Long term, and after a liver transplant too (Baveno VIII 8.32).'],
     },
     {
       id: 'agent', cam: 'liver', terms: ['hv'], tool: { kind: 'criteria', title: 'Choice of anticoagulant', short: 'Anticoagulant', ticks: false, lead: 'LMWH first, then an oral agent.', rule: 'Baveno VIII 8.5, 8.6',
@@ -81,7 +76,7 @@ export const BUDD_CHIARI = {
       id: 'stent', params: { thrombus: { RHV_IVC: 0 } }, days: 60, lapse: { seconds: 7, from: 'Before the stent', to: '2 months later' }, cam: 'hepatic', terms: ['hv'], mark: { edges: ['RHV_IVC'], label: 'Stent', kind: 'treat' }, stented: ['RHV_IVC'], tool: { kind: 'flowtime', clock: 'days', lines: ['pv', 'asc'], keepTiles: true, title: 'Portal pressure and ascites over two months' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['asc'], delta: 'bcs',
       kicker: 'Stepwise management', site: 'post', title: 'Stenting one short stenosis can decompress the whole liver',
       line: 'A short stenosis amenable to angioplasty is sought. A right hepatic vein stent lowers portal pressure to {pv} and ascites to {asc}.',
-      notes: 'Source: Baveno VIII 8.33, 8.31. Venous stenoses amenable to percutaneous recanalization are actively sought and treated. A short stenosis of a hepatic vein or the IVC is treated by angioplasty, usually with stenting, and anticoagulation continues. In the model one patent hepatic vein can drain the whole liver, as here, and faster than in most patients.',
+      notes: 'Source: Baveno VIII 8.33, 8.31. Venous stenoses amenable to percutaneous recanalization are actively sought and treated. A short stenosis of a hepatic vein or the IVC is treated by angioplasty, usually with stenting, and anticoagulation is continued. In the model one patent hepatic vein can drain the whole liver, as here, and faster than in most patients.',
       ask: ['What is sought after the diagnosis, before TIPS?', 'Short venous stenoses amenable to percutaneous recanalization, with or without stenting (Baveno VIII 8.33).'],
     },
     {
@@ -93,10 +88,10 @@ export const BUDD_CHIARI = {
     },
     {
       id: 'shunt', preset: 'budd-chiari', params: { dips: { on: true } }, days: 60, cam: 'dips', terms: ['pv', 'ivc', 'caudateLobe'], mark: { edges: ['DIPS'], label: 'DIPS', kind: 'treat' }, lens: 'flow',
-      compare: [{ label: 'TIPS', preset: 'budd-chiari', params: { tips: { on: true }, dips: { on: false } }, days: 60 }, { label: 'DIPS', own: true }],
+      compare: [{ label: 'TIPS', preset: 'budd-chiari', params: { tips: { on: true }, dips: { on: false } }, days: 60, title: 'A TIPS cannot decompress the liver when no hepatic vein can be recanalized', line: 'A TIPS starts in a hepatic vein, and none can be used, so the portal pressure stays at {pv}.' }, { label: 'DIPS', own: true }],
       tool: { kind: 'flows' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['pv'], delta: 'bcs',
       kicker: 'Stepwise management', site: 'post', title: 'When no vein can be recanalized, a DIPS decompresses the liver',
-      line: 'In another patient no hepatic vein can be recanalized. A TIPS starts in a hepatic vein, so a DIPS from the IVC lowers portal pressure to {pv}.',
+      line: 'In another patient no hepatic vein can be recanalized. A TIPS needs one, so a DIPS from the IVC through the [caudate lobe](caudateLobe) lowers portal pressure to {pv}.',
       notes: 'Source: Baveno VIII 8.34. When medical management is not enough and recanalization is not an option or has failed, TIPS is the recommended next step. A standard TIPS runs from a hepatic vein to the portal vein, so when all three hepatic veins are occluded the stent runs from the IVC through the caudate lobe to the portal vein (a direct intrahepatic portosystemic shunt, DIPS); Baveno VIII names TIPS and not this variant. The portal vein becomes the hepatic outflow tract and the ascites resolves. In the model a TIPS changes nothing here, because there is no hepatic vein for it to drain into. Like any portosystemic shunt it diverts portal flow from the liver, so patients are monitored for hepatic encephalopathy.',
       ask: ['Why can a standard TIPS not be placed when all three hepatic veins are occluded?', 'It needs a hepatic vein to start from; the stent goes from the IVC instead (a DIPS).'],
     },

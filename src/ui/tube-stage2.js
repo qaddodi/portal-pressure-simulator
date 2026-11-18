@@ -6,13 +6,12 @@
 //     buffers and vertex arrays they are drawn from (the strip's vertices are the stage 1 strip's, the same buffers).
 // Nothing here allocates in a frame: the arrays are made on the first frame or when a binning (a geometry upload) needs more, each marked alloc-rare.
 import { tubeStripVS } from './tube-geo.js';
-import { tubeWebVS, webIndex, WEB_FLOATS } from './tube-joint.js';
+import { tubeWebVS, webIndex, WEB_FLOATS, WEB_FAR_TAPER } from './tube-joint.js';
 import { tubeLeanFS, tubeJoinDepthFS, TUBE_DEPTH_FS } from './tube-lean-glsl.js';
 import { tubeLumenFS } from './tube-lumen-glsl.js';
-import { tubeGlowFS } from './tube-glow-glsl.js';
-import { tubeRows, tubeBuckets, webInstances, websByTier, TUBE_ROW_FLOATS } from './tube-data.js';
+import { tubeRows, tubeBuckets, webInstancesStep, websByTier, TUBE_ROW_FLOATS, MOUTH_AT, F_ENDS } from './tube-data.js';
 import { STRIP_VS_GLSL, MIN_RADIUS } from './veins-mesh.js';
-import { rowBoxes, rowsInside } from './tube-cull.js';
+import { rowBoxes, rowBoxesFromSwept, rowsInside } from './tube-cull.js';
 
 /** The five programs, in the order stage2Start returns them and the gauge names them. */
 export const STAGE2_PROGRAMS = ['tubeLean', 'tubeDepth', 'tubeWeb', 'tubeWebDepth', 'tubeJoinDepth'];
@@ -46,11 +45,11 @@ export function stage1Why(ready, failed, compiling) {
 
 /**
  * The four programs' shader text, by name: { tubeLean, tubeDepth, tubeWeb, tubeWebDepth }, each { vs, fs } (the strip's and the web's vertex shaders over the lean
- * fragment shader and the depth one). K: the constants tubeLeanFS names (tube-lean-glsl.js header); zoomVS: veins-gl.js's ZOOM_VS. The compile check
+ * fragment shader and the depth one). K: the constants tubeLeanFS names (tube-lean-glsl.js header). The compile check
  * (scripts/glsl-compile-list.mjs) builds the programs from this, as the app does.
  */
-export function stage2Sources(K, zoomVS) {
-  const sv = tubeStripVS(STRIP_VS_GLSL, K.F_SEL, zoomVS), wv = tubeWebVS(STRIP_VS_GLSL, K.F_SEL, zoomVS), lean = tubeLeanFS(K);
+export function stage2Sources(K) {
+  const sv = tubeStripVS(STRIP_VS_GLSL, K.F_SEL), wv = tubeWebVS(STRIP_VS_GLSL, K.F_SEL), lean = tubeLeanFS(K);
   return { tubeLean: { vs: sv, fs: lean }, tubeDepth: { vs: sv, fs: TUBE_DEPTH_FS }, tubeWeb: { vs: wv, fs: lean }, tubeWebDepth: { vs: wv, fs: TUBE_DEPTH_FS }, tubeJoinDepth: { vs: sv, fs: tubeJoinDepthFS(K.N_SAMPLES) } };
 }
 
@@ -70,9 +69,9 @@ function startAll(gl, startProgram, src, names, makeShader) {
   return out;
 }
 
-/** Starts the four programs (startProgram: veins-gl.js's), by their names (STAGE2_PROGRAMS); see stage2Sources for K and zoomVS; makeShader: see startAll. */
-export function stage2Start(gl, startProgram, K, zoomVS, makeShader) {
-  return startAll(gl, startProgram, stage2Sources(K, zoomVS), STAGE2_PROGRAMS, makeShader);
+/** Starts the four programs (startProgram: veins-gl.js's), by their names (STAGE2_PROGRAMS); see stage2Sources for K; makeShader: see startAll. */
+export function stage2Start(gl, startProgram, K, makeShader) {
+  return startAll(gl, startProgram, stage2Sources(K), STAGE2_PROGRAMS, makeShader);
 }
 
 /**
@@ -91,45 +90,24 @@ export function stage2Finish(gl, finishProgram, started) {
   return { P: { lean: done[0], depth: done[1], web: done[2], webDepth: done[3], joinDepth: done[4] }, failed };
 }
 
-/** The glow program (PD part 4): the strip's vertex shader over tubeGlowFS, optional on its own (a failure leaves the glow passes on the stage 1 strip program). */
-export const GLOW_PROGRAMS = ['tubeGlow'];
-
-/** The glow program's shader text: { tubeGlow: { vs, fs } }. K, zoomVS: as stage2Sources. */
-export function glowSources(K, zoomVS) {
-  return { tubeGlow: { vs: tubeStripVS(STRIP_VS_GLSL, K.F_SEL, zoomVS), fs: tubeGlowFS(K) } };
-}
-
-/** Starts the glow program (startProgram: veins-gl.js's); see startAll. */
-export function glowStart(gl, startProgram, K, zoomVS, makeShader) {
-  return startAll(gl, startProgram, glowSources(K, zoomVS), GLOW_PROGRAMS, makeShader);
-}
-
-/** Finishes the started glow program: { P: the program or null, failed: ['tubeGlow'] or [] }. A failure is warned and leaves the glow passes on tubeS. */
-export function glowFinish(gl, finishProgram, started) {
-  try { return { P: finishProgram(gl, started[0]), failed: [] }; } catch (e) {
-    console.warn('Veins renderer: the Tube glow shader failed; the glow passes keep the strip program.', e);
-    gl.deleteProgram(started[0].p); return { P: null, failed: ['tubeGlow'] };
-  }
-}
-
 /** The stage 3 programs, in the order stage3Start returns them. */
 export const STAGE3_PROGRAMS = ['tubeLumen', 'tubeWebLumen', 'compTube', 'compTubeCell', 'plainTube', 'plainTubeCell'];
 
 /**
  * The stage 3 programs' shader text, by name, each { vs, fs }: the lumen shader over the strip's and the web's vertex shaders, and the compositor's Tube builds
- * (COMP_FS with tube = 1: full and plain, each over the whole-picture vertex shader and the cell one). K, zoomVS: as stage2Sources; comp: { COMP_FS, COMP_VS,
+ * (COMP_FS with tube = 1: full and plain, each over the whole-picture vertex shader and the cell one). K: as stage2Sources; comp: { COMP_FS, COMP_VS,
  * COMP_CELL_VS } from veins-gl.js (given, not imported: veins-gl.js imports this file).
  */
-export function stage3Sources(K, zoomVS, comp) {
-  const sv = tubeStripVS(STRIP_VS_GLSL, K.F_SEL, zoomVS), wv = tubeWebVS(STRIP_VS_GLSL, K.F_SEL, zoomVS), lum = tubeLumenFS(K);
-  const full = comp.COMP_FS(false, false, false, 1), plain = comp.COMP_FS(true, false, false, 1);
+export function stage3Sources(K, comp) {
+  const sv = tubeStripVS(STRIP_VS_GLSL, K.F_SEL), wv = tubeWebVS(STRIP_VS_GLSL, K.F_SEL), lum = tubeLumenFS(K);
+  const full = comp.COMP_FS(false, false, 1), plain = comp.COMP_FS(true, false, 1);
   return { tubeLumen: { vs: sv, fs: lum }, tubeWebLumen: { vs: wv, fs: lum }, compTube: { vs: comp.COMP_VS, fs: full }, compTubeCell: { vs: comp.COMP_CELL_VS, fs: full },
     plainTube: { vs: comp.COMP_VS, fs: plain }, plainTubeCell: { vs: comp.COMP_CELL_VS, fs: plain } };
 }
 
 /** Starts the six stage 3 programs (startProgram: veins-gl.js's), by their names (STAGE3_PROGRAMS); see stage3Sources. */
-export function stage3Start(gl, startProgram, K, zoomVS, comp, makeShader) {
-  return startAll(gl, startProgram, stage3Sources(K, zoomVS, comp), STAGE3_PROGRAMS, makeShader);
+export function stage3Start(gl, startProgram, K, comp, makeShader) {
+  return startAll(gl, startProgram, stage3Sources(K, comp), STAGE3_PROGRAMS, makeShader);
 }
 
 /** Finishes the six started stage 3 programs, each in its own try: { P: { lumen, webLumen, comp, compCell, plain, plainCell } or null, failed: names }. */
@@ -210,7 +188,7 @@ export function lumenPiece(x, w, s, out) {
 
 /**
  * The world box of what the lumen pass can draw, into out [x0, y0, x1, y1] (x0 > x1 when there is nothing): the boxes of the rows the cull keeps (C.mask, C.boxes) and, for each web one of whose
- * legs is such a row, the squares round its two legs' samples (pts, as meshGeo().pts.pts holds them) as far as a web reaches from a leg: WEB_FAR (4) radii of the larger leg and the join's reach, and a
+ * legs is such a row, the squares round its two legs' samples (pts, as meshGeo().pts.pts holds them) as far as a web reaches from a leg: WEB_FAR_TAPER (14, a taper's; a fillet's is 4) radii of the larger leg and the join's reach, and a
  * radius more. W: the webs of the binning (tube-data.js webInstances: data, count). A web with neither leg a kept row is left out: its rows are not drawn, and it adds only a fillet at their ends.
  */
 export function lumenBox(C, nRows, W, pts, out) {
@@ -225,7 +203,7 @@ export function lumenBox(C, nRows, W, pts, out) {
   for (let p = 0, n = d ? W.count : 0; p < n; p++) {
     const q = p * WEB_FLOATS, ra = Math.floor(d[q] + 0.5), rb = Math.floor(d[q + 4] + 0.5);
     if (!(ra >= 0 && ra < nRows && rb >= 0 && rb < nRows) || !(mk[ra] || mk[rb])) continue;
-    const e = 5 * Math.max(C.hr[ra], C.hr[rb]) + d[q + 9];
+    const e = (WEB_FAR_TAPER + 1) * Math.max(C.hr[ra], C.hr[rb]) + d[q + 9];
     for (let l = 0; l < 2; l++) {
       const row = l ? rb : ra, i = Math.floor(d[q + (l ? 5 : 1)] + 0.5), at = (row * 32 + (i >> 1)) * 4 + (i & 1) * 2, x = pts[at], y = pts[at + 1];
       if (x - e < x0) x0 = x - e; if (x + e > x1) x1 = x + e; if (y - e < y0) y0 = y - e; if (y + e > y1) y1 = y + e;
@@ -313,9 +291,12 @@ export function joinEntriesInto(ent, list, n, joinBase, out) {
  * veins-gl.js calls this when it makes a morph set (a free moment) and createStage2Data.frame calls it for a bundle that has none. Whatever replaces the webs builds its
  * records here and nowhere else. joinBase: the morph set's join rows (-1 for the figure's own).
  */
-export function stage2Prepare(B, tubeNow, nTubes, joinBase) {
-  const st = B.s2 || (B.s2 = { gen: -1, entries: NO_JOINS, R: {}, W: {}, joinBase: -1, n: 0 });   // alloc-rare: once per bundle
+export function stage2Prepare(B, tubeNow, nTubes, joinBase, upTo = 2, until = Infinity) {
+  const st = B.s2 || (B.s2 = { gen: -1, entries: NO_JOINS, R: {}, W: {}, joinBase: -1, n: 0, midGen: -1, midNow: null, midJoinBase: NaN, entGen: -1 });   // alloc-rare: once per bundle
   if (st.gen === B.gen && st.R.rows) return st;
+  // (In two parts a caller may run in separate slices (upTo 1: the entries and the webs; 2: the rows too): the first is kept for the binning (B.gen), the Tube's stage and the join base it was made for.)
+  if (st.midGen === B.gen && st.midNow === tubeNow && st.midJoinBase === joinBase) return upTo < 2 ? st : stage2Rows(B, st, tubeNow, nTubes, joinBase, until);
+  if (st.entGen !== B.gen || st.midNow !== tubeNow || st.midJoinBase !== joinBase) {
   // (The entries a cell lists: the same entry is listed by every cell it reaches, so a swept set lists it tens of times; each once here, in first-listed order.)
   const list = B.jl.view, n0 = B.jl.n || 0;
   if (!st.seen || st.seen.length < B.ent.length / 8) st.seen = new Uint8Array(Math.ceil(B.ent.length / 8));   // alloc-rare: a new binning only
@@ -329,9 +310,17 @@ export function stage2Prepare(B, tubeNow, nTubes, joinBase) {
   st.ji = new Int32Array(n);   // alloc-rare: a new binning only, sized by its joins
   for (let k = 0; k < n; k++) st.ji[k] = joinBase >= 0 ? Math.round(B.ent[st.uniq[k] * 8]) : -1;
   joinEntriesInto(B.ent, st.uniq, n, joinBase, st.entries);
-  webInstances(st.entries, tubeNow, B.pts.pts, st.W);
-  tubeRows(tubeNow, nTubes, st.entries, st.R, B.noEnds ? null : B.pts.pts);
-  st.gen = B.gen; st.joinBase = joinBase; st.n = n;
+  st.n = n; st.entGen = B.gen; st.midNow = tubeNow; st.midJoinBase = joinBase; st.W.run = null; st.R.tr = null;
+  }
+  // (The webs are read in slices when a caller gives `until` (performance.now() ms, upTo 1): it is asked again, with the same arguments, until st.midGen is B.gen.)
+  if (!webInstancesStep(st.entries, tubeNow, B.pts.pts, st.W, !B.noEnds, upTo < 2 ? until : Infinity)) return st;
+  st.midGen = B.gen;
+  return upTo < 2 ? st : stage2Rows(B, st, tubeNow, nTubes, joinBase, upTo === 2 ? until : Infinity);
+}
+// (Given `until` the rows are made in slices: st.gen is B.gen only once they are all made, so a caller asks again while it is not.)
+function stage2Rows(B, st, tubeNow, nTubes, joinBase, until = Infinity) {
+  if (tubeRows(tubeNow, nTubes, st.entries, st.R, B.pts.pts, B.noEnds ? F_ENDS : 0, until) === false) return st;
+  st.gen = B.gen; st.joinBase = joinBase;
   return st;
 }
 
@@ -370,7 +359,8 @@ export function cullUpdate(B, nRows, view) {
   if (again) {
     if (!C.hr || C.hr.length < nRows) { C.hr = new Float32Array(nRows); C.inside = new Uint8Array(nRows); C.mask = new Uint8Array(nRows); }   // alloc-rare: grown with the vessel rows
     for (let r = 0; r < nRows; r++) C.hr[r] = (rm[r] || 0) * 1.25 + MIN_RADIUS;
-    rowBoxes(B.pts, null, C.hr, nRows, C.boxes);
+    if (B.morph && B.morph.rowBox) rowBoxesFromSwept(B.morph.rowBox, C.hr, nRows, on, C.boxes);   // (a stretch of the change between the views: the boxes it was made with, R1b-13)
+    else rowBoxes(B.pts, null, C.hr, nRows, C.boxes);
     C.inside.fill(2, 0, nRows);   // (neither 0 nor 1: the check below finds every row changed)
     C.gen = B.gen; C.n = nRows; C.total = C.boxes.on;
   }
@@ -406,6 +396,7 @@ export function createStage2Data(gl, MG) {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, MG.tubeIB);
     gl.bindBuffer(gl.ARRAY_BUFFER, D.rowBuf);
     gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, TUBE_ROW_FLOATS * 4, 0); gl.vertexAttribDivisor(1, 1);
+    for (let a = 2; a <= 3; a++) { gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, 4, gl.FLOAT, false, TUBE_ROW_FLOATS * 4, (MOUTH_AT + 4 * (a - 2)) * 4); gl.vertexAttribDivisor(a, 1); }   // (the mouth codes: floats 4 to 7 and 8 to 11 of the record)
     // (The web: its 22 vertices and the index, the web records as three vec4 per instance.)
     gl.bindVertexArray(D.webVAO);
     gl.bindBuffer(gl.ARRAY_BUFFER, extra[0]); gl.bufferData(gl.ARRAY_BUFFER, T.attr, gl.STATIC_DRAW);
@@ -437,17 +428,17 @@ export function createStage2Data(gl, MG) {
   D.frame = (G, tubeNow, nTubes, joinBase, view, joins = null) => {
     if (!D.stripVAO) make();
     const B = MG.B || MG, tv = MG.tv;
-    // (The rows outside the layer are left out of the buckets: not while a stretch of the change between the views moves the points (joinBase >= 0), nor when the view is not given.)
-    const C = view && view.ok && joinBase < 0 ? cullUpdate(B, nTubes, view) : null, ck = C ? C.key : -1;
+    // (The rows outside the layer are left out of the buckets: while a stretch of the change between the views moves the points (joinBase >= 0) by the boxes the stretch was made with (R1b-13); not when the view is not given.)
+    const C = view && view.ok && (joinBase < 0 || (B.morph && B.morph.rowBox)) ? cullUpdate(B, nTubes, view) : null, ck = C ? C.key : -1;
     const jv = joinBase >= 0 && joins ? joins.ver : -1;
     if (tv !== undefined && B === lastB && B.gen === lastGen && tv === lastTv && joinBase === lastJ && C === lastC && ck === lastCk && jv === lastJv && B.s2 && B.s2.gen === B.gen) return D;   // (nothing changed since the last call)
     let st = B.s2;
     if (!st || st.gen !== B.gen || !st.R.rows) { st = stage2Prepare(B, tubeNow, nTubes, joinBase); D.binnings++; }
-    else if (stale(st, tubeNow, nTubes)) tubeRows(tubeNow, nTubes, st.entries, st.R, B.noEnds ? null : B.pts.pts);
+    else if (stale(st, tubeNow, nTubes)) tubeRows(tubeNow, nTubes, st.entries, st.R, B.pts.pts, B.noEnds ? F_ENDS : 0);
     tubeBuckets(tubeNow, C ? C.mask : B.pts.on, nTubes, st.R.rows, D.tb);
     D.cull.off = !C; D.cull.drawn = D.tb.n; D.cull.total = C ? C.total : D.tb.n;
-    D.lumBox.on = !!C;   // (the box the lumen pass is scissored to: only with the cull, which says which rows are drawn)
-    if (C) lumenBox(C, nTubes, st.W, B.pts.pts, D.lumBox.b);
+    D.lumBox.on = !!C && joinBase < 0;   // (the box the lumen pass is scissored to: only with the cull, which says which rows are drawn; not between the views, where the rows' points move)
+    if (D.lumBox.on) lumenBox(C, nTubes, st.W, B.pts.pts, D.lumBox.b);
     websByTier(st.W.data, st.W.count, tubeNow, D.wb, B.pts.on, !B.noEnds, jv >= 0 && st.ji ? websLive(st, joins) : null);
     gl.bindBuffer(gl.ARRAY_BUFFER, D.rowBuf);
     if (D.rowCap < D.tb.rows.length) { D.rowCap = D.tb.rows.length; gl.bufferData(gl.ARRAY_BUFFER, D.rowCap * 4, gl.DYNAMIC_DRAW); }

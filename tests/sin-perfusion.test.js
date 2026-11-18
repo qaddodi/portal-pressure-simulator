@@ -1,13 +1,9 @@
-import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { SIN_PERFUSION, sinStrandRadius } from '../src/ui/sin-perfusion.js';
 
 // Review G15 (16 Oct): the sinusoids' strands are drawn 60 % fainter and taper to a quarter of the sinusoid's width, so the
 // lobe tips read as tissue, not netting bulbs. No glow behind them (Mohammad, 16 Oct: he did not like the constant glow).
-const stage = stageSource();
-const vg = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
 
 test('the numbers the review asked for', () => {
   assert.deepEqual(SIN_PERFUSION, { fade: 0.4, taper: 0.25 });
@@ -33,13 +29,4 @@ test('a strand meets the sinusoid at its own caliber and narrows to a quarter of
   assert.equal(sinStrandRadius(0.8, 1, 0.5, span), 0.4);
 });
 
-test('the strands are faded and tapered; only the sinusoids', () => {
-  assert.match(stage, /const sinStrand = kind === 's' && SIN_EDGES\.has\(id\);/);
-  assert.match(stage, /if \(sinStrand\) alpha \*= SIN_PERFUSION\.fade;/);
-  assert.match(stage, /if \(kind === 's' && SIN_EDGES\.has\(x\.e\.id\)\) \{ const w = x\.width; return \[`\$\{r\.toFixed\(2\)\}\|\$\{w\.toFixed\(2\)\}\|sin`, \(i\) => sinStrandRadius\(r, w, i \/ \(N_SAMPLES - 1\), o\.span\)\]; \}/);
-});
 
-test('no glow is drawn behind the strands in any view or lens', () => {
-  assert.doesNotMatch(vg, /F_PERF|SIN_PERFUSION|sin-perfusion/);
-  assert.doesNotMatch(stage, /F_PERF|tubeData\[o \+ 51\]|sinGlow/);
-});

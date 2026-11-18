@@ -32,7 +32,7 @@ export default {
   outcomes: ['tips', 'lt', 'drain'],
   outcomeOf: (L) => ['tips', 'lt', 'drain'].find((k) => L.has(k)) || null,
   reading(key) {
-    if (key === 'tips') return { head: 'TIPS', tone: 'ok', stmt: '6.3, 6.5', why: 'Recurrent or refractory ascites, and TIPS is possible.', next: 'Dilate the stent only to the smallest diameter that gives an adequate response, and dilate it stepwise if ascites does not improve. Discuss transplant at the same time.' };
+    if (key === 'tips') return { head: 'TIPS', tone: 'ok', stmt: '6.3, 6.5', why: 'Recurrent or refractory ascites, and TIPS is possible.', next: 'Dilate the stent only as far as gives an adequate response, stepwise if ascites does not improve. Discuss transplant at the same time.' };
     if (key === 'lt') return { head: 'Transplant discussion', tone: 'ok', stmt: '6.4, 6.10', why: 'TIPS is not possible or did not help, and the patient is a transplant candidate.', next: 'Meanwhile, long-term albumin may improve ascites control and reduce ascites-related complications.' };
     return { head: 'Home drainage device', tone: 'bad', stmt: '6.11, 6.10', why: 'TIPS is contraindicated or did not work, and the patient is not a transplant candidate.', next: 'A tunneled peritoneal catheter or a low-flow pump, instead of repeated large-volume paracentesis. Long-term albumin may be considered.' };
   },

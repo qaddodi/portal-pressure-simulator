@@ -6,11 +6,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { beatTop, beatLayout, colPlan, COL_NEED, paperFine, beforeLabelY, sinceText } from '../src/ui/beat-card.js';
 import { DECKS } from '../src/ui/decks.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8');
 const pt = read('../src/ui/pressure-time.js');
-const css = read('../styles/app.css');
-const presenter = read('../src/ui/presenter.js');
+const css = appCss();
+const presenter = presenterSource();
 
 test('the scale runs from 0 to a multiple of 5, 20 or more, over every value with room to spare', () => {
   assert.equal(beatTop([17.4, 17.2, 4.4]), 20);
@@ -67,7 +68,7 @@ test('the change since before: one decimal for a pressure, whole beats for the h
 test('the slide card draws the new layout; the Patients chart and an unmeasured HVPG keep theirs', () => {
   assert.match(pt, /if \(slide && range === 'beats' && showHvpg\) \{ drawBeatCard\(/);
   assert.match(pt, /before = ctx\?\.ref \? \{ fp: ctx\.ref, label: t\?\.deltaLabel \|\| 'before' \} : null;/);
-  assert.match(pt, /setLineDash\(DASH_PORTAL\); line\(ctx, sp, pc, 2, plotW\)/, 'the portal pressure dashed');
+  assert.match(pt, /if \(!noPv\) line\(ctx, sp, pc, 2, plotW\);/, 'the portal pressure solid, in its own colour (no dashes on a trace that scrolls)');
   assert.match(pt, /ctx\.strokeStyle = text; ctx\.lineWidth = 1\.6;/, 'the EKG in the text colour');
   assert.match(pt, /fillStyle = cssAlpha\('--text-3', 0\.08\); ctx\.fillRect\(L, YB\(wWas\)/, 'the old gap faint grey');
   assert.ok(css.includes('.pz-tool[data-kind="beats"] .pt-head { display: none !important; }'), 'the header leaves the slide card');

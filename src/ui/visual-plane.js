@@ -28,11 +28,11 @@
 // element's own pixels, one unit a CSS pixel, so its words keep the slide's caption size (12 px or more) at any width.
 
 import { h, fmt, clamp } from './util.js';
-import { HVPG_CUTS, PPG_CUTS, HVPG_WORDS, BLEED_WORD } from '../engine/pressure-cuts.js';
-import { TILE, tileShown } from './table-marks.js';
+import { HVPG_CUTS, PPG_CUTS, HVPG_WORDS } from '../engine/pressure-cuts.js';
+import { TILE, tileShown, numName } from './table-marks.js';
 import { plotPanel } from './plot-look.js';
 import { BAVENO, BAVENO_AXES, bavenoRects, bavenoHatch, zoneArt, plotHeight, hatchKey } from './baveno-zones.js';
-import { frameFor, easeNow } from './frame.js';
+import { frameFor, easeNow, cancelFrame } from './frame.js';
 import { easeArrive, D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { createSvgGL, svgModel, setPts, moveAt } from './svg-gl.js';
 import { chartCtx } from './chart-ctx.js';
@@ -95,16 +95,16 @@ export const PLANES = {
   },
   'hvpg-ppg': {
     // (Mohammad 29 Oct: "don't stretch the x axis all the way to like 40"; PPG runs past the highest point on any slide (26.8); HVPG to 24
-    // (the farthest is 16.5), so that on a narrow phone plot the Sinusoidal obstruction point leaves room right of it for 'Bleed risk ≥12'
+    // (the farthest is 16.5), so that on a narrow phone plot the Sinusoidal obstruction point leaves room right of it for 'PPG ≥12'
     // on its level line. 29 Oct also took the axes' names off; 2 Nov, slide 11 of Sites: "the axes are not labeled ... tough to know HVPG
     // PPG", so both axes are named again, with their unit, beside the cut-off numbers.)
-    x: { key: 'hvpg', min: 0, max: 24, ticks: [HVPG_CUTS.amber, HVPG_CUTS.red], name: 'HVPG (WHVP − FHVP), mmHg', fullFrom: 700, short: 'HVPG, mmHg', abbr: 'HVPG' },
-    y: { key: 'ppg', min: 0, max: 28, ticks: [PPG_CUTS.amber, PPG_CUTS.red], name: 'PPG (portal − IVC), mmHg', fullFrom: 700, short: 'PPG, mmHg', abbr: 'PPG' },
+    x: { key: 'hvpg', min: 0, max: 20, ticks: [HVPG_CUTS.amber, HVPG_CUTS.red], name: 'HVPG (WHVP − FHVP), mmHg', fullFrom: 700, short: 'HVPG, mmHg', abbr: 'HVPG' },
+    y: { key: 'ppg', min: 0, max: 28, ticks: [PPG_CUTS.amber, PPG_CUTS.red], name: 'PPG (PV − IVC), mmHg', fullFrom: 700, short: 'PPG, mmHg', abbr: 'PPG' },
     zones: [
-      { when: [['hvpg', '<', HVPG_CUTS.amber], ['ppg', '<', PPG_CUTS.amber]], t: 'Both normal', short: 'Both normal', tone: 'ok', note: `HVPG <${HVPG_CUTS.amber}, PPG <${PPG_CUTS.amber} mmHg` },
-      { when: [['hvpg', '<', HVPG_CUTS.amber]], t: 'PPG raised, HVPG normal', short: 'PPG only', tone: 'ppg', note: 'WHVP misses presinusoidal resistance' },
-      { when: [['ppg', '<', PPG_CUTS.amber]], t: 'HVPG raised, PPG normal', short: 'HVPG only', tone: 'hvpg', at: [14, 3], note: `HVPG ≥${HVPG_CUTS.amber}, PPG <${PPG_CUTS.amber} mmHg` },
-      { t: 'Both raised', short: 'Both raised', tone: 'both', at: [14, 24], note: `HVPG ≥${HVPG_CUTS.amber}, PPG ≥${PPG_CUTS.amber} mmHg` },
+      { when: [['hvpg', '<=', HVPG_CUTS.amber], ['ppg', '<', PPG_CUTS.amber]], t: 'Both normal', short: 'Both normal', tone: 'ok', note: `HVPG ≤${HVPG_CUTS.amber}, PPG <${PPG_CUTS.amber} mmHg` },
+      { when: [['hvpg', '<=', HVPG_CUTS.amber]], t: 'PPG raised, HVPG normal', short: 'PPG only', tone: 'ppg', note: 'WHVP misses presinusoidal resistance' },
+      { when: [['ppg', '<', PPG_CUTS.amber]], t: 'HVPG raised, PPG normal', short: 'HVPG only', tone: 'hvpg', note: `HVPG >${HVPG_CUTS.amber}, PPG <${PPG_CUTS.amber} mmHg` },
+      { t: 'Both raised', short: 'Both raised', tone: 'both', note: `HVPG >${HVPG_CUTS.amber}, PPG ≥${PPG_CUTS.amber} mmHg` },
     ],
     cuts: { x: [HVPG_CUTS.amber, HVPG_CUTS.red], y: [PPG_CUTS.amber, PPG_CUTS.red] },
     // (HVPG 5 and PPG 6 keep their numbers but draw no line: the zone colours already mark them, Mohammad 29 Oct.)
@@ -114,9 +114,17 @@ export const PLANES = {
     // (nameGap: no two names, zone words, line names, axis names or numbers sit closer than this many px (as the text widths are estimated, 0.62 em a letter, a little over what Inter takes: the gaps drawn are 6 px or more): Mohammad's crowded-names ask, 3 Nov. The names' own boxes are kept this much larger against the names after them, the zones' words keep this far from every box, and the numbers' and axis names' boxes (3 px padded already) are widened to it.)
     nameGap: 4,
     // (The two lines that carry a meaning of their own, named on the plot beside the line: { x|y: { value: words } }.)
-    lineNames: { x: { [HVPG_CUTS.red]: `${HVPG_WORDS.danger[0]} ≥${HVPG_CUTS.red}` }, y: { [PPG_CUTS.red]: `${BLEED_WORD} ≥${PPG_CUTS.red}` } },
+    lineNames: { x: { [HVPG_CUTS.red]: `${HVPG_WORDS.danger[0]} ≥${HVPG_CUTS.red}` }, y: { [PPG_CUTS.red]: `PPG ≥${PPG_CUTS.red}` } },
     source: '',
-    key: false,
+    // (17 Nov 2026, Mohammad: "no need to mention both raised, PPG only etc. on the chart itself, you have a legend already ... the chart doesn't need to be that tall ...
+    // why extend it so far out? HVPG 20 maybe ... it needs to be elegant. Everywhere." noWords: the four zones are only their tints; the legend (the key under the
+    // plot, or beside it on a wide screen) names them. The HVPG axis stops at 20 (the highest on any slide is 16.5); the PPG axis keeps 28, the acute clot's 27.3
+    // being a reading the plot must not clamp. compact: the plot is wide and low, visual-plane CSS .pze-short.)
+    noWords: true,
+    compact: true,
+    // (18 Nov 2026, Mohammad: "we're extending it far more than we need on the x direction". A summary fits both axes to its points, fitAxis, so no
+    // slide leaves half its plot empty; x 20 and y 28 are the most it may grow to, where a slide's points (Sites: PPG 26.8) reach that far.)
+    fit: true,
   },
 };
 PLANES['flow-ppg'] = {
@@ -124,10 +132,10 @@ PLANES['flow-ppg'] = {
   // beta-blocker slides a patient down their line; carvedilol drops them to a lower one; a meal moves them right; a TIPS takes them near the floor.
   // No zones: it is a scatter with axes. The PPG 12 line is the bleed-risk cut-off the other planes name.)
   x: { key: 'pvFlow', min: 0, max: 2, ticks: [0, 0.5, 1, 1.5, 2], name: 'Portal flow, L/min', short: 'Flow, L/min', abbr: 'Flow' },
-  y: { key: 'ppg', min: 0, max: 20, ticks: [0, 5, 10, 15, 20], name: 'PPG (portal − IVC), mmHg', short: 'PPG, mmHg', abbr: 'PPG' },
+  y: { key: 'ppg', min: 0, max: 20, ticks: [0, 5, 10, 15, 20], name: 'PPG (PV − IVC), mmHg', short: 'PPG, mmHg', abbr: 'PPG' },
   zones: [],
   cuts: { y: [PPG_CUTS.red] },
-  lineNames: { y: { [PPG_CUTS.red]: `${BLEED_WORD} ≥${PPG_CUTS.red}` } },
+  lineNames: { y: { [PPG_CUTS.red]: `PPG ≥${PPG_CUTS.red}` } },
   iso: { rays: [4, 8, 16, 32] },
   nameGap: 4,
   source: 'Each line is one resistance, PPG ÷ flow, in mmHg per L/min.',
@@ -138,11 +146,29 @@ export function planeOf(p) {
   if (typeof p === 'string') return PLANES[p] || null;
   if (!p || typeof p !== 'object') return null;
   const b = PLANES[p.base] || PLANES[p.zones] || null;   // (zones: 'csph' as the plan writes it, with x and y keys of its own)
-  const ax = (a, d) => (typeof a === 'string' ? { ...(d?.key === a ? d : {}), key: a, name: d?.key === a ? d.name : TILE[a]?.t || a, min: d?.key === a ? d.min : 0, max: d?.key === a ? d.max : 30 } : { ...d, ...a });
+  const ax = (a, d) => (typeof a === 'string' ? { ...(d?.key === a ? d : {}), key: a, name: d?.key === a ? d.name : numName(a) || a, min: d?.key === a ? d.min : 0, max: d?.key === a ? d.max : 30 } : { ...d, ...a });
   const pl = { ...b, ...p, x: ax(p.x ?? b?.x, b?.x), y: ax(p.y ?? b?.y, b?.y) };
   if (!Array.isArray(pl.zones)) pl.zones = b?.zones || [];
   if (!pl.x?.key || !pl.y?.key || !(pl.x.max > (pl.x.min ?? 0)) || !(pl.y.max > (pl.y.min ?? 0))) return null;
   return pl;
+}
+/** An axis cut to the readings on it: the highest reading with `room` to spare (a quarter more), at least 30% past the highest cut-off line (the line's name
+ *  and its number stand there), up to the next `step`, never past the axis's declared max (the most a slide may need) nor under one step.
+ *  No reading: the axis as declared. 18 Nov 2026, Mohammad: "we're extending it far more than we need on the x direction". */
+export function fitAxis(a, vals, cuts = [], { room = 1.25, step = 2 } = {}) {
+  const v = (vals || []).filter(Number.isFinite);
+  if (!v.length) return a;
+  const lo = a.min ?? 0, need = Math.max(Math.max(...v) * room, ...(cuts || []).map((c) => c * 1.3));
+  const max = clamp(Math.ceil(need / step) * step, lo + step, a.max);
+  return max === a.max ? a : { ...a, max };
+}
+/** A plane with fit: true, its axes fitted to the points shown (and the rings they started from); any other plane, or no points, as it is.
+ *  The same plane back when nothing changes, so a redraw keeps its identity. */
+export function fitPlane(pl, points) {
+  if (!pl.fit || !points?.length) return pl;
+  const col = (k) => points.flatMap((p) => [p.f?.[k], p.from?.[k]]);
+  const x = fitAxis(pl.x, col(pl.x.key), pl.cuts?.x), y = fitAxis(pl.y, col(pl.y.key), pl.cuts?.y);
+  return x === pl.x && y === pl.y ? pl : { ...pl, x, y };
 }
 /** The zone the values in f fall in (the first whose conditions hold), or null. */
 export const zoneOf = (pl, f) => pl.zones.find((z) => holds(z.when, f)) || null;
@@ -199,9 +225,10 @@ export function plotNumbers(pl, fr, X, Y, fs, keepOff = [], part = 'all') {
   const boxOf = (text, x, y, anchor) => { const w = est(text, fs, 0.62), x0 = anchor === 'start' ? x : anchor === 'end' ? x - w : x - w / 2; return [x0 - 3, y - fs * 0.8 - 3, x0 + w + 3, y + fs * 0.25 + 3]; };
   const put = (text, x, y, anchor, cls, must = false) => {
     const box = boxOf(text, x, y, anchor);
-    if (!must && taken.some((o) => hit(box, o))) return;
+    if (!must && taken.some((o) => hit(box, o))) return false;
     taken.push(box);
     out.push({ text, x, y, anchor, cls, box });
+    return true;
   };
   const foot = H - PAD - fs * 0.25 - 3, cut = (a, v) => (pl.cuts?.[a] || []).includes(v), ticks = [];
   const tx = (v) => pl.tickText?.[v] ?? String(v);   // (a number's own writing: 150 as 150K)
@@ -212,7 +239,16 @@ export function plotNumbers(pl, fr, X, Y, fs, keepOff = [], part = 'all') {
   for (const v of (pl.y.ticks || [pl.y.min ?? 0, pl.y.max]).filter((t) => t > (pl.y.min ?? 0))) ticks.push([cut('y', v), tx(v), PAD + 3, Math.max(cut('y', v) && part === 'all' ? Y(v) - fs * 0.25 - 3 : Y(v) + fs * 0.35, PAD + 3 + fs * 0.8), 'start']);   // (a cut-off's number in the card stands just over its line, never on it)
   ticks.sort((a, b) => b[0] - a[0]);
   const marks = ticks.filter((t) => t[0]), rest = ticks.filter((t) => !t[0]);
-  if (part !== 'names') for (const [, text, x, y, anchor] of marks) put(text, x, y, anchor, 'pze-t on');
+  // (A cut-off's number stands at the foot of its line, level with the others; where a point lies low in the plot, just beside it, the room under and beside that point is the name's,
+  // so the number takes the line's other end, the top row, if that is free. 16 Nov 2026: Heart failure's dot in the iPhone's lower left corner, a few tenths of a mmHg off, had its name
+  // sent 110 px out on a line, the corner held by the "5" of the HVPG cut-off. A point's box is the small one in keepOff (the names laid out later are wider), so both asks agree.)
+  const lowDot = (x) => keepOff.some((o) => o[2] - o[0] <= 26 && o[3] - o[1] <= 26 && o[3] > foot - fs * 1.2 && x > (o[0] + o[2]) / 2 - 2 && x - (o[0] + o[2]) / 2 < 9 * fs);
+  // (the top row's room nearest the line: its own place if free, else slid along the row, to the right, a character at a time, up to 3 characters' widths)
+  const onTop = (text, x) => { for (let d = 0; d <= 5 * fs; d += fs * 0.5) if (put(text, x + d, PAD + 3 + fs * 0.8, 'middle', 'pze-t on')) return true; return false; };
+  if (part !== 'names') for (const [, text, x, y, anchor] of marks) {
+    if (anchor === 'middle' && y === foot && lowDot(x) && onTop(text, x)) continue;
+    put(text, x, y, anchor, 'pze-t on');
+  }
   // (A name in the longest form that touches nothing standing; the shortest where every form does.)
   const name = (a, x, y, anchor, room) => {
     const forms = [...new Set(a.only ? [a[a.only]] : [a.fullFrom > W ? null : a.name, a.short, a.abbr, a.key].filter(Boolean))].filter((t) => est(t, fs, 0.62) <= room);   // (fullFrom: the full name only on a plot this wide)
@@ -348,29 +384,65 @@ export function diagOf(pl, X, Y, fs = 13) {
   if (label) boxes.push(label.box);
   return { seg, boxes, label };
 }
-/** The plane's lines of equal resistance (pl.iso: rays in y per x, or { rays }), each a ray from the origin, y = R x, clipped to the plot:
- *  its segment in px, its name ("R = 10") just inside its far end (over the line where it ends at the right edge, under the top edge and
- *  right of the line where it ends there), and the thin boxes words keep clear of (every 8 px, 3 px either side, and each name's own box).
- *  null without iso, or where the axes do not both start at 0. [{ r, seg, label: { text, x, y, anchor, box } }] and boxes. */
-export function isoOf(pl, X, Y, fr, fs = 13) {
+/** The rays alone, with no names: [{ r, seg, atTop }], their thin boxes, and each ray's own boxes. null as isoOf. */
+export function isoRays(pl, X, Y) {
   const iso = pl.iso;
   const rays = (Array.isArray(iso) ? iso : iso?.rays || []).filter((r) => Number.isFinite(r) && r > 0);
   if (!rays.length || (pl.x.min ?? 0) !== 0 || (pl.y.min ?? 0) !== 0) return null;
-  const lines = [], boxes = [];
+  const lines = [], rayBoxes = [], own = [];
   for (const r of [...rays].sort((a, b) => a - b)) {
     const xe = Math.min(pl.x.max, pl.y.max / r), ye = r * xe, atTop = pl.y.max / r < pl.x.max;
-    const seg = { x1: X(0), y1: Y(0), x2: X(xe), y2: Y(ye) }, n = Math.max(1, Math.ceil(Math.hypot(seg.x2 - seg.x1, seg.y2 - seg.y1) / 8));
-    for (let i = 1; i <= n; i++) { const x = seg.x1 + (seg.x2 - seg.x1) * i / n, y = seg.y1 + (seg.y2 - seg.y1) * i / n; boxes.push([x - 3, y - 3, x + 3, y + 3]); }
-    const text = `R = ${r}`, w = est(text, fs, 0.62);
-    const label = atTop
-      ? { text, anchor: 'start', x: seg.x2 + 5, y: seg.y2 + fs * 0.95 }
-      : { text, anchor: 'end', x: seg.x2 - 4, y: seg.y2 - 4 };
-    const x0 = label.anchor === 'start' ? label.x : label.x - w;
-    label.box = [x0 - 2, label.y - fs * 0.8 - 2, x0 + w + 2, label.y + fs * 0.25 + 2];
-    boxes.push(label.box);
-    lines.push({ r, seg, label });
+    const seg = { x1: X(0), y1: Y(0), x2: X(xe), y2: Y(ye) }, n = Math.max(1, Math.ceil(Math.hypot(seg.x2 - seg.x1, seg.y2 - seg.y1) / 8)), mine = [];
+    for (let i = 1; i <= n; i++) { const x = seg.x1 + (seg.x2 - seg.x1) * i / n, y = seg.y1 + (seg.y2 - seg.y1) * i / n; mine.push([x - 3, y - 3, x + 3, y + 3]); }
+    rayBoxes.push(...mine); own.push(mine);
+    lines.push({ r, seg, atTop, label: null });
   }
-  return { lines, boxes };
+  return { lines, rayBoxes, own };
+}
+/** The plane's lines of equal resistance (pl.iso: rays in y per x, or { rays }), each a ray from the origin, y = R x, clipped to the plot:
+ *  its segment in px, its name ("R = 10") at its far end (over the line where it ends at the right edge, under the top edge and
+ *  right of the line where it ends there), and the thin boxes words keep clear of (every 8 px, 3 px either side, and each name's own box).
+ *  The names are placed one ray at a time, the steepest first (where the rays crowd at the top edge), each at the first place that clears the names
+ *  already put down, every ray's line and the boxes in avoid (the points): at the end of its ray, else further in along it on either side, in full ("R = 20")
+ *  and, where the full one finds no room, as its number alone ("20", the card's caption names the resistance and its unit). So no two names touch and none sits under a dot or a line, at any width
+ *  (play-test 16 Nov 2026, B22: R = 40, 30 and 20 ran into each other on a phone, and R = 5 stood under a dot).
+ *  null without iso, or where the axes do not both start at 0. [{ r, seg, label: { text, x, y, anchor, box } }] and boxes. */
+export function isoOf(pl, X, Y, fr, fs = 13, avoid = []) {
+  const rs = isoRays(pl, X, Y);
+  if (!rs) return null;
+  const { lines, rayBoxes, own } = rs;
+  const hit = (b, o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1];
+  const taken = [], inside = (b) => b[0] >= fr.L && b[2] <= fr.R + 6 && b[1] >= Math.min(fr.T, 0) && b[3] <= fr.B;
+  const place = (l, k, text, s, side, dots = true) => {
+    const { seg } = l, len = Math.hypot(seg.x2 - seg.x1, seg.y2 - seg.y1) || 1, px = seg.x2 - (seg.x2 - seg.x1) * s / len, py = seg.y2 - (seg.y2 - seg.y1) * s / len, w = est(text, fs, 0.62);
+    // (side 0: where the name has always stood, over the line's right end or under the top edge beside it; 1: the other side of the line.)
+    const anchor = (l.atTop ? side === 0 : side === 1) ? 'start' : 'end';
+    const x = anchor === 'start' ? px + (l.atTop ? 5 : 4) : px - (l.atTop ? 5 : 4);
+    const y = l.atTop ? py + fs * (s ? 0.45 : 0.95) : side === 0 ? py - 4 : py + fs * 0.95;
+    const x0 = anchor === 'start' ? x : x - w, box = [x0 - 2, y - fs * 0.8 - 2, x0 + w + 2, y + fs * 0.25 + 2];
+    if (!inside(box) || taken.some((o) => hit(box, o)) || (dots && avoid.some((o) => hit(box, o)))) return null;
+    for (let j = 0; j < own.length; j++) if (j !== k && own[j].some((o) => hit(box, o))) return null;
+    return { text, x, y, anchor, box };
+  };
+  const order = lines.map((l, k) => k).sort((a, b) => lines[b].r - lines[a].r);
+  for (const k of order) {
+    const l = lines[k], len = Math.hypot(l.seg.x2 - l.seg.x1, l.seg.y2 - l.seg.y1);
+    let found = null;
+    // (At the end of its ray first, in full and then as its number; only then further in. A name slid in over the plot takes room the points' names need.)
+    // (Clear of the points as well; else, in a plot where a point stands in every gap, clear of the other names and rays and over the point, never over a line.)
+    for (const dots of [true, false]) for (let s = 0; s <= len * 0.35 && !found; s += 4) for (const text of [`R = ${l.r}`, String(l.r)]) { for (const side of [0, 1]) { found = place(l, k, text, s, side, dots); if (found) break; } if (found) break; }
+    // (No clear place at all: the name stands where it always has, in full.)
+    if (!found) {
+      const text = `R = ${l.r}`, w = est(text, fs, 0.62), { seg } = l;
+      const label = l.atTop ? { text, anchor: 'start', x: seg.x2 + 5, y: seg.y2 + fs * 0.95 } : { text, anchor: 'end', x: seg.x2 - 4, y: seg.y2 - 4 };
+      const x0 = label.anchor === 'start' ? label.x : label.x - w;
+      label.box = [x0 - 2, label.y - fs * 0.8 - 2, x0 + w + 2, label.y + fs * 0.25 + 2];
+      found = label;
+    }
+    taken.push(found.box); l.label = found;
+  }
+  const boxes = [...rayBoxes, ...lines.map((l) => l.label.box)];
+  return { lines: lines.map(({ r, seg, label }) => ({ r, seg, label })), boxes };
 }
 /** The plane's lines as thin boxes words keep clear of: the cut-offs, the outlined boxes' edges, the diagonal and the lines of equal resistance. */
 export function lineBoxes(pl, X, Y, fr, fs = 13) {
@@ -381,7 +453,7 @@ export function lineBoxes(pl, X, Y, fr, fs = 13) {
     const [x0, x1, y0, y1] = zoneRect(pl, b), L = X(x0), R = X(x1), T = Y(y1), B = Y(y0);
     out.push([L - 2, T, L + 2, B], [R - 2, T, R + 2, B], [L, T - 2, R, T + 2], [L, B - 2, R, B + 2]);
   }
-  out.push(...(diagOf(pl, X, Y, fs)?.boxes || []), ...(isoOf(pl, X, Y, fr, fs)?.boxes || []));
+  out.push(...(diagOf(pl, X, Y, fs)?.boxes || []), ...(isoRays(pl, X, Y)?.rayBoxes || []));
   return out;
 }
 /** The cut-off lines that carry a meaning of their own (pl.lineNames: { x: { 10: 'CSPH ≥10' }, y: { 12: '…' } }), each named beside
@@ -436,22 +508,53 @@ export function placeNames(pts, fr, fs, r = 8, avoid = [], cross = [], pad = 0) 
   // the one with the fewest lines, then the one whose names sit closest to their points, then the fewest across a cut-off.)
   const score = (res) => [res.filter((o) => !o).length, res.filter((o) => o?.lead).length, res.reduce((s, o, i) => s + (o ? Math.hypot(...near2(o.box, pts[i])) : 0), 0), res.filter((o) => o?.across).length];
   const better = (a, b) => a[0] < b[0] || (a[0] === b[0] && (a[1] < b[1] || (a[1] === b[1] && (a[2] < b[2] - 0.5 || (Math.abs(a[2] - b[2]) <= 0.5 && a[3] < b[3])))));
-  let best = placeOnce(pts, fr, fs, r, avoid, null, cross, pad), bs = score(best), order = null;
-  for (let round = 0; (bs[0] || bs[1] || bs[3]) && round < 4; round++) {
-    // (A name left without a place, or on a line, goes first in the next round, then one sitting across a cut-off.)
-    const prev = order || pts.map((_, i) => i), res = round ? placeOnce(pts, fr, fs, r, avoid, prev, cross, pad) : best, rank = (i) => (!res[i] || res[i].lead ? 0 : res[i].across ? 1 : 2);
-    order = [0, 1, 2].flatMap((k) => prev.filter((i) => rank(i) === k));
-    const next = placeOnce(pts, fr, fs, r, avoid, order, cross, pad), sc = score(next);
-    if (better(sc, bs)) best = next, bs = sc;
+  const avoidAll = avoid;
+  const run = (strict, avoid = avoidAll, tight = false) => {
+    let best = placeOnce(pts, fr, fs, r, avoid, null, cross, pad, strict, tight), bs = score(best), order = null;
+    for (let round = 0; (bs[0] || bs[1] || bs[3]) && round < 4; round++) {
+      // (A name left without a place, or on a line, goes first in the next round, then one sitting across a cut-off.)
+      const prev = order || pts.map((_, i) => i), res = round ? placeOnce(pts, fr, fs, r, avoid, prev, cross, pad, strict, tight) : best, rank = (i) => (!res[i] || res[i].lead ? 0 : res[i].across ? 1 : 2);
+      order = [0, 1, 2].flatMap((k) => prev.filter((i) => rank(i) === k));
+      const next = placeOnce(pts, fr, fs, r, avoid, order, cross, pad, strict, tight), sc = score(next);
+      if (better(sc, bs)) best = next, bs = sc;
+    }
+    // (Still a name short: each point chosen to go first in turn, the others after it in the order they had.)
+    for (let k = 0; bs[0] && k < pts.length; k++) {
+      const next = placeOnce(pts, fr, fs, r, avoid, [k, ...pts.map((_, i) => i).filter((i) => i !== k)], cross, pad, strict, tight), sc = score(next);
+      if (better(sc, bs)) best = next, bs = sc;
+    }
+    return { best, bs };
+  };
+  const strictRun = run(true);
+  // (A plot too crowded for the leader rule, where a patient is still left without a name: the names are placed again with leaders that may cross, a name kept before a clean leader,
+  // and, when one is still left, with the dots' clear air and the words a size smaller and a name across a thin line (a cut-off, a ray, a trail) before it is left out. Each leader that does
+  // cross is marked forced. Tried only then, so the rule holds wherever it can.)
+  let pick = strictRun;
+  for (const [strict, av, tight] of [[false, avoidAll, false], [false, avoidAll.filter((o) => Math.min(o[2] - o[0], o[3] - o[1]) > 8), true]]) {
+    if (!pick.bs[0]) break;
+    const t = run(strict, av, tight);
+    if (t.bs[0] < pick.bs[0]) pick = t;
   }
-  return best;
+  if (pick !== strictRun) {
+    const res = pick.best, words = avoid.filter((o) => Math.min(o[2] - o[0], o[3] - o[1]) > 8 && !cross.includes(o));
+    res.forEach((o, i) => { if (o?.lead && (words.some((w) => crosses(pts[i].x, pts[i].y, o.lead[0], o.lead[1], w)) || res.some((q, j) => j !== i && q?.lead && segsCross(pts[i].x, pts[i].y, o.lead[0], o.lead[1], pts[j].x, pts[j].y, q.lead[0], q.lead[1])))) o.forced = true; });
+  }
+  return pick.best;
+}
+/** Whether the segment (ax, ay)-(bx, by) crosses the segment (cx, cy)-(dx, dy) (touching ends do not count: two leaders may leave a shared neighbourhood). */
+export function segsCross(ax, ay, bx, by, cx, cy, dx, dy) {
+  const o = (px, py, qx, qy, rx, ry) => Math.sign((qx - px) * (ry - py) - (qy - py) * (rx - px));
+  const d1 = o(ax, ay, bx, by, cx, cy), d2 = o(ax, ay, bx, by, dx, dy), d3 = o(cx, cy, dx, dy, ax, ay), d4 = o(cx, cy, dx, dy, bx, by);
+  return d1 * d2 < 0 && d3 * d4 < 0;
 }
 /** How far a name's box is from its point, across and down. */
 const near2 = (b, p) => [Math.max(b[0] - p.x, 0, p.x - b[2]), Math.max(b[1] - p.y, 0, p.y - b[3])];
-function placeOnce(pts, fr, fs, r, avoid, first, cross = [], pad = 0) {
-  // (A point keeps every name 6 px clear of its ring: its radius, its 1.5 px outline and the gap.)
-  const boxes = [...pts.map((p) => [p.x - r - 8, p.y - r - 8, p.x + r + 8, p.y + r + 8]), ...avoid];
-  const lh = fs * 1.2, gap = r + 8;
+function placeOnce(pts, fr, fs, r, avoid, first, cross = [], pad = 0, strict = true, tight = false) {
+  // (A point keeps every name 6 px clear of its ring: its radius, its 1.5 px outline and the gap; tight, the last try of a full plot: 2 px.)
+  const clear = tight ? 4 : 8, fs0 = fs;
+  if (tight) fs = Math.max(12, fs * 0.82);   // (and the words a size smaller, never under 12 px)
+  const boxes = [...pts.map((p) => [p.x - r - clear, p.y - r - clear, p.x + r + clear, p.y + r + clear]), ...avoid];
+  const lh = fs * 1.2, gap = r + clear;
   const meets = (b, o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1];
   const hit = (b) => boxes.some((o) => meets(b, o));
   // (Sitting across: clear of everything but the cut-off lines it may cross.)
@@ -459,6 +562,7 @@ function placeOnce(pts, fr, fs, r, avoid, first, cross = [], pad = 0) {
   const inside = (b) => b[0] >= fr.L + 2 && b[2] <= fr.R - 2 && b[1] >= fr.T && b[3] <= fr.B - 2;
   // (The lines among the boxes to avoid: a name beside its point stays on the point's side of each one.)
   const cutLines = avoid.filter((o) => Math.min(o[2] - o[0], o[3] - o[1]) <= 8);
+  const labelBoxes = avoid.filter((o) => Math.min(o[2] - o[0], o[3] - o[1]) > 8 && !cross.includes(o));
   // (Judged from the line itself, not its 4 px band: a point a hair off a cut-off still keeps its name on its own side.)
   const sameSide = (b, p) => cutLines.every((o) => {
     if (o[3] - o[1] > o[2] - o[0]) return b[3] <= o[1] || b[1] >= o[3] || (p.x < (o[0] + o[2]) / 2 ? b[2] <= o[0] : b[0] >= o[2]);
@@ -472,6 +576,8 @@ function placeOnce(pts, fr, fs, r, avoid, first, cross = [], pad = 0) {
     // (The name on one line, then broken into narrower and narrower columns, so it can sit beside its point between two lines.)
     const full = [[p.name], ...[Math.max(60, (fr.R - fr.L) / 3), 8 * fs, 6 * fs, 4 * fs].map((w) => fitWords(p.name, w, fs, 3))].filter(Boolean)
       .filter((ls, k, all) => all.findIndex((o) => o.join('\n') === ls.join('\n')) === k);
+    // (The short name, too, on one line and then broken: "Cirrhosis + meal" beside a crowded phone's points as two short lines.)
+    const shorts = p.short ? [[p.short], ...[8 * fs, 5 * fs].map((w) => fitWords(p.short, w, fs, 3))].filter(Boolean).filter((ls, k, all) => all.findIndex((o) => o.join('\n') === ls.join('\n')) === k) : null;
     // (over: the lines it may sit across are no bar, and the place crossing the fewest wins.)
     // (own: the name sits nearer its own point than any other, by 10 px, so two points close together never swap names.)
     const owns = (b) => pts.every((q) => q === p || Math.hypot(...near2(b, q)) >= Math.hypot(...near2(b, p)) + 10);
@@ -514,6 +620,9 @@ function placeOnce(pts, fr, fs, r, avoid, first, cross = [], pad = 0) {
             if ((best && d >= best.d) || (over ? hitBut(b) : hit(b))) continue;
             if (pts.some((q) => q !== p && crosses(p.x, p.y, lx, ly, [q.x - r - 2, q.y - r - 2, q.x + r + 2, q.y + r + 2]))) continue;
             if (named.some((o) => crosses(p.x, p.y, lx, ly, o))) continue;
+            // (15 and B22, play-test 16 Nov 2026: leaders crossed the lines' own names ("R = 8") and each other. A leader crosses no word box of the plot (a line's name, a zone's words) and no other leader: as the callouts' leaders, 9719188b.)
+            if (strict && labelBoxes.some((o) => crosses(p.x, p.y, lx, ly, o))) continue;
+            if (strict && out.some((o, j) => o?.lead && segsCross(p.x, p.y, lx, ly, pts[j].x, pts[j].y, o.lead[0], o.lead[1]))) continue;
             // (A leader across a cut-off counts against it, so a name stays on its point's side of the line if it can, and
             // crosses as few lines as it must when it cannot.)
             const dd = d + 2 * fs * cutLines.filter((o) => crosses(p.x, p.y, lx, ly, o)).length;
@@ -532,11 +641,11 @@ function placeOnce(pts, fr, fs, r, avoid, first, cross = [], pad = 0) {
     // (With another point close by, the name goes where it is plainly its own: the whole name on one line, else its short name
     // beside the point, else the name broken into lines, each before the places that sit as near another point.)
     const crowded = near(p) > 0;
-    let done = beside(crowded ? [[p.name]] : full, false, true) || (crowded && p.short ? beside([[p.short]], false, true) : null) || (crowded ? beside(full, false, true) : null) || beside(full);
+    let done = beside(crowded ? [[p.name]] : full, false, true) || (crowded && p.short ? beside(shorts, false, true) : null) || (crowded ? beside(full, false, true) : null) || beside(full);
     if (!done) {
-      const sh = p.short ? beside([[p.short]]) : null, far = away(full);
-      const shFar = !sh && p.short ? away([[p.short]]) : null;
-      const over = !sh && cross.length && (!far || far.d > fs) ? beside(full, true) || (p.short ? beside([[p.short]], true) : null) : null;
+      const sh = p.short ? beside(shorts) : null, far = away(full);
+      const shFar = !sh && p.short ? away(shorts) : null;
+      const over = !sh && cross.length && (!far || far.d > fs) ? beside(full, true) || (p.short ? beside(shorts, true) : null) : null;
       // (Out on a line, the name may sit across a cut-off where that brings it much nearer.)
       const farOver = !sh && !over && cross.length && (!far || far.d > fs) ? away(full, true) : null;
 
@@ -546,6 +655,7 @@ function placeOnce(pts, fr, fs, r, avoid, first, cross = [], pad = 0) {
     if (done) boxes.push(pad ? [done.box[0] - pad, done.box[1] - pad, done.box[2] + pad, done.box[3] + pad] : done.box), named.push(done.box);
     out[i] = done;
   }
+  if (fs !== fs0) for (const o of out) if (o) o.fs = fs;
   return out;
 }
 /** A summary's point radius on a plot with axes: 8 px, or less where two points lie close (an iPhone's: Schistosomiasis and a clot are 1.2 mmHg
@@ -567,6 +677,7 @@ export const zoneRect = (pl, z) => {
  *  names them; with no key (pl.key === false, the summary) they search the whole zone, so every zone keeps its words. */
 export function placeZoneWords(pl, fr, X, Y, fs, used, dots, card = false, only = null, choose = null) {
   const out = [], taken = [...used], lh = fs * 1.2, noKey = (pl.key === false || pl.key === 'never') && !card;
+  if (pl.noWords) return out;   // (a plane whose legend names its zones writes no words on the plot)
   const words = (z, cls) => {
     const [x0, x1, y0, y1] = zoneRect(pl, z), wpx = Math.min(X(x1), fr.R) - Math.max(X(x0), fr.L) - 12;
     // (A zone listed earlier lies over this one's rectangle, so its words keep out of it.)
@@ -632,6 +743,12 @@ export function wasAt(pl, from, X, Y) {
   return Number.isFinite(f[pl.x.key]) && Number.isFinite(f[pl.y.key]) ? { x: X(f[pl.x.key]), y: Y(f[pl.y.key]) } : null;
 }
 /** The boxes words keep clear of along a point's way from where it started: the ring and the line (every 6 px, 4 px either side). */
+/** A leader from point p to its name's edge lead ([x, y]) as thin boxes (every 6 px, 2 px either side) the rays' names keep clear of. */
+export function leadBoxes(p, lead) {
+  const out = [], n = Math.max(1, Math.ceil(Math.hypot(lead[0] - p.x, lead[1] - p.y) / 6));
+  for (let i = 1; i < n; i++) { const x = p.x + (lead[0] - p.x) * i / n, y = p.y + (lead[1] - p.y) * i / n; out.push([x - 2, y - 2, x + 2, y + 2]); }
+  return out;
+}
 export function wasBoxes(p) {
   if (!p.was) return [];
   const out = [[p.was.x - 10, p.was.y - 10, p.was.x + 10, p.was.y + 10]], n = Math.max(1, Math.ceil(Math.hypot(p.x - p.was.x, p.y - p.was.y) / 6));
@@ -698,6 +815,7 @@ export function dotBoxes(at, from, R) {
 export function placeCardWords(pl, fr, X, Y, fs, avoid = []) {
   // (o: a box [x0, y0, x1, y1], or a circle [x, y, r] the box must keep out of.)
   const rules = lineBoxes(pl, X, Y, fr, fs), out = [];
+  if (pl.noWords) return out;   // (the legend names the zones, not the plot)
   const hit = (b, o) => (o.length === 3 ? Math.hypot(Math.max(b[0] - o[0], 0, o[0] - b[2]), Math.max(b[1] - o[1], 0, o[1] - b[3])) < o[2] : b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]);
   const sizes = [fs, ...[fs - 1, fs - 2, 12].filter((v, i, a) => v >= 12 && v < fs && a.indexOf(v) === i)];
   for (const z of pl.zones) {
@@ -786,10 +904,11 @@ const unitOf = (k) => TILE[k]?.u || '';
 
 /** The plot itself: an element whose CSS gives it a size; draw(points, ring) redraws it at that size.
  *  points: [{ f, from?, name, site }] (from: where the patient started, drawn as a ring with a line to the point); ring: the case's fingerprint or null. */
-export function planePlot(pl, { card = false } = {}) {
+export function planePlot(plane, { card = false } = {}) {
+  let pl = plane;   // (a summary with fit: true redraws on axes cut to its points, set())
   // (pze-axes from the start, so the plot has its size, which a scatter's axes need more of, before it is drawn.)
   const axes = !card && hasAxes(pl);
-  const el = h('div', { class: 'pze-plot' + (card ? ' pze-incard' : '') + (card && pl.key === 'never' ? ' pze-ownwords' : '') + (axes ? ' pze-axes' : ''), role: 'img' });
+  const el = h('div', { class: 'pze-plot' + (card ? ' pze-incard' : '') + (card && pl.key === 'never' ? ' pze-ownwords' : '') + (axes ? ' pze-axes' : '') + (pl.compact ? ' pze-short' : ''), role: 'img' });
   const svg = sv('svg', { class: 'pze-plane', 'aria-hidden': 'true', 'data-axes': axes ? 'on' : null });   // (the scatter's plot gives its halos and fills the panel's own tone: chart-looks/plane.js)
   // (The drawing redraws in base; the card's zone words and its dot stay the same elements, so they ease from where they were.)
   const halo = sv('circle', { class: 'pze-halo', 'data-look': 'plane.halo' }), dot = sv('circle', { class: 'pze-dot', 'data-look': 'plane.dot' });
@@ -834,6 +953,9 @@ export function planePlot(pl, { card = false } = {}) {
     const key = `${size}|${fs}|${ptsVer}|${rg ? ringKeys.map((k) => rg[k]).join(',') : '-'}|${sizeWas}|${was ? `${was.x},${was.y}` : '-'}|${stops.length ? stops.map((s) => `${s.f[pl.x.key]},${s.f[pl.y.key]},${s.name}`).join(';') : ''}`;
     if (key === drawn) return;
     drawn = key;
+    // (Marks the screen report reads, selfcheck/chart-reader.js: the keys of the axes, and whether they are cut to the points plotted.)
+    svg.setAttribute('data-xk', pl.x.key); svg.setAttribute('data-yk', pl.y.key);
+    svg.setAttribute('data-fit', pl.fit && !card ? 'on' : 'off');
     // (A scatter, a plane with no zones, draws axes of its own on a panel: hasAxes.)
     const axed = !card && hasAxes(pl), fr = axed ? axesFrame(pl, W, H, fs) : frame(W, H), { X, Y } = scaler(pl, fr);
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
@@ -881,7 +1003,8 @@ export function planePlot(pl, { card = false } = {}) {
     for (const l of lines) kids.push(sv('text', { class: 'pze-ln', 'data-look': 'plane.ln', x: l.x, y: l.y, 'text-anchor': l.anchor, 'font-size': fs }, l.text));
     const dg = diagOf(pl, X, Y, fs);
     if (dg) kids.push(sv('line', { class: 'pze-diag', 'data-look': 'plane.diag', ...dg.seg }), dg.label ? sv('text', { class: 'pze-dt', 'data-look': 'plane.dt', x: dg.label.x, y: dg.label.y, 'text-anchor': dg.label.anchor, 'font-size': fs }, dg.label.text) : null);
-    const io = isoOf(pl, X, Y, fr, fs);
+    // (The rays' names last: everything else on the plot, its points, names, leaders, words and numbers, has its place first and they find room round it.)
+    const io = isoOf(pl, X, Y, fr, fs, [...pointBoxes, ...names.flatMap((n, i) => (n ? [n.box, ...(n.lead ? leadBoxes(at[i], n.lead) : [])] : [])), ...words.map((w) => w.box), ...lines.map((l) => l.box), ...nums.map((n) => n.box)]);
     if (io) for (const l of io.lines) kids.push(sv('line', { class: 'pze-iso', 'data-look': 'plane.iso', ...l.seg }), sv('text', { class: 'pze-isot', 'data-look': 'plane.isot', x: l.label.x, y: l.label.y, 'text-anchor': l.label.anchor, 'font-size': fs }, l.label.text));
     // The axes: their lines and ticks over the diagonal's start, the numbers and names beside them.
     if (ax) for (const l of [...ax.axes, ...ax.ticks]) kids.push(sv('line', { class: 'pze-axis', 'data-look': 'plane.axis', ...l }));
@@ -893,7 +1016,7 @@ export function planePlot(pl, { card = false } = {}) {
       kids.push(sv('g', { class: 'pze-pt', 'data-site': p.site || 'none', style: `--i:${i}` }, p.was ? sv('line', { class: 'pze-path', 'data-look': 'plane.path', x1: p.was.x, y1: p.was.y, x2: p.x, y2: p.y }) : null,
         p.was ? sv('circle', { class: 'pze-was', 'data-look': 'plane.was', cx: p.was.x, cy: p.was.y, r: 6 }) : null,
         n?.lead ? sv('line', { class: 'pze-lead', 'data-look': 'plane.lead', x1: p.x, y1: p.y, x2: n.lead[0], y2: n.lead[1] }) : null, sv('circle', { 'data-look': 'plane.pt.dot', cx: p.x, cy: p.y, r: pr }),
-        n ? sv('text', { 'data-look': 'plane.pt.name', x: n.x, y: n.y, 'text-anchor': n.anchor, 'font-size': fs }, n.lines.map((l, j) => sv('tspan', { x: n.x, dy: j ? fs * 1.2 : null }, l))) : null));
+        n ? sv('text', { 'data-look': 'plane.pt.name', x: n.x, y: n.y, 'text-anchor': n.anchor, 'font-size': n.fs ?? fs }, n.lines.map((l, j) => sv('tspan', { x: n.x, dy: j ? (n.fs ?? fs) * 1.2 : null }, l))) : null));
     });
     // The slide's case: a dot in proportion to the plot, a gap in the card's colour around it, that eases from where it was (a
     // transform, so Safari eases it too).
@@ -904,6 +1027,7 @@ export function planePlot(pl, { card = false } = {}) {
       const sx = now.x.toFixed(1), sy = now.y.toFixed(1), to = { x: +sx, y: +sy };
       if (!dotGo || dotGo.tx !== to.x || dotGo.ty !== to.y) { const at = dotEased() || to; dotGo = { fx: at.x, fy: at.y, tx: to.x, ty: to.y, t0: easeNow() }; }
       ringG.style.transform = `translate(${sx}px, ${sy}px)`;
+      ringG.setAttribute('data-v', `${pl.x.key}:${rg[pl.x.key]},${pl.y.key}:${rg[pl.y.key]}`);   // (the readings the dot is placed from, as the tiles print them: the screen report's number check)
       ringG.style.opacity = '1';
     } else ringG.style.opacity = '0';
     // The card's zones name themselves, clear of the dot where it stands and all along its way there.
@@ -1032,11 +1156,12 @@ export function planePlot(pl, { card = false } = {}) {
     const step = () => { paintWalk(); if (stops.length && performance.now() < followTill) follow = nextFrame(step); else follow = 0; };
     follow = nextFrame(step);
   };
-  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (`${el.clientWidth}x${el.clientHeight}` !== size) frameFor('plane plot')(draw); }).observe(el);
+  const plotRO = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (`${el.clientWidth}x${el.clientHeight}` !== size) frameFor('plane plot')(draw); }) : null;
+  plotRO?.observe(el);
   const redraw = () => { if (el.isConnected) draw(); else frameFor('plane plot')(draw); };
   return {
     el,
-    set(points, r = ring) { pts = points || []; ptsVer++; ring = r; redraw(); },
+    set(points, r = ring) { pts = points || []; ptsVer++; ring = r; if (!card) pl = fitPlane(plane, pts); redraw(); },
     ring(f) { ring = f; redraw(); followDot(); },
     /** The patient's trail: [{ f, name }] the stops before this slide, in order ([] takes it away). The dot's way starts again here. */
     trail(list) {
@@ -1046,6 +1171,8 @@ export function planePlot(pl, { card = false } = {}) {
       drawn = '';
       redraw(); followDot();
     },
+    /** The plot is let go (its card replaced or closed): its size observer, the dot's follow and its picture's GPU context. */
+    dispose() { plotRO?.disconnect(); cancelFrame(follow); follow = 0; gl.dispose(); },
   };
 }
 
@@ -1077,8 +1204,9 @@ export function planeVisual(s, ctx, rowsFp) {
   if (!pl) return null;
   const plot = planePlot(pl);
   // (key: false hides it but on an iPhone, app.css; key: 'never' leaves only the source line under the plot.)
-  const wrap = h('div', { class: 'pz-visual pze-planewrap' + (pl.key === false || pl.key === 'never' ? ' pze-nokey' : '') }, plot.el,
-    pl.key === 'never' ? (pl.source ? h('p', { class: 'pze-src' }, pl.source) : null) : planeKey(pl));
+  // (noWords: the legend under the plot, as the card's, takes the zones' names the plot no longer writes.)
+  const wrap = h('div', { class: 'pz-visual pze-planewrap' + (pl.key === false || pl.key === 'never' || pl.noWords ? ' pze-nokey' : '') }, plot.el,
+    pl.noWords ? planeCardKey(pl) : pl.key === 'never' ? (pl.source ? h('p', { class: 'pze-src' }, pl.source) : null) : planeKey(pl));
   rowsFp(s, ctx, (rows) => plot.set(rows.map((r) => ({ f: r.f, from: r.from, name: r.name, short: r.short, site: r.site }))));
   return wrap;
 }
@@ -1107,6 +1235,7 @@ export function createPlaneTool() {
       if (!(k === sig && plot)) {
         sig = k; pl = p; had = '';
         if (!pl) { el.replaceChildren(); plot = null; return; }
+        plot?.dispose();   // (the plot the last slide's plane drew: its GPU context goes with it)
         plot = planePlot(pl, { card: true });
         el.replaceChildren(...[plot.el, pl.key === 'never' ? null : planeCardKey(pl), pl.hatchOf ? hatchKey() : null, read].filter(Boolean));
         if (last) this.pin(last);
@@ -1122,5 +1251,6 @@ export function createPlaneTool() {
       if (read.textContent !== t) read.textContent = t;
     },
     clear() { last = null; },
+    dispose() { plot?.dispose(); plot = null; },
   };
 }

@@ -8,7 +8,8 @@
 
 import { COLON_D, COLON_RING, BOWEL_RING, DUO_D } from './organ-art.js';
 import { gutPath, gutY } from './gut-proportions.js';
-import { HVPG_CUTS, PPG_CUTS } from '../engine/pressure-cuts.js';
+import { hvpgSev, ppgSev } from '../engine/pressure-cuts.js';
+import { EDGES, JUNCTIONS, JUNCTION_HOST_ENDS, JUNCTION_PIECES } from '../engine/topology.js';
 
 export const VIEW = { w: 1400, h: 1000 };
 // Where the rectum's end fades away (y: clear above the first, gone at the second): the colon's mask (stage.js rectFade) and the
@@ -53,6 +54,17 @@ export const CAUDATE = {
   outline: 'M573.0 401.0 C571.7 395.7 573.1 389.5 573.2 383.7 C573.3 377.9 573.3 372.2 573.4 366.4 C573.5 360.6 573.4 354.9 573.6 349.1 C573.7 343.3 573.7 337.5 574.4 331.8 C575.0 326.1 575.6 320.1 577.4 314.8 C579.3 309.5 581.9 301.5 585.6 299.9 C589.4 298.2 596.3 301.5 599.9 304.9 C603.6 308.3 605.4 315.1 607.3 320.5 C609.2 325.9 610.4 331.6 611.5 337.3 C612.6 342.9 613.3 348.7 613.8 354.4 C614.3 360.2 614.5 365.9 614.4 371.7 C614.2 377.5 614.0 383.3 613.1 388.9 C612.2 394.6 611.6 400.9 609.1 405.7 C606.5 410.6 602.7 416.2 598.0 417.9 C593.3 419.5 585.1 418.3 581.0 415.4 C576.8 412.6 574.3 406.3 573.0 401.0 Z',
   arrows: [[594, 297, 594, 281], [590, 418, 590, 434]],
 };
+/** The plate box (world units) the caudate lobe fills at its fullest (grown about its anchor, as Budd–Chiari grows it) with its enlargement
+ *  arrows: what a camera frames for a slide that shows it, so the lobe is never cut off at the frame's edge. */
+export function caudateBox() {
+  const n = CAUDATE.outline.match(/-?\d+(?:\.\d+)?/g).map(Number), [ax, ay] = CAUDATE.anchor, [gx, gy] = CAUDATE.grow;
+  const xs = [], ys = [];
+  for (let i = 0; i + 1 < n.length; i += 2) { xs.push(ax + (n[i] - ax) * (1 + gx)); ys.push(ay + (n[i + 1] - ay) * (1 + gy)); }
+  for (const [x1, y1, x2, y2] of CAUDATE.arrows) { xs.push(x1, x2); ys.push(y1, y2); }
+  return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+}
+/** The caudate lobe's box when a slide's organs include it ('caudate' or 'caudate-lobe'), else null: the lobe is no outlined organ, so stage.focusBox takes its frame from here. */
+export const caudateFocus = (organs) => (organs.includes('caudate') || organs.includes('caudate-lobe') ? caudateBox() : null);
 export const HIDDEN_NODES = new Set(['AO', 'UPPV', 'LOWV', 'KID_R', 'RRV', 'SVD']);
 // Systemic veins drawn quietly: they matter only as the places collaterals drain to.
 export const CONTEXT_EDGES = new Set(['V_UP', 'SVC_RA', 'AZY_SVC', 'ILI_IVC', 'EPI_ILI', 'EPI_SVC', 'V_KID_L', 'LRV_IVC']);
@@ -134,7 +146,7 @@ export const EDGE_PATH = {
   // artery's course, so the GPU joins it there as a branch (vein-joins.js: an end on a course); its end lies under the vein, which
   // is drawn over the artery tier. (They used to copy the artery's run and hook into the vein at a right angle: a parallel stub
   // with a square elbow, 6 Nov.)
-  AP_R: 'M583.4 422.3 C 576 412 560 432 552 420.8',
+  AP_R: 'M583.4 422.3 C 576 426 590 430 582.3 433.8',   // (a short bridge from the right hepatic artery to the right portal vein beside it, where the artery lies 11 units above it: JUNCTIONS RPV_A, 0.2 along the vein, before the TIPS leaves it)
   AP_L: 'M642.4 424.7 C 654 426 640 400 656.8 400.4',
   A_HL: 'M621 443.5 L627.2 436.2 L634.8 430.4 L642.4 424.7 L649.9 419.1 L657.4 413.6 L664.8 408.2 L672.2 402.8 L679.6 397.5 L687 392.2 L694.4 387',
 
@@ -173,7 +185,7 @@ export const EDGE_PATH = {
   // The hepatic veins enter the cava's side wall at three heights, below the node where its two
   // halves meet, so that join is a clean run-on, not a knot of five ends.
   RHV_IVC: 'M500 246 C 545 240 590 232 616 206',
-  MHV_IVC: 'M548 282 C 575 272 600 256 615 230',
+  MHV_IVC: 'M548 282 C 575 272 601 256 616.6 230',   // (its end 1.6 inside the cava's axis since the cava is cut at the DIPS's junction and each piece meanders on its own: the end stays inside the wall)
   // (It meets the cava higher than the right hepatic vein, 21 units from its end. At 11 apart the two were joined as one vein
   // and their round ends met across the cava in a bar: a join takes every end of a node within 20 units of another, vein-joins.js.)
   // The left vein's end lies 3 units off the cava's axis, inside its wall at every caliber: it ended at 630 (10.5 off), which a clotted
@@ -278,6 +290,24 @@ export const EDGE_PATH = {
   REX: 'M690 660 C 724 646 756 604 758 550 C 760 496 742 436 688 378',
 };
 
+// The cavernoma's channels besides its main channel (the C8 course, 10.5 to the patient's right of the clot), on both sides of the clotted trunk (17 Nov 2026, Mohammad, the "T3" mock: "both sides and
+// curved", "connect in different locations proximally and distally", recruitment = how many vessels and how wide). In the frame of the trunk's drawn course (cavernoma-strand.js): `v` the
+// offset from its centreline (+ the patient's right, - the hepatic artery's side), `amp`/`cyc`/`ph` the wave about it (amplitude, cycles along the channel, phase; neighbours take opposite
+// phases so a pair draws together and parts, a braid, and none crosses another), `a` and `z` where it leaves the trunk, units above the confluence, and where it rejoins it, units
+// below the hilum (each its own, so the joins are spread along both stumps: on each side the farther channel leaves and rejoins the trunk nearer its node than the one inside it, so they nest and never cross; the strands' ends are kept out of the node's own join, vein-joins.js, and lie on the trunk's course; every end lies on the patent vein beyond the clot, which spans 0.18 to 0.82 of the trunk at full occlusion (clotSpan), so no end is nearer its node than 9 or farther than 24.6, and tests/cavernoma-plexus.test.js keeps them 2.2 apart), `ramp` the units over which it rises to its offset and falls back (a farther one over more, so its elbows are as gentle), `k` its caliber as a share of the main channel's, `r0` the recruitment it begins to appear at (it grows in, whole and joined
+// at both ends, over CAV_GROW of the recruitment: first the main channel, then the lane beside the artery, then the rest).
+// The channels on the artery's side beyond the artery (v < -12) cross it where they leave and rejoin the trunk; the fine one nearest the trunk stays in the lane between the clot and the artery.
+export const CAV_GROW = 0.28;
+export const CAV_CHANNELS = {
+  C8: [
+    { v: -6.5, amp: 0, cyc: 0, ph: 0, a: 24.4, z: 24.4, k: 0.5, r0: 0.04, ramp: 17 },
+    { v: 21, amp: 3.2, cyc: 1.9, ph: 0, a: 19.4, z: 17, k: 0.78, r0: 0.1, ramp: 26 },
+    { v: -22, amp: 3, cyc: 1.7, ph: Math.PI, a: 16.8, z: 19.6, k: 0.68, r0: 0.22, ramp: 27 },
+    { v: 31, amp: 3.2, cyc: 1.9, ph: Math.PI, a: 14.2, z: 12.2, k: 0.66, r0: 0.35, ramp: 33 },
+    { v: -31.5, amp: 3, cyc: 1.7, ph: 0, a: 11.6, z: 14.4, k: 0.57, r0: 0.52, ramp: 33 },
+    { v: 41, amp: 3, cyc: 1.9, ph: 0, a: 9, z: 9, k: 0.57, r0: 0.6, ramp: 40 },
+  ],
+};
 // Collateral plexuses: a collateral is rarely one clean vein. The periportal collateral of a
 // cavernous transformation is a braid of small, tortuous channels around the occluded trunk,
 // and the varices are fed and drained the same way: the coronary vein reaches the esophageal
@@ -287,12 +317,9 @@ export const EDGE_PATH = {
 // large vein, not a plexus.) In the anatomic view these get extra strands that leave and rejoin
 // the vessel: [lateral offset at mid-course, serpentine phase, caliber fraction].
 export const STRANDS = {
-  // (The cavernoma's strands keep the main channel's plateau (STRAND_PLATEAU): [offset from the main channel, 1 to ride its serpentine or 0 to keep
-  // the trunk's course, caliber]. The main channel lies 10.5 to the patient's right of the clotted trunk. The first strand runs on the left of the
-  // trunk, 7.6 off its centreline: the hepatic artery hugs the trunk there, 12 off it, and leaves room only for a fine channel on the trunk's own
-  // course, between the vein's wall and the artery's. The second lies outside the main channel, 18.5 right, and rides its serpentine. First listed
-  // grows in first.)
-  C8: [[17.1, 0, 0.5], [17.1, 0, 0.5], [-9, 1, 0.7], [-18, 1, 0.6], [-27, 1, 0.5]],
+  // (The cavernoma's channels are CAV_CHANNELS, drawn in the frame of the clotted trunk by cavernoma-strand.js; this row of each is [offset from the trunk's centreline, 0, caliber] so the stage
+  // makes one strand for each, with its caliber.)
+  C8: CAV_CHANNELS.C8.map((c) => [c.v, 0, c.k]),
   C1a: [[-9, 0.7, 0.55], [-4.5, 3.3, 0.6], [0.5, 5.1, 0.5], [5, 1.9, 0.6], [9.5, 4.6, 0.5]],
   C2: [[-22, 4.1, 0.45], [-11, 1.4, 0.55], [10, 2.9, 0.55], [21, 0.4, 0.42]],
   C4: [[-9, 0.9, 0.55], [-4.5, 3.6, 0.6], [0.5, 5.3, 0.5], [5, 2.1, 0.6], [9.5, 4.4, 0.5]],
@@ -313,23 +340,27 @@ export const STRAND_SOFT = new Set(['C8']);
 // The strands that keep their main channel's own plateau instead (the cavernoma): each lies at its offset times the plateau, which rises and falls over
 // this share of the course at each end, as the main channel's course does, and rides the main channel's serpentine, so no two channels ever cross
 // (13 Nov 2026, Mohammad's shot of 257136bf: strands on their own waves crossed in X's, and ended in the hilum's node in a torn patch).
-export const STRAND_PLATEAU = { C8: 0.169 };
+export const STRAND_PLATEAU = {};   // (none now: the cavernoma's channels are drawn in the trunk's frame, CAV_CHANNELS)
 // The cavernoma's serpentine is gentle: its channels lie a few units from the clot, the hepatic artery and each other.
-// The two halves of the fine channel on the hepatic artery's side (the first two strands of C8): each runs from an open stump to a point 4.5 units back along the
-// coronary vein's last stretch (0.365 of the chord, 14.13 off the main channel's chord: 3.6 past the trunk's centreline) and ends there, under the vein, which is drawn
-// over it: the vein meets the fine channel as a T from each side and crosses nothing, and no end of either half is seen.
-// [from, to, offset at the end, share of the chord over which it eases onto that offset].
-export const STRAND_TIE = { C8: [[0, 0.365, 14.13, 0.05], [0.365, 1, 14.13, 0.05]] };
 export const WIG_CAP = { C8: 2.4 };
-// The cavernoma's strands wind about their course and part and meet again (a network that anastomoses, not parallel tubes): [amplitude, cycles along the
+// The cavernoma's strands may wind about their course (none does now: the one strand lies in the narrow lane between the clot and the artery): [amplitude, cycles along the
 // course, phase, and the share of the course over which it rises to its offset (the same for all, so a farther channel is never overtaken by a nearer one while they swing out)], one row per strand of STRANDS, added to the strand's offset inside its plateau (so each still leaves and rejoins the open stumps on the
 // main channel's ends). Neighbours take opposite phases, so a pair draws together and parts as the next pair does: a braid, and no two centre lines meet
 // (tests/cavernoma-plexus.test.js keeps their gap). 13 Nov 2026, Mohammad: more collaterals, smooth and winding, not straight tubes.
-export const STRAND_WAVE = { C8: [[0, 0, 0], [0, 0, 0], [3.2, 2.5, 0, 0.32], [3.2, 2.5, Math.PI, 0.32], [3.2, 2.5, 0, 0.32]] };
+export const STRAND_WAVE = {};   // (none now: the cavernoma's channels wind by CAV_CHANNELS)
 // The vessels whose ends are drawn onto another vessel's course and may join only those courses (the vessels' own strands aside): the cavernoma's two ends
 // lie on the open stumps of the portal trunk, and its upper end lies over the IVC in the picture, which it must not be joined to (it was cut into the cava
 // there, a torn gap beside the stump: 13 Nov 2026).
-export const END_HOSTS = { C8: ['PV_TRUNK'] };
+export const END_HOSTS = { C8: ['PV_TRUNK_1', 'PV_TRUNK'] };   // (the trunk is cut where the coronary vein joins it: topology.js JUNCTIONS)
+// The vessels no other vessel's end may join: they are passed over and passed under, never opened into. The cavernoma's channels run beside the coronary vein's last stretch
+// and the vein's end lay within the join reach of them, so it was joined to a channel (a fillet, a shared lumen: "the cavernoma connects to the coronary vein", 13 Nov 2026).
+// The cavernoma's own ends join the trunk, as END_HOSTS says; and that is all that joins it.
+export const JOIN_REFUSED = new Set(['C8']);
+// The Meso-Rex bypass (REX) crosses these vessels part-way along them, in the anatomy (the splenic vein's last stretch, the coronary vein) and in the circuit (the
+// portocaval shunt's column), and is joined to none of them: it passes UNDER them (17 Nov 2026, Mohammad: "it should go under the splenic vein"). Two vessels in one
+// tier merge where they cross (the taller lumen wins, no outline between them), so these are drawn one tier above the bypass while it is shown (stage.js levelTier).
+// tests/rex-under.test.js finds every crossing of the bypass in the drawn courses and fails one that is not listed here (or lies in a tier of its own).
+export const REX_UNDER = new Set(['SV_CONF', 'LGV_CONF', 'S_PC']);
 export const STRAND_HOLD = 0.1;   // (and they hold to it, their serpentine too, for the first and last tenth: all the ends at a node leave it as one)
 // Where along the vessel (0–1) the strands leave the main channel; before it the vessel is one.
 export const STRAND_FROM = { C2: 0.5, C1a: 0.22, C4: 0.68, C7: 0.2 };
@@ -417,12 +448,12 @@ export const CIRCUIT_PATH = {
   A_HL: 'M774 345 L 786 357 L 800 357',
   // The arterioportal shunts leave the artery's run and rise (or drop) into the first portal venules, beside the inflow stubs.
   // (Rounded at their bends as every other line of the map is: route(), not bare square corners.)
-  AP_R: route([[700, 345], [700, 321], [682, 303]], 10),
-  AP_L: route([[700, 345], [700, 369], [682, 387]], 10),
+  AP_R: route([[700, 345], [700, 325], [662, 325], [640, 303]], 10),   // (ends on the right portal vein's junction, JUNCTION_CIRCUIT RPV_A)
+  AP_L: route([[700, 345], [700, 365], [672, 365], [650, 387]], 10),   // (ends on the left portal vein's junction, JUNCTION_CIRCUIT LPV_A)
   // TIPS: leaves the right portal vein straight up, crosses the top of the liver in a lane of its
   // own (clear of the right lobe's lane and of the right hepatic vein's last stretch, which it
   // used to run on top of) and drops into the right hepatic vein from above.
-  TIPS: route([[680, 303], [680, 246], [1000, 246], [1000, 282]], 36),
+  TIPS: route([[660, 303], [660, 246], [1020, 246], [1020, 282]], 36),   // (from the TIPS's two junctions, JUNCTION_CIRCUIT: on the right portal vein 20 before its end, on the right hepatic vein 20 after its start)
   // DIPS: leaves the proximal right portal vein at the portal bifurcation (PVH), rises to a lane of its own just
   // above the TIPS lane (below the esophageal route and clear of the SVC), then slants down past the hepatic veins and turns in
   // to the IVC downstream of them (just above IVCI).
@@ -433,7 +464,7 @@ export const CIRCUIT_PATH = {
   PVH_L: route([[580, 345], [622, 387], [680, 387]], 12),
   // The left gastric vein drops into the confluence from above, clear of the splenic vein's
   // diagonal (a plain 45° route would run on top of it for its last stretch).
-  LGV_CONF: route([[320, 191], [446, 191], [480, 225], [480, 345]], 14),
+  LGV_CONF: route([[320, 191], [486, 191], [520, 225], [520, 345]], 14),   // (joins the portal trunk 0.43 along it, JUNCTION_CIRCUIT PVT_L)
   POST_R_RHV: route([[900, 303], [921, 282], [1000, 282]], 10),
   POST_L_LHV: route([[900, 387], [921, 408], [1000, 408]], 10),
   // esophageal and gastric route, above the spine
@@ -455,14 +486,14 @@ export const CIRCUIT_PATH = {
   // it ran 16 below the portal vein's first stretch for 100 units. 11 Nov 2026.)
   REX: route([[320, 394], [346, 420], [648, 420], [680, 388]], 14),
   // The splenorenal shunts leave the splenic vein midway (SVD), left of the IMV's junction.
-  C6: route([[200, 261], [200, 510], [970, 510], [1000, 540]], 16),
+  C6: route([[200, 261], [200, 510], [930, 510], [960, 540]], 16),   // (ends on the renal venules' junction, JUNCTION_CIRCUIT LRV_S)
   // (Its column is 30 left of the spontaneous shunt's: both ran 16 apart for 250 units. 11 Nov 2026.)
-  S_DSR: route([[200, 261], [170, 291], [170, 570], [970, 570], [1000, 540]], 16),
-  C7: route([[320, 394], [320, 600], [1120, 600]], 24),
+  S_DSR: route([[200, 261], [170, 291], [170, 570], [930, 570], [960, 540]], 16),
+  C7: route([[290, 394], [290, 600], [1120, 600]], 24),   // (leaves the small-bowel veins at their junction, JUNCTION_CIRCUIT SMV_R)
   C3: route([[680, 387], [680, 640], [960, 640]], 24),
   C4: route([[240, 310], [240, 670], [1090, 670], [1120, 640]]),
   C5: route([[240, 121], [70, 121], [70, 700], [1000, 700], [1000, 540]]),
-  EPI_SVC: route([[960, 640], [960, 730], [1330, 730], [1330, 205], [1250, 205]]),
+  EPI_SVC: route([[960, 640], [960, 730], [1330, 730], [1330, 265], [1250, 265]]),   // (joins the superior vena cava 0.43 along it, JUNCTION_CIRCUIT SVC_E)
   C9: route([[1120, 478], [1175, 478], [1175, 250], [1130, 205], [1120, 205]]),
 };
 
@@ -506,6 +537,108 @@ export function metroPath([x1, y1], [x2, y2]) {
   return `M${x1} ${y1} L ${hx} ${y1} L ${x2} ${y1 + Math.sign(dy) * d} L ${x2} ${y2}`;
 }
 
+// ── Veins split where a shunt or collateral joins them (topology.js JUNCTIONS) ────────────────────────────────────────────────────────────
+// A junction is a node on the vein, so the vein is two vessels in series (three where two things join it) and each is drawn from the host's own
+// course cut at the junction: the same line, the same look, only now a node sits where the stent leaves or joins it, and the blood of each piece is its own.
+// In the Circuit the junction is a point on the host's course too (JUNCTION_CIRCUIT: where the lanes that join it were drawn to).
+export const JUNCTION_CIRCUIT = { RPV_T: [660, 303], RHV_T: [1020, 282], LRV_S: [960, 540], IVC_D: [1120, 430], SMV_R: [290, 394], ILI_R: [1120, 600], SVC_E: [1250, 265], PVT_L: [520, 345], LPV_A: [650, 387], RPV_A: [640, 303] };
+const NUM = (n) => String(Math.round(n * 100) / 100);
+function pathSegs(d) {
+  const t = d.match(/[MLQC]|-?[\d.]+/g), segs = [];
+  let i = 0, cur = null;
+  while (i < t.length) {
+    const c = t[i++];
+    if (c === 'M') cur = [+t[i++], +t[i++]];
+    else if (c === 'L') { const p = [+t[i++], +t[i++]]; segs.push({ c, a: cur, p: [p] }); cur = p; }
+    else if (c === 'Q') { const p1 = [+t[i++], +t[i++]], p = [+t[i++], +t[i++]]; segs.push({ c, a: cur, p: [p1, p] }); cur = p; }
+    else if (c === 'C') { const p1 = [+t[i++], +t[i++]], p2 = [+t[i++], +t[i++]], p = [+t[i++], +t[i++]]; segs.push({ c, a: cur, p: [p1, p2, p] }); cur = p; }
+  }
+  return segs;
+}
+const lerp2 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+// A segment's point at parameter t, and the two halves it splits into there (de Casteljau).
+function segSplit(seg, t) {
+  const P = [seg.a, ...seg.p];
+  if (seg.c === 'L') { const m = lerp2(P[0], P[1], t); return [{ c: 'L', a: P[0], p: [m] }, { c: 'L', a: m, p: [P[1]] }]; }
+  if (seg.c === 'Q') {
+    const a = lerp2(P[0], P[1], t), b = lerp2(P[1], P[2], t), m = lerp2(a, b, t);
+    return [{ c: 'Q', a: P[0], p: [a, m] }, { c: 'Q', a: m, p: [b, P[2]] }];
+  }
+  const a = lerp2(P[0], P[1], t), b = lerp2(P[1], P[2], t), c = lerp2(P[2], P[3], t), d = lerp2(a, b, t), e = lerp2(b, c, t), m = lerp2(d, e, t);
+  return [{ c: 'C', a: P[0], p: [a, d, m] }, { c: 'C', a: m, p: [e, c, P[3]] }];
+}
+function segPt(seg, t) { const [x] = segSplit(seg, t); return x.p[x.p.length - 1]; }
+const SUB = 24;
+function segLen(seg) { let l = 0, q = seg.a; for (let k = 1; k <= SUB; k++) { const p = segPt(seg, k / SUB); l += Math.hypot(p[0] - q[0], p[1] - q[1]); q = p; } return l; }
+const segsToD = (segs) => `M${NUM(segs[0].a[0])} ${NUM(segs[0].a[1])}` + segs.map((s) => ` ${s.c} ${s.p.map((q) => `${NUM(q[0])} ${NUM(q[1])}`).join(' ')}`).join('');
+/**
+ * The path `d` cut at `f` of its length (0 to 1): [the part before, the part after, the point]. A fraction in the course's own arc length, not in its
+ * curve parameter, so it is the same place the drawn vessel's own arc length gives.
+ */
+export function splitPathAt(d, f) {
+  const segs = pathSegs(d), lens = segs.map(segLen), total = lens.reduce((a, b) => a + b, 0);
+  let want = Math.max(0, Math.min(1, f)) * total, i = 0;
+  while (i < segs.length - 1 && want > lens[i]) { want -= lens[i]; i++; }
+  // (The parameter at the wanted arc length inside that segment, by its own sampled lengths.)
+  let acc = 0, t = 1, q = segs[i].a;
+  for (let k = 1; k <= SUB; k++) {
+    const p = segPt(segs[i], k / SUB), dl = Math.hypot(p[0] - q[0], p[1] - q[1]);
+    if (acc + dl >= want) { t = (k - 1 + (dl > 0 ? (want - acc) / dl : 0)) / SUB; break; }
+    acc += dl; q = p;
+  }
+  const [h1, h2] = segSplit(segs[i], t), pt = h1.p[h1.p.length - 1];
+  return [segsToD([...segs.slice(0, i), h1]), segsToD([h2, ...segs.slice(i + 1)]), pt];
+}
+/** The fraction of the path's length at which its nearest point to `q` lies. */
+export function pathFractionNear(d, q) {
+  const segs = pathSegs(d), lens = segs.map(segLen), total = lens.reduce((a, b) => a + b, 0);
+  let best = Infinity, at = 0, run = 0;
+  segs.forEach((seg, i) => {
+    let prev = seg.a, acc = 0;
+    for (let k = 1; k <= SUB * 4; k++) {
+      const p = segPt(seg, k / (SUB * 4)), dx = p[0] - prev[0], dy = p[1] - prev[1], l2 = dx * dx + dy * dy, u = l2 > 0 ? Math.max(0, Math.min(1, ((q[0] - prev[0]) * dx + (q[1] - prev[1]) * dy) / l2)) : 0;
+      const dd = Math.hypot(prev[0] + dx * u - q[0], prev[1] + dy * u - q[1]);
+      if (dd < best) { best = dd; at = run + acc + u * Math.sqrt(l2); }
+      acc += Math.sqrt(l2); prev = p;
+    }
+    run += lens[i];
+  });
+  return total > 0 ? at / total : 0;
+}
+{
+  // Each host cut at its junctions, in order, in both views; the junction nodes are placed on the cuts.
+  const byHost = new Map();
+  for (const j of JUNCTIONS) { if (!byHost.has(j[1])) byHost.set(j[1], []); byHost.get(j[1]).push(j); }
+  const ends = (host) => JUNCTION_HOST_ENDS[host];
+  for (const [host, list] of byHost) {
+    list.sort((a, b) => a[2] - b[2]);
+    const ids = JUNCTION_PIECES[host], [from, to] = ends(host);
+    // Anatomy: the junctions at their own fractions of the host's drawn course.
+    let rest = EDGE_PATH[host] || `M${NODE_POS[from][0][0]} ${NODE_POS[from][0][1]} L ${NODE_POS[to][0][0]} ${NODE_POS[to][0][1]}`, done = 0;
+    const anat = [], pts = [];
+    for (const j of list) { const [a, b, pt] = splitPathAt(rest, (j[2] - done) / (1 - done)); anat.push(a); pts.push(pt); rest = b; done = j[2]; }
+    anat.push(rest);
+    // Circuit: the junctions at the points the lanes that join them were drawn to, on the host's circuit course.
+    let crest = CIRCUIT_PATH[host] || metroPath(NODE_POS[from][1], NODE_POS[to][1]), cdone = 0;
+    const circ = [];
+    for (const j of list) {
+      const at = JUNCTION_CIRCUIT[j[0]], whole = pathFractionNear(crest, at), [a, b] = splitPathAt(crest, whole);
+      circ.push(a); crest = b; cdone += whole * (1 - cdone);
+    }
+    circ.push(crest);
+    ids.forEach((id, i) => { EDGE_PATH[id] = anat[i]; CIRCUIT_PATH[id] = circ[i]; });
+    list.forEach((j, i) => { NODE_POS[j[0]] = [pts[i].map((v) => Math.round(v * 10) / 10), JUNCTION_CIRCUIT[j[0]]]; HIDDEN_NODES.add(j[0]); });
+    // The sets and tables that name a vein name every piece of it.
+    for (const set of [CONTEXT_EDGES, IVC_EDGES, BACK_EDGES]) if (set.has(host)) for (const id of ids) set.add(id);
+  }
+  // A vein that fades in from its start (TIP_FADE: the share of its whole length) fades over its first piece, scaled to it.
+  for (const host of Object.keys(TIP_FADE)) if (JUNCTION_PIECES[host]?.length > 1) {
+    const [from] = ends(host), first = JUNCTION_PIECES[host].find((id) => EDGES.find((e) => e.id === id).from === from), cut = JUNCTIONS.filter((j) => j[1] === host).map((j) => j[2]).sort((a, b) => a - b)[0];
+    TIP_FADE[first] = Math.min(1, TIP_FADE[host] / cut);
+    if (first !== host) delete TIP_FADE[host];
+  }
+}
+
 // Circuit pressure zones (x0, x1 in world units), captioned along the top of the map.
 export const CIRCUIT_ZONES = [['Splanchnic beds', 60, 390], ['Portal veins', 390, 630], ['Liver · sinusoids', 630, 950], ['Hepatic veins · IVC', 950, 1185], ['Heart', 1185, 1360]];
 
@@ -533,6 +666,13 @@ export const LABEL_VESSEL = {
   RHV: 'RHV_IVC', MHV: 'MHV_IVC', LHV: 'LHV_IVC', IVCS: 'IVCS_RA', IVCI: 'IVC_IS', SVC: 'SVC_RA', AZY: 'AZY_SVC',
   LRV: 'LRV_IVC', ILI: 'ILI_IVC', VAR: 'C1a', TIPS: 'TIPS', DIPS: 'DIPS',
 };
+// A vein a shunt joins part-way is several pieces: its station's label hangs on the piece the vein's middle falls in.
+for (const [n, v] of Object.entries(LABEL_VESSEL)) {
+  const ids = JUNCTION_PIECES[v];
+  if (!(ids?.length > 1)) continue;
+  const cuts = JUNCTIONS.filter((j) => j[1] === v).map((j) => j[2]).sort((a, b) => a - b);
+  LABEL_VESSEL[n] = ids[cuts.filter((c) => c <= 0.5).length];
+}
 
 // The appendix's centre line, and its tip: the lowest point it is drawn to (the line's lowest point, sampled along its cubics,
 // plus half its widest stroke, .org-appendix.band-ao in app.css). The ascites starts below it (fluid-step.js).
@@ -636,7 +776,10 @@ export const PELVIC_C = 1072, CAVITY_LOW = 0.25 * 954 + 0.75 * PELVIC_C;
 // two outlines are written once per step when the module loads and looked up after (a frame builds no string). A value between two
 // steps lands on the nearer one (round half up, as the stage's own step does).
 const BULGE_MAX = 34;
-const flankText = (b) => `M336 470 C ${324 - b} 610 ${330 - b} 780 ${372 - b * 0.4} 954 C 470 ${PELVIC_C} 954 ${PELVIC_C} ${1052 + b * 0.4} 954 C ${1094 + b} 780 ${1100 + b} 610 1088 470`;
+// (The wall follows the bowel and colon, with a thumb's width to spare, not the ribs' width: it ran 80 units past the colon's edge, so the pool stood as a
+// bowl wider than the belly it fills, a block behind the figure. 16 Nov 2026, the play-test of constrictive pericarditis, Budd-Chiari, IVC web, SOS.)
+const FLANK_FOOT = 434, FLANK_X = [330, 392];   // (the left flank's feet, and its two control points' x at bulge 0: y 610 and 800)
+const flankText = (b) => `M336 470 C ${FLANK_X[0] - b} 610 ${FLANK_X[1] - b} 800 ${FLANK_FOOT - b * 0.4} 954 C 500 ${PELVIC_C} 924 ${PELVIC_C} ${1424 - FLANK_FOOT + b * 0.4} 954 C ${1424 - FLANK_X[1] + b} 800 ${1424 - FLANK_X[0] + b} 610 1088 470`;
 const outlineText = (b) => `M336 440 L${flankText(b).slice(1)} L1088 440 Z`;
 const FLANKS = [], OUTLINES = [];
 for (let i = 0; i <= BULGE_MAX * 2; i++) { FLANKS.push(flankText(i / 2)); OUTLINES.push(outlineText(i / 2)); }
@@ -662,8 +805,8 @@ export function cavityHalfWidthsInto(out, b, y0, h) {
   // The left half of the outline from the top of the flank down to the floor's lowest point (x 712): its flank cubic, then the
   // first half of the floor's.
   const xs = hwXs, ys = hwYs, K = HW_K;
-  for (let i = 0; i <= K; i++) { const t = i / K; xs[i] = cub(336, 324 - b, 330 - b, 372 - b * 0.4, t); ys[i] = cub(470, 610, 780, 954, t); }
-  for (let i = 1; i <= K; i++) { const t = 0.5 * i / K; xs[K + i] = cub(372 - b * 0.4, 470, 954, 1052 + b * 0.4, t); ys[K + i] = cub(954, PELVIC_C, PELVIC_C, 954, t); }
+  for (let i = 0; i <= K; i++) { const t = i / K; xs[i] = cub(336, FLANK_X[0] - b, FLANK_X[1] - b, FLANK_FOOT - b * 0.4, t); ys[i] = cub(470, 610, 800, 954, t); }
+  for (let i = 1; i <= K; i++) { const t = 0.5 * i / K; xs[K + i] = cub(FLANK_FOOT - b * 0.4, 500, 924, 1424 - FLANK_FOOT + b * 0.4, t); ys[K + i] = cub(954, PELVIC_C, PELVIC_C, 954, t); }
   const yEnd = ys[HW_M - 1];
   let j = 0;
   for (let i = 0; i < n; i++) {
@@ -755,8 +898,8 @@ export const PROFILE_PATHS = [
     liver: ['RPV', 'CV_R'],
     // Gradients drawn as spans under the line, with the same values and cut-offs as the readout
     // tiles: HVPG = WHVP − FHVP (wedged − free hepatic vein) and PPG = portal vein − IVC.
-    dims: [{ k: 'HVPG', hi: 'SIN_R', lo: 'RHV', hiM: 'whvp', loM: 'fhvp', m: 'hvpg', warn: HVPG_CUTS.amber, bad: HVPG_CUTS.red, hide: 'trueHVPG' },
-      { k: 'PPG', hi: 'CONF', lo: 'IVCS', m: 'ppg', warn: PPG_CUTS.amber, bad: PPG_CUTS.red }] },
+    dims: [{ k: 'HVPG', hi: 'SIN_R', lo: 'RHV', hiM: 'whvp', loM: 'fhvp', m: 'hvpg', sev: hvpgSev, hide: 'trueHVPG' },
+      { k: 'PPG', hi: 'CONF', lo: 'IVCS', m: 'ppg', sev: ppgSev }] },
 ];
 
 // Figure callouts name each station in full, without abbreviations that end in a full stop (17 Oct design review: "Varices", not

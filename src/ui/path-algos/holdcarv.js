@@ -3,7 +3,7 @@
 // Patient { held, sbp, hrs, map? }: a slide that types sbp or map is judged on what it types (a story the model's patient does not show); one that
 // types neither reads the model's own blood pressure (engine.js bpNow), so a bleed or a drug moves the path.
 import { MAP_BETA_CUT, SBP_BETA_CUT } from '../../engine/kidney-cuts.js';
-import { inheritTone } from './helpers.js';
+import { inheritTone, NONE } from './helpers.js';
 
 const tree = inheritTone({
   id: 'root', t: 'Decompensated cirrhosis, carvedilol', r: 'Monitor BP and renal function', stmt: '4.6, 4.7', tone: 'n', kids: [
@@ -39,10 +39,11 @@ export default {
       const why = [lowSbp(p) && `SBP ${p.sbp} mmHg is <90`, lowMap(p) && `MAP ${p.map} mmHg is <65`, p.hrs && 'there is HRS-AKI'].filter(Boolean).join(' and ');
       return { head: p.held ? 'Stay off carvedilol' : 'Reduce or stop carvedilol', tone: 'bad', stmt: '4.6', why: `${why.charAt(0).toUpperCase()}${why.slice(1)}.`, next: 'Restart when the HRS-AKI has resolved and the BP has recovered.' };
     }
-    if (key === 'back') return { head: 'Restart and re-titrate', tone: 'ok', stmt: '4.7', why: 'The HRS-AKI has resolved and the BP has recovered.', next: 'Re-titrate to the dose the patient tolerates.' };
+    // (Said from the patient on the card: a case with no HRS-AKI has none to have "resolved", and the card must not say it had. 16 Nov 2026.)
+    if (key === 'back') return { head: 'Restart and re-titrate', tone: 'ok', stmt: '4.7', why: `The BP has recovered (SBP ${p.sbp} mmHg${Number.isFinite(p.map) ? `, MAP ${p.map} mmHg` : ''}) and there is no HRS-AKI.`, next: 'Re-titrate to the dose the patient tolerates.' };
     return { head: 'Continue carvedilol', tone: 'ok', stmt: '4.6', why: `SBP ${p.sbp} mmHg is ≥90${Number.isFinite(p.map) ? `, MAP ${p.map} mmHg is ≥65` : ''} and there is no HRS-AKI.`, next: 'Monitor BP and renal function at every visit.' };
   },
-  chips: (p) => [p.held ? 'Carvedilol held' : 'On carvedilol', `SBP ${p.sbp}`, Number.isFinite(p.map) && `MAP ${p.map}`, p.hrs ? 'HRS-AKI' : 'No HRS-AKI'].filter(Boolean),
+  chips: (p, tiled = NONE) => [p.held ? 'Carvedilol held' : 'On carvedilol', !tiled.has('sbp') && `SBP ${p.sbp}`, Number.isFinite(p.map) && !tiled.has('map') && `MAP ${p.map}`, p.hrs ? 'HRS-AKI' : 'No HRS-AKI'].filter(Boolean),
   patientFor(tool, fp, shown = (k, v) => v) {
     const t = tool?.patient || {}, b = { ...DEFAULT, ...t };
     const typed = Number.isFinite(t.sbp) || Number.isFinite(t.map), live = !typed && fp && Number.isFinite(fp.sbp) && Number.isFinite(fp.map);
@@ -51,6 +52,7 @@ export default {
     else if (Number.isFinite(b.map)) p.map = b.map;
     return p;
   },
+  live: true,   // (its patient takes the live model's readings: the card keeps room for every outcome's reading)
   worst: { held: true, sbp: 140, hrs: false, map: 100 },
   notes: 'In decompensated cirrhosis carvedilol (or another nonselective beta-blocker) should be dose-reduced or stopped when the blood pressure stays low (systolic <90 mmHg or mean <65 mmHg) and/or there is HRS-AKI (4.6, strong). It should be restarted and re-titrated once the HRS-AKI has resolved and/or the blood pressure has recovered (4.7, strong). A patient in whom carvedilol is already held and who still has either problem stays off it; one in whom it is held and who has recovered on both counts restarts it.',
 };

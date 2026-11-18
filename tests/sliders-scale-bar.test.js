@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss, presenterSource } from './split-src.js';
 
 // Every slider is the data tiles' scale bar made draggable (Mohammad's pick B, 17 Oct).
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
-const css = read('styles/app.css'), util = read('src/ui/util.js');
+const css = appCss(), util = read('src/ui/util.js');
 const rule = (sel) => { const at = css.indexOf('\n' + sel); assert.ok(at >= 0, sel); return css.slice(at, css.indexOf('}', at)); };
 
 test('the track is the tiles\' 6 px bar, drawn by the wrapper; the input\'s own track is clear', () => {
@@ -34,7 +35,7 @@ test('every slider paints its fill through paintRange, on its wrapper', () => {
   assert.match(util, /export function paintRange\(input, f\) \{\s*const wrap = input\.parentElement;\s*if \(!wrap\) return;\s*f = Math\.min\(1, Math\.max\(0, f\)\);\s*glideFill\(sliderOf\(input, wrap\), f\);/);
   assert.match(read('src/ui/slider-gl.js'), /if \(!S\.w\?\.live\) S\.wrap\.style\.setProperty\('--p', String\(f\)\);/, 'the page\'s own fill carries it until the GPU has drawn it');
   for (const f of ['src/ui/card.js', 'src/ui/inspector.js', 'src/ui/presenter.js']) {
-    const src = read(f);
+    const src = f === 'src/ui/presenter.js' ? presenterSource() : read(f);   // (the presenter and its parts)
     const made = (src.match(/type: 'range'/g) || []).length, painted = (src.match(/paintRange\(/g) || []).length;
     assert.ok(made > 0 && painted >= made, `${f}: ${made} sliders, ${painted} paints`);
   }
@@ -46,7 +47,7 @@ test('a finger on the track lands the thumb\'s centre there, whatever the thumb\
 });
 
 test('a slide\'s what-if: a ring where the slide started, no box, the track on its own line with its end words under its ends', () => {
-  const p = read('src/ui/presenter.js');
+  const p = presenterSource();
   assert.match(p, /h\('div', \{ class: 'range-wrap', style: \{ '--s': String\(clamp\(frac\(v0\), 0, 1\)\) \} \}, h\('span', \{ class: 'sl-start', 'aria-hidden': 'true' \}\), input\)/);
   assert.match(rule('.range-wrap .sl-start {'), /left: calc\(var\(--tw\) \/ 2 \+ \(100% - var\(--tw\)\) \* var\(--s, 0\)\); width: 12px; height: 12px;[^}]*z-index: 1;/);
   assert.match(rule('input[type=range] {'), /z-index: 2;/, 'the dot passes over the ring');

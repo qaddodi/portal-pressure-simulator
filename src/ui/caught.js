@@ -14,4 +14,4 @@ export function caught(tag, e) {
 }
 /** What has been caught since the page opened, by tag. */
 export const caughtNow = () => Object.fromEntries([...log].map(([k, v]) => [k, { ...v }]));
-if (typeof window !== 'undefined') { window.pps = window.pps || {}; window.pps.caught = caughtNow; }
+if (typeof window !== 'undefined') { const w = /** @type {Window & { pps?: Record<string, any> }} */ (window); w.pps = w.pps || {}; w.pps.caught = caughtNow; }

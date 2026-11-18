@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { presenterSource } from './split-src.js';
 
 const { createScope } = await import('../src/ui/slide-txn.js');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -31,15 +32,15 @@ test('onDispose functions run newest first, once, also when added after disposal
 });
 
 test('presenter: its delayed work goes through the talk\'s scope, disposed by stopNow, and the loading timer is cleared in a finally', () => {
-  const PZ = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const PZ = presenterSource();
   for (const t of ['colT', 'refitT', 'reframeT', 'turnT', 'glassT']) {
     assert.match(PZ, new RegExp(`\\b${t} = stimer\\(`), `${t} is a scoped timer`);
     assert.doesNotMatch(PZ, new RegExp(`\\b${t} = setTimeout\\(`), `${t} is not a bare timer`);
   }
   const stop = PZ.slice(PZ.indexOf('  function stopNow('));
-  assert.match(stop.slice(0, 400), /sess\?\.dispose\(\); sess = null; colT = refitT = reframeT = turnT = glassT = 0;/);
-  assert.match(PZ, /sess\?\.dispose\(\); sess = createScope\(\);\n\s+ui = build\(\);/);
-  assert.match(PZ, /const stimer = \(fn, ms\) => \{ const u = ui; return sess \? sess\.timer\(\(\) => \{ if \(ui === u\) fn\(\); \}, ms\) : 0; \};/);
+  assert.match(stop.slice(0, 400), /(?:live\.)?sess\?\.dispose\(\); (?:live\.)?sess = null; (?:live\.)?colT = (?:live\.)?refitT = (?:live\.)?reframeT = (?:live\.)?turnT = (?:live\.)?glassT = 0;/);
+  assert.match(PZ, /(?:live\.)?sess\?\.dispose\(\); (?:live\.)?sess = createScope\(\);\n\s+(?:live\.)?ui = build\(\);/);
+  assert.match(PZ, /const stimer = \(fn, ms\) => \{ const u = (?:live\.)?ui; return (?:live\.)?sess \? (?:live\.)?sess\.timer\(\(\) => \{ if \((?:live\.)?ui === u\) fn\(\); \}, ms\) : 0; \};/);
   assert.match(PZ, /\} finally \{ clearTimeout\(lateT\); \}/);
   assert.match(PZ, /stimer\(\(\) => \{ if \(!cut\(\)\) loading\(true\); \}, 260\)/);
 });

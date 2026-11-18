@@ -6,8 +6,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { scan } from '../scripts/off-gpu-scan.mjs';
+import { lobuleSource } from './split-src.js';
 
-const src = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+const src = lobuleSource();
 const between = (a, b) => src.slice(src.indexOf(a), src.indexOf(b, src.indexOf(a)));
 
 test('no layout read in the lobule zoom is reached from a frame or a motion callback', () => {
@@ -28,10 +29,10 @@ test('the boxes are read at rest boundaries only', () => {
 test('a label waits a frame to be measured rather than read in the frame', () => {
   const lay = between('function layoutLabels()', 'const p = anchorOf(k), ax = ');
   assert.doesNotMatch(lay, /offsetWidth|offsetHeight|getComputedStyle|getBoundingClientRect/);
-  assert.match(lay, /wantLabels\(ns, fw\);\n\s*if \(!measT\) measT = restPass\(measureRun\);/);
-  assert.match(src, /function wantLabels\(ns, fw\) \{[\s\S]*?w\.fw = fw; labWant = w;/);
+  assert.match(lay, /wantLabels\(ns, fw\);\n\s*if \(!(?:live\.)?measT\) (?:live\.)?measT = restPass\(measureRun\);/);
+  assert.match(src, /function wantLabels\(ns, fw\) \{[\s\S]*?w\.fw = fw; (?:live\.)?labWant = w;/);
   assert.match(lay, /if \(bakeFollow\(\)\) \{ relayout\(\); return; \}/, 'a bake is drawn first, the labels land at once next frame (no glide)');
-  assert.doesNotMatch(between('function bakeRides()', 'function bakeFollow()'), /offsetWidth/);
+  assert.doesNotMatch(between('function bakeRides()', '\n  }\n'), /offsetWidth/);
 });
 
 test('the leaders follow a label along the glide\'s own curve', () => {

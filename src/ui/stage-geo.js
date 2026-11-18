@@ -1,6 +1,7 @@
 // The vessel geometry tables: each edge's anatomic and circuit course sampled once, tributary and branch courses, fade and join tables, the custom shunt router, and the divided-vein length.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { EDGES, NODES } from '../engine/topology.js';
+import { firstPiece } from './part-names.js';
 import { CIRCUIT_PATH, CIRCUIT_TREES, EDGE_PATH, FEEDERS, HIDDEN_NODES, IVC_EDGES, NODE_POS, SIN_EDGES, VB_CIRC, fanFeeders, metroPath, route as metroRoute } from './anatomy.js';
 import { createRouter } from './circuit-router.js';
 import { CUSTOM_SHUNT_PATH } from './custom-shunt-paths.js';
@@ -87,9 +88,9 @@ export function createGeo(st, live) {
   // it is gone], downward for the rectal and epigastric veins and the infrarenal IVC, upward for the
   // SVC above the azygos arch (it leaves the top of the plate).
   // Veins that end on the faded IVC fade into it over their last stretch, so the join is seamless.
-  const IVC_NODES = new Set(['IVCS', 'IVCI', 'RA']), IVC_JOIN_LEN = 60;
+  const IVC_NODES = new Set(['IVCS', 'IVCI', 'RA', 'IVC_D', 'ILI_R']), IVC_JOIN_LEN = 60;
   // Solid to the wall, joined to the cava as a confluence: the hepatic and renal veins.
-  const HEPATIC_VEINS = new Set(['RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'LRV_IVC', 'RRV_IVC']);
+  const HEPATIC_VEINS = new Set(['RHV_IVC', 'RHV_IVC_1', 'MHV_IVC', 'LHV_IVC', 'LRV_IVC', 'RRV_IVC']);
   const IVC_JOIN = {};
   for (const e of ALL_EDGES) {
     if (IVC_EDGES.has(e.id) || HEPATIC_VEINS.has(e.id) || !IVC_NODES.has(e.to) || !NODE_POS[e.to] || !NODE_POS[e.from]) continue;
@@ -112,21 +113,22 @@ export function createGeo(st, live) {
   // Shunts that leave and join a vein part-way along it, not at a node: the veins at each end ([from end], [to end]).
   // (The ascending lumbar collateral, C9, joins the azygos trunk from the side, below the arch: the trunk is drawn at the
   // azygos's own width, so the azygos is its host there.)
-  const SIDE_HOSTS = { C6: [['V_SPL', 'SV_MID'], ['V_KID_L']], S_DSR: [['V_SPL', 'SV_MID'], ['V_KID_L']], C9: [[], ['AZY_SVC']] };
+  const SIDE_HOSTS = { C6: [['V_SPL', 'SV_MID'], ['V_KID_L', 'V_KID_L_1']], S_DSR: [['V_SPL', 'SV_MID'], ['V_KID_L', 'V_KID_L_1']], C9: [[], ['AZY_SVC']] };
   // The ends of those that lie inside the vein's lumen, as a side branch (the Warren shunt's start runs on from the
   // divided splenic vein instead): narrowed there on the GPU (renderTube).
   const SIDE_INSIDE = { C6: [true, true], S_DSR: [false, true], C9: [false, true] };
   // Surgical shunts and the vein each one divides (engine.js closes the same vessels): the Warren shunt the splenic
   // vein, the portocaval shunt the portal trunk. The vein's first stretch, at the shunt, is not drawn, so the shunt
   // side and the tied-off stump stand apart with a clear gap, each ending in a rounded cap.
-  const LIGATED = [['S_DSR', 'SV_MID'], ['S_PC', 'PV_TRUNK']];
+  const PV_START = firstPiece('PV_TRUNK');
+  const LIGATED = [['S_DSR', 'SV_MID'], ['S_PC', PV_START]];   // (the portal trunk's first stretch, at the confluence: the trunk is cut where the coronary vein joins it, topology.js JUNCTIONS)
   // How much of the divided vein is cut away (arc length, world units): the clear gap plus both rounded ends.
   // It opens and closes as the shunt draws on or retracts; 0 without the shunt.
   function divideLen(vein) {
     let sh;
     for (let i = 0; i < LIGATED.length; i++) if (LIGATED[i][1] === vein) { sh = LIGATED[i]; break; }
     // (A side-to-side portocaval shunt keeps the portal trunk whole: nothing is cut away.)
-    if (vein === 'PV_TRUNK' && store.get().params.portocavalSide) return 0;
+    if (vein === PV_START && store.get().params.portocavalSide) return 0;
     const x = sh && live.E[sh[0]], v = live.E[vein];
     if (!x?.vis || !v?.vis) return 0;
     let k = 1;

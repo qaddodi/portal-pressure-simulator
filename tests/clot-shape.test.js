@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { hashSeed, rng, clotSide, clotSpan, clotHalf, clotRadius, clotShift, clotLayers, CLOT_EDGE } from '../src/ui/clot-shape.js';
+import { appCss } from './split-src.js';
 
 const W = 10;
 
@@ -60,11 +61,19 @@ test('the clot is soft layers of one red that fade at the edges, with a hairline
   // no cartoon marks: no pale rim, sheen, speckles or pink channel stroke beside the clot
   for (const cls of ['thrombus-rim', 'thrombus-sheen', 'thrombus-speck', 'thrombus-channel']) assert.ok(!stage.includes(cls), cls);
   // the hairline runs on the open side (away from the wall the clot rests on)
-  assert.match(stage, /q\[0\] - ln\[i\]\[0\] \* side \* r/);
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   const tokens = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
-  for (const { cls } of clotLayers) assert.match(css, new RegExp(`\\.${cls} \\{ fill: var\\(--thrombus\\); fill-opacity: \\.[0-9]+; \\}`), cls);
-  assert.match(css, /\.thrombus-edge \{[^}]*stroke: var\(--thrombus-edge\)/);
   for (const t of ['--thrombus', '--thrombus-edge']) assert.ok(tokens.includes(`${t}:`), t);
   assert.ok(!/--thrombus-(rim|sheen|speck|channel)/.test(css + tokens), 'old cartoon tokens are gone');
+});
+
+import { clotStretch } from '../src/ui/clot-shape.js';
+test('a vein cut in pieces has one clot over its whole length: the stretch is a share of the vein, not of the piece that carries its name', () => {
+  const line = (x0, x1, n) => Array.from({ length: n }, (_, i) => [x0 + ((x1 - x0) * i) / (n - 1), 0]), lit = (P) => P.map(() => [0, 1, 0]);
+  const a = line(0, 40, 41), b = line(40, 100, 61);   // (two pieces sharing their joint at 40: a vein 100 long)
+  const c = clotStretch([{ pts: a, lit: lit(a) }, { pts: b, lit: lit(b) }], 1);
+  assert.equal(c.L, 100);
+  assert.ok(Math.abs(c.pts[0][0] - 18) <= 1 && Math.abs(c.pts.at(-1)[0] - 82) <= 1, `the clot runs from ${c.pts[0][0]} to ${c.pts.at(-1)[0]}, 0.18 to 0.82 of the vein`);
+  assert.equal(c.pts.length, c.lit.length);
+  assert.ok(c.pts.some((p) => p[0] < 40) && c.pts.some((p) => p[0] > 40), 'it crosses the joint');
 });

@@ -16,21 +16,11 @@ globalThis.document ??= { documentElement: { dataset: {}, style: { setProperty()
 globalThis.addEventListener ??= () => {};
 globalThis.getComputedStyle ??= () => ({ getPropertyValue: () => '' });
 
-const { reuseMap, reuseCovers } = await import('../src/ui/veins-gl.js');
 const { splitCells } = await import('../src/ui/veins-bin.js');
 const { changedRows } = await import('../src/ui/flow-rows.js');
 
 const src = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
 const body = (from, to) => { const a = src.indexOf(from), b = src.indexOf(to, a + from.length); assert.ok(a >= 0 && b > a, `${from} … ${to}`); return src.slice(a, b); };
-
-test('reuseMap and reuseCovers: the kept output is the allocating one', () => {
-  const out = new Float64Array(6), then = [1, 0, 0, 1, 0, 0], now = [1.25, 0, 0, 1.25, -125, -100];
-  assert.deepEqual(Array.from(reuseMap(then, now, out)), reuseMap(then, now));
-  assert.equal(reuseMap(then, now, out), out);
-  assert.ok(reuseCovers(out, 1000, 800));
-  assert.ok(!reuseCovers(reuseMap(now, then, out), 1000, 800));
-  assert.equal(reuseMap(then, [0, 0, 0, 0, 0, 0], out), null);
-});
 
 test('splitCells into a kept record equals the plain form, and keeps its lists between calls', () => {
   const nCells = 40, cells = new Float32Array(nCells * 6).map((_, i) => i + 1);
@@ -71,11 +61,10 @@ test('the vessel layer\'s frame functions make no array, string or closure of th
     body('  function layoutFor(m) {', '  // Lays the layer out as layoutFor gave it'),
     body('  function shiftLayer(', '  // The binned cells on the CPU'),
     body('  function rowParts(rows) {', '  // The marked cells\' quads'),
-    body('  function cellsOfRows(', '  // The vessel pass into the bound vessel framebuffer'),
-    body('  function vesselPass(', '  // A one-pass build ready to draw'),
+    body('  function cellsOfRows(', '  // The vessel pass\'s program'),   // (the function after it, the rows wide enough on screen, went with the Streaks option, 16 Nov 2026)
     body('  function runTops() {', '  // The under picture'),
     body('    draw(m, look, blood, rows = null) {', '    /**\n     * Redraws only the cells that list the vessel rows given'),
-    body('    drawRows(m, look, blood, rows, full = false) {', '    /**\n     * Pinch frame reuse'),
+    body('    drawRows(m, look, blood, rows, full = false) {', '    /** The pan\'s rest'),
     body('    composite(look, blood = NOBLOOD, full = false, part = 0) {', '    /** Whether organ outlines can be drawn here'),
   ].join('\n');
   const code = frame.replace(/\/\/.*$/gm, '');
@@ -86,7 +75,7 @@ test('the vessel layer\'s frame functions make no array, string or closure of th
     ['a string of the picture counts', /`\$\{pictureSeq\}/],
   ]) assert.doesNotMatch(code.replace(/gpuProbe\.(note|gauge)\([^\n]*\n/g, ''), re, what);
   // (cellsOfRows: the cell mark made again only when the cells' count outgrows it.)
-  assert.match(body('  function cellsOfRows(', '  // The vessel pass into the bound vessel framebuffer'), /if \(!into\.mark \|\| into\.mark\.length < nCells\) into\.mark = new Uint8Array\(nCells\);/);
+  assert.match(body('  function cellsOfRows(', '  // The vessel pass\'s program'), /if \(!into\.mark \|\| into\.mark\.length < nCells\) into\.mark = new Uint8Array\(nCells\);/);
 });
 
 test('the wrapper around the renderer\'s steps takes its arguments by name, with no rest list', () => {

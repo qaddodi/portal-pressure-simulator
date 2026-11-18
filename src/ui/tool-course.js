@@ -147,7 +147,13 @@ export function placeZoneNames(G, obs, wait = null) {
   for (const z of G.zones.filter((q) => q.name)) {
     const top = Y(z.to), bot = Y(z.from), mid = (top + bot) / 2 + 0.35 * f, inside = [L + 2, top + 1, R - 2, bot - 1];
     const ys = [0, -0.9, 0.9, -1.8, 1.8].map((k) => mid + k * f).filter((y) => y - 0.85 * f - 1 >= top && y + 0.3 * f + 1 <= bot);
-    const xs = [{ x: R - 0.5 * f, anchor: 'end' }, { x: R - 0.5 * f - 0.3 * (R - L), anchor: 'end' }, ...(wait == null ? [] : [{ x: X(wait) - 0.5 * f, anchor: 'end' }]), { x: L + 0.5 * f, anchor: 'start' }, { x: X(1.5), anchor: 'start' }];
+    // (A band that holds the word's box but not at the middle's usual spot (the lowest grade when the scale stretches to a tall series: 17 px of the 16 the box needs) takes it
+    // as low or as high as the box fits, not left out.)
+    const lo = top + 0.85 * f + 1, hi = bot - 0.3 * f - 1;
+    if (!ys.length && lo <= hi) ys.push(Math.min(hi, Math.max(lo, mid)));
+    const xs = [{ x: R - 0.5 * f, anchor: 'end' }, { x: R - 0.5 * f - 0.3 * (R - L), anchor: 'end' }, ...(wait == null ? [] : [{ x: X(wait) - 0.5 * f, anchor: 'end' }]), { x: L + 0.5 * f, anchor: 'start' }, { x: X(1.5), anchor: 'start' },
+      // (Last, any stretch of the band the lines leave open: the lines through the lowest band can cover every spot above, 16 Nov 2026, the lymph model's re-accumulation.)
+      ...[0.12, 0.22, 0.32, 0.42, 0.52, 0.62, 0.72, 0.82].map((k) => ({ x: L + k * (R - L), anchor: 'start' }))];
     const p = placeWord(ys.flatMap((y) => xs.map((q) => ({ ...q, y }))), cw(z.name, f), f, { ...obs, inside });
     out.push({ zone: z, p: p && !p.n ? p : null });
     if (p && !p.n) obs.boxes.push(p.box);

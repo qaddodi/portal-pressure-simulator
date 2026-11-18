@@ -5,9 +5,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const CREDIT = '<div class="stage-credit" aria-hidden="true">&copy; 2026 Mohammad Almeqdadi, MD</div>';
 
 test('copyright credit markup is in index.html', () => {

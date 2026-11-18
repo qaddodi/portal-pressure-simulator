@@ -6,6 +6,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { TOKENS } from '../src/ui/theme-tokens.js';
+import { appCssFiles } from '../scripts/app-css.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');
@@ -15,7 +16,7 @@ const LITERAL = /#[0-9a-f]{3,8}\b|rgba?\(\s*[\d.]+[\s,]+[\d.]+[\s,]+[\d.]+|hsla?
 
 test('no colour is written outside styles/tokens.css and src/ui/theme-tokens.js', () => {
   // (theme-tokens.js is where the look-dependent colours are written; tokens.css carries its printed copy.)
-  const files = [...walk('src').filter((f) => f.endsWith('.js') && !f.endsWith('src/ui/theme-tokens.js')), 'styles/app.css'];
+  const files = [...walk('src').filter((f) => f.endsWith('.js') && !f.endsWith('src/ui/theme-tokens.js')), ...appCssFiles()];
   const stray = [];
   for (const f of files) {
     read(f).split('\n').forEach((line, i) => {

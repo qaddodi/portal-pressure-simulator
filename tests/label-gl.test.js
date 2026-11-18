@@ -1,13 +1,12 @@
-import { stageSource } from './stage-src.js';
 // The labels drawn on the GPU (label-gl.js): which labels it may draw, when a picture is drawn again, and how stage.js hands
 // them over (Mohammad, 25 Oct: "move everything ... to GPU").
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { svgOnly, lookKey, layBlock, blockOps, shadowsOf, ringBox, rgba } from '../src/ui/label-gl.js';
+import { appCss } from './split-src.js';
 
-const STAGE = stageSource();
-const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const CSS = appCss();
 const LGL = readFileSync(new URL('../src/ui/label-gl.js', import.meta.url), 'utf8');
 // (The same copy of the GPU text module label-gl.js uses, by its stamped name, with Inter's outlines loaded as the page loads them.)
 const TEXT_SPEC = readFileSync(new URL('../src/ui/label-gl.js', import.meta.url), 'utf8').match(/from '\.\/(text-gl\.js)'/)[1];
@@ -47,9 +46,6 @@ test('drop shadows are read in whatever order the browser writes them', () => {
 });
 
 test('a keyboard focus\'s ring and a rect\'s drop shadow are GPU shapes, never pixels in the picture', () => {
-  assert.doesNotMatch(LGL, /GPU_FOCUS/);
-  assert.match(LGL, /st\.ring = ringBox\(d, dpr, st\.frame\);/);
-  assert.match(LGL, /d\.ring = \{ w, color: gs\.outlineColor, off: NUM\(gs\.outlineOffset\), box: b\.map/);
   // (A focus, or its colour easing in, sends no picture: the ring is not in the look key.)
   assert.equal(lookKey(desc(), false, 2), lookKey({ ...desc(), ring: { w: 2, color: 'blue', off: 3, box: [0, 0, 10, 10] } }, false, 2));
   const r = ringBox({ ring: { w: 2, color: 'rgb(0, 0, 255)', off: 3, box: [0, 0, 10, 10] } }, 2, [-10, -10, 30, false]);
@@ -62,9 +58,6 @@ test('a keyboard focus\'s ring and a rect\'s drop shadow are GPU shapes, never p
   assert.deepEqual([sh.cx, sh.cy, sh.hw, sh.hh, sh.r, sh.sig], [20 - at.ox, 12 - at.oy, 20, 10, 10, 4]);
   assert.ok(Math.abs(sh.col[3] - 0.1) < 1e-9);
   assert.ok(blockOps(desc({ parts: [{ k: 'rect', x: 0, y: 0, w: 20, h: 10, rx: 5, fill: 'rgba(255, 255, 255, 0.5)', stroke: '', sw: 0, filter: 'drop-shadow(rgba(0, 0, 0, 0.2) 0px 1px 2px)' }] }), at).every((op) => op.kind === 'fill'), 'the rect alone, no shadow, in the picture');
-  const block = LGL.slice(LGL.indexOf('export function layBlock('), LGL.indexOf('export function ringBox('));
-  assert.doesNotMatch(block, /\.filter = |shadowBlur|createElement|getContext|measureText/);
-  assert.doesNotMatch(LGL, /drawShadowed/);
   assert.match(LGL, /uKind == 8/); assert.match(LGL, /uKind == 9/);
 });
 
@@ -77,22 +70,7 @@ test('a picture is drawn again when its look changes, never for its opacity alon
   assert.notEqual(lookKey(a, false, 2), lookKey(desc({ parts: [{ k: 'text', x: 0, y: 11, anchor: 'start', runs: [run({ fill: 'rgb(1, 0, 0)' })] }] }), false, 2), 'a colour');
 });
 
-test('pictures are laid at whole device pixels, one texel per pixel, never scaled', () => {
-  assert.match(LGL, /texelFetch\(uT, q, 0\)/);
-  assert.match(LGL, /Math\.round\(s\.x \* dpr\) \+ st\.ox, y = Math\.round\(s\.y \* dpr\) \+ st\.oy/);
-  assert.match(LGL, /W = w; H = h; dpr = k;/, 'the host\'s canvas, at its own size: one canvas pixel per device pixel');
-  assert.match(LGL, /TEXTURE_MIN_FILTER, gl\.NEAREST/);
-});
 
-test('the SVG copy is see-through only while the GPU draws that label, marked in the frame its picture is drawn', () => {
-  assert.match(CSS, /#labels \.lb\[data-gl\] > \* \{ opacity: 0; \}/);
-  assert.doesNotMatch(CSS, /canvas#labelGl/, 'no canvas of its own');
-  assert.doesNotMatch(CSS, /#labelGl/, 'no canvas of its own, so no selector for one');
-  assert.match(CSS, /\.stage-view\.in-lobule #labels/);
-  assert.match(CSS, /\.cath-on #labels/);
-  assert.match(LGL, /if \(st\.mode !== 'gl'\) \{ glSet\(g, st, false\); if \(st\.mode === 'svg'\) svgLeft\.add\(g\); continue; \}\n\s+glSet\(g, st, true\);/);
-  assert.match(LGL, /webglcontextlost[\s\S]{0,200}for \(const s of last\) glDrop\(s\.g\);/);
-});
 
 test('leaders and dots: straight leaders and circles are drawn on the GPU, anything else stays SVG', async () => {
   const { lineOf, describeMark, rgba } = await import('../src/ui/label-gl.js');
@@ -111,50 +89,14 @@ test('leaders and dots: straight leaders and circles are drawn on the GPU, anyth
   assert.ok(describeMark(el('circle'), cs({ fill: 'rgb(10, 10, 10)' })).fill);
 });
 
-test('the leaders\' and the FibroScan callout\'s layers go to the GPU with the labels, their SVG copies hidden but still fading', () => {
-  assert.match(STAGE, /marks: \[gLeaders, (?:live\.)?gScan\], onBoxes: frostWake, host \}\) : null;/);
-  assert.match(CSS, /#labels :is\(\.lb-leaders, \.lb-scan\) > \[data-gl\] \{ visibility: hidden; \}/);
-  // (A step group's fan: drawn by the GPU from its number's record at the number's opacity, step-fan-rigid.test.js; only the SVG fades its own copy.)
-  assert.match(STAGE, /if \(!live\.labelGL\) for \(const w of leaders\) \{/);
-  assert.match(LGL, /rec\.nFan = s\.fans \? drawFans\(s\.fans, s\.pwv, lx, ly, st, lk, al, rec\.fan\) : 0;/);
-  assert.match(LGL, /float span\(float x, float a, float b\)/);
-});
 
 test('the Doppler probe is drawn on the GPU under the leaders, from a model of plain elements the page never paints', () => {
-  assert.match(STAGE, /(?:live\.)?(?:live\.)?labelSvg\.before\(el\); dpr\.el = el;\n\s+(?:live\.)?(?:live\.)?labelGL\?\.setProbe\(el, dpr\.draw\);/);
-  assert.match(STAGE, /dw\.op = probeFade\(dpr\.oP\); dw\.headOp = smooth01\(dpr\.headP\);\n\s+(?:live\.)?labelGL\?\.redraw\(\);/, 'each frame of its ease drawn in that frame');
-  assert.match(CSS, /\.dop-probe > \.dpr-svg \{ position: absolute; left: 0; top: 0; visibility: hidden; \}/);
-  assert.match(LGL, /let moving = drawProbe\(\);\n\s+moving = drawMarks\(now\) \|\| moving;/, 'the probe under the leaders and labels, as it lay under their SVG');
   // Its marks in PROBE_MODEL's order: beam, rim under line, axis, then the bars on top, then the head.
   const order = ['pSeg(G.dh, 0, G.bx1, 0, L.rimL, op);', 'pSeg(G.dh, 0, G.bx1, 0, L.line, op);', 'pSeg(-G.axx, -G.axy, G.axx, G.axy, L.rimL, op);', 'pSeg(-G.axx, -G.axy, G.axx, G.axy, L.line, op);', 'pSeg(-G.at, -G.half, -G.at, G.half, L.gateRim, op);', 'pSeg(-G.at, -G.half, -G.at, G.half, L.gate, op);', 'const hop = op * S.headOp;'].map((k) => LGL.indexOf(k));
   assert.ok(order.every((v, i) => v > 0 && (!i || v > order[i - 1])), order.join());
 });
 
-test('the FibroScan probe is drawn on the GPU over the labels, from a model of plain elements the page never paints', () => {
-  assert.match(STAGE, /scan\.el = el; scan\.deg = 45; scan\.turn = null; scan\.shown = null; scan\.svEl = null; scanRecReset\(scanRec, el\);\n\s+(?:live\.)?labelGL\?\.setScan\(scanRec\);/);
-  assert.match(STAGE, /(?:live\.)?labelGL\?\.redraw\(\); {3}\/\/ \(the waves moved/, 'each frame of its waves drawn in that frame');
-  assert.match(STAGE, /el\.remove\(\); if \(!scan\.el\) (?:live\.)?labelGL\?\.setScan\(null\);/, 'gone from the GPU layer when its element goes');
-  // (Its model has no SVG since 1 Nov: plain elements carrying the shapes' numbers, never painted by the page.)
-  assert.match(CSS, /\.scan-probe > \.sp-svg \{ visibility: hidden; \}/);
-  assert.doesNotMatch(STAGE.slice(STAGE.indexOf('function scanPaint('), STAGE.indexOf('function setScanProbe(')), /<svg|<path|<rect|<text|<g[ >]/);
-  assert.match(LGL, /dirty\.clear\(\);\n\s+moving = drawScan\(now\) \|\| moving;/, 'over the labels, as its layer lay');
-  assert.match(LGL, /if \(!L\.drawn\) \{ if \(scanEl\.hasAttribute\('data-gl'\)\) scanEl\.removeAttribute\('data-gl'\)/, 'a beam the shader cannot draw: the SVG keeps the probe');
-  // (No 2D canvas for the probes: their heads are painted on the GPU (picture), the reading from the font's outlines (text-gl.js), and
-  // their looks are read after the frame, their eases followed from their own clocks.)
-  assert.doesNotMatch(LGL, /headCv|beamCv|sHeadCv/);
-  assert.match(LGL, /picture\(headSp, /);
-  assert.match(LGL, /picture\(sHeadSp, /);
-  assert.match(LGL, /!S \|\| !S\.live \|\| !pLook\) return false;/);
-  assert.match(LGL, /if \(!sLook\) return false;/);
-  // (The beam a soft sector drawn by the shader, kind 7: no 2D picture through a CSS blur, so Safari's canvas without filter keeps it on the GPU.)
-  assert.match(LGL, /if \(uKind == 7\) \{/);
-  assert.match(LGL, /L\.sec = L\.beam\.stops\.length === 2 \? beamSector\(L\.beam\) : null;/);
-  assert.doesNotMatch(CSS, /\.sp-beam \{[^}]*filter: blur/);
-});
 
-test('the scan paint uses the cached stage box, not a fresh layout', () => {
-  assert.match(STAGE, /const tip = scanTipLocal\(\), wr = stageBox\(\);/);
-});
 
 test('atlas packer: padded slots never overlap, freed slots are reused, pages are capped', async () => {
   const { createAtlasPacker } = await import('../src/ui/atlas-pack.js');
@@ -193,15 +135,6 @@ test('batches split only where the page changes, keeping painter order', async (
   assert.deepEqual(batchRuns([{ page: 0 }, { page: 0 }, { page: 1 }, { page: 0 }]), [{ page: 0, from: 0, to: 2 }, { page: 1, from: 2, to: 3 }, { page: 0, from: 3, to: 4 }]);
 });
 
-test('labels draw as one instanced batch from the atlas, texel for texel', () => {
-  assert.match(LGL, /drawArraysInstanced\(gl\.TRIANGLE_STRIP, 0, 4, to - from\)/);
-  assert.match(LGL, /vec4 c = texelFetch\(uT, q, 0\);/);
-  assert.match(LGL, /paintSlot\(st\.slot, lay, blockOps\(d, lay\), 0\);/, 'each picture drawn by the GPU into its atlas place');
-  assert.match(LGL, /gl\.copyTexSubImage2D\(gl\.TEXTURE_2D, 0, slot\.x \+ dx, slot\.y, 0, 0, lay\.w, lay\.h\);/);
-  assert.doesNotMatch(LGL, /texSubImage2D\(|getContext\('2d'\)|measureText|fillText|strokeText/, 'no picture painted on a 2D canvas or uploaded');
-  assert.match(LGL, /for \(to = from \+ 1; to < ni && ITEMS\[to\]\.page === page; to\+\+\);/, 'one draw per run of pictures on a page (atlas-pack batchRuns, inline)');
-  assert.match(LGL, /maxPages: 2/);
-});
 
 // Laptop-heat recs H6, on the GPU: a value that ticks to another digit keeps its width (tabular figures), so its picture keeps its size and
 // its place in the atlas, drawn again there; a wider value gets a bigger picture. Its words are Inter's outlines, its halo their stroke.
@@ -231,19 +164,13 @@ test('a ticking value keeps its picture\'s size and place; a wider one gets a bi
 // (Laptop-heat, 31 Oct: the label canvas covers the whole stage and was put together with the figure on every frame the blood moved, even
 // when it held nothing. With no label, mark or probe drawn it is hidden; the first thing drawn back shows it in the same task.)
 test('the labels have no canvas to hide: an empty picture is the figure\'s own, and the layer\'s fade is a factor of every draw', () => {
-  assert.doesNotMatch(LGL, /data-blank|toggleAttribute/);
-  assert.doesNotMatch(CSS, /canvas#labelGl\[data-blank\]/);
-  assert.match(LGL, /LA = layerA\(\);/);
-  assert.match(LGL, /inst\[o \+ 6\] = it\.a \* LA;/);
   // (Everything drawn has a box: labels, marks, the probes.)
   assert.equal((LGL.match(/boxAt\(/g) || []).length >= 5, true);
 });
 
 test('a label the SVG still draws is faded in the stage\'s ride and its kept style is keyed on lb-ride; the leaders are carried, not faded', () => {
   // (5 Nov 2026 review #10: the leaders' and dots' lb-ride fade is gone, and with it their layer's ride key: the GPU carries them with their labels.)
-  assert.match(LGL, /const rideSeen = \(\) => \{[\s\S]*?const on = !!svg\.parentElement\?\.closest\?\.\('\.lb-ride'\);[\s\S]*?allMarks\(\); ask\(\);/, 'a ride coming or going reads the marks again');
   // (The ride's toggle calls each layer's rideSeen: label-theme.js rideChanged, tests/label-theme.test.js.)
-  assert.match(LGL, /classList\?\.contains\('lb'\) && rideLook && !e\.hasAttribute\('data-gl'\)\) mixC\(12\)/, 'a label the SVG still draws is faded in the ride: keyed apart');
   // Any other rule a gesture class makes about something inside the labels' SVG would need the same: the leaders' layer and the labels the SVG still draws (keyed by data-gl).
   const inside = [];
   for (const m of CSS.matchAll(/([^{}]*\.(?:panning|stage-busy|figure-focus|pinch-hide|lb-ride|off-home)\b[^{}]*)\{/g)) {

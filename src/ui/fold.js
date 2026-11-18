@@ -1,7 +1,7 @@
 // A small piece that comes and goes (a hint line, a "Clear all" link, a count badge) eases instead of popping: it fades and, unless
 // `flat`, folds its height in and out, so what is under it glides rather than jumping a line. Keeps `hidden` the source of truth
 // (hidden while folded away), so CSS and tests that read the attribute still hold. Nothing animates when the piece is not on screen
-// (a closed section) or under Reduce Motion: it is then shown or hidden at once.
+// (a closed section): it is then shown or hidden at once. Under Reduce Motion it fades only, its height set at once (a fade is not motion).
 import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js';
 import { reduceMotionMQ } from './motion.js';
 
@@ -17,8 +17,9 @@ export function fold(el, show, { flat = false } = {}) {
   let from = null;
   if (job) { const cs = getComputedStyle(el); from = { opacity: cs.opacity, height: cs.height }; job.anim.cancel(); }
   jobs.delete(el);
-  // Nothing to see (a closed section, not yet in the page) or Reduce Motion: shown or hidden at once.
-  if (still.matches || !el.animate || !seen(el.hidden ? el.parentElement || el : el)) { el.hidden = !show; el.style.overflow = ''; return; }
+  // Nothing to see (a closed section, not yet in the page): shown or hidden at once. Reduce Motion: a fade, no fold of the height.
+  if (!el.animate || !seen(el.hidden ? el.parentElement || el : el)) { el.hidden = !show; el.style.overflow = ''; return; }
+  if (still.matches) flat = true;
   if (show) el.hidden = false;
   const cs = getComputedStyle(el), rest = {};
   for (const k of SPACE) rest[k] = cs[k];

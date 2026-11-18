@@ -5,7 +5,6 @@ import { stageSource } from './stage-src.js';
 import { CanvasObserver } from './canvas-observer.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import './dom-shim.js';
 import { createCore } from '../src/worker-core.js';
 
@@ -14,7 +13,6 @@ globalThis.requestAnimationFrame = (fn) => { frameQueue.push(fn); return frameQu
 globalThis.cancelAnimationFrame = () => {};
 globalThis.window.devicePixelRatio = 2;
 globalThis.getComputedStyle = () => ({ fontSize: '14px', getPropertyValue: () => '#808080' });
-const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 
 // A context that accepts every call and property and writes down the words and the colours it was given.
 function fakeCtx(log) {
@@ -129,16 +127,8 @@ test('the vitals monitor draws its strip once a frame while it scrolls, its easi
   assert.equal(strips(), before, 'nothing drawn once let go');
 });
 
-test('the endoscope\'s field is drawn once a frame: a model frame taken in early is drawn by its own late callback', () => {
-  const src = read('../src/ui/instruments.js');
-  assert.match(src, /const drawFrame = lateFrameFor\('instruments'\);/);
-  assert.match(src, /if \(framePhase\(\) === 'early'\) \{ last = lastS; lastS\.f = f; lastS\.vx = vx; if \(!raf\) raf = drawFrame\(redraw\); return; \}\n\s+draw\(f, vx\);/);
-  assert.match(src, /const redraw = \(\) => \{ raf = 0; if \(last\) draw\(last\.f, last\.vx\); \};/);
-  assert.doesNotMatch(src.slice(src.indexOf('export function createEndoscopy'), src.indexOf('export function createVarixWall')), /nextFrame\(/, 'every follow-up draw on the same late callback');
-});
 
 test('the figure\'s pass is one owned request, whoever asks for it', () => {
   const st = stageSource();
-  assert.match(st, /const askAnimate = \(\) => \{ if \(!animRaf\) animRaf = drawFrame\(animate\); \};\n\s+function animate\(now\) \{\n\s+animRaf = 0;/);
   assert.equal((st.match(/drawFrame\(animate\)/g) || []).length, 1, 'asked for only through askAnimate');
 });

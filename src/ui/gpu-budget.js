@@ -300,6 +300,34 @@ export function enforce(env = ENVELOPES[deviceClass()]) {
   return evictions - before;
 }
 function registryBytes() { return canvasBytes() + regBytes; }
+let peakBytes = 0;
+
+/** The registry's estimate now and the highest it has read (MB, the looks twice a second while frames run): what the crash report keeps of the page's last moments (report.js). */
+export const memoryMB = () => registryBytes() / 1e6;
+export const peakMB = () => peakBytes / 1e6;
+
+/** The bytes free below the envelope's ceiling now, letting go of nothing (a look before a large allocation asks `room`). */
+export function freeBytes(ceiling = 0.95, env = ENVELOPES[deviceClass()]) { return env.mb * 1e6 * ceiling - registryBytes(); }
+
+/**
+ * Room for a large allocation made once, ahead of time (the sharp-zoom organ picture and the painter's targets that grow with it, stage-plate.js): the bytes
+ * the registry has free below the envelope's ceiling, after letting go of what is held for later until `bytes` fits, the warm holders first and then the retained
+ * ones, the least recently used first (as enforce does). Returns the bytes free now: at least `bytes` when it fits; less, and the caller makes the allocation
+ * smaller or leaves it out. (18 Nov 2026, the iPhone's tab was killed on the HVPG deck's slide 5 to 6: the way out of the lobule meets the camera's glide to the
+ * catheter tip, whose sharp picture grows the painter's seven targets to 3.5 MP each, 97 MB, over the lobule's still-warm 100 MB, and nothing asked first.)
+ * `ceiling` is the share of the envelope this may fill (the rest is the frames' own).
+ */
+export function room(bytes, ceiling = 0.95, env = ENVELOPES[deviceClass()]) {
+  const limit = env.mb * 1e6 * ceiling;
+  const free = () => limit - registryBytes();
+  if (free() >= bytes) return free();
+  for (const h of holders) if (h.gl?.isContextLost?.()) holders.delete(h);
+  for (const kind of ['warm', 'retained']) {
+    const list = [...holders].filter((h) => h.kind === kind).sort((a, b) => a.at - b.at); // alloc-rare: only when a large allocation finds the registry too full to take it (a slide's zoom landing), never in a frame
+    for (const h of list) { if (free() >= bytes) return free(); if (holderBytes(h) > 0) letGo(h); }   // (one that holds nothing the registry counts frees nothing: left where it is)
+  }
+  return Math.max(0, free());
+}
 /** The holders now (tests and ?perf). */
 export function holdersNow() { return { evictions, releaseFails, unmetMB: +(unmet / 1e6).toFixed(1), list: [...holders].map((h) => ({ owner: h.owner, kind: h.kind, mb: +(holderBytes(h) / 1e6).toFixed(1) })) }; } // alloc-rare: a report read by the ?perf readout and the tests
 
@@ -332,6 +360,7 @@ onFrameEnd((f) => {
   if (f.now - memAt > 500) {
     memAt = f.now;
     const bytes = registryBytes();
+    if (bytes > peakBytes) peakBytes = bytes;
     overMem = bytes > env.mb * 1e6;
     if (overMem && !warnedMem) { warnedMem = true; const b = budget(); console.warn(`GPU memory over its envelope: ${b.mb} of ${b.envelope.mb} MB`, b.owners.slice(0, 5)); } // alloc-rare: once, when memory first runs over its envelope (warnedMem)
     if (!overMem) warnedMem = false;

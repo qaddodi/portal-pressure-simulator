@@ -6,9 +6,10 @@ import { readFileSync } from 'node:fs';
 import { lintGLSL, uniformsOf } from './glsl-lint.js';
 import { copyFS, tileCopy, isTileCopy } from '../src/ui/tile-gl.js';
 import { fxShaders, MAX_DUCTS } from '../src/ui/fx-gl.js';
+import { lobuleSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const lz = read('../src/ui/lobule-zoom.js'), tgl = read('../src/ui/tile-gl.js'), fgl = read('../src/ui/fx-gl.js');
+const lz = lobuleSource(), tgl = read('../src/ui/tile-gl.js'), fgl = read('../src/ui/fx-gl.js');
 const VS = '#version 300 es\nin vec2 p;\nvoid main() { gl_Position = vec4(p, 0.0, 1.0); }';
 
 test('the GPU tile copy and overlay shaders pass the lint', () => {
@@ -50,10 +51,10 @@ test('the tile is a picture recorded for the GPU, painted into the copier\'s tex
   assert.doesNotMatch(tgl, /TILE_GPU|tilegpu/);
   assert.doesNotMatch(lz, /TILE_GPU/);
   assert.match(lz, /const rec = recordPaint\(tw, th, \(c\) => \{/);
-  assert.match(lz, /Object\.assign\(t, \{ tw, th, TW, TH, cv: gpuPicture\(rec, \+\+texVer\), blank: false, blankAt: 0 \}\);/);
+  assert.match(lz, /Object\.assign\(t, \{ tw, th, TW, TH, cv: gpuPicture\(rec, \+\+(?:live\.)?texVer\), blank: false, blankAt: 0 \}\);/);
   const dt = lz.slice(lz.indexOf('function drawTile('), lz.indexOf('function paintField('));
   assert.doesNotMatch(dt, /getContext|document\.createElement|OffscreenCanvas|getImageData|createPattern/, 'drawn into nothing on the CPU');
-  assert.match(tgl, /if \(isGpuPicture\(src\)\) \{\n\s+const tex = paintGL\(gl\)\.paint\(src\.rec, \{ mip: false \}\);/);
+  assert.match(tgl, /if \(isGpuPicture\(src\)\) \{\n\s+const tex = paintGL\((?:live\.)?gl\)\.paint\(src\.rec, \{ mip: false \}\);/);
   assert.match(tgl, /return null; {3}\/\/ \(every tile is a recorded picture: no canvas is sent\)/);
   assert.doesNotMatch(tgl, /texSubImage2D/, 'no canvas sent to the copier');
   assert.match(fgl, /export const FX_GPU = true;/);

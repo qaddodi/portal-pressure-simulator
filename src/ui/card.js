@@ -2,7 +2,7 @@
 // (card 5 on the side shelf, Mohammad's picks of 13 Nov 2026). It replaces the tool trays, the tool hint card and the sliders that
 // used to live in the side panel. Every verb takes effect at once and becomes one entry in the timeline; nothing stays "armed".
 //
-// One shape for every structure, top to bottom: the name (a tap opens Details) with the direction of flow at its right; the pressure
+// One shape for every structure, top to bottom: the name (a tap slides the card to its own details, card-details.js) with the direction of flow at its right; the pressure
 // where the blood comes in and where it leaves, on a bar in the pressure colours with the drop between them (Δ, or the PPG across a
 // stent and the HVPG across the liver, in their cut colours); the readings, named by their units; the controls, each with the app's
 // icon; the actions, an icon and one word. Every card has one fixed size for its kind (app.css [data-size]) and shows all it holds:
@@ -16,18 +16,25 @@
 // `actionable`, kept lists, and each element says what it is in `_acK`), and numbers are compared as numbers, never printed
 // into a string to be compared.
 
+import { widgetsPending, widgetState, enterWhenReady } from './widget-ready.js';
+import { capture } from './pointer-capture.js';
+import { warmSliders } from './slider-gl.js';
 import { store, updateParams } from './store.js';
 import { h, svgIcon, paintRange, isPhoneLayout, countTo, swapText, afterExit, markGone, switchIn, releaseWords } from './util.js';
 import { sheetParts, dragSheet, glideSheet, stopSheet, setSheetOffset, sheetOffset } from './sheet-move.js';
-import { releaseSpeed, isFlick, carryCurve, SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js';
+import { releaseSpeed, isFlick, carryCurve, SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, D_FLIP, D_SMALL, EASE_IN } from './ease.js';
 import { cardFor, normalizeSel } from './actions.js';
+import { createCardDetails } from './card-details.js';
 import { frameFor } from './frame.js';
 import { restPass, cancelRest } from './rest-pass.js';
-import { runSoon, propSoon, attrSoon } from './class-soon.js';
-import { readBox, readMetric } from './layout-snap.js';
+import { runSoon, propSoon, attrSoon, classSoon, classNow, removeSoon } from './class-soon.js';
+import { readBox, readMetric, readStyle } from './layout-snap.js';
 import { gradientCss } from './colormap.js';
 import { hvpgSev, ppgSev } from '../engine/pressure-cuts.js';
 import { reduceMotionMQ } from './motion.js';
+import { handOver } from './hand-over.js';
+import { glideCard, GLIDE_EVENT } from './card-glide.js';
+import { cardMoveFor } from './card-motion.js';
 const nextFrame = frameFor('card');
 
 // A reading's printed number ("12.5", "−3.0"), with its decimals, or null for one that isn't a plain number: `out` ({ n, d }, a kept
@@ -63,14 +70,14 @@ const P_BODY = { class: 'ac-body' }, P_NR = { class: 'ac-nr' }, P_NAME = { class
 const P_SP = { class: 'ac-sp' }, P_EL = { class: 'ac-el' }, P_EL_R = { class: 'ac-el r' }, P_DV = { class: 'ac-dv' }, P_PA = { class: 'ac-pa' }, P_PB = { class: 'ac-pb' };
 const P_TRACK = { class: 'ac-track', 'aria-hidden': 'true' }, P_RAMP = { class: 'ac-ramp' };
 const P_RS = { class: 'ac-rs' }, P_R = { class: 'ac-r' }, P_EM = { class: 'ac-em' }, P_RV = { class: 'ac-rv' }, P_U = { class: 'ac-u' };
-const P_CS = { class: 'ac-cs' }, P_CS_ONE = { class: 'ac-cs one' }, P_AS = { class: 'ac-as' };
+const P_CS = { class: 'ac-cs' }, P_CS_ONE = { class: 'ac-cs one' }, P_AS = { class: 'ac-as' }, P_PANEL = { class: 'ac-panel' };
 const P_UNMEASURED = { class: 'ac-unmeasured' }, P_UNIT = { class: 'unit' }, P_DELTA_UP = { class: 'ac-delta up' }, P_DELTA_DOWN = { class: 'ac-delta down' }, P_DELTA_NONE = { class: 'ac-delta' };   // (the delta's slot is always there, empty when there is no change: see .ac-delta, app.css)
 const P_ABOUT = { class: 'ac-about' };
 const P_CTLTOP = { class: 'ctl-top' }, P_CTLNAME = { class: 'ctl-name' }, P_CTLVAL = { class: 'ctl-val' };
 const P_RANGEWRAP = { class: 'range-wrap' }, P_TICKS = { class: 'ac-ticks', 'aria-hidden': 'true' }, P_TICK = { class: 'ac-tick', style: '' };
 const P_METER = { class: 'ac-meter', 'aria-hidden': 'true' }, P_METER_FILL = { class: 'ac-meter-fill' }, P_METER_ROW = { class: 'ac-c ac-meter-row', role: 'meter', 'aria-label': '', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' };
 const P_SWITCHVIS = { class: 'switch-vis', 'aria-hidden': 'true' };
-const P_BL = { class: 'ac-bl' }, P_BTN = { class: 'ac-btn', 'aria-label': '', title: '' }, P_BTN_DANGER = { class: 'ac-btn danger', 'aria-label': '', title: '' };
+const P_BL = { class: 'ac-bl' }, P_BTN = { class: 'ac-btn', 'aria-label': '', title: '' }, P_BTN_DANGER = { class: 'ac-btn danger', 'aria-label': '', title: '' }, P_BTN_QUIET = { class: 'ac-btn quiet', 'aria-label': '', title: '' };
 const P_DYE = { class: 'ac-btn ac-dye', 'aria-label': 'Inject dye', title: 'Tap to inject for a few seconds; hold to go on longer' };
 // Props that vary a little, rewritten in place just before the call that reads them (the key order is the order the attributes are made in).
 const P_LINKB = { class: 'ac-btn ac-link', 'aria-label': '', onclick: null };
@@ -82,9 +89,16 @@ const P_SLIDER = { class: 'ac-c ac-slider' };
 const P_TOGGLE = { class: 'ac-c ac-toggle', role: 'switch', 'aria-checked': 'false', 'aria-label': '' };
 // Animation keyframes and timings that never change (WAAPI reads them when animate() is called). A switch to another structure of the
 // same size crossfades the words only, 6 px up, while the card stays still (B).
-const WORDS_OUT = [{ opacity: 1, translate: '0 0' }, { opacity: 0, translate: '0 -6px' }], WORDS_OUT_OPT = { duration: D_FLIP, easing: EASE_IN, fill: 'forwards' };
-const WORDS_IN = [{ opacity: 0, translate: '0 6px' }, { opacity: 1, translate: '0 0' }], WORDS_IN_OPT = { duration: D_SMALL, delay: D_FLIP / 2, easing: EASE_ARRIVE, fill: 'backwards' };
+const WORDS_OUT = [{ opacity: 1, translate: '0 0' }, { opacity: 0, translate: '0 -6px' }];
+const WORDS_IN = [{ opacity: 0, translate: '0 6px' }, { opacity: 1, translate: '0 0' }];
+// A pick while the card is open crosses the old words over the new ones on one clock, one for one: what the old words give up the new ones take, so the two opacities always make 1 (linear, together,
+// D_FLIP). Out on its own curve and a delayed start, the old words were half gone before the new ones began and the words dipped to half for 100 ms on every pick (the tester, 17 Nov 2026).
+const SWAP_OUT_OPT = { duration: D_FLIP, easing: 'linear', fill: 'forwards' }, SWAP_IN_OPT = { duration: D_FLIP, easing: 'linear', fill: 'backwards' };   // motion-scale: own pace (a crossfade of the old words and the new ones: linear, so the two opacities add up to one at every step, never a dip or a flash)
 const FADE_OUT = [{ opacity: 1 }, { opacity: 0 }], FADE_IN = [{ opacity: 0 }, { opacity: 1 }];
+// The card's face and its details trade places in the same box (17 Nov 2026): the face leaves 20 px toward the left as the details come in from 20 px at the right,
+// and Back is the same two moves reversed. Opacity and translate only; the card's height never changes. With Reduce Motion they only fade.
+const SIDE_FACE_OUT = [{ opacity: 1, translate: '0 0' }, { opacity: 0, translate: '-20px 0' }], SIDE_FACE_IN = [{ opacity: 0, translate: '-20px 0' }, { opacity: 1, translate: '0 0' }];
+const SIDE_DET_IN = [{ opacity: 0, translate: '20px 0' }, { opacity: 1, translate: '0 0' }], SIDE_DET_OUT = [{ opacity: 1, translate: '0 0' }, { opacity: 0, translate: '20px 0' }];
 // Options for countTo (it reads { eased } at once).
 const COUNT_EASED = { eased: true }, COUNT_STEADY = { eased: false };
 const DYE_HOLD = { hold: true }, DYE_ONCE = {};
@@ -97,7 +111,7 @@ const RAMP_TOP = 30;
 // The cut colour of a gradient (HVPG, PPG) as a class: ok, caution, danger.
 const CUT_CLS = { ok: 'ac-cut ok', caution: 'ac-cut caution', danger: 'ac-cut danger' };
 // What each kind of control takes of the card (a segmented choice is two cells); a card with more than SMALL_CELLS is the tall size.
-const CELLS = { slider: 1, toggle: 1, meter: 1, seg: 2 };
+const CELLS = { slider: 1, toggle: 1, meter: 1, seg: 2, panel: 2 };   // (a panel: a component of its own, a stent's editor, stent-editor.js)
 const SMALL_CELLS = 2;
 const CTL = new Set(['slider', 'toggle', 'meter', 'seg']), ACT = new Set(['button', 'dye', 'link']), READ = new Set(['read', 'stat']);
 
@@ -147,19 +161,85 @@ export function cardSize(m, p) {
   return about ? 'x' : cells > SMALL_CELLS ? 'l' : 's';
 }
 
-export function createCard({ view, stage, ctx, onDetails }) {
+/** The rows a card is made of, as one word: the bar or the one reading, the readings, the controls and the actions, and how many lines the name takes. Two cards
+ *  with the same shape are the same height on the shelf, where a card is as tall as what it holds. */
+export function cardShape(m, p) {
+  let r = 0, about = 0, c = 0, seg = 0, a = 0, d = 0;
+  for (const v of m.verbs) {
+    if (v.showIf && !v.showIf(p)) continue;
+    if (READ.has(v.type)) r++;
+    else if (CTL.has(v.type)) { c++; if (v.type === 'seg') seg++; }
+    else if (ACT.has(v.type)) { if (v.danger) d++; else a++; }
+    else if (v.type === 'about') about = 1;
+    else if (v.type === 'panel') { c++; seg++; }   // (a panel's one row: its height as a choice's)
+  }
+  return `${m.span ? 'b' : 'v'}${r}${about}.${c}${seg}.${a}${d}.${Math.min(3, Math.floor(m.title.length / 16))}`;
+}
+
+export function createCard({ view, stage, ctx, onWhy }) {
   const el = h('section', { class: 'action-card stage-blocker', role: 'dialog', 'aria-label': 'Actions', hidden: true });
   view.append(el);
   // A card is a sheet like Details and Treat (Menu system plan W4): a plate (paper and glass) and its content move together under the
   // card's still cut, the one motion (app.css .ac-in, .ac-leaving). The plate is kept across rebuilds (it is the first child).
   sheetParts(el);
   // alloc-rare: the card opens afresh: its class for the entrance's length, once for each open
-  const endIn = () => el.classList.remove('ac-in');
+  // A phone's card holds the height it first measured while it comes in (18 Nov 2026, Mohammad on his iPhone: "the card bounces up and down as it opens"): its height is its words', and a word that wraps, a font that
+  // arrives or a control's picture that is drawn changes it in the middle of the entrance, which moves the card's own foot-anchored top and what the entrance is measured against. It is as tall as it first measured until it has
+  // landed, then lets go to its words' height with the card glide (card-glide.js), never a step.
+  let pinH = 0, releasing = false;
+  // The card opens when its widgets are up (18 Nov 2026, Mohammad, the iPhone: "half-rendered: a default background, sliders not in their final render, then it switches to the real look"). Built hidden (ac-prep: its box is laid
+  // out, so its pictures are drawn), then its plate, glass, paper and words all begin together, in the same frame, on the final render. At most PREP_MAX_MS; widget-ready.js says when waiting is pointless.
+  const PREP_MAX_MS = 250;   // motion-scale: not a move (the longest a card waits for its widgets before it opens)
+  let prepOn = false, prepT = 0, prepAt = 0, prepFilled = false;
+  function prepEnd() { prepOn = false; clearTimeout(prepT); el.classList.remove('ac-prep'); }
+  function prepBegin() {
+    prepOn = true; prepFilled = false; prepAt = performance.now(); el.classList.add('ac-prep');
+    let framesSeen = 0, warmed = false;
+    // (Two frames of the page's own: its observers have reported and every fit that follows a width (the stent picture's height, tips-figure.js) has landed before the card is shown, so nothing in it changes size after it appears.)
+    nextFrame(() => nextFrame(() => { framesSeen = 2; }));
+    const poll = () => {
+      if (!prepOn) return;
+      if (!warmed && !el.hidden) { warmed = true; warmSliders(el); }   // (laid out now: its sliders' pictures are made and drawn at once, not when their boxes are first seen)
+      const up = framesSeen >= 2 && prepFilled && !widgetsPending(el) && document.fonts?.status !== 'loading', late = performance.now() - prepAt >= PREP_MAX_MS;
+      if (!up && !late) { prepT = setTimeout(poll, 24); return; }
+      if (!up) widgetState.misses++;
+      prepEnd(); opening(); backIn(null); reveal();
+    };
+    prepT = setTimeout(poll, 0);   // (after this build's own frame: the widgets are drawn in a rest pass of their own)
+  }
+  const endIn = () => {
+    el.classList.remove('ac-in'); backIn(null);
+    if (pinH) { pinH = 0; releasing = true; el.style.height = ''; setTimeout(() => { releasing = false; }, 400); }
+    reveal();
+  };   // (entered: its rest size known, bring the vessel above it)
   let inTimer = 0;
-  const opening = () => { switchIn(el); el.classList.add('ac-in'); clearTimeout(inTimer); inTimer = setTimeout(endIn, D_SMALL + 60); };
+  // A pick that comes while the card is still on its way out takes it from where it is (below, render): the glass comes back from the opacity and place it had reached, never from nothing.
+  const backIn = (from) => {
+    const p = el.querySelector(':scope > .sheet-plate');
+    if (!p) return;
+    if (from) { p.style.setProperty('--edge-o', String(from.o)); p.style.setProperty('--edge-x', `${from.x}px`); p.style.setProperty('--edge-y', `${from.y}px`); }
+    else { p.style.removeProperty('--edge-o'); p.style.removeProperty('--edge-x'); p.style.removeProperty('--edge-y'); }
+  };
+  const opening = () => { cardMoveFor(D_SMALL + 120); switchIn(el); el.classList.add('ac-in'); clearTimeout(inTimer); inTimer = setTimeout(endIn, D_SMALL + 60); };
   const sizes = { h: 0 };
-  new ResizeObserver(() => { sizes.h = readMetric(el, 'offsetHeight'); el.style.setProperty('--sheet-size', sizes.h + 'px'); if (isDocked()) reveal(); }).observe(el);
-  new ResizeObserver(() => { if (isDocked()) reveal(); }).observe(view);
+  // (A change of height its content asks to glide, card-glide.js: the height it had when asked, glided from when the observer sees the new one.)
+  let glideFrom = 0, glides = [];
+  el.addEventListener(GLIDE_EVENT, () => { if (!el.classList.contains('ac-in') && !reduceMotionMQ?.matches) glideFrom = sizes.h; });
+  new ResizeObserver(() => {
+    const was = sizes.h;
+    if (!pinH && el.classList.contains('ac-in') && el.classList.contains('docked') && !el.hidden) { pinH = readMetric(el, 'offsetHeight'); if (pinH > 0) el.style.height = pinH + 'px'; else pinH = 0; }
+    sizes.h = readMetric(el, 'offsetHeight'); el.style.setProperty('--sheet-size', sizes.h + 'px');
+    if (releasing && was > 0 && Math.abs(sizes.h - was) > 1 && !reduceMotionMQ?.matches && !el.classList.contains('ac-in')) { releasing = false; glides = glideCard(el, was, sizes.h, { foot: true, prior: glides }); }
+    else if (glideFrom > 0) { const h0 = glideFrom; glideFrom = 0; if (was === h0) glides = glideCard(el, h0, sizes.h, { foot: el.classList.contains('docked'), prior: glides }); }
+    // A lobule part's card is as tall as its words (18 Nov 2026, Mohammad, the iPhone: a hepatocyte card with 140 px of empty glass above the title, a cut row, a blank bottom third and a body that scrolled):
+    // it grows and shrinks with them, the glide carrying either, and is never held at a height it once stood at (a ratchet of the tallest it had been, min-height, stood the card at a height a
+    // moment of the swap had made, taller than any words it held).
+    else if (el.dataset.size === 'x' && !el.hidden) {
+      if (was > 0 && Math.abs(sizes.h - was) > 1 && !el.classList.contains('ac-in') && !reduceMotionMQ?.matches) glides = glideCard(el, was, sizes.h, { foot: el.classList.contains('docked'), prior: glides });
+    }
+    reveal();
+  }).observe(el);
+  new ResizeObserver(() => { reveal(); }).observe(view);
   const uiState = {};
   ctx.ui = (key, def) => (uiState[key] ||= def);
   // live: the elements whose reading follows the model (each says which in _acK: 1 the direction word and, on a card with no bar, its
@@ -167,7 +247,8 @@ export function createCard({ view, stage, ctx, onDetails }) {
   // params (_acK 1 a slider, 2 a switch); actionable: what the number keys reach, in order. Kept lists, emptied (length 0) and filled
   // again when the card is rebuilt.
   let lastSelTok = [], newSelTok = [], model = null, selRef = null;
-  const live = [], syncs = [], actionable = [];
+  const live = [], syncs = [], actionable = [], panels = [];   // (panels: the components a card holds, each destroyed when the card is rebuilt or closed)
+  const dropPanels = () => { for (const x of panels) x.destroy?.(); panels.length = 0; };
 
   const refP = () => { const st = store.get(); return st.compareSnap ? st.compareSnap.P : st.healthy?.P; };
   const lens = () => (store.get().imaging ? 'neutral' : store.get().colorMode);
@@ -181,6 +262,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
   const dockHost = view.closest('.stage-wrap') || view;
   // The card covers the bottom of the figure on a phone: keep the tapped vessel in the part that is left (the figure eases up), and
   // lift the figure's own buttons (Fit, turn) and the credit clear of it.
+  let cardTall = false;   // (the docked card's words are taller than its room: its body scrolls)
   let revealRaf = 0, liftedBy = '', liftFound = false, liftPill = null, liftClock = null;
   // The variable goes on the few elements that use it: set on the whole figure it would make the browser re-check
   // the style of every element under it. (The two are looked for the first time the card moves, the clock is made after the card.)
@@ -200,11 +282,38 @@ export function createCard({ view, stage, ctx, onDetails }) {
   function coverNow() {
     return Math.max(0, readBox(view).bottom - readBox(el).top);
   }
+  // The card is up over the foot of the screen: a class on the page, so Tests' sheet leaves it room (dock-sheet.js stops, stack-plan.js) and the card is a strip above it (F46).
+  let stripped = false;
+  function stripState(on) {
+    if (on === stripped) return;
+    stripped = on;
+    document.documentElement.classList.toggle('vessel-card', on);
+    dispatchEvent(new Event('pps:vessel-card'));
+  }
+  // Where the words of a card's body end, from its top (px): its in-flow children's lower edges and the body's own padding. Not scrollHeight: a control's GPU picture (the slider's, .wgl) is an
+  // absolutely placed canvas bleeding 14 px past its row, and scrollHeight counts it, so a card that held every word whole read as taller than its room and let its body be dragged (18 Nov 2026,
+  // Mohammad, the iPhone: "it scrolls when it shouldn't"). Read between frames (a rest pass), through layout-snap.
+  function wordsEnd(body) {
+    const b = readBox(body), st = readMetric(body, 'scrollTop');
+    let end = 0;
+    for (const c of body.children) {
+      const r = readBox(c);
+      if (r.height > 0 && !c.classList.contains('wgl')) end = Math.max(end, r.bottom - b.top + st);
+    }
+    return end + (parseFloat(readStyle(body).paddingBottom) || 0);
+  }
   function revealNow() {
-    const open = model && !el.hidden && isDocked();
+    const open = model && !el.hidden && isDocked();   // (the phone's sheet: its cover lifts the zoom pill and the clock)
     const covered = open ? coverNow() : 0;
     liftButtons(open ? `${covered + 6}px` : '0px');
-    if (open) stage.reveal?.(normalizeSel(selRef) || selRef, covered);
+    stripState(open && !el.classList.contains('ac-leaving'));
+    // A phone's card grows with its words up to the room there is (app-03-layouts.css); past that its body scrolls, and takes the vertical touch for it.
+    // (While the details are open the face under them is not what is touched: the details' own scroller is the one measured, so tall details take the vertical touch too.)
+    const body = open ? el.querySelector(detOpen ? ':scope > .ac-details > .ad-scroll' : ':scope > .ac-body') : null, tall = !!body && wordsEnd(body) > readMetric(body, 'clientHeight') + 1;
+    if (tall !== cardTall) { cardTall = tall; el.classList.toggle('ac-scroll', tall); }
+    // (Every screen: the view pans for this card as for the others, then the selected vessel is brought into the room all the open cards leave.)
+    const shown = !!model && !el.hidden && !el.classList.contains('ac-leaving');
+    if (shown) { stage.cardsMoved?.(); stage.reveal?.(normalizeSel(selRef) || selRef, covered); }
   }
   function reveal() {
     // (A rest pass: the boxes are read between two frames, never inside one.)
@@ -212,18 +321,19 @@ export function createCard({ view, stage, ctx, onDetails }) {
     revealRaf = restPass(revealNow);
   }
   let closeTimer = 0, sheetWired = false;
-  const afterLeave = () => { el.hidden = true; el.classList.remove('ac-leaving'); releaseWords(el); };
+  const afterLeave = () => { el.hidden = true; el.classList.remove('ac-leaving'); finishDet(); dropDetails(); releaseWords(el); stage.cardsMoved?.(); };   // (gone: the view pans back)
   function hide() {
     stopSheetGesture();
+    if (prepOn) { prepEnd(); el.hidden = true; }   // off-screen: it was never shown, so there is no leave to play
     if (el.dataset.swiped) { delete el.dataset.swiped; el.hidden = true; setSheetOffset(el, 0); }   // (pulled away: already out of sight behind the tab row)
     if (!el.hidden && !el.classList.contains('ac-leaving')) {
       // (It fades back toward the edge it came from: the left on a Mac, the foot on a phone. With Reduce Motion it only fades: app.css.)
-      el.classList.add('ac-leaving');
+      el.classList.add('ac-leaving'); cardMoveFor(D_FLIP * 4 / 3 + 120);
       if (isDocked()) markGone(D_SMALL, el);   // (a phone's card sinks like a sheet: whatever opens next crosses over with it, as it does with a sheet)
       closeTimer = afterExit(el, 'ac-leaving', afterLeave);
     }
-    model = null; live.length = 0; syncs.length = 0; actionable.length = 0;
-    liftButtons('0px');
+    model = null; live.length = 0; syncs.length = 0; actionable.length = 0; dropPanels();
+    liftButtons('0px'); stripState(false);
     stage.unreveal?.();
     relayoutSoon();
   }
@@ -234,10 +344,68 @@ export function createCard({ view, stage, ctx, onDetails }) {
   let aboutNext = 0;
 
   // The pieces of the card that are the same every time it is built, made once here because their handlers are this card's own.
-  const onNameClick = () => onDetails(selRef);
+  const onNameClick = () => openDetails();
   const KEEP = { keepFocus: true };
   const renderKeep = () => render(KEEP);
   const renderSoon = () => restPass(renderKeep);   // (the card rebuilds between frames, never as a timer task inside one)
+
+  // ---- The card's details, inside the card (17 Nov 2026) ----
+  // A tap on the name slides the card's face away and its details (card-details.js) in, in the same box; Back, Esc or the name row slides the face home. There is no
+  // panel or sheet any more. The face stays built under the details (hidden, taking no taps, still updating), so Back is only a slide. The card never changes height
+  // for it (a taller view scrolls inside the box, as the face does past its room), and nothing pops: both layers move by opacity and translate.
+  // `det`: the details view, from the tap until it has slid out; `detOpen`: whether they are the one in view; `detDone`: what the running slide does at its end.
+  let det = null, detOpen = false, detDone = null;
+  const finishDet = () => { if (detDone) { const d = detDone; detDone = null; d(); } };   // (a second tap in the middle of a slide: the first slide is taken to its end)
+  function dropDetails() {
+    detOpen = false;
+    if (!det) return;
+    const d = det; det = null;
+    releaseWords(d.el); removeSoon(d.el);
+    const i = live.indexOf(d.el);
+    if (i >= 0) live.splice(i, 1);
+  }
+  function openDetails() {
+    if (!model || el.hidden || detOpen || el.classList.contains('ac-leaving')) return;
+    if (isDocked() && el.closest('.app.dock-open:not(.instrument-focus)')) return;   // (over Tests the phone's card is a strip of its name and state: no room for a view)
+    finishDet(); dropDetails();
+    const d = createCardDetails(model, { onWhy, onBack: closeDetails });
+    if (!d) return;
+    det = d; detOpen = true;
+    d.el._acK = 8; d.el._acD = d; live.push(d.el);
+    const face = el.querySelector(':scope > .ac-body');
+    el.append(d.el);
+    d.update(store.get().frame);
+    // (The details come in when their widgets are drawn, with the face going out, in one task: enterWhenReady holds them unseen till then, widget-ready.js.)
+    const begin = () => {
+      if (det !== d || !detOpen) return;
+      const still = reduceMotionMQ.matches;
+      d.el.animate(still ? FADE_IN : SIDE_DET_IN, SWAP_IN_OPT);
+      if (face) {
+        const a = face.animate(still ? FADE_OUT : SIDE_FACE_OUT, SWAP_OUT_OPT);
+        // alloc-rare: one slide per tap; the face is hidden for good when it has gone (its words keep updating under the details)
+      const done = () => { detDone = null; if (face.isConnected && detOpen) { classSoon(face, 'ac-under', true); propSoon(face, 'inert', true); } runSoon(() => a.cancel()); };   // (the class lands first, in the same task: the face is never seen again between the two)
+        detDone = done;
+        a.finished.then(() => { if (detDone === done) done(); }, () => {});
+      }
+      d.focus();
+    };
+    enterWhenReady(d.el, begin);
+    reveal();   // (the details' room is measured once they stand: tall ones scroll, and take the vertical touch)
+  }
+  function closeDetails() {
+    if (!detOpen || !det) return;
+    finishDet();
+    const d = det, face = el.querySelector(':scope > .ac-body'), still = reduceMotionMQ.matches;
+    detOpen = false;
+    propSoon(d.el, 'inert', true);
+    if (face) { classNow(face, 'ac-under', false); propSoon(face, 'inert', false); face.animate(still ? FADE_IN : SIDE_FACE_IN, SWAP_IN_OPT); face.querySelector('.ac-name')?.focus({ preventScroll: true }); }
+    const a = d.el.animate(still ? FADE_OUT : SIDE_DET_OUT, SWAP_OUT_OPT);
+    // alloc-rare: one slide per tap
+    const done = () => { detDone = null; if (det === d) dropDetails(); };
+    detDone = done;
+    a.finished.then(() => { if (detDone === done) done(); }, () => {});
+    reveal();   // (the face is back: its own height decides again whether the card scrolls)
+  }
 
   // The direction word crossfades to a new one (its colour easing with it); a card with no bar has its one reading beside it, whose
   // number rolls to a new one.
@@ -338,6 +506,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
     else if (k === 3) liveAbout(e);
     else if (k === 6) liveSpan(e);
     else if (k === 7) liveMeter(e);
+    else if (k === 8) e._acD.update(store.get().frame);
     else liveDye(e);
   }
   // A slider shows its number and its fill; a switch its state.
@@ -345,7 +514,8 @@ export function createCard({ view, stage, ctx, onDetails }) {
   function paintShown(input, x) {
     const v = input._acV;
     input._acShown = x;
-    input._acVal.textContent = v.format(x); paintRange(input, (x - v.min) / (v.max - v.min));
+    const vt = v.format(x); input._acVal.textContent = vt; attrSoon(input, 'aria-valuetext', vt);   // (a screen reader says "60%", not the thumb's 0.6: SHELL-13)
+    paintRange(input, (x - v.min) / (v.max - v.min));
     input._acRow.classList.toggle('changed', v.def != null && Math.abs(x - v.def) > 1e-9);
   }
   // A value the model gives (a preset, an undo, a step of the timeline): the input's own value follows it between frames (propSoon).
@@ -357,6 +527,8 @@ export function createCard({ view, stage, ctx, onDetails }) {
   }
   function syncOne(e, p) {
     if (e._acSk === 1) { if (document.activeElement !== e) paintSlider(e, e._acV.get(p)); }
+    else if (e._acSk === 3) attrSoon(e, 'aria-pressed', e._acV.get() === e._acVal ? 'true' : 'false');   // (a choice another card or a slide set: the stent's End, its Ends)
+    else if (e._acSk === 4) e.classList.toggle('ac-dim', !!e._acV.dimIf(p));   // (a control that does nothing now, dimmed and still there: the waist's length with no waist)
     else attrSoon(e, 'aria-checked', e._acV.get(p) ? 'true' : 'false');
   }
   // What a number key or trigger() does with an actionable element, and where its focus goes.
@@ -371,7 +543,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
   // The content of the card, built for a model: its rows in their fixed order (app.css .ac-body).
   function build(m) {
     const p0 = store.get().params;
-    // The name (a tap opens Details: the chevron says so) and the direction of flow at its right.
+    // The name (a tap slides the card to its details: the chevron says so) and the direction of flow at its right.
     const pillEl = h('span', P_STATE);
     P_NAME['aria-label'] = `${m.title}: details`;
     const name = m.noDetails ? h('span', P_NAME_PLAIN, m.title) : h('button', P_NAME, h('span', P_NONE, m.title), svgIcon('chev-right', 'ac-chev'));
@@ -381,11 +553,11 @@ export function createCard({ view, stage, ctx, onDetails }) {
     // The bar, or (a structure with no inflow and outflow: the heart, the spleen, the varices, a lobule part) its one reading.
     let numEl = null;
     if (m.span) body.append(spanEl(m.span));
-    else { numEl = h('span', P_NUM); body.append(h('div', P_VALUE, numEl)); }
+    else if (!m.noValue) { numEl = h('span', P_NUM); body.append(h('div', P_VALUE, numEl)); }   // (noValue: a body that reads its own numbers, the TIPS's line: no reading here)
     nr._acK = 1; nr._acNum = numEl; nr._acPill = pillEl; nr._acM = m; nr._acMode = 0; nr._acHas = false;
     live.push(nr);
     // (The controls take one column where a name is long or there is only one of them: the liver's Cirrhosis runs the card's width.)
-    let rs = null, cs = null, as = null, about = null, danger = null, one = false, nCtl = 0;
+    let rs = null, cs = null, as = null, about = null, danger = null, one = false, nCtl = 0, panel = null;
     for (const v of m.verbs) if (CTL.has(v.type) && !(v.showIf && !v.showIf(p0))) { nCtl++; if ((v.short || v.label).length > 14) one = true; }
     if (nCtl === 1) one = true;
     for (const v of m.verbs) {
@@ -396,10 +568,12 @@ export function createCard({ view, stage, ctx, onDetails }) {
       else if (CTL.has(v.type)) (cs ||= h('div', one ? P_CS_ONE : P_CS)).append(node);
       else if (ACT.has(v.type)) { if (v.danger) danger = node; else (as ||= h('div', P_AS)).append(node); }
       else if (v.type === 'about') about = node;
+      else if (v.type === 'panel') panel = node;
     }
     if (rs) body.append(rs);
     if (about) body.append(about);
     if (cs) body.append(cs);
+    if (panel) body.append(panel);
     if (danger) (as ||= h('div', P_AS)).append(danger);   // (taking a device out stands apart, at the right)
     if (as) body.append(as);
     return body;
@@ -439,6 +613,12 @@ export function createCard({ view, stage, ctx, onDetails }) {
     stopSheetGesture();
     clearTimeout(closeTimer);
     const leaving = el.classList.contains('ac-leaving');
+    // (Where the words (and so the glass, which fades with them) of a card going out stand now, read before its leave class is taken off: opacity and place.)
+    let lo = null;
+    if (leaving && typeof DOMMatrixReadOnly === 'function') {
+      const p0 = el.querySelector(':scope > .ac-body');   // (the words: the plate's own opacity is the glass's to hold)
+      if (p0) { const cs = readStyle(p0), mx = new DOMMatrixReadOnly(cs.transform === 'none' ? undefined : cs.transform), o = parseFloat(cs.opacity); if (o > 0.02 && o < 0.999) lo = { o, x: mx.m41, y: mx.m42 }; }   // alloc-rare: a pick during a card's leave
+    }
     el.classList.remove('ac-leaving');
     let focusedIdx = -1;
     if (keepFocus) for (let i = 0; i < actionable.length; i++) if (actionable[i].contains(document.activeElement)) { focusedIdx = i; break; }
@@ -449,16 +629,47 @@ export function createCard({ view, stage, ctx, onDetails }) {
     if (same) for (let i = 0; i < newSelTok.length; i++) if (newSelTok[i] !== lastSelTok[i]) { same = false; break; }
     const tok = lastSelTok; lastSelTok = newSelTok; newSelTok = tok;
     const size = cardSize(m, st.params), wasOpen = !el.hidden && !!model && !leaving;
-    // A switch to a card of another size is the old card going out and the new one coming in: its height never glides (B, 13 Nov).
-    const resized = wasOpen && el.dataset.size !== size;
     el.dataset.card = ns.type || 'vessel';
-    el.dataset.size = size;
-    model = m; selRef = sel; live.length = 0; syncs.length = 0; actionable.length = 0; aboutNext = 0;
+    // The details stay for a rebuild of the same card (a verb, the shunting flag); any other pick puts them away (below, once it is known whether the card is new).
+    const keepDet = detOpen && same && !leaving;
+    model = m; selRef = sel; live.length = 0; syncs.length = 0; actionable.length = 0; aboutNext = 0; dropPanels();
     const old = el.querySelector(':scope > .ac-body');
+    const oldH = wasOpen && !same && old ? readMetric(old, 'offsetHeight') : 0;   // (the words' own height, read before anything is changed: they keep it while they fade, below)
     el.querySelector(':scope > .ac-ghost')?.remove();
-    releaseWords(el);   // (the readings of the content being replaced)
+    releaseWords(keepDet ? old : el);   // (the readings of the content being replaced; the details' own stay)
     const body = build(m);
-    const swap = wasOpen && !same && !resized && !!el.animate && !!old;
+    // The shelf's card is as tall as its words (16 Nov 2026), so a pick of the same size can still be a different height. The shape of the rows says it (cardShape),
+    // worked out from the model with no read of the page. A pick while the card is open is always the same move, whatever its size or shape (17 Nov 2026, Mohammad:
+    // opening, closing and choosing still felt glitchy): the old words fade out where they stood, the new ones come in a beat later, and a different height is the card's
+    // own glide (card-glide.js). It used to be "the old card out and the new one in" for a card of another shape (B, 13 Nov): the box snapped to its new height, every old
+    // word went in one frame, and the card's glass and words fell to nothing and came back from the edge, which is a blink on every pick of a vessel whose name or rows
+    // differ in length. The card is one still box that changes height; it never leaves and comes again while it is open.
+    const shape = cardShape(m, st.params);
+    const resized = wasOpen && (el.dataset.size !== size || el.dataset.shape !== shape);
+    el.dataset.size = size; el.dataset.shape = shape;
+    if (!same) el.style.minHeight = '';   // (a card never keeps a height of the last one's)
+    const swap = wasOpen && !same && !!el.animate && !!old;
+    if (swap) cardMoveFor(D_FLIP + 120);
+    // (The height it has now is the one the glide starts from, asked before the change is made; the observer sees the new one and glides there. A card still coming in
+    // has no height of its own to glide from, and Reduce Motion has no glide: the height changes under the fade.)
+    if (swap && resized && !el.classList.contains('ac-in') && !reduceMotionMQ?.matches) glideFrom = sizes.h;
+    // The old words keep their own height while they fade: as the ghost fills the card's box (the card's, which has the new height at once, or its minimum, a phone's)
+    // their foot rows would slide to the box's foot. From the new top, as the new words are, so the glide's ride (a phone's card grows or shrinks from its foot)
+    // carries both the same way.
+    if (swap && oldH > 0) { old.style.height = `${oldH}px`; old.style.bottom = 'auto'; }
+    // Another pick with the details showing: they fade out as the new words come in.
+    if (det && !keepDet) {
+      finishDet();
+      const d = det;
+      if (swap && detOpen) {
+        detOpen = false; propSoon(d.el, 'inert', true);
+        const still = reduceMotionMQ.matches, a = d.el.animate(still ? FADE_OUT : WORDS_OUT, SWAP_OUT_OPT);
+        // alloc-rare: one fade per pick that leaves details behind
+        const done = () => { detDone = null; if (det === d) dropDetails(); };
+        detDone = done;
+        a.finished.then(() => { if (detDone === done) done(); }, () => {});
+      } else dropDetails();
+    }
     if (swap) {
       // Another structure picked while the card is open: the old words fade out 6 px up from a layer that takes no taps, the new ones
       // come in from 6 px below a beat later (B: only the words move, the card stays still). With Reduce Motion they only fade.
@@ -466,23 +677,38 @@ export function createCard({ view, stage, ctx, onDetails }) {
       old.setAttribute('aria-hidden', 'true'); old.inert = true;
       el.append(body);
       const still = reduceMotionMQ.matches;
-      const a = old.animate(still ? FADE_OUT : WORDS_OUT, WORDS_OUT_OPT);
-      body.animate(still ? FADE_IN : WORDS_IN, WORDS_IN_OPT);
+      const a = old.animate(still ? FADE_OUT : WORDS_OUT, SWAP_OUT_OPT);
+      body.animate(still ? FADE_IN : WORDS_IN, SWAP_IN_OPT);
       // alloc-rare: the ghost goes when its fade ends: once per swap, with the ghost
+      a.finished.then(() => old.remove(), () => old.remove());
+    } else if (lo && old && el.animate) {
+      // (A pick while the card was still on its way out: its old words, at the opacity they had reached, finish going out as a ghost while the new ones come in, and the glass
+      // comes back from where it is. Before, the old words went in one frame and the glass fell to nothing and rose again: a dip.)
+      old.classList.replace('ac-body', 'ac-ghost');
+      old.setAttribute('aria-hidden', 'true'); old.inert = true;
+      el.append(body);
+      const still = reduceMotionMQ.matches;
+      const a = old.animate(still ? [{ opacity: lo.o }, { opacity: 0 }] : [{ opacity: lo.o, translate: `${lo.x}px ${lo.y}px` }, { opacity: 0, translate: '0 -6px' }], { duration: D_FLIP * lo.o, easing: EASE_IN, fill: 'forwards' });
+      // alloc-rare: the ghost goes when its fade ends: once per pick that follows a leave
       a.finished.then(() => old.remove(), () => old.remove());
     } else {
       if (old) old.remove();
       el.append(body);
     }
+    if (keepDet) { classNow(body, 'ac-under', true); body.inert = true; if (det) live.push(det.el); }   // (the rebuilt face goes under the details that are showing)
     // alloc-rare: the card is built when a selection (or the shunting flag) changes, once per pick
     el.setAttribute('aria-label', `${m.title}: actions`);
-    if (el.hidden || leaving || resized) opening();   // (opened afresh, or a new size: it comes in from its edge)
+    // (A card coming up from nothing is built where it cannot be seen and opened once its GPU widgets are drawn, ac-prep: never shown in the page's fallback look and then changed. A pick that finds it open or going out is the swap and the glide as before.)
+    if (el.hidden && !leaving && !prepOn) prepBegin();
+    else if (el.hidden || leaving || (resized && !swap)) { if (!prepOn) { opening(); backIn(leaving ? lo : null); } }   // (opened afresh: it comes in from its edge. A pick while it is open never does: it is the swap above, with the glide)
     el.hidden = false;
     // Number keys trigger the verbs in order; show the number beside each.
     for (let i = 0; i < actionable.length && i < 9; i++) actionable[i].dataset.key = KEYS[i];
     position();
-    update();
-    if (focusedIdx >= 0 && actionable[focusedIdx]) focusAction(actionable[focusedIdx]);
+    // (A card being built has its readings put in a rest pass of its own, still before it is shown (prepBegin waits for it): the number's picture and the direction word cost 10 to 20 ms between them, and a
+    // tap's own frame is not the place for that. The tester, 390 px: 22 to 110 ms of script in the first frame after the tap.)
+    if (prepOn && !prepFilled) restPass(() => { prepFilled = true; update(); }); else update();
+    if (focusedIdx >= 0 && actionable[focusedIdx] && !keepDet) focusAction(actionable[focusedIdx]);
     relayoutSoon();
     reveal();
   }
@@ -535,7 +761,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
   function stopSheetGesture() { if (!sheetWired) return; if (y0 != null) sheetStop(); setSheetOffset(el, 0); }
   // (The pull starts anywhere on the card but on a control: a slider, a switch, a button.)
   function onSheetDown(e) {
-    if (!isDocked() || !e.isPrimary || e.button !== 0 || e.target.closest('input, button, .ac-c')) return;
+    if (!isDocked() || !e.isPrimary || e.button !== 0 || e.target.closest('input, .ac-c, .ad-scroll') || (e.target.closest('button') && !e.target.closest('.ad-head'))) return;   // (the details face's own head, its Back button too, pulls the sheet down: the scrolling words below it do not, V13)
     sheetWired = true;
     stopSheet(el);   // (caught mid-ease: the pull carries on from where the content is drawn)
     y0 = e.clientY - sheetOffset(el); t0 = performance.now(); dy = 0; pid = e.pointerId; px = e.clientX; py = e.clientY; held = false;
@@ -553,7 +779,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
     updateParams((pp) => { v.set(pp, on); return pp; }, { label: `${v.hist || v.label} ${on ? 'on' : 'off'}` });
   };
   const onBtnClick = (e) => { e.currentTarget._acV.run(); setTimeout(renderSoon, 30); };
-  const onDyePress = (e) => { if (e.button > 0) return; const b = e.currentTarget; b._acPressed = true; b.setPointerCapture?.(e.pointerId); b._acV.run(DYE_HOLD); };
+  const onDyePress = (e) => { if (e.button > 0) return; const b = e.currentTarget; b._acPressed = true; capture(b, e.pointerId); b._acV.run(DYE_HOLD); };
   const onDyeClick = (e) => { if (e.detail === 0) e.currentTarget._acV.run(DYE_ONCE); };   // keyboard
   const noMenu = (e) => e.preventDefault();
   // A slider: the thumb and its number follow the pointer at once; the model gets the newest value once per frame, the sliders that
@@ -607,6 +833,14 @@ export function createCard({ view, stage, ctx, onDetails }) {
     return b;
   }
 
+  // A control with dimIf(p) (true: it does nothing now) is dimmed and stays where it is, never hidden: nothing on the card moves.
+  function dimmable(row, v, p0) {
+    if (!v.dimIf) return row;
+    row.classList.toggle('ac-dim', !!v.dimIf(p0));
+    const d = { _acSk: 4, _acV: v, classList: row.classList };
+    syncs.push(d);
+    return row;
+  }
   function verbEl(v, p0) {
     if (v.type === 'read' || v.type === 'stat') {
       // A reading named by its unit (`read`), or by its name where the unit would not say it (a lobule part's `stat`).
@@ -634,12 +868,13 @@ export function createCard({ view, stage, ctx, onDetails }) {
         const b = h('button', P_PRESSED, o[1]);
         b._acV = v; b._acVal = o[0];
         b.addEventListener('click', onSegClick);
+        b._acSk = 3; syncs.push(b);
         kidsBuf.push(b);
       }
       P_SEG['aria-label'] = v.label || 'Options';
       const seg = h('div', P_SEG, kidsBuf);
       kidsBuf.length = 0;
-      return h('div', P_SEGROW, v.label ? h('div', P_CTLTOP, h('span', P_CTLNAME, v.label)) : null, seg);
+      return dimmable(h('div', P_SEGROW, v.label ? h('div', P_CTLTOP, h('span', P_CTLNAME, v.label)) : null, seg), v, p0);
     }
     if (v.type === 'slider') {
       const lab = typeof v.label === 'function' ? v.label() : v.label;
@@ -667,7 +902,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
       paintSlider(input, v.get(p0));
       input._acSk = 1; syncs.push(input);
       row._acRun = 3; row._acF = input; actionable.push(row);
-      return row;
+      return dimmable(row, v, p0);
     }
     if (v.type === 'meter') {
       const val = h('span', P_CTLVAL), fill = h('i', P_METER_FILL);
@@ -689,8 +924,14 @@ export function createCard({ view, stage, ctx, onDetails }) {
       b._acRun = 1; actionable.push(b);
       return b;
     }
+    if (v.type === 'panel') {
+      // A component with its own controls and its own following of the params (a stent's editor: one row of value chips, stent-editor.js).
+      const x = v.make();
+      panels.push(x);
+      return h('div', P_PANEL, x.el);
+    }
     if (v.type === 'button') {
-      const b = actBtn(v.danger ? P_BTN_DANGER : P_BTN, v);
+      const b = actBtn(v.danger ? P_BTN_DANGER : v.quiet ? P_BTN_QUIET : P_BTN, v);
       b._acV = v;
       b.addEventListener('click', onBtnClick);   // (the card rebuilds between frames, never as a timer task inside one)
       b._acRun = 1; actionable.push(b);
@@ -724,6 +965,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
   // Where the card stands: a phone's in the figure column, above the view switch (app.css .action-card.docked); a Mac's or an iPad's
   // in the figure, on the shelf at its left edge under the case pill (app.css). Neither depends on what was picked, so nothing is
   // measured to place it.
+  const placed = {};
   function position() {
     if (!model || el.hidden) return;
     if (isPhoneLayout()) {
@@ -733,10 +975,15 @@ export function createCard({ view, stage, ctx, onDetails }) {
       if (el.parentNode !== view) view.append(el);
       if (isDocked()) el.classList.remove('docked');
     }
+    handOver(placed, isDocked() ? 'sheet' : 'shelf', [el.querySelector(':scope > .ac-body')]);   // (turned between the shelf and the sheet: its words start at the top again, F35)
+    // The camera counts this card like Tests and Details: over the foot of a phone, on the left shelf elsewhere (it pans for it, stage-fit.js; 17 Nov 2026, F9, F27).
+    const edge = isDocked() ? 'bottom' : 'left';
+    if (el.dataset.safe !== edge) el.dataset.safe = edge;
   }
 
   // The floating pieces moved (the layout changed between a phone and a wider screen, the dock grew): stand the card in its place again.
-  addEventListener('pps:occ', () => { position(); if (isDocked()) reveal(); });
+  addEventListener('pps:occ', () => { position(); reveal(); });
+  addEventListener('pps:reframed', () => { if (model) reveal(); });   // (the camera moved by itself: judged again from where it is going)
   store.on('selection', () => render());
   store.on('shunting', () => render());
   store.on('colorMode', () => update());
@@ -744,7 +991,10 @@ export function createCard({ view, stage, ctx, onDetails }) {
   return {
     el, render, update, position,
     isOpen: () => !!model && !el.hidden,
-    trigger(n) { const a = actionable[n - 1]; if (a && !a.disabled) { runAction(a); return true; } return false; },
+    /** Whether the card's details are the view showing (Esc takes them back before it takes the card away). */
+    detailsOpen: () => detOpen,
+    closeDetails,
+    trigger(n) { if (detOpen) return false; const a = actionable[n - 1]; if (a && !a.disabled) { runAction(a); return true; } return false; },
     focusFirst() { if (actionable[0]) focusAction(actionable[0]); },
   };
 }

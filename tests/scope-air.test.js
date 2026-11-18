@@ -9,9 +9,10 @@ import { Engine } from '../src/engine/engine.js';
 import { computeMetrics } from '../src/engine/metrics.js';
 import { endoGrow, airRatio, airFlat } from '../src/ui/endo-size.js';
 import { abChoice } from '../src/ui/presenter.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8');
-const instruments = read('../src/ui/instruments.js'), presenter = read('../src/ui/presenter.js'), tools = read('../src/ui/presenter-tools.js'), css = read('../styles/app.css');
+const instruments = read('../src/ui/instruments.js'), presenter = presenterSource(), tools = read('../src/ui/presenter-tools.js'), css = appCss();
 const run = (g) => { let n; do { n = g.next(); } while (!n.done); };
 const table = (() => { const e = new Engine(); run(e.loadPresetSteps('cirr-decomp', {})); e.settle(); return computeMetrics(e).varix.air; })();
 
@@ -54,7 +55,7 @@ test('the scope takes its options from the slide, eases them in and keeps the gr
   assert.match(instruments, /\(opt\.red \?\? vx\.redWale\) \? 'Red wale, cherry spots' : 'None'/);
   // The drawing and the size seen share one air ratio, from the beat-averaged table.
   assert.match(instruments, /const kAir = airRatio\(mv\.air, opt\.air\), gAir = gNow \* airFlat\(mv\.d, kAir\);/);
-  assert.match(instruments, /set\(diam, shownNum\(cDiam, rest \* airRatio\(mv\?\.air \?\? vx\.air, opt\.air\), 1, ' mm'\)\)/);
+  assert.match(instruments, /const diamTxt = shownNum\(cDiam, rest \* airRatio\(mv\?\.air \?\? vx\.air, opt\.air\), 1, ' mm'\);\s*set\(diam, diamTxt\)/);
   // The pressures: in the varix, in the lumen, and across the wall, the difference of the two as printed.
   assert.match(instruments, /set\(pIn, shownNum\(cIn, inV, 1, ' mmHg'\)\); set\(pLum, shownNum\(cLum, opt\.air, 1, ' mmHg'\)\); set\(pAcross, shownNum\(cAcross, inV - opt\.air, 1, ' mmHg'\)\)/);
   const names = [...instruments.matchAll(/h\('dt', \{\}, '(Intravariceal|Intraluminal|Transmural)'\)/g)].map((m) => m[1]);
@@ -73,7 +74,7 @@ test('compare buttons can change the slide\'s instrument options, and the slide\
   // (the other rows are as they were)
   assert.deepEqual(abChoice([{ label: 'A', preset: 'csph' }, { label: 'B', own: true }], 1), { kind: 'state' });
   assert.deepEqual(abChoice([{ label: 'A', lens: 'flow' }, { label: 'B', lens: 'pressure', own: true }], 1), { kind: 'lens', lens: 'pressure' });
-  assert.match(presenter, /if \(c\.kind === 'tool'\) \{ ui\.tools\.option\(c\.tool\); return; \}/, 'a tool button leaves the model alone');
+  assert.match(presenter, /if \(c\.kind === 'tool'\) \{ (?:live\.)?ui\.tools\.option\(c\.tool\); return; \}/, 'a tool button leaves the model alone');
   assert.match(tools, /option\(patch\) \{ if \(cur && lastTool\) cur\.configure\?\.\(patch \? \{ \.\.\.lastTool, \.\.\.patch \} : lastTool, lastCtx\); \}/);
   assert.match(tools, /inst\.configure\?\.\(t, ctx\);[^\n]*\n\s*lastTool = t; lastCtx = ctx;/, 'every slide sets its own options again, a kept card too');
 });
@@ -81,7 +82,7 @@ test('compare buttons can change the slide\'s instrument options, and the slide\
 test('a what-if slider can move an instrument option: no model change, no worker message, and it starts at the slide\'s own value', () => {
   const fn = presenter.slice(presenter.indexOf('function whatIfEl'), presenter.indexOf('function stopLapse'));
   assert.match(fn, /const v0 = \+\(w\.tool \? s\.tool\?\.\[w\.tool\] \?\? w\.min :/);
-  assert.match(fn, /if \(w\.tool\) \{ ui\?\.tools\.option\(\{ \[w\.tool\]: \+input\.value \}\); return; \}/);
+  assert.match(fn, /if \(w\.tool\) \{ (?:live\.)?ui\?\.tools\.option\(\{ \[w\.tool\]: \+input\.value \}\); return; \}/);
   assert.match(fn, /liveSet\(s, i, patchOf\(\+input\.value\)\)/, 'a model slider goes through the worker as before');
   assert.ok(!/host\.send/.test(fn), 'the slider itself sends nothing to the model');
 });

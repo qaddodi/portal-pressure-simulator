@@ -8,7 +8,7 @@
 // 5.34, 6.3 and 6.4 (recurrent or refractory ascites; discuss TIPS and transplant together), 6.5 and 6.6 (smallest adequate stent,
 // stepwise dilation; overshunting means encephalopathy and cardiac failure), 6.8 (age 70 or over), 6.9 (renal function), 6.14 and
 // 6.16 (encephalopathy history, rifaximin), 4.15 (liver cancer) and 4.19 (frailty). The heart numbers are the model's own
-// (decompensated cirrhosis: right atrial pressure and cardiac output both rise with the stent).
+// (decompensated cirrhosis: right atrial pressure and cardiac output both rise in the first days with the stent, and settle as the ascites clears).
 
 const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`, sub = (b, i) => `<msub>${b}<mtext>${i}</mtext></msub>`;
 const frac = (n, d) => `<mfrac><mrow>${n}</mrow><mrow>${d}</mrow></mfrac>`;
@@ -17,25 +17,20 @@ const WIDTH = { label: 'Stent diameter', param: 'tips.d', min: 6, max: 12, step:
 
 export const SHUNTS = {
   id: 'shunts', level: 'advanced', title: 'TIPS and shunts', minutes: 12,
-  objectives: [
-    'Recognize a large spontaneous portosystemic shunt by the hepatic encephalopathy it causes',
-    'Name the indications for TIPS and the pre-TIPS evaluation',
-    'Explain the effects of TIPS on portal pressure, hepatic perfusion and the heart, why the stent is kept narrow, and how TIPS dysfunction presents',
-    'Explain how the selective Warren shunt decompresses the varices while preserving portal flow to the liver',
-  ],
+  objectives: ['Recognize a large spontaneous portosystemic shunt by the encephalopathy it causes', 'Name the indications for TIPS and the pre-TIPS evaluation', 'Explain what TIPS does to portal pressure, liver and heart, and why the stent is kept narrow'],
   checks: [
     ['An 8 mm TIPS is dilated to 10 mm. The PPG falls slightly further and hepatic portal perfusion falls. What did the extra 2 mm gain, and at what cost?', 'A small further fall in the gradient, at the cost of less hepatic portal perfusion, so hepatic encephalopathy and liver failure become more likely. That is why stents are usually 8 to 10 mm and not wider.'],
     ['A 72-year-old woman has refractory ascites and no heart failure. Is her age a reason to rule out a TIPS?', 'No. At age ≥70 a TIPS is judged case by case, weighing benefit and risk (Baveno VIII 6.8). Her renal function and history of hepatic encephalopathy are assessed first, and TIPS is discussed together with liver transplant.'],
     ['What does TIPS do to right atrial pressure and cardiac output?', 'Both rise, because part of portal flow now returns directly to the right heart. That is why heart failure is excluded before TIPS.'],
-    ['Why does ascites not improve after a Warren shunt?', 'Portal pressure stays high: only the gastroesophageal varices are decompressed, through the spleen to the left renal vein.'],
+    ['Why does ascites not improve after a distal splenorenal shunt (DSRS)?', 'Portal pressure stays high: only the gastroesophageal varices are decompressed, through the spleen to the left renal vein.'],
   ],
   sections: [['Spontaneous shunts', ['Spontaneous']], ['Selecting patients for TIPS', ['Selecting patients for TIPS']], ['The stent and portal flow', ['The stent']], ['A surgical shunt', ['A surgical shunt']]],
-  summary: 'Spontaneous portosystemic shunts, TIPS indications and the pre-TIPS evaluation, the effects of the stent on portal pressure, hepatic perfusion and the heart, stent diameter, and the Warren shunt. Ends with a comparison of gradient, sinusoidal flow and hepatic encephalopathy risk.',
+  summary: 'Spontaneous portosystemic shunts, TIPS indications and the pre-TIPS evaluation, the effects of the stent on portal pressure, hepatic perfusion and the heart, stent diameter, and the distal splenorenal shunt (DSRS). Ends with a comparison of gradient, sinusoidal flow and hepatic encephalopathy risk.',
   slides: [
     {
       id: 'own', lens: 'flow', preset: 'cirr-decomp', cam: 'fit', sites: ['split'], glow: ['C1a', 'C1b', 'C3'], tool: { kind: 'flows' }, data: 'tiles', tiles: ['ppg', 'liver'],
       kicker: 'Spontaneous', site: 'sin', title: 'Spontaneous portosystemic collaterals lower the gradient only slightly',
-      vignette: 'A 56-year-old man with alcohol-associated cirrhosis has ascites controlled on spironolactone and furosemide, and large esophageal varices. His platelets are 60,000/µL.',
+      vignette: 'A 56-year-old man with alcohol-associated cirrhosis has ascites controlled on spironolactone and furosemide, and large esophageal varices. His platelets are 59,000/µL.',
       eq: [frac('<mn>1</mn>', sub(mi('R'), 'total')) + mo('=') + frac('<mn>1</mn>', sub(mi('R'), 'liver')) + mo('+') + frac('<mn>1</mn>', sub(mi('R'), 'shunt')), 'R resistance to portal flow · the liver and the shunt in parallel'],
       line: 'Portosystemic collaterals divert part of portal flow from the liver, yet the gradient falls only slightly.',
       notes: 'A shunt is a second path for portal blood, in parallel with the liver. Paths in parallel add their conductances, so any shunt lowers the total resistance, and with it the portal pressure, for the same inflow. In cirrhosis the collaterals open as the pressure rises, but the splanchnic inflow rises too, so the gradient stays high. The blood they carry bypasses the liver: hepatocyte portal perfusion falls, and gut-derived ammonia and other toxins reach the systemic circulation and the brain.',
@@ -65,54 +60,53 @@ export const SHUNTS = {
       // (The chart of the reasons slide's patient: recurrent ascites, TIPS possible. The figure and the card stay as on the slide before.)
       id: 'path-asc', lens: 'flow', cam: 'fit',
       tool: { kind: 'path', of: 'ascites', short: 'Ascites algorithm', patient: { tips: true, lt: true } },
-      kicker: 'Selecting patients for TIPS', site: 'sin', title: 'For her recurrent ascites, the algorithm starts with TIPS',
+      kicker: 'Selecting patients for TIPS', site: 'sin', title: 'For her recurrent ascites, a TIPS comes first',
       line: 'For recurrent or refractory ascites Baveno VIII recommends considering TIPS, with liver transplant discussed alongside. The stent is dilated only as far as needed.',
       notes: 'The Baveno VIII algorithm for recurrent or refractory ascites (6.3 to 6.11), highlighted for this patient. She has needed large-volume paracentesis (LVP) every 10 days despite maximal diuretics, her bilirubin is 1.6 mg/dL and she has no history of hepatic encephalopathy, so she is a TIPS candidate. Patients with recurrent or refractory ascites should be considered for TIPS (6.3), and TIPS and liver transplant discussed together (6.4). Renal function is assessed and chronic kidney disease staged first (6.9). The stent may be dilated only to the smallest diameter that gives an adequate response, to limit overshunting (6.5), and dilated stepwise if the ascites does not improve (6.6); the next slides show the pre-TIPS evaluation and the stent diameter. For a patient who is not a TIPS candidate, the other branches of the algorithm are long-term albumin (6.10) and, if not a transplant candidate, an indwelling drainage device (6.11).',
       ask: ['What does Baveno VIII advise for recurrent or refractory ascites, and what is discussed with it?', 'Consider TIPS, and discuss TIPS and liver transplant together. Dilate the stent only to the smallest diameter that gives an adequate response.'],
     },
     {
       id: 'check', lens: 'flow', cam: 'liver', data: 'tiles', tiles: ['asc', 'ppg'], key: ['asc'],
-      tool: { kind: 'criteria', title: 'Pre-TIPS evaluation', short: 'Pre-TIPS', ticks: false, rows: ['No **heart failure**', '**Renal function** staged (eGFR)', 'Prior **hepatic encephalopathy** reviewed, **rifaximin** considered', '**Age** ≥70 or **frailty**: a relative, not absolute, contraindication'] },
+      tool: { kind: 'criteria', title: 'Pre-TIPS evaluation', short: 'Pre-TIPS', ticks: false, rows: ['No **heart failure**', '**Renal function** staged (eGFR)', 'Prior **hepatic encephalopathy** reviewed, **rifaximin** considered', '**Age** ≥70 or **frailty** alone: neither excludes it; weighed case by case'] },
       kicker: 'Selecting patients for TIPS', site: 'sin', title: 'Assess cardiac function, renal function and encephalopathy risk first',
-      line: 'TIPS returns portal blood directly to the heart and, bypassing the liver, delivers gut-derived ammonia to the brain: assess both first. Age ≥70 or frailty alone does not exclude TIPS.',
+      line: 'A TIPS raises cardiac preload and diverts ammonia-rich portal blood past the liver: assess cardiac and renal function and prior encephalopathy. Age ≥70 or frailty alone does not exclude TIPS.',
       notes: 'Baveno VIII lists no heart failure, age <75 and creatinine <3 mg/dL as the criteria for preemptive TIPS, asks for renal function to be staged before TIPS for ascites (6.9), and for the history of hepatic encephalopathy and medications to be reviewed (6.14). A history of overt hepatic encephalopathy is not an absolute contraindication (6.15); rifaximin should be considered before elective TIPS (6.16). Not absolute contraindications: for preemptive TIPS, acute-on-chronic liver failure, overt hepatic encephalopathy, an elevated bilirubin, the MELD score and severe alcohol-associated hepatitis (5.33); HCC unless the tumor lies along the planned TIPS tract (4.15); frailty or sarcopenia alone (4.19); and age ≥70 with refractory ascites, judged case by case (6.8). Each item is weighed with the others, and cardiac and renal function carry the most weight. TIPS and liver transplant are discussed together (6.4).',
       ask: ['A woman with refractory ascites is referred for TIPS. Which three areas do you assess first?', 'Cardiac, renal and neurologic: heart failure, renal function, and the history of hepatic encephalopathy, with rifaximin considered.'],
     },
     {
-      id: 'play', lens: 'flow', cam: 'liver', labels: ['CONF'], procedure: { kind: 'tips', then: 'tipsgrad' }, tool: { kind: 'evgraph', title: 'PPG and sinusoidal flow after TIPS' }, data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'],
+      id: 'play', lens: 'flow', cam: 'liver', labels: ['CONF'], procedure: 'tips', tool: { kind: 'evgraph', title: 'PPG and sinusoidal flow after TIPS' }, data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'],
       kicker: 'The stent', site: 'sin', title: 'TIPS is placed through transjugular access to the portal vein',
       line: 'Through right internal jugular access, the catheter reaches the right hepatic vein. A needle traverses the parenchyma to the right portal vein, and a covered stent lines the tract.',
-      notes: 'A TIPS is an intrahepatic tract between a hepatic vein and a portal vein branch. Access is transjugular, so there is no abdominal incision. A covered stent keeps the tract patent: Baveno VIII specifies polytetrafluoroethylene (PTFE)-covered stents. Once the stent is deployed, portal pressure falls immediately. (Baveno VIII 5.31.) Step 5 measures the portosystemic gradient across the new stent: the same catheter records portal pressure through the stent, is withdrawn to the IVC at the hepatic vein confluence, and records again. With a PPG <12 mmHg, a beta-blocker is not required after TIPS (AASLD 2024). The measurement immediately after the procedure can be affected by general anesthesia and vasoactive drugs (Baveno VIII), so it may not reflect the long-term gradient.',
+      notes: 'A TIPS is an intrahepatic tract between a hepatic vein and a portal vein branch. Access is transjugular, so there is no abdominal incision. A covered stent keeps the tract patent: Baveno VIII specifies polytetrafluoroethylene (PTFE)-covered stents. Once the stent is deployed, portal pressure falls immediately. (Baveno VIII 5.31.)',
       ask: ['Which type of stent does Baveno VIII specify for preemptive TIPS?', 'A polytetrafluoroethylene (PTFE)-covered stent.'],
     },
     {
       // (The gradient across the stent, read on the app's one pressure monitor: the catheter's own measurement played alone (proc-anim.js MEASURES.tipsgrad),
-      // the stent already in as on the slide after. The slide before keeps the stent graph as its instrument and plays this reading at its end, so the
-      // monitor, which would stand blank while the stent opens, is here. The Gradients talk's own TIPS slide teaches the same reading as one of four ways to take a gradient.)
-      id: 'gradient', lens: 'flow', params: { tips: { on: true, d: 8 } }, days: 30, procedure: 'tipsgrad', cam: 'liver', tool: { kind: 'reading' },   // (no tiles: the readings are the monitor's, each only once it is taken)
-      kicker: 'The stent', site: 'sin', title: 'The gradient across the stent is read against a target of <12 mmHg',
-      line: 'The catheter reads the portal pressure through the 8 mm stent, then the IVC pressure. The target after a TIPS is {<12 mmHg}.',
-      notes: 'Press Next to take the measurement. With the stent in, the catheter is advanced through it into the portal vein, where the portal pressure is read, then drawn back to the IVC for the second reading; the PPG is the portal vein pressure minus the IVC pressure. The target after a TIPS is a PPG below 12 mmHg (AASLD 2024: a nonselective beta-blocker is not required once the portosystemic gradient is below 12 mmHg). Baveno VIII Table 3 adds that the immediate reading can be changed by anesthesia, vasoactive drugs or hemodynamic instability, so a measurement in a stable, nonsedated patient better reflects the long-term value.',
-      ask: ['After a TIPS placed for variceal bleeding, what PPG is the target?', '<12 mmHg, read as the portal vein pressure minus the IVC pressure across the stent.'],
-    },
-    {
-      id: 'tips', lens: 'flow', terms: ['pv', 'hv'], params: { tips: { on: true, d: 8 } }, days: 30, whatIf: WIDTH, cam: 'liver',   // (Doppler and the width slider only: the portal blood split moved to the next slide, and the stent's mark, calipers and spotlight are gone)
-      tool: { kind: 'doppler', vessel: 'TIPS' }, data: 'tiles', tiles: ['ppg', 'liver'], delta: 'reasons',
-      kicker: 'The stent', site: 'sin', title: 'TIPS lowers the PPG to <12 mmHg',
-      line: 'A covered 8 to 10 mm stent runs from a hepatic vein to the portal vein. The PPG falls to {ppg} (<12 mmHg).',
-      notes: 'The stent traverses the liver from the right hepatic vein to the right portal vein, giving portal blood a low-resistance pathway to the systemic circulation. The PPG is measured before and after; for variceal bleeding the target is <12 mmHg. On Doppler the stent shows continuous flow toward the heart along its whole length; a marked fall or rise in velocity from the prior study suggests stenosis. The tiles compare with the same patient before TIPS.',
-      ask: ['What does Doppler show in a patent TIPS?', 'Continuous flow toward the heart along the whole stent, at a velocity close to the prior study.'],
+      // the stent already in as on the slide before. (The placement itself plays no reading after it, 16 Nov 2026: this slide is where the gradient is taught.) The Gradients talk's own TIPS slide teaches the same reading as one of four ways to take a gradient.)
+      id: 'gradient', lens: 'flow', params: { tips: { on: true, d: 8 } }, days: 1, procedure: 'tipsgrad', cam: 'liver', tool: { kind: 'reading' },   // (no tiles: the readings are the monitor's, each only once it is taken)
+      kicker: 'The stent', site: 'sin', title: 'After a TIPS, the gradient read is the PPG: portal vein minus IVC',
+      line: 'The catheter reads the portal pressure through the 8 mm stent, then the IVC pressure. For a variceal bleed the reference is {<12 mmHg}.',
+      notes: 'Press Next to take the measurement. With the stent in, the catheter is advanced through it into the portal vein, where the portal pressure is read, then drawn back to the IVC for the second reading; the PPG is the portal vein pressure minus the IVC pressure. For a variceal indication a PPG below 12 mmHg is the reference (AASLD 2024, in its discussion of gastric varices: a nonselective beta-blocker is not required once the portosystemic gradient is below 12 mmHg). Baveno VIII sets no gradient for ascites, where the response decides (6.5, 6.6). Baveno VIII Table 3 adds that the immediate reading can be changed by anesthesia, vasoactive drugs or hemodynamic instability, so a measurement in a stable, nonsedated patient better reflects the long-term value.',
+      ask: ['After a TIPS placed for variceal bleeding, what PPG is the reference?', '<12 mmHg, read as the portal vein pressure minus the IVC pressure.'],
     },
     {
       id: 'heart', lens: 'flow', cam: 'liver', sites: ['split'], tool: { kind: 'profile', from: 'reasons', fromLabel: 'Before' }, data: 'tiles', tiles: ['co', 'ra'], key: ['co'], delta: 'reasons',
       // (No Before/With buttons: the chart's Before trace and the {co@reasons} tile deltas already show the earlier state; the slide shows the stent.)
       kicker: 'The stent', site: 'sin', title: 'TIPS increases cardiac preload',
-      line: 'Cardiac output rises from {co@reasons} to {co} and right atrial pressure to {ra}. A normal heart tolerates this; a failing one may not, so heart failure is excluded first.',
-      notes: 'Portal blood that passed through the liver now returns directly to the right atrium, so venous return, right atrial pressure and cardiac output all rise. Baveno VIII names cardiac failure, with hepatic encephalopathy, as a risk of overshunting (6.5). The model shows the rise with normal cardiac function; it does not model a failing heart.',
+      line: 'The day after the stent, cardiac output rises from {co@reasons} to {co} and right atrial pressure from {ra@reasons} to {ra}. Heart failure is excluded first.',
+      notes: 'Portal blood that passed through the liver now returns directly to the right atrium, so venous return, right atrial pressure and cardiac output all rise within the first days. The slide shows the day after the stent. A normal heart tolerates this; a failing one may not. Over the weeks that follow, in the model, the ascites clears and the blood volume falls, so both settle again, below their pre-TIPS values by two months in the model; heart failure still has to be excluded before the stent goes in. Baveno VIII names cardiac failure, with hepatic encephalopathy, as a risk of overshunting (6.5). The model shows the rise with normal cardiac function; it does not model a failing heart.',
       ask: ['Why does TIPS raise cardiac output?', 'Part of portal flow now returns directly to the right atrium, increasing venous return (preload).'],
     },
     {
-      id: 'wide', lens: 'flow', params: { tips: { d: 12 } }, days: 30, whatIf: WIDTH, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Stent at 12 mm', kind: 'treat' },
+      id: 'tips', lens: 'flow', terms: ['pv', 'hv'], params: { tips: { on: true, d: 8 } }, days: 59, whatIf: WIDTH, cam: 'liver',   // (Doppler and the width slider only: the portal blood split moved to the next slide, and the stent's mark, calipers and spotlight are gone)
+      tool: { kind: 'doppler', vessel: 'TIPS' }, data: 'tiles', tiles: ['ppg', 'liver'], delta: 'reasons',
+      kicker: 'The stent', site: 'sin', title: 'TIPS lowers the PPG to <12 mmHg',
+      line: 'A covered 8 to 10 mm stent runs from a hepatic vein to the portal vein. The PPG falls to {ppg} (<12 mmHg).',
+      notes: 'The stent traverses the liver from the right hepatic vein to the right portal vein, giving portal blood a low-resistance pathway to the systemic circulation. The PPG is measured before and after; for variceal bleeding the reference is <12 mmHg (AASLD 2024). On Doppler the stent shows continuous flow toward the heart along its whole length; a marked fall or rise in velocity from the prior study suggests stenosis. The tiles compare with the same patient before TIPS.',
+      ask: ['What does Doppler show in a patent TIPS?', 'Continuous flow toward the heart along the whole stent, at a velocity close to the prior study.'],
+    },
+    {
+      id: 'wide', lens: 'flow', params: { tips: { d: 12 } }, days: 30, whatIf: WIDTH, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' },   // (no width in the callout: the slider moves it, and the figure's TIPS label prints it live)
       tool: { kind: 'curve', param: 'tips.d', from: 6, to: 12, step: 1, lines: ['ppg', 'liver'] }, data: 'tiles', tiles: ['ppg', 'liver'], delta: 'reasons',
       kicker: 'The stent', site: 'sin', title: 'Dilate the stent only as far as the ascites requires',
       line: 'At 12 mm the PPG is {ppg} and sinusoidal flow is {liver} of normal, with diminishing returns per millimeter. Baveno VIII advises stepwise dilation only if ascites persists.',
@@ -128,13 +122,13 @@ export const SHUNTS = {
       ask: ['How does TIPS dysfunction usually present?', 'With recurrence of the original indication, rebleeding or ascites, and an absent or changed Doppler signal.'],
     },
     {
-      id: 'dsrs', lens: 'origin', preset: 'cirr-decomp', params: { dsrs: true }, days: 120, lapse: { seconds: 8, from: 'Warren shunt', to: 'Four months later' }, cam: 'splenic', mark: { edges: ['S_DSR'], label: 'Warren shunt', kind: 'treat' },
+      id: 'dsrs', lens: 'origin', preset: 'cirr-decomp', params: { dsrs: true }, days: 120, lapse: { seconds: 8, from: 'Distal splenorenal shunt (DSRS)', to: 'Four months later' }, cam: 'splenic', mark: { edges: ['S_DSR'], label: 'Distal splenorenal shunt (DSRS)', kind: 'treat' },
       // (Three tiles: the varices drain, the liver keeps its flow and the PPG stays high are the three halves of the point.)
       tool: { kind: 'flowtime', clock: 'days', lines: ['ppg', 'varix'], keepTiles: true, title: 'PPG and varix size across 4 months' }, data: 'tiles', tiles: ['ppg', 'varix', 'liver'], delta: 'own',
-      kicker: 'A surgical shunt', site: 'sin', title: 'A distal splenorenal (Warren) shunt decompresses the varices selectively',
-      line: 'The splenic vein is anastomosed to the left renal vein and the coronary vein ligated. The varices decompress at once and regress over months; the PPG stays {ppg}.',
-      notes: 'The Warren shunt is a selective shunt. The splenic vein is divided close to its junction with the portal vein; the splenic end is anastomosed to the left renal vein, and the portal end is ligated. The coronary (left gastric) vein is also ligated, so portal pressure is no longer transmitted to the esophageal varices through it; the stomach drains through the short gastric veins and the spleen instead. Blood from the gastroesophageal varices drains through the short gastric veins and the spleen to the left renal vein, so the varices decompress at once, while superior mesenteric vein (SMV) flow continues to perfuse the liver at portal pressure. The operation also mobilizes the splenic vein from the pancreas and ligates the small pancreatic branches between them (splenopancreatic disconnection), together with the coronary and gastroepiploic veins, so pancreatic collaterals do not develop later and the shunt stays selective. The varices themselves regress more slowly, over weeks to months: they are decompressed at once, small by about 3 months and absent, or too small to grade, in most patients by 1 year (in one series the varices disappeared or decreased in 83% up to 10 years after surgery). Variceal rebleeding after a Warren shunt is uncommon, 5.5% in a randomized trial against TIPS, and when it occurs the shunt has usually stenosed or thrombosed, which repressurizes the varices. The PPG stays high, so ascites is not relieved and can worsen; refractory ascites is a contraindication. Hepatic encephalopathy is less common than after a total portosystemic shunt or TIPS. It is now rarely performed: it suits patients with preserved liver function and recurrent variceal bleeding, usually when TIPS is not an option. The tiles compare with the same patient without the shunt. On the figure, colored by origin, splenic blood leaves through the shunt, while the portal vein carries only mesenteric venous blood. The varices decompress through the spleen, and the PPG stays high.',
-      ask: ['Why is the Warren shunt called selective?', 'It decompresses the varices through the spleen to the left renal vein, while SMV flow continues to perfuse the liver at portal pressure.'],
+      kicker: 'A surgical shunt', site: 'sin', title: 'A distal splenorenal shunt (DSRS) decompresses the varices selectively',
+      line: 'The splenic vein joins the left renal vein, with the coronary vein ligated. The varices decompress at once; the PPG barely moves, from {ppg@own} to {ppg}.',
+      notes: 'The distal splenorenal shunt (DSRS) is a selective shunt. The splenic vein is divided close to its junction with the portal vein; the splenic end is anastomosed to the left renal vein, and the portal end is ligated. The coronary (left gastric) vein is also ligated, so portal pressure is no longer transmitted to the esophageal varices through it; the stomach drains through the short gastric veins and the spleen instead. Blood from the gastroesophageal varices drains through the short gastric veins and the spleen to the left renal vein, so the varices decompress at once, while superior mesenteric vein (SMV) flow continues to perfuse the liver at portal pressure. The operation also mobilizes the splenic vein from the pancreas and ligates the small pancreatic branches between them (splenopancreatic disconnection), together with the coronary and gastroepiploic veins, so pancreatic collaterals do not develop later and the shunt stays selective. The varices themselves regress more slowly, over weeks to months: they are decompressed at once, small by about 3 months and absent, or too small to grade, in most patients by 1 year (in one series the varices disappeared or decreased in 83% up to 10 years after surgery). Variceal rebleeding after a distal splenorenal shunt (DSRS) is uncommon, 5.5% in a randomized trial against TIPS, and when it occurs the shunt has usually stenosed or thrombosed, which repressurizes the varices. The PPG stays high, so ascites is not relieved and can worsen; refractory ascites is a contraindication. Hepatic encephalopathy is less common than after a total portosystemic shunt or TIPS. It is now rarely performed: it suits patients with preserved liver function and recurrent variceal bleeding, usually when TIPS is not an option. The tiles compare with the same patient without the shunt. On the figure, colored by origin, splenic blood leaves through the shunt, while the portal vein carries only mesenteric venous blood. The varices decompress through the spleen, and the PPG stays high.',
+      ask: ['Why is the distal splenorenal shunt (DSRS) called selective?', 'It decompresses the varices through the spleen to the left renal vein, while SMV flow continues to perfuse the liver at portal pressure.'],
     },
     {
       // (The treatment menu before the summary: the decompensated patient of the baseline, every treatment he could get run on him, the PPG each reaches against the sinusoidal flow it
@@ -149,10 +143,10 @@ export const SHUNTS = {
       id: 'summary', visual: 'table', cols: ['ppg', 'shunt', 'liver', 'he'], asc: false, vs: 'first', rowHead: 'Shunt',
       of: [{ id: 'own', kicker: 'Baseline', title: 'Decompensated cirrhosis' }, { id: 'srs', title: 'Splenorenal shunt' },
         { id: 'tips', title: 'TIPS, 8 mm' }, { id: 'wide', title: 'TIPS, 12 mm' }, { id: 'occl', title: 'TIPS, occluded' },
-        { id: 'dsrs', title: 'Warren shunt' }],
+        { id: 'dsrs', title: 'Distal splenorenal shunt (DSRS)' }],
       kicker: 'Summary', title: 'Gradient and sinusoidal flow with each shunt',
       line: 'Every shunt lowers the gradient by diverting portal flow from the liver. The larger the shunt, the less portal flow reaches the liver.',
-      notes: 'Every shunt trades the same two things: the more portal flow it carries, the lower the gradient and the lower hepatic portal perfusion. Hepatic encephalopathy risk tracks the shunted fraction, and the last column is the model\'s index of that risk, not a clinical score. A spontaneous shunt is uncontrolled; a TIPS is placed electively, its gradient measured, and it can be reduced or dilated. An occluded stent restores the gradient and sinusoidal flow together. The TIPS rows are the woman with recurrent ascites; the baseline and Warren shunt rows are a patient with decompensated cirrhosis and varices.',
+      notes: 'Every shunt trades the same two things: the more portal flow it carries, the lower the gradient and the lower hepatic portal perfusion. Hepatic encephalopathy risk tracks the shunted fraction, and the last column is the model\'s index of that risk, not a clinical score. A spontaneous shunt is uncontrolled; a TIPS is placed electively, its gradient measured, and it can be reduced or dilated. An occluded stent restores the gradient and sinusoidal flow together. The TIPS rows are the woman with recurrent ascites; the baseline and distal splenorenal shunt (DSRS) rows are a patient with decompensated cirrhosis and varices.',
       ask: ['What does every portosystemic shunt trade?', 'A lower portal pressure gradient against less hepatic portal perfusion and more hepatic encephalopathy.'],
     },
   ],

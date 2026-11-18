@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { diseasePieces, DISEASE_SRC } from '../src/ui/diseases.js';
 import { DECKS } from '../src/ui/decks.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const marked = (t) => diseasePieces(t).filter(([, d]) => d).map(([x]) => x);
 
@@ -45,10 +46,9 @@ test('every disease a deck title or line names is in the list and gets a pill', 
 // value that starts inside a disease name used to win the place and drop the pill ("portal vein" in "portal vein
 // thrombosis"): the disease group comes right after the link and marked value, and the loop reads it as group 5.
 test('in a line, a disease name keeps its pill over a term, bold word or value that starts in it', () => {
-  const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const src = presenterSource();
   const fn = src.slice(src.indexOf('function lineRe('), src.indexOf('function rich('));
   assert.ok(fn.includes('|\\{([^}]+)\\}([,.;:]?)|\\b(${DISEASE_SRC})\\b` + (tw.length'),'the disease name is the third kind, before terms, values and key words');
-  assert.match(src, /const \[all, lw, lk, mk, mkStop, dz, tword, val, valStop, key, term, lensBy, lensW\] = m/);
   // The same order on a line: the name wins where a term starts inside it.
   const re = new RegExp(String.raw`\[([^\]]+)\]\(([\w:]+)\)|\{([^}]+)\}([,.;:]?)|\b(${DISEASE_SRC})\b|\b([Pp]ortal vein)\b`, 'g');
   assert.deepEqual([...'Portal vein thrombosis narrows the portal vein.'.matchAll(re)].map((m) => (m[5] ? 'dz' : 'term')), ['dz', 'term']);
@@ -58,21 +58,21 @@ test('the pill colour is a token with a value in the light and both dark blocks'
   const css = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
   assert.ok(/:root \{[\s\S]*?--disease: #/.test(css));
   assert.ok((css.match(/--disease: #/g) || []).length >= 3);
-  const app = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const app = appCss();
   assert.ok(/\.pz-dz \{[^}]*var\(--disease\)/.test(app));
   // No vertical padding or display change: the pill never alters a line's height.
   assert.ok(!/\.pz-dz \{[^}]*(?:padding: [^0;]|display:|line-height)/.test(app));
 });
 
 test('a title keeps one colour: its disease name takes the title\'s ink, with no box, padding or shadow (Mohammad, 17 Oct)', () => {
-  const app = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const app = appCss();
   const rule = app.match(/\.pz-h \.pz-dz \{([^}]*)\}/)?.[1] || '';
   assert.ok(/background: none/.test(rule) && /box-shadow: none/.test(rule) && /padding: 0;/.test(rule) && /color: inherit/.test(rule));
   assert.ok(!/var\(--disease\)/.test(rule), 'no violet in a title');
 });
 
 test('a body pill adds no vertical padding or margin, so it stays inside its line and the card', () => {
-  const app = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const app = appCss();
   const rule = app.match(/\n\.pz-dz \{([^}]*)\}/)?.[1] || '';
   assert.ok(rule && /padding: 0 \.3em;/.test(rule) && !/margin-block|margin-top|margin-bottom|display|line-height/.test(rule));
 });

@@ -8,11 +8,12 @@ import { JSDOM } from 'jsdom';
 import { rulesFromText, createSceneStyle, specificity, bucketOf, substitute, calcs } from '../src/ui/scene-store.js';
 import { STOPS, STOP_LOOK } from '../src/ui/stop-tokens.js';
 import { parseCssColor } from '../src/ui/css-color.js';
+import { appCss } from './split-src.js';
 
 const ROOT = new URL('../', import.meta.url);
 const read = (f) => readFileSync(new URL(f, ROOT), 'utf8');
 const inline = [...read('index.html').matchAll(/<style>([\s\S]*?)<\/style>/g)].map((m) => m[1]);
-const PAGE = rulesFromText(read('styles/tokens.css'), read('styles/icons.css'), read('styles/app.css'), ...inline);
+const PAGE = rulesFromText(read('styles/tokens.css'), read('styles/icons.css'), appCss(), ...inline);
 const NS = 'http://www.w3.org/2000/svg';
 const near = (a, b) => { const x = parseCssColor(a), y = parseCssColor(b); return !!x && !!y && x.every((v, i) => Math.abs(v - y[i]) < 0.006); };
 const mediaFor = (dark) => (q) => (/prefers-color-scheme:\s*dark/.test(q) ? dark : /prefers-color-scheme:\s*light/.test(q) ? !dark : /min-width|hover:\s*hover|pointer:\s*fine/.test(q));
