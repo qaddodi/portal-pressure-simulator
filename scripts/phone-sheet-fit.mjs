@@ -42,6 +42,8 @@ try {
   for (const t of ['Drugs', 'Fluids', 'Procedures']) { await page.locator('[role="tab"]', { hasText: t }).first().click(); await check('Treat ' + t); }
   await close();
   for (const n of ['Layers', 'Settings', 'Search']) { await tab(n).click(); await check(n); await close(); }
+  // (History is in the top bar on a phone: a sheet, or the history card, as the page offers it.)
+  { const h = page.locator('#btnHistory'); if (await h.count()) { await h.click(); await check('History'); await close(); } else bad.push('History: no button'); }
 } finally { await app.close(); await browser.close(); }
 if (bad.length) { console.error('\nphone-sheet-fit: FAIL\n  ' + bad.join('\n  ')); process.exit(1); }
 console.log('\nphone-sheet-fit: every sheet takes the room its words need');

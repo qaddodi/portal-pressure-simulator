@@ -180,7 +180,15 @@ export function createCard({ view, stage, ctx, onWhy }) {
   // card's still cut, the one motion (app.css .ac-in, .ac-leaving). The plate is kept across rebuilds (it is the first child).
   sheetParts(el);
   // alloc-rare: the card opens afresh: its class for the entrance's length, once for each open
-  const endIn = () => { el.classList.remove('ac-in'); backIn(null); reveal(); };   // (entered: its rest size known, bring the vessel above it)
+  // A phone's card holds the height it first measured while it comes in (18 Nov 2026, Mohammad on his iPhone: "the card bounces up and down as it opens"): its height is its words', and a word that wraps, a font that
+  // arrives or a control's picture that is drawn changes it in the middle of the entrance, which moves the card's own foot-anchored top and what the entrance is measured against. It is as tall as it first measured until it has
+  // landed, then lets go to its words' height with the card glide (card-glide.js), never a step.
+  let pinH = 0, releasing = false;
+  const endIn = () => {
+    el.classList.remove('ac-in'); backIn(null);
+    if (pinH) { pinH = 0; releasing = true; el.style.height = ''; setTimeout(() => { releasing = false; }, 400); }
+    reveal();
+  };   // (entered: its rest size known, bring the vessel above it)
   let inTimer = 0;
   // A pick that comes while the card is still on its way out takes it from where it is (below, render): the glass comes back from the opacity and place it had reached, never from nothing.
   const backIn = (from) => {
@@ -196,8 +204,10 @@ export function createCard({ view, stage, ctx, onWhy }) {
   el.addEventListener(GLIDE_EVENT, () => { if (!el.classList.contains('ac-in') && !reduceMotionMQ?.matches) glideFrom = sizes.h; });
   new ResizeObserver(() => {
     const was = sizes.h;
+    if (!pinH && el.classList.contains('ac-in') && el.classList.contains('docked') && !el.hidden) { pinH = readMetric(el, 'offsetHeight'); if (pinH > 0) el.style.height = pinH + 'px'; else pinH = 0; }
     sizes.h = readMetric(el, 'offsetHeight'); el.style.setProperty('--sheet-size', sizes.h + 'px');
-    if (glideFrom > 0) { const h0 = glideFrom; glideFrom = 0; if (was === h0) glides = glideCard(el, h0, sizes.h, { foot: el.classList.contains('docked'), prior: glides }); }
+    if (releasing && was > 0 && Math.abs(sizes.h - was) > 1 && !reduceMotionMQ?.matches && !el.classList.contains('ac-in')) { releasing = false; glides = glideCard(el, was, sizes.h, { foot: true, prior: glides }); }
+    else if (glideFrom > 0) { const h0 = glideFrom; glideFrom = 0; if (was === h0) glides = glideCard(el, h0, sizes.h, { foot: el.classList.contains('docked'), prior: glides }); }
     // A lobule part's card is as tall as its words (18 Nov 2026, Mohammad, the iPhone: a hepatocyte card with 140 px of empty glass above the title, a cut row, a blank bottom third and a body that scrolled):
     // it grows and shrinks with them, the glide carrying either, and is never held at a height it once stood at (a ratchet of the tallest it had been, min-height, stood the card at a height a
     // moment of the swap had made, taller than any words it held).
