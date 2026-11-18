@@ -153,6 +153,18 @@ export function createMarks(st) {
   // was last given keeps the draws of the build before until olStep writes it afresh), a stroke as a strip of mitred joins (as SVG, limit 4;
   // open ends with square or round caps), a disc as triangles.
   const mkV = [], mkDrawPool = [[], []], mkDrawLists = [[], []], mkDiscRing = { xy: [], closed: true };
+  // The product of the opacities of the groups from `e` up to the overlays' root (not it), or -1 when any is not displayed, or is clipped or masked: kept for a build (mkAbove).
+  const mkAbove = new Map();
+  function groupsAbove(e) {
+    if (!e || e === gOver) return 1;
+    let v = mkAbove.get(e);
+    if (v !== undefined) return v;
+    const up = groupsAbove(e.parentNode);
+    if (up < 0) v = -1;
+    else { const c = getComputedStyle(e); v = c.display === 'none' || e.getAttribute('clip-path') || e.getAttribute('mask') ? -1 : up * Number(c.opacity); }
+    mkAbove.set(e, v);
+    return v;
+  }
   const strokeP = [], nrm1 = [0, 0], nrm2 = [0, 0], mkFillP = [0, 0, 0, 0], mkSkP = [0, 0, 0, 0], mkDrawn = new Set();
   let mkSet = 0, mkDrawN = 0, mkFirst = 0, mkFade, mkDraws = null, mkPool = null;   // (mkFade: a narrowing's clamp, its id, whose fade olStep lays on the draw's alpha)
   function mkDraw(col, count, tri) {
@@ -219,19 +231,23 @@ export function createMarks(st) {
     // only the marks' visibility, which nothing here reads, so the reads are the same; the attributes end as before.)
     const drawn = mkDrawn;
     drawn.clear();
+    mkAbove.clear();
+    const timing = gpuProbe.on;
+    let tRead = 0;
     for (const key in ov) {
       const g = ov[key];
       for (const el of g.querySelectorAll('path, circle, ellipse, rect')) {
         // (Nothing inside a <defs>, <clipPath> or <mask> is a mark: the stent's clip is a plain path with no class, so the painter drew it as a solid black rectangle at the
         // origin of the figure, stuck to it, 11 Nov 2026, Mohammad's TIPS shots.)
         if (el.closest('defs, clipPath, mask, pattern, marker')) continue;
-        let cs = getComputedStyle(el), op = 1, ok = cs.display !== 'none' && cs.strokeDasharray === 'none';
-        for (let e = el; ok && e && e !== gOver; e = e.parentNode) {
-          const c = e === el ? cs : getComputedStyle(e);
-          if (c.display === 'none' || (e !== el && (e.getAttribute('clip-path') || e.getAttribute('mask')))) ok = false;
-          op *= Number(c.opacity);
-        }
+        const t0 = timing ? performance.now() : 0;
+        const cs = getComputedStyle(el);
+        let op = Number(cs.opacity), ok = cs.display !== 'none' && cs.strokeDasharray === 'none';
+        // (The groups above, their opacities multiplied and any of them hidden, clipped or masked: worked out once for each group and kept for the build (an overlay's marks share
+        // a few groups, and each mark walked them all with a style read of its own: the deck start's 'outlines: marks' ran 25 to 29 ms, 18 Nov 2026).)
+        if (ok) { const up = groupsAbove(el.parentNode); if (up < 0) ok = false; else op *= up; }
         const M = markMatrix(el, gOver, cs);
+        if (timing) tRead += performance.now() - t0;
         if (!(ok && shapeRings(el))) continue;
         const nR = mkRingN;
         mkFade = el.classList.contains('clamp') || el.classList.contains('clamp-out') || el.classList.contains('clamp-span') || el.classList.contains('clamp-span-out') ? el.dataset.id : el.closest('[data-mk]')?.dataset.mk;
@@ -275,6 +291,8 @@ export function createMarks(st) {
     }
     for (const g of Object.values(ov)) for (const el of g.querySelectorAll('path, circle, ellipse, rect')) { if (drawn.has(el)) { if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', ''); } else if (el.hasAttribute('data-gl')) el.removeAttribute('data-gl'); }
     drawn.clear();   // (the shapes are not held on to once their attributes are written)
+    mkAbove.clear();
+    if (timing) gpuProbe.gauge('vessel marks: styles read (ms)', Math.round(tRead * 10) / 10);
     mk.verts = new Float32Array(mkV); mk.draws = mkDraws; mk.dirty = true;
   }
   return { marksStale, marksSync, mk };
