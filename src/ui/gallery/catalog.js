@@ -17,6 +17,7 @@ import { TRIAL_IDS } from '../trials.js';
 import { PATHS } from '../path-data.js';
 import { LOOKS } from '../looks.js';
 import { PRESETS } from '../../engine/scenario.js';
+import { MAIN } from './catalog-main.js';
 
 export const KINDS = ['slide', 'pane', 'pick', 'sheet', 'view', 'bench'];
 export const SECTIONS = ['Teaching cards', 'Tests card', 'Structure cards', 'Sheets', 'Figure', 'Benches'];
@@ -223,6 +224,8 @@ CATALOG.push(S('tiles/delta', 'Tiles showing their change from the slide before'
 const PATH_SHORT = { 'first-visit': 'First visit', bleed: 'Bleeding', gastric: 'Gastric varices', ascites: 'Ascites', stopcarv: 'Stop carvedilol', holdcarv: 'Hold carvedilol', secprop: 'Secondary prophylaxis', psvdscope: 'PSVD scope', pvtocc: 'Portal vein thrombosis', pvtdur: 'Anticoagulation length', aasld: 'AASLD', psvdscore: 'PSVD score', recomp: 'Recompensation', pvtgrid: 'Thrombosis grid', ladder: 'Stages' };
 for (const of of Object.keys(PATHS)) CATALOG.push(card(`path/${of}`, `Flowchart: ${PATH_SHORT[of] || of}`, { preset: 'cirr-decomp', cam: 'fit', tool: { kind: 'path', of, short: PATH_SHORT[of] || of } }));
 for (const id of TRIAL_IDS) CATALOG.push(card(`trial/${id}`, `Trial: ${id}`, { preset: 'healthy', cam: 'fit', tool: { kind: 'trial', id } }));
+
+CATALOG.push(...MAIN);
 
 export const byId = Object.fromEntries(CATALOG.map((e) => [e.id, e]));
 export const families = () => [...new Set(CATALOG.map((e) => e.family))];

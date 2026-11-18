@@ -4,6 +4,11 @@
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { TESTS_PANES, ORGAN_IDS, LOBULE_PARTS } from '../src/ui/gallery/catalog-main.js';
+import { OPENERS } from '../src/ui/gallery/openers.js';
+import { EDGES } from '../src/engine/topology.js';
+import { PRESETS } from '../src/engine/scenario.js';
+import { normalizeSel } from '../src/ui/actions.js';
 import { CATALOG, KINDS, SECTIONS, DECK_SECTIONS, LOOK_IDS, DEVICES, byId, sid } from '../src/ui/gallery/catalog.js';
 import { galleryDeck } from '../src/ui/gallery/deck.js';
 import { checkDeck } from '../src/ui/deck-source.js';
@@ -139,4 +144,41 @@ test('every card-shaping slide field a built-in deck uses appears on a specimen'
 test('a specimen id is a stable address: the slide id is its id with dashes', () => {
   for (const e of spec) assert.equal(slides.find((s) => s.title === e.title && s.id === sid(e.id))?.id, sid(e.id), e.id);
   assert.ok(byId['doppler/pv-color']);
+});
+
+// ── The main app's cards (step 2) ──
+const main = (kind) => CATALOG.filter((e) => e.kind === kind);
+
+test('every patient a specimen names is one the app has', () => {
+  const ids = new Set(PRESETS.map((p) => p.id));
+  for (const e of CATALOG) {
+    for (const p of [e.preset, e.slide?.preset, e.slide?.patient?.preset, ...(e.slide?.of || []).map((r) => r.preset)]) if (p) assert.ok(ids.has(p), `${e.id}: patient ${p}`);
+  }
+});
+
+test('every Tests pane has a specimen, and a pane id is one the dock has', () => {
+  const have = new Set(main('pane').map((e) => e.pane));
+  assert.deepEqual(TESTS_PANES.filter((p) => !have.has(p)), [], 'Tests panes with no specimen');
+  assert.deepEqual([...have].filter((p) => !TESTS_PANES.includes(p)), [], 'a specimen for a pane the dock does not have');
+});
+
+test('every kind of structure the app draws a card for has a specimen, with its Details face', () => {
+  const picks = main('pick');
+  const edges = new Map(EDGES.map((e) => [e.id, e]));
+  const kinds = new Set(picks.filter((p) => p.sel.type === 'edge').map((p) => edges.get(p.sel.id)?.kind));
+  for (const p of picks.filter((p) => p.sel.type === 'edge')) assert.ok(edges.has(p.sel.id), `${p.id}: no vessel ${p.sel.id}`);
+  assert.deepEqual([...new Set(EDGES.map((e) => e.kind))].filter((k) => k !== 'wedge' && !kinds.has(k)), [], 'vessel kinds with no specimen');
+  assert.deepEqual(ORGAN_IDS.filter((id) => !picks.some((p) => p.sel.type === 'organ' && p.sel.id === id)), [], 'organs with no specimen');
+  assert.deepEqual(LOBULE_PARTS.filter((id) => !picks.some((p) => p.sel.type === 'lobule' && p.sel.part === id)), [], 'lobule parts with no specimen');
+  for (const z of [1, 2, 3]) assert.ok(picks.some((p) => p.sel.part === 'hep' && p.sel.zone === z), `zone ${z}`);
+  assert.ok(picks.some((p) => p.sel.id === 'TIPS' && p.preset === 'cirr-decomp-tips') && picks.some((p) => p.sel.id === 'DIPS'), 'the stent editors');
+  for (const p of picks.filter((p) => !p.details)) assert.ok(byId[`${p.id}-details`]?.details, `${p.id}: its Details face`);
+  for (const p of picks) assert.ok(p.sel.type === 'lobule' || normalizeSel(p.sel) != null, `${p.id}: a selection the app reads`);
+});
+
+test('every sheet a specimen opens has an opener, and every kind with specimens has one', () => {
+  for (const k of ['pane', 'pick', 'sheet']) assert.equal(typeof OPENERS[k], 'function', k);
+  const known = ['treat', 'history', 'tests', 'settings', 'menu-patients', 'menu-present', 'palette', 'compare', 'toast', 'toast-bad', 'toast-action'];
+  assert.deepEqual(main('sheet').map((e) => e.open).filter((o) => !known.includes(o)), []);
+  assert.deepEqual(known.filter((o) => !main('sheet').some((e) => e.open === o)), [], 'an opener with no specimen');
 });

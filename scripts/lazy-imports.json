@@ -20,7 +20,6 @@
     "src/ui/main.js → ./gallery/page.js": "?gallery on the preview copy only (the card gallery and debug page), at boot; no person reaches it from a tap and the live site never reads it",
     "src/ui/main.js → ./gallery/device-frame.js": "?gallery=frame on the preview copy only (the device frame's outer page, which does not start the app), at boot",
     "src/ui/gallery/page.js → ../decks.js": "a tap on a specimen's Tools list (the real slides that use it); the presenter has read the decks in long before",
-    "src/ui/gallery/openers.js → ../util.js": "a specimen kind with no opener yet says so; the toast module is part of the app already",
     "src/ui/stage-lobload.js → ./lobule-zoom.js": "stage-lobload.js lobuleCode, once the figure is shown (prepIdle), long before the lobule can be opened",
     "src/ui/stage.js → ./organ-art-lite.js": "at boot only, when storage still holds Lighter organ art on (pps.fig.lightArt); its Settings row is gone, so no tap reaches it",
     "src/ui/text-gl.js → ./glyph-data.js": "gl-words.js and label-gl.js call loadGlyphs at boot",

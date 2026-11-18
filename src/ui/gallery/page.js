@@ -202,7 +202,6 @@ export async function startGallery({ pps = window.pps, root = document } = {}) {
   }
 
   // ── Opening a specimen ──
-  const index = () => entries.findIndex((e) => e.id === open?.id);
   async function go(id, { quiet = false } = {}) {
     const e = byId[id];
     if (!e) return;
