@@ -13,7 +13,7 @@ const until = (fn, ms = 120000) => new Promise((resolve, reject) => { const t0 =
 
 test('patients run before a cancel reach the page with the next request, so the two tables agree', { timeout: 200000 }, async () => {
   globalThis.self.onmessage({ data: { t: 'refine', seq: 1, readings: R } });
-  await new Promise((r) => setTimeout(r, 400));   // (a patient or two into round 1: it has not posted yet)
+  await new Promise((r) => setTimeout(r, 60));   // (a patient or two into round 1: it has not posted yet. 400 ms was that before the grid's finer one-lesion severities (rounds are shorter now, and one had posted by then))
   globalThis.self.onmessage({ data: { t: 'cancel' } });
   assert.equal(got.filter((m) => m.t === 'points' && m.seq === 1).length, 0, 'nothing was sent before the cancel');
   globalThis.self.onmessage({ data: { t: 'refine', seq: 2, readings: R } });

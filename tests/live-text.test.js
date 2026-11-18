@@ -84,7 +84,8 @@ test('a what-if slider of either kind holds the cards: the plan and the fit stay
   assert.match(js, /stopLapse\(\); procStop\(\); abSlow\(\); (?:live\.)?handOn = false;/, 'cleared with the next slide');
   assert.match(js, /(?:live\.)?liveOff = false; (?:live\.)?handOn = false;/, 'and when the talk is closed');
   // (Where the cards are laid out again for a reading, the words keep the plan: the phone's cap and the wide pair's centring.)
-  assert.match(js, /if \(held && \(held\.shut \|\| gone \|\| readingsOnly\(\)\)\)/);
+  // (held while it is gone or only its readings move; a plan that shut the data card is held too, until the card measures smaller than it was planned: 17 Nov 2026, the TIPS deck on an iPhone)
+  assert.match(js, /if \(held && \(gone \|\| readingsOnly\(\)\)\) \{ phoneShut = held\.shut; phoneFig = held\.fig; return held\.cap; \}\n\s+if \(held && held\.shut\) \{/);
   assert.match(js, /if \(lockKey && shiftLock\?\.key === lockKey && readingsOnly\(\)\) shift = shiftLock\.v;/);
   assert.match(js, /if \((?:live\.)?ui && (?:live\.)?cardsStill\(\)\) \{ fitCards\((?:live\.)?ui\.data\); return; \}/);
   assert.match(js, /if \((?:live\.)?cardsStill\(\)\) fitCards\((?:live\.)?ui\.data\); else layout\(\);/);

@@ -54,7 +54,7 @@ test('only an instrument card folds behind Show: no ladder fold is left', () => 
 
 test('a phone keeps the words\' height cap while a what-if slider or compare button drives the live model', () => {
   // (Re-planned on each live reading, the cap stepped as the data card's numbers changed and the teaching card shook under the finger.)
-  assert.match(js, /if \(held && \(held\.shut \|\| gone \|\| readingsOnly\(\)\)\) \{ phoneShut = held\.shut; phoneFig = held\.fig; return held\.cap; \}/);
+  assert.match(js, /if \(held && \(gone \|\| readingsOnly\(\)\)\) \{ phoneShut = held\.shut; phoneFig = held\.fig; return held\.cap; \}\n\s+if \(held && held\.shut\) \{/);
   assert.match(js, /const readingsOnly = \(\) => (?:live\.)?liveOff \|\| /);
   assert.match(js, /async function liveSet\(s, i, patch(?:, ev = null)?\) \{[^}]*(?:live\.)?liveOff = true;/);
   assert.match(js, /async function livePatient\(s, i, o\) \{[\s\S]{0,380}(?:live\.)?liveOff = true;/);

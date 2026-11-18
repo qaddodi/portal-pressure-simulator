@@ -162,7 +162,7 @@ test('the stylesheet shows one view at a time, keeps the switch in pair mode, an
   assert.match(plate, /\[data-pane="hvpg"\]:not\(\[data-view="tips"\]\) > \.ir-tips \{ display: none; \}/);
   assert.match(plate, /\.ir-switch \.ps-btn\.off \{ opacity: \.42; \}/);
   assert.match(plate, /\.tf-stage \{ width: 100%;/, 'the figure is as wide as the card; its height follows from its width');
-  assert.match(cards, /\.dock-body\.pair \.pressure-switch:not\(\.ir-switch\):not\(\.ir-lens\):not\(\.ir-sweep\) \{ display: none; \}/);
+  assert.match(cards, /\.dock-body\.pair \.pressure-switch:not\(\.ir-switch\):not\(\.ir-lens\):not\(\.ir-sweep\)(?:, \.dock-pane\.pane-pair \.pressure-switch:not\(\.ir-switch\):not\(\.ir-lens\):not\(\.ir-sweep\))? \{ display: none; \}/);
 });
 
 test('Compare: the change reads as the compare table\'s own does; a stent that was not there then shows dashes', () => {
