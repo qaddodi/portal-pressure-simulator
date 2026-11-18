@@ -469,6 +469,9 @@ async function main() {
   if (window.ppsTestClock) window.pps.testClock(true);
   window.pps.cameraGate = async (o) => { const [{ createCameraGate }, { DECKS }, p] = await Promise.all([import('./cam-gate.js'), import('./decks.js'), presenterL.get()]); return createCameraGate({ presenter: p, stage, decks: DECKS, withTestClock: async (r) => (await import('./test-mode.js')).withTestClock(r) })(o); };   // (the presenter itself, not main.js's few-call facade: the gate needs its count and skipLapse)
   window.pps.decks = async () => (await import('./decks.js')).DECKS.map((d, n) => ({ n: n + 1, id: d.id, title: d.title }));   // (the deck ids pps.cameraGate takes)
+  window.pps.lookNow = (id) => applyLookAttrs(document.documentElement, knownLook(id));   // (a look on the page's attributes with nothing saved: the gallery page's looks, which must not change the look this browser keeps for the live site)
+  // ?gallery on the preview copy only: the card gallery and debug page (gallery/page.js). The live site never reads it.
+  { const g = new URLSearchParams(location.search).get('gallery'); if (g !== null && g !== 'frame' && /\/preview\//.test(location.pathname)) import('./gallery/page.js').then(({ startGallery }) => startGallery({ pps: window.pps })).catch((e) => caught('main:gallery', e)); }
   const linked = await presenter.readLink();
   if (linked) mainMenu.open('scripts', { mark: typeof linked === 'string' ? linked : null });
   const shared = readShare(), back = new URLSearchParams(location.search).has('back');
@@ -2618,7 +2621,7 @@ function armFeedbackAsk() {
   };
   timer = setInterval(tick, TICK);
 }
-(/[?&]presenter-view(?:[=&]|$)/.test(location.search) ? import('./presenter-view-page.js').then((m) => m.run()) : main()).catch((err) => {   // (N1: ?presenter-view is the presenter's second window, text only)
+(/[?&]presenter-view(?:[=&]|$)/.test(location.search) ? import('./presenter-view-page.js').then((m) => m.run()) : /[?&]gallery=frame(?:&|$)/.test(location.search) && /\/preview\//.test(location.pathname) ? import('./gallery/device-frame.js').then((m) => { document.getElementById('boot')?.remove(); document.documentElement.removeAttribute('data-boot'); document.body.replaceChildren(); m.bootFrame(); }) : main()).catch((err) => {   // (N1: ?presenter-view is the presenter's second window, text only)
   // (Told to the page's own boot card too, so a failed start shows "couldn't start / Reload" at once, not a pulsing logo for 15 s and then an empty shell.)
   const fail = () => { (window.ppsBootErrors ||= []).push(String(err?.message || err).slice(0, 300)); window.ppsBootFail?.(); };
   // (A chunk that will not load is most often a page older than the site: a deploy replaced the hashed files it names. The page's
