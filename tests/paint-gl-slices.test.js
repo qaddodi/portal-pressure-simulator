@@ -41,16 +41,18 @@ test('a picture painted in slices covers the same pixels as the one painted whol
   let steps = 0;
   while (!sliced.stepJob(job, 0)) { steps++; assert.ok(steps < 200); }
   assert.ok(!job.failed && job.out, 'the picture is whole');
-  assert.equal(steps + 1, Math.ceil(2700 / 512) * Math.ceil(1900 / 512), 'a spent budget draws one tile a step (a slice always draws one)');
+  assert.equal(steps + 1, 1 + Math.ceil(2700 / 512) * Math.ceil(1900 / 512), 'a set-up step with no tile in it (the targets and the texture: 417 ms with a tile, the tester), then a spent budget draws one tile a step (a slice always draws one)');
   assert.deepEqual([...covered(B.log)].sort(), [...covered(A.log)].sort(), 'the same pixels are copied into the picture');
   assert.equal(B.count.get('generateMipmap'), 1, 'mipmapped once, when the last tile is in');
 });
 
-test('a slice with room draws many tiles, and stepping a finished job does nothing', () => {
+test('a slice with room draws many tiles after its set-up step, and stepping a finished job does nothing', () => {
   const S = stubGL();
   const p = createPaintGL(S.gl);
   const job = p.beginJob(picture(2048, 2048), { tile: 512 });
-  assert.equal(p.stepJob(job, Infinity), true, 'all of it in one step when the budget allows');
+  assert.equal(p.stepJob(job, 100), false, 'the first step sets up and draws no tile');
+  assert.equal(S.log.length, 0);
+  assert.equal(p.stepJob(job, Infinity), true, 'all of it in the next step when the budget allows');
   assert.equal(S.log.length, 16);
   const n = S.count.get('bufferData');
   assert.equal(p.stepJob(job, Infinity), true);

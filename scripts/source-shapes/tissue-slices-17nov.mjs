@@ -11,4 +11,6 @@ export default [
   { file: 'src/ui/lobule-zoom.js', need: [/else if \(wk !== worldKey && gpu\) \{\s+if \(pend\) dropPend\(\);/, `${W} a picture wanted now (a zoom, the dive) paints at once and drops the one being made`] },
   { file: 'src/ui/tissue-gl.js', need: [/prepare\(cv, ver = 0, ms = 4\) \{[\s\S]{0,200}prepareFor\(cv, ver, ms\)/, `${W} the tissue's handle paints a recorded picture a slice at a time`] },
   { file: 'src/ui/tissue-gl.js', need: [/for \(const \[cv, j\] of jobs\) if \(!cv\.width \|\| !keep\(cv\)\) \{ if \(!lost\) paintGL\(gl\)\.abandon\(j\.job\); jobs\.delete\(cv\); \}/, `${W} a picture given back before it was whole gives its job back`] },
+  { file: 'src/ui/paint-gl.js', need: [/if \(fresh && ms < Infinity\) \{ gl\.flush\(\); job\.setup = true; return false; \}/, `${W} a sliced paint's first step only sets up: no tile with the targets' allocation (tester: a first slice of 417 ms)`] },
+  { file: 'src/ui/lobule-zoom.js', need: [/const radDue = rzMoving \|\| lensFrom \|\| !radAll \|\| kq !== radAllK \|\| now - lastRadSend >= RAD_GAP_MS;\s+const calCh = radDue && calibersChanged\(rzOf\(\), G\);/, `${W} the vessels' easing calibers are sent at RAD_GAP_MS at the fastest (each send redraws their rows: 100 to 145 ms on a Mac), asked about only when due`] },
 ];
