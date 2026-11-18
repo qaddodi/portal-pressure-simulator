@@ -17,7 +17,7 @@ import { SURGICAL, surgicalVerbs } from './surgical-shunts.js';
 import { PROCEDURES, procLabel, procLong } from './procedure-names.js';
 import { glideCard } from './card-glide.js';
 import { readMetric } from './layout-snap.js';
-import { D_FLIP, D_SMALL, EASE_ARRIVE } from './ease.js';
+import { D_SMALL, EASE_ARRIVE } from './ease.js';
 import { reduceMotionMQ } from './motion.js';
 
 
@@ -206,6 +206,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     // (A tab that changes the card's height glides it, card-glide.js: the Changes row under the list rides from where it stood and the list's cut at its foot opens
     // or closes with the plate, so a taller tab going out is not cut in half before the card has shrunk. 17 Nov 2026, Mohammad's play-test.)
     let glides = [];
+    const goneWired = new WeakSet();
     const show = (id) => {
       const card = body.isConnected && !reduceMotionMQ.matches ? body.closest('.has-plate') : null, h0 = card ? readMetric(card, 'offsetHeight') : 0;
       treatTab = id;
@@ -214,7 +215,9 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
         const off = pid !== id;
         el.classList.toggle('tp-off', off); el.inert = off; el.setAttribute('aria-hidden', String(off));
         // (A tab that has faded out takes no height, so it is no part of the body's scrollable overflow: 18 Nov 2026, the tester at 390 px, a short tab under taller ones scrolled 156 px into blank.)
-        if (!off) el.classList.remove('tp-gone'); else setTimeout(() => { if (el.classList.contains('tp-off')) el.classList.add('tp-gone'); }, D_FLIP + 40);
+        // (Its fade ends in its visibility step (app-08-cards.css .tp-off): the transition's own end says so, no timer.)
+        if (!off) el.classList.remove('tp-gone');
+        else if (!goneWired.has(el)) { goneWired.add(el); el.addEventListener('transitionend', (e) => { if (e.target === el && e.propertyName === 'visibility' && el.classList.contains('tp-off')) el.classList.add('tp-gone'); }); }
       }
       if (body.isConnected) spare();
       if (h0 > 0) glides = glideCard(card, h0, readMetric(card, 'offsetHeight'), { prior: glides, ride: [body.nextElementSibling], cut: [body, body.parentElement], free: [body.parentElement] });

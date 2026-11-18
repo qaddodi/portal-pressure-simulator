@@ -13,11 +13,14 @@ globalThis.addEventListener ??= () => {}; globalThis.removeEventListener ??= () 
 globalThis.matchMedia ??= () => ({ matches: false, addEventListener() {}, removeEventListener() {}, addListener() {} });
 globalThis.ResizeObserver ??= class { observe() {} disconnect() {} unobserve() {} };
 globalThis.IntersectionObserver ??= class { observe() {} disconnect() {} unobserve() {} };
-globalThis.requestAnimationFrame ||= (f) => setTimeout(() => f(performance.now()), 0);
-globalThis.cancelAnimationFrame ||= (id) => clearTimeout(id);
-// (jsdom has no Web Animations: an animation is an object that has finished.)
-const played = [];
-w.Element.prototype.animate = function (kf, o) { const a = { kf, o, el: this, cancel() { a.cancelled = true; }, finished: Promise.resolve() }; played.push(a); return a; };
+// The frames, by hand: the page's slide is written in the scheduler's frames (script-glide.js), never by element.animate.
+let T = 1000, q = [];
+globalThis.requestAnimationFrame = (f) => { q.push(f); return q.length; };
+globalThis.cancelAnimationFrame = () => {};
+performance.now = () => T;
+const tick = (ms = 8) => { T += ms; const f = q; q = []; f.forEach((x) => x(T)); };
+const settle = () => { for (let i = 0; i < 60; i++) tick(8); };
+w.Element.prototype.animate = function () { throw new Error('the page must move in the frames, not by element.animate'); };
 
 const { changesPage } = await import('../src/ui/treat-page.js');
 const { sheetHeight } = await import('../src/ui/dock-sheet.js');
@@ -43,11 +46,27 @@ test('the row shows how many changes there are, and none when there are none', (
   assert.equal(p.row.querySelector('.tcp-n').textContent, '', 'the badge is empty (hidden by CSS) when nothing is changed');
 });
 
+const xOf = (el) => parseFloat(String(el.style.translate || '0').split(' ')[0]) || 0;
+const touch = (el, type, x, y, id = 1) => {
+  const e = new w.Event(type, { bubbles: true, cancelable: true });
+  Object.assign(e, { clientX: x, clientY: y, pointerId: id, isPrimary: true, pointerType: 'touch' });
+  el.dispatchEvent(e);
+};
+function open() {
+  const k = sheet();
+  Object.defineProperty(k.card, 'offsetWidth', { value: 390 });
+  const p = changesPage(k.card, k.sec); p.sync();
+  p.row.click();
+  k.page = k.card.querySelector(':scope > .tc-page');
+  k.p = p;
+  return k;
+}
+
 test('opening: the page holds the Changes section, open, over the tabs and the body, which are put out of reach and slide away; the sheet is asked to refit once', () => {
   const { card, tabs, body, sec } = sheet();
   const p = changesPage(card, sec); p.sync();
+  Object.defineProperty(card, 'offsetWidth', { value: 390 });
   let refits = 0; card.addEventListener('sheet-refit', () => refits++);
-  played.length = 0;
   p.row.click();
   const page = card.querySelector(':scope > .tc-page');
   assert.ok(page, 'a page');
@@ -56,30 +75,107 @@ test('opening: the page holds the Changes section, open, over the tabs and the b
   assert.ok(card.hasAttribute('data-page'), 'the sheet knows a page stands');
   assert.equal(tabs.inert && body.inert, true, 'the tabs and the body are out of reach under it');
   assert.equal(refits, 1);
-  const moves = played.map((a) => JSON.stringify(a.kf));
-  assert.ok(moves.some((m) => m.includes('translateX(100%)')), 'the page slides in from the right');
-  assert.ok(moves.filter((m) => m.includes('translateX(-30%)')).length === 2, 'the tabs and the body slide back and fade');
-  assert.ok(played.every((a) => a.o.fill === 'both' && a.kf.every((f) => Object.keys(f).every((k) => ['transform', 'opacity'].includes(k)))), 'transform and opacity alone');
+  assert.equal(xOf(page), 390, 'it starts off to the right, written at once (no frame shows it anywhere else)');
+  tick(); tick();
+  const mid = xOf(page);
+  assert.ok(mid < 390 && mid > 0, `it slides in, in the frames (${mid})`);
+  assert.ok(xOf(tabs) < 0 && xOf(tabs) === xOf(body), 'the tabs and the body slide back together');
+  settle();
+  assert.equal(xOf(page), 0, 'it ends exactly home');
+  assert.equal(parseFloat(tabs.style.opacity), 0, 'and have faded out');
   p.row.click();
   assert.equal(card.querySelectorAll('.tc-page').length, 1, 'a second tap makes no second page');
 });
 
-test('going back: the sheet is asked to refit, the tabs and the body are interactive again, the page slides out and is taken away', async () => {
-  const { card, tabs, body, sec } = sheet();
-  const p = changesPage(card, sec);
-  p.row.click();
+test('going back: the sheet is asked to refit, the tabs and the body are interactive again, the page slides out and is taken away', () => {
+  const { card, tabs, body, sec, page } = open();
+  settle();
   let refits = 0; card.addEventListener('sheet-refit', () => refits++);
-  played.length = 0;
   card.querySelector('.tcp-back').click();
   assert.equal(card.hasAttribute('data-page'), false);
   assert.equal(tabs.inert || body.inert, false);
   assert.equal(refits, 1);
-  assert.ok(played.some((a) => JSON.stringify(a.kf).includes('translateX(100%)')), 'the page slides out');
-  await new Promise((r) => setTimeout(r, 0));
+  tick(); tick();
+  assert.ok(xOf(page) > 0 && xOf(page) < 390, 'the page slides out in the frames');
+  settle();
   assert.equal(card.querySelector('.tc-page'), null, 'taken away once it has gone');
+  assert.equal(tabs.style.translate + tabs.style.opacity + body.style.translate + body.style.opacity, '', 'what it covered is left as it was, nothing inline');
   assert.ok(sec.open, 'the section is whole and open, ready for the page to hold it again');
-  p.row.click();
-  assert.ok(card.querySelector('.tc-page'), 'it opens again');
+  card.querySelector('.tcp-row') || 0;
+});
+
+test('a swipe right follows the finger: the page stands where the finger has it, and what it covers goes with it (the tester: it stayed at x=0 through a 320 px drag)', () => {
+  const { card, tabs, page } = open();
+  settle();
+  touch(page, 'pointerdown', 40, 300);
+  touch(page, 'pointermove', 60, 302);
+  const seen = [];
+  for (const dx of [20, 80, 160, 240, 320]) { T += 16; touch(page, 'pointermove', 40 + dx, 304); seen.push([dx, xOf(page)]); }
+  // (the page takes the finger where the drag was claimed, at 20 px: from there it moves one for one)
+  for (const [dx, px] of seen.slice(1)) assert.ok(Math.abs(px - (dx - 20)) < 1, `at ${dx} px of drag the page is at ${px}`);
+  assert.ok(Math.abs(xOf(page) - 300) < 1);
+  assert.ok(xOf(tabs) > -0.3 * 390 && xOf(tabs) < 0, 'the tabs have slid back most of the way, not all');
+  assert.ok(card.hasAttribute('data-page'), 'the sheet still has its page until the finger lets go');
+  assert.equal(card.querySelector('.tc-page'), page);
+});
+
+test('a short, slow pull comes home; a long one, or a flick, goes back', () => {
+  let k = open(); settle();
+  touch(k.page, 'pointerdown', 40, 300); touch(k.page, 'pointermove', 60, 300);
+  T += 400; touch(k.page, 'pointermove', 100, 300);   // 60 px, slowly
+  T += 200; touch(k.page, 'pointerup', 100, 300);     // (held for 200 ms before lifting: no flick)
+  assert.ok(k.card.hasAttribute('data-page'), 'a short pull does not close');
+  settle();
+  assert.equal(xOf(k.page), 0, 'it comes home exactly');
+  assert.equal(k.tabs.inert, true, 'what it covers is still out of reach');
+
+  k = open(); settle();
+  touch(k.page, 'pointerdown', 40, 300); touch(k.page, 'pointermove', 60, 300);
+  T += 300; touch(k.page, 'pointermove', 240, 300);   // 200 px, slowly
+  T += 20; touch(k.page, 'pointerup', 240, 300);
+  assert.equal(k.card.hasAttribute('data-page'), false, 'a long pull closes at once (the sheet refits)');
+  assert.equal(k.tabs.inert, false);
+  settle();
+  assert.equal(k.card.querySelector('.tc-page'), null, 'and the page is taken away when it has gone');
+
+  k = open(); settle();
+  touch(k.page, 'pointerdown', 40, 300); touch(k.page, 'pointermove', 60, 300);
+  for (let i = 1; i <= 4; i++) { T += 16; touch(k.page, 'pointermove', 60 + i * 30, 300); }   // 1.9 px/ms
+  touch(k.page, 'pointerup', 180, 300);
+  assert.equal(k.card.hasAttribute('data-page'), false, 'a quick flick of 120 px closes');
+  const at = xOf(k.page);
+  tick(16);
+  assert.ok(xOf(k.page) > at, 'and carries on from where the finger left it, never from a jump');
+  settle();
+  assert.equal(k.card.querySelector('.tc-page'), null);
+});
+
+test('a vertical drag is a scroll, not a swipe, and a slider keeps its own gesture', () => {
+  const { page } = open(); settle();
+  touch(page, 'pointerdown', 200, 300); touch(page, 'pointermove', 206, 340); touch(page, 'pointermove', 230, 400);
+  assert.equal(xOf(page), 0, 'a drag mostly down leaves the page where it is');
+  const r = document.createElement('input'); r.type = 'range'; page.append(r);
+  const e = new w.Event('pointerdown', { bubbles: true }); Object.assign(e, { clientX: 20, clientY: 20, pointerId: 2, isPrimary: true, pointerType: 'touch' });
+  r.dispatchEvent(e); touch(page, 'pointermove', 120, 22, 2);
+  assert.equal(xOf(page), 0, 'a drag that began on a slider is the slider\'s');
+});
+
+test('caught mid-slide, the finger takes the page from where it stands, and going back mid-slide turns from there', () => {
+  const { card, page } = open();
+  tick(); tick(); tick();
+  const here = xOf(page);
+  assert.ok(here > 0 && here < 390);
+  touch(page, 'pointerdown', 100, 300); touch(page, 'pointermove', 110, 300);
+  touch(page, 'pointermove', 130, 300);
+  assert.ok(Math.abs(xOf(page) - (here + 20)) < 1, `the finger carries it on from ${here}: ${xOf(page)}`);
+  touch(page, 'pointerup', 130, 300);
+  settle();
+  card.querySelector('.tcp-back')?.click();
+  const mid = xOf(page);
+  tick(); tick();
+  assert.ok(xOf(page) >= mid, 'going back moves toward gone');
+  settle();
+  assert.equal(card.querySelector('.tc-page'), null);
 });
 
 test('the sheet is Full while a page stands and goes back to its tab\'s height after it (the phone at 390 x 844: room 654)', () => {
