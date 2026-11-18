@@ -4,7 +4,7 @@ import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { main, parseArgs, patchOf, actionsOf } from '../scripts/model-cli.mjs';
+import { main, parseArgs, patchOf, actionsOf, runSteps } from '../scripts/model-cli.mjs';
 import { PRESETS } from '../src/engine/scenario.js';
 import { SNAPSHOTS } from '../src/ui/snapshots.js';
 import { HVPG_CUTS, hvpgWord, NOT_MEASURABLE } from '../src/engine/pressure-cuts.js';
@@ -34,11 +34,15 @@ test('a typo, an out-of-range value and an unknown preset are refused with a mes
   await assert.rejects(run('--preset', 'csph', '--days', '-3'), /whole number of days/);
 });
 
-test('each preset prints the numbers Home shows for it (src/ui/snapshots.js)', async () => {
+test('each preset prints the worker chain\'s numbers (the slides\'), and sits near Home\'s quiet-settled snapshot', async () => {
+  // The slides' states are read at the bedside clock (worker-core.js atBedside: beat and breath on, the shown means), so they sit 0.1 to 0.6 mmHg off
+  // Home's snapshots, which come from the quiet settle (scripts/snapshots.mjs). The command prints the slides' side, exactly; the snapshot is only a bound.
   for (const p of PRESETS) {
-    const { after } = await json('--preset', p.id), want = SNAPSHOTS[p.id].fp;
-    assert.ok(Math.abs(after.fingerprint.pv - want.pv) < 0.15, `${p.id}: portal vein ${after.fingerprint.pv} against ${want.pv}`);
-    assert.ok(Math.abs(after.fingerprint.hvpg - want.hvpg) < 0.15, `${p.id}: HVPG ${after.fingerprint.hvpg} against ${want.hvpg}`);
+    const { after } = await json('--preset', p.id), want = SNAPSHOTS[p.id].fp, [chain] = await runSteps([{ preset: p.id }]);
+    assert.equal(after.fingerprint.pv, Math.round(chain.fp.pv * 1e4) / 1e4, `${p.id}: portal vein is the worker chain's`);
+    assert.equal(after.fingerprint.hvpg, Math.round(chain.fp.hvpg * 1e4) / 1e4, `${p.id}: HVPG is the worker chain's`);
+    assert.ok(Math.abs(after.fingerprint.pv - want.pv) < 0.7, `${p.id}: portal vein ${after.fingerprint.pv} against Home's ${want.pv}`);
+    assert.ok(Math.abs(after.fingerprint.hvpg - want.hvpg) < 0.7, `${p.id}: HVPG ${after.fingerprint.hvpg} against Home's ${want.hvpg}`);
   }
 });
 

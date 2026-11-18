@@ -52,4 +52,7 @@ It prints the settled state after the days, not the path: for a curve over time 
 several `--days`. A time-lapse slide (`lapse`, `ramp`) reports its end state. `--deck` numbers are the app's, shown at full precision
 as the fingerprint holds them. Exit codes: 0 done, 2 a bad option (the message says which), 1 a crash.
 
-Tested by `tests/model-cli.test.js` (the numbers equal Home's snapshots; typos are refused; `--compare`, `--deck`, `--list`).
+Home's patient cards (`src/ui/snapshots.js`) come from the quiet settle and can differ from this command by 0.1 to 0.6 mmHg; the slides, and so
+this command, read the model at the bedside clock (`atBedside` in `src/worker-core.js`: beat and breath on, the shown means). Ask this command, not the snapshot file.
+
+Tested by `tests/model-cli.test.js` (the numbers equal the worker chain's and sit within 0.7 mmHg of Home's snapshots; typos are refused; `--compare`, `--deck`, `--list`).
