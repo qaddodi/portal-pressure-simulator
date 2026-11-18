@@ -157,6 +157,7 @@ function callerOf() {
 
 /**
  * The judge of one recorded move (a trace from the lock, or the gate's own): a list of failures, empty when it passes.
+ * opt.clock: false leaves out the clock check (a move recorded from samples, not from the slide's own clock: the ?watch recorder's view changes).
  * vb: the stage's view units ({ w, h, cx, cy }), for where the world points lie. opt.lateMs: how late after the ask its first moving frame may
  * come; opt.gapMs: the longest frame; opt.press: when the person pressed (the trace's clock), for the start counted from the press.
  *   - path: the zoom goes one way, never past its ends; the world point at the landing's middle travels one straight line on the screen, always
@@ -198,7 +199,7 @@ export function judgeSlideMove(tr, vb, opt = {}) {
     const dt = frames[i][0] - frames[i - 1][0];
     if (dt > gapMs) (tr.stalls ||= []).push(Math.round(dt));
   }
-  if (ms > 0) {
+  if (ms > 0 && opt.clock !== false) {
     let prevR = 0;
     for (let i = 0; i < frames.length; i++) {
       const r = progressOf(frames[i], from, to, T);

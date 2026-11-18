@@ -41,7 +41,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // (rest: rest pacing on touch devices, brief H1 10 Nov 2026: ?rest=off turns the slow-down at rest off, to compare on a device.)
 // (gallery: the preview-only card gallery page and its device frames, ?gallery and ?gallery=frame, src/ui/gallery/, docs/card-gallery.md: loaded only on the preview copy.)
 // (embed: a deep link like script and preset, not a switch: ?embed is the app for an iframe on someone else's page, O1, 13 Nov 2026; src/ui/embed.js.)
-const KEEP = new Set(['perf', 'offgpu', 'fps', 'budget', 'inputs', 'lap', 'script', 'slide', 'preset', 'home', 'embed', 'back', 'presenter-view', 'v', 'lumen', 'lumenscale', 'rest', 'gallery']);
+const KEEP = new Set(['perf', 'offgpu', 'fps', 'budget', 'inputs', 'lap', 'script', 'slide', 'preset', 'home', 'embed', 'back', 'presenter-view', 'v', 'lumen', 'lumenscale', 'rest', 'gallery', 'watch']);   // (watch: the motion recorder's red dot, a preview-only measuring aid like perf and offgpu; src/ui/watch)
 const walk = (p) => (statSync(p).isDirectory() ? readdirSync(p).flatMap((f) => walk(join(p, f))) : [p]);
 const files = [...walk(join(ROOT, 'src')).filter((f) => f.endsWith('.js')), join(ROOT, 'index.html'), join(ROOT, 'sw.js')];
 
