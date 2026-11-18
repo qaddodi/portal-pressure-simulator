@@ -156,7 +156,7 @@ export function createBlood(st, live) {
     live.restK = easeInOut(live.restU);
   }
   const blendA = { c: null, o: null };   // shown share of the chevrons and the origin colours (stepBlood)
-  const eased = (v, to, k) => { if (Math.abs(to - v) <= 0.002) return to; live.bloodEasing = true; return v + (to - v) * k; };
+  const eased = (v, to, k) => { if (Math.abs(to - v) <= 0.002) return to; live.bloodEasing = true; live.bloodWhy = 'blend'; return v + (to - v) * k; };
   // Parcels through junctions (blood.js createStreamChain): each drawn vessel's main row, by its shown direction, with the model's
   // mean display speed (not the shown one, which eases to a stop on pause and swings with the beat: the link holds through both).
   // The cava is one tube of two edges (drawItems), so it keeps its own pattern. Written into the rows put() just filled: flow texel
@@ -227,6 +227,7 @@ export function createBlood(st, live) {
     // (The parent's heads, when they are drawn on this row's stream and placed this step: what the branch's heads take up at the join.)
     const viaP = pr >= 0 && hSeen[pr] === hStamp && hRun[pr] !== -2 && hK[pr] === k && (hRun[pr] === root || (hRun[pr] === -1 && root === pr));
     const Jt = viaP ? hA[pr] + hB[pr] * sjP : At + Bt * s0, joined = root >= 0;
+    let streamMoved = true;   // (false once the stream's distance stands still, paused: the heads' catch-up goes by that distance, so it cannot go on)
     if (fresh) { hA[row] = Jt - Bt * s0; hB[row] = Bt; }
     else if (hRun[row] !== root || hK[row] !== k || Math.sign(hB[row]) !== Math.sign(Bt)) {
       // (A new stream: placed where the old run stood, the old stream's distance now and the A it was drawn with. B keeps its size.)
@@ -236,6 +237,7 @@ export function createBlood(st, live) {
     } else if (reduceMotion.matches) { hA[row] = At; hB[row] = Bt; }   // (still heads: nothing moves, so nothing to ease)
     else {
       const dD = wrapD(D - hDp[row]);
+      streamMoved = dD !== 0;
       if (dD !== 0) {
         // (2) B toward the junction's, pivoting at the junction end (s0), so J stands; a rise in steps small enough that the head furthest
         // from the join moves back by at most HEAD_B of the stream's own step.
@@ -272,7 +274,9 @@ export function createBlood(st, live) {
     }
     hDp[row] = D; hT[row] = Jt; hTm[row] = viaP ? pr : -1;
     { const g = Jt - hA[row] - hB[row] * s0, M = latM(row, viaP ? pr : -1), e = g - M * Math.round(g / M);
-      if ((joined && Math.abs(e) > 1e-3) || hB[row] !== Bt) live.bloodEasing = true; }
+      // (Easing only where the heads can still move: a paused stream's distance stands, so a gap or a B it had not yet closed waits for the blood to move again, and keeps no frame drawn:
+      // the paused, quiet figure drew 28 to 41 pictures a second, setFlow and the glass with them, 18 Nov 2026.)
+      if (streamMoved && ((joined && Math.abs(e) > 1e-3) || hB[row] !== Bt)) { live.bloodEasing = true; live.bloodWhy = 'heads'; } }
     const off = hA[row] - At;
     hRun[row] = root; hK[row] = k; hAt[row] = At;
     // The level: the one nearest CHEV_PITCH at the zoom the view last settled at, by the B the heads are drawn with.
@@ -323,7 +327,7 @@ export function createBlood(st, live) {
     }
     if (chainIt.length !== n) { chainIt.length = n; changed = true; }
     const c = changed ? (chainLast = chain.step(chainIt, kW, kB)) : chainLast;
-    if (c.easing) live.bloodEasing = true;
+    if (c.easing) { live.bloodEasing = true; live.bloodWhy = 'parcels'; }
     for (let i = 0; i < n; i++) chainK.set(chainIt[i].key, chainIt[i].k);
     for (let i = 0; i < n; i++) { hIx[chainIt[i].key] = i; hIxS[chainIt[i].key] = hStamp; }
     for (let i = 0; i < n; i++) chainHead(c, i, kH, dtL);
@@ -345,7 +349,7 @@ export function createBlood(st, live) {
     const g = levelStep(lvG, lvGt, Math.max(-1, Math.log2(CHEV_PITCH / (lvSc || scCur) / 28)), false, dtL);
     lvG = g[0]; lvGt = g[1];
     for (let r = 0; r < GL_ROWS; r++) if (hSeen[r] !== hStamp) { hRun[r] = -2; headRuns[r * 4] = 0; headRuns[r * 4 + 1] = 0; headRuns[r * 4 + 2] = lvG; headRuns[r * 4 + 3] = 1; }
-    if (lvEasing) live.bloodEasing = true;
+    if (lvEasing) { live.bloodEasing = true; live.bloodWhy = 'levels'; }
   }
   // (One empty list for every vessel with no strands, feeders or branches, and for no spray: none made each frame. Never written.)
   const NONE = Object.freeze([]), NO_OBJ = Object.freeze({});
@@ -439,7 +443,7 @@ export function createBlood(st, live) {
       originFractionsInto(EDGES, NODES, oMean, live.F.Pf || live.F.P, oGoal.origins, oGoal, oPass); live.originsF = live.F; oPassed = oPass;
       if (!live.origins) { live.origins = oGoal.origins.slice(); oEnds.down.set(oGoal.down); oEnds.pe.set(oGoal.pe); }   // (the first blend is shown as it is: the lens fades in)
     }
-    if (live.origins && easeOrigins({ origins: live.origins, down: oEnds.down, pe: oEnds.pe }, oGoal, dt, ORIGIN_N)) live.bloodEasing = true;   // (the figure's blends ease to the model's: origin-ease.js)
+    if (live.origins && easeOrigins({ origins: live.origins, down: oEnds.down, pe: oEnds.pe }, oGoal, dt, ORIGIN_N)) { live.bloodEasing = true; live.bloodWhy = 'origins'; }   // (the figure's blends ease to the model's: origin-ease.js)
     syncEnds();
     // (Each row drawn is written whole and a row no longer drawn is cleared once after the loop (flow-rows.js retireRows): the
     // table ends as a clear of all of it before the writes left it, without clearing and refilling every row each frame.)

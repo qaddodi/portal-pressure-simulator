@@ -191,6 +191,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get blockersStale() { return blockersStale; }, set blockersStale(v) { blockersStale = v; },
     get bloodClock() { return bloodClock; }, set bloodClock(v) { bloodClock = v; },
     get bloodEasing() { return bloodEasing; }, set bloodEasing(v) { bloodEasing = v; },
+    get bloodWhy() { return bloodWhy; }, set bloodWhy(v) { bloodWhy = v; },
     get bloodLook() { return bloodLook; },
     get bowelDy() { return bowelDy; },
     get box() { return box; }, set box(v) { box = v; },
@@ -2466,7 +2467,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   const { bloodLook, bolus, chevOn, injectDye, originOn, restStill, sprayFading, sprayOn, stepBlood, stepRest, stepSpray, streams } = createBlood({ E, EI, EV, GL_ROWS, bal, cath, easeInOut, geo, glow, holdReversals, layerMode, revHold }, live);
   let origins = null, originsF = null, bloodClock = 0, dyeShown = false;
-  let bloodEasing = false;
+  let bloodEasing = false, bloodWhy = '';   // (bloodWhy: which of the blood's eases was the last to keep it awake, for ?perf)
   let restOn = false, restU = 1, restK = 1;
 
   // Active variceal bleeding: a steady stream runs from the rupture down into the stomach, where it pools (blood.js
@@ -2781,7 +2782,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const rowsWait = veinsRows.size > 0 && !!veins && !veins.lost && !!vLook && !!F;
     // (?perf: a still figure that is drawn anyway says which of the sleep's conditions held it awake, 'figure drawn though still: <condition>', counted.)
     if (gpuProbe.on && still) {
-      const why = [['veinsDirty', veinsDirty], ['rows waiting', rowsWait], ['glow sync', glowSync], ['outlines dirty', glLines && olDirty], ['marks stale', glLines && marksStale()], ['outlines fading', glLines && olFading()], ['map easing', mapEasing()], ['clamp fading', clampFading()], ['marks moving', markA.moving()], ['widths easing', widthEasing], ['blood easing', bloodEasing], ['plate easing', plateEasing()], ['spray fading', sprayFading()], ['organs fading', !!veins?.organs?.fading], ['lens', !!lensFrom], ['colours easing', colEasing], ['ascites', ascShown !== ascTarget], ['morph', morph !== morphTarget], ['turn', rotU !== rotTarget], ['no still key drawn', !keyDrawn.on], ['still key differs', keyDrawn.on && !sameStill(keyNow, keyDrawn)], ['model frame changed', !fSame], ['camera matrix object changed', CTM !== lastDrawCTM], ['reveal', anyReveal()]].find((c) => c[1]);
+      const why = [['veinsDirty', veinsDirty], ['rows waiting', rowsWait], ['glow sync', glowSync], ['outlines dirty', glLines && olDirty], ['marks stale', glLines && marksStale()], ['outlines fading', glLines && olFading()], ['map easing', mapEasing()], ['clamp fading', clampFading()], ['marks moving', markA.moving()], ['widths easing', widthEasing], ['blood easing (' + bloodWhy + ')', bloodEasing], ['plate easing', plateEasing()], ['spray fading', sprayFading()], ['organs fading', !!veins?.organs?.fading], ['lens', !!lensFrom], ['colours easing', colEasing], ['ascites', ascShown !== ascTarget], ['morph', morph !== morphTarget], ['turn', rotU !== rotTarget], ['no still key drawn', !keyDrawn.on], ['still key differs', keyDrawn.on && !sameStill(keyNow, keyDrawn)], ['model frame changed', !fSame], ['camera matrix object changed', CTM !== lastDrawCTM], ['reveal', anyReveal()]].find((c) => c[1]);
       if (why) gpuProbe.note(`figure drawn though still: ${why[0]}`);
     }
     if (still && !veinsDirty && !rowsWait && !glowSync && !(glLines && olDirty) && (!glLines || !marksStale()) && !(glLines && olFading()) && !mapEasing() && !clampFading() && !markA.moving() && !widthEasing && !bloodEasing && !plateEasing() && !sprayFading() && !veins?.organs?.fading && !lensFrom && !colEasing && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && keyDrawn.on && sameStill(keyNow, keyDrawn) && fSame && CTM === lastDrawCTM && !anyReveal()) { overAlone(overAt); sleep(); return; }
