@@ -3,4 +3,5 @@
 //
 // import './fit-rules-panel.js';   // the Check button (shared fit rules)
 // import './benches/index.js';     // the debug benches
+import './benches/index.js';   // the debug benches (camera, slow motion, procedures, memory loop, flags, looks, words, model, glyphs)
 export {};

@@ -179,3 +179,67 @@ test('an animation the browser does run, in step with the clock, is left alone',
   assert.deepEqual(sets, [], 'the browser kept the time, nothing was written');
   c.dispose();
 });
+
+// Slow motion (the gallery's slow-motion bench): app time = speed x real time, continuous across a change of speed, held at 0, frames stepped by hand.
+function movingPage(realRef) {
+  const { g } = fakePage();
+  const c = createTestClock(g, { realNow: () => realRef.t });
+  c.install();
+  return { g, c };
+}
+
+test('slow motion: app time runs at speed x real time and a change of speed never makes time jump or go back', () => {
+  const real = { t: 1000 };
+  const { c } = movingPage(real);
+  const t0 = c.now();
+  real.t += 100;
+  assert.equal(c.now() - t0, 100);
+  const before = c.now();
+  c.setSpeed(0.25);
+  assert.equal(c.now(), before, 'no jump at the change');
+  real.t += 400;
+  assert.ok(Math.abs(c.now() - before - 100) < 1e-9, 'a quarter of the real time');
+  const mid = c.now();
+  c.setSpeed(0.1); real.t += 1000;
+  assert.ok(Math.abs(c.now() - mid - 100) < 1e-9);
+  c.setSpeed(1);
+  const back = c.now(); real.t += 50;
+  assert.ok(Math.abs(c.now() - back - 50) < 1e-9, 'real pace again');
+  assert.equal(c.speed, 1);
+});
+
+test('slow motion: speed 0 holds time, speed is clamped to 0..1, and stepFrames moves the held page one frame at a time', () => {
+  const real = { t: 0 };
+  const { g, c } = movingPage(real);
+  c.setSpeed(0);
+  const t0 = c.now();
+  real.t += 5000;
+  assert.equal(c.now(), t0, 'held');
+  const stamps = [];
+  const go = (t) => { stamps.push(t); g.requestAnimationFrame(go); };
+  g.requestAnimationFrame(go);
+  c.stepFrames(1);   // (the first frame of a clock has none before it, so it and the next both fall in this step)
+  const n0 = stamps.length;
+  c.stepFrames(1);
+  assert.equal(stamps.length, n0 + 1, 'one step, one frame');
+  c.stepFrames(3);
+  assert.equal(stamps.length, n0 + 4);
+  assert.ok(Math.abs(stamps[n0 + 3] - stamps[n0 + 2] - 1000 / 60) < 1e-9);
+  assert.equal(c.setSpeed(7), 1, 'above 1 is real pace');
+  assert.equal(c.setSpeed(-3), 0);
+  assert.equal(c.stats().speed, 0);
+});
+
+test('slow motion: a timer set while slowed fires after speed-scaled real time, not before', () => {
+  const real = { t: 0 };
+  const { g, c } = movingPage(real);
+  c.setSpeed(0.5);
+  let fired = 0;
+  g.setTimeout(() => { fired++; }, 100);
+  real.t += 100;   // 50 ms of app time
+  c.advanceTo(c.now());
+  assert.equal(fired, 0);
+  real.t += 100;   // 100 ms of app time in all
+  c.advanceTo(c.now());
+  assert.equal(fired, 1);
+});
