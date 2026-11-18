@@ -17,9 +17,13 @@ import { openEntry } from './openers.js';
 import './plugins.js';
 import { fadeShown, toast as appToast } from '../util.js';
 import { currentLook } from '../looks.js';
-import { readMetric } from '../layout-snap.js';
+import { readBox, readRects, readStyle, readMetric, readCTM, readAnims } from '../layout-snap.js';
+import { createGalleryApi, probeBusy } from './api.js';
+import { readWords, readBoxes } from './readers.js';
+import { runCheck } from './fit-check.js';
 
 const DECK_ID = 'test-gallery';
+const IO = { box: readBox, rects: readRects, style: readStyle, metric: readMetric, ctm: readCTM };
 const LOOK_NAMES = { light: 'Light', soft: 'Soft', dark: 'Dark', navy: 'Navy', black: 'Black' };
 
 const CSS = `
@@ -103,8 +107,18 @@ export async function startGallery({ pps = window.pps, root = document } = {}) {
   const bench = el('div', 'gl-bench'), benchTitle = el('b'), benchHost = el('div', 'gl-bench-host'); bench.hidden = true;   // off-screen: built hidden, brought in by fadeShown
   const toast = (text) => appToast(text);
   const copy = async (text) => { try { await navigator.clipboard.writeText(text); return true; } catch { return false; } };
+  // The test controls (api.js): window.pps.gallery, the settled attribute, the sweep from the address. `go` is bound below (a function declaration).
+  const api = createGalleryApi({
+    entries, byId, pps, go: (id) => go(id, { quiet: true, mark: false }), setLook: (id) => setLook(id), look: () => look, id: () => open?.id ?? null,
+    busy: () => probeBusy(pps, document, readAnims),
+    check: () => runCheck({ io: IO, pps }),
+    words: () => readWords(IO), boxes: () => readBoxes(IO),
+    size: () => ({ w: readMetric(window, 'innerWidth'), h: readMetric(window, 'innerHeight') }),
+    affected: async () => { const r = await fetch(new URL('gallery-affected.json', location.href)); if (!r.ok) throw new Error('no gallery-affected.json beside the page: sweep=affected needs the build to write it'); return r.json(); },
+  });
+  if (pps) pps.gallery = api;
   const ctx = {
-    pps, catalog: { CATALOG, byId, SECTIONS, sid },
+    api, pps, catalog: { CATALOG, byId, SECTIONS, sid },
     specimen: () => open, look: () => look,
     setLook: (id) => setLook(id), go: (id, o) => go(id, o), toast, say: toast, copy,
     onSpecimen: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
@@ -202,9 +216,10 @@ export async function startGallery({ pps = window.pps, root = document } = {}) {
   }
 
   // ── Opening a specimen ──
-  async function go(id, { quiet = false } = {}) {
+  async function go(id, { quiet = false, mark = true } = {}) {
     const e = byId[id];
     if (!e) return;
+    if (mark) api.mark('opening', id);   // (api.open marks its own; a tap, a key or the address marks here, so a harness always has the attribute to wait on)
     closeBench();
     open = e;
     history.replaceState(null, '', linkFor(location, id, look));
@@ -221,6 +236,7 @@ export async function startGallery({ pps = window.pps, root = document } = {}) {
     if (!quiet && innerWidth <= 700) sheet(rail, false);
     if (shoot) shotLabel();
     settledSoon();
+    if (mark) api.settled().then((r) => { if (open?.id === id) api.mark(r.settled ? 'settled' : 'failed', id); });
   }
   function step(d) {
     const list = entries.filter((e) => e.kind === 'slide' || open?.kind !== 'slide');
@@ -310,7 +326,9 @@ export async function startGallery({ pps = window.pps, root = document } = {}) {
   sync();
   const ready = () => new Promise((ok) => { if (window.ppsFigureReady) ok(); else addEventListener('pps:figure-ready', () => ok(), { once: true }); });
   await ready();
+  api.mark('idle', '');
   if (addr.look) setLook(addr.look); else sync();
-  if (addr.id) await go(addr.id, { quiet: true }); else sheet(rail, true);
-  return { go, setLook, step, setShoot, freeze, get open() { return open; }, dispose() { panelOff.forEach((f) => f()); closeBench(); gl.remove(); style.remove(); } };
+  if (addr.id) await go(addr.id, { quiet: true }); else if (!/[?&]sweep\b/.test(location.search)) sheet(rail, true);
+  api.startFromAddress(location.search, { lookIds: LOOK_IDS });   // (not awaited: the page is usable while a sweep runs; the report lands in window.ppsGalleryResult)
+  return { api, go, setLook, step, setShoot, freeze, get open() { return open; }, dispose() { panelOff.forEach((f) => f()); closeBench(); gl.remove(); style.remove(); } };
 }
