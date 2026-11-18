@@ -221,7 +221,7 @@ test('the stage: off unless asked for; the painted groups\' SVG hidden by an emp
   // (Read again when a class outside the overlays changes how they show: the app's, the page's, the stage's.)
   // (A version stepped when a part differs from the last ask's: the app's classes without a gesture's own, the page's, the stage's,
   // the overlays' without OVER_ALL, the theme and palette, reduced motion.)
-  assert.match(st, /if \(a !== okAppRaw\) \{ okAppRaw = a; const f = overClsFree\(a\); if \(f !== okApp\) \{ okApp = f; changed = true; \} \}/);
+  assert.match(st, /if \(a !== okAppRaw\) \{ okAppRaw = a; const f = overClsFree\(a\); if \(f !== okApp\) \{ okApp = f; changed = true; overWhyAdd\(`app class: \$\{f\}`\); \} \}/);
   assert.match(st, /const a = appEl\?\.className \|\| '', d = document\.documentElement\.className, w = wrapCls\(\)/);
   assert.match(st, /\.filter\(\(c\) => c !== OVER_ALL\)\.join\(' '\)/);
   assert.match(st, /if \(dk !== okDoc \|\| w !== okWrap \|\| th !== okTheme \|\| pal !== okPal \|\| rm !== okRM\)/);

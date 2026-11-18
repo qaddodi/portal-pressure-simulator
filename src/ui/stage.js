@@ -2530,15 +2530,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // tests/stage-over.test.js reads the stylesheets for a rule on them that reaches the figure.)
   const overClsFree = (c) => gestureFree(c).replace(OVER_CARD_RE, '');
   let okDocRaw = null, okDocKey = '';
+  // (What made the overlays' groups be read again, for the ?perf readout (gauge 'overlays read again by'): the last few reasons, newest first.)
+  const overWhy = [];
+  function overWhyAdd(t) { if (!gpuProbe.on) return; overWhy.unshift(String(t).slice(0, 70)); if (overWhy.length > 6) overWhy.pop(); gpuProbe.gauge('overlays read again by', overWhy.join(' | ')); }
   let okAppRaw = null, okApp = '', okDoc = null, okWrap = null, okOverRaw = null, okOver = '', okTheme = null, okPal = null, okRM = null, okVer = 0;
   const overKey = () => {
     let changed = false;
     const a = appEl?.className || '', d = document.documentElement.className, w = wrapCls(), o = svgOver ? svgOver.getAttribute('class') || '' : '';
-    if (a !== okAppRaw) { okAppRaw = a; const f = overClsFree(a); if (f !== okApp) { okApp = f; changed = true; } }
-    if (o !== okOverRaw) { okOverRaw = o; const f = svgOver ? [...svgOver.classList].filter((c) => c !== OVER_ALL).join(' ') : ''; if (f !== okOver) { okOver = f; changed = true; } }
+    if (a !== okAppRaw) { okAppRaw = a; const f = overClsFree(a); if (f !== okApp) { okApp = f; changed = true; overWhyAdd(`app class: ${f}`); } }
+    if (o !== okOverRaw) { okOverRaw = o; const f = svgOver ? [...svgOver.classList].filter((c) => c !== OVER_ALL).join(' ') : ''; if (f !== okOver) { okOver = f; changed = true; overWhyAdd(`overlay class: ${f}`); } }
     const ds = document.documentElement.dataset, th = ds.theme, pal = ds.palette, rm = reduceMotion.matches;
     const dk = d !== okDocRaw ? (okDocRaw = d, okDocKey = overClsFree(d)) : okDocKey;
-    if (dk !== okDoc || w !== okWrap || th !== okTheme || pal !== okPal || rm !== okRM) { okDoc = dk; okWrap = w; okTheme = th; okPal = pal; okRM = rm; changed = true; }
+    if (dk !== okDoc || w !== okWrap || th !== okTheme || pal !== okPal || rm !== okRM) { if (gpuProbe.on) overWhyAdd(`${dk !== okDoc ? 'page class ' : w !== okWrap ? 'stage class ' : 'theme '}${dk !== okDoc ? dk : w !== okWrap ? w : `${th}/${pal}/${rm}`}`); okDoc = dk; okWrap = w; okTheme = th; okPal = pal; okRM = rm; changed = true; }
     return changed ? ++okVer : okVer;
   };
   // (Set up once, at start-up where the overlays are on the GPU, or by renderPath if a restore makes them possible.)
@@ -2564,7 +2567,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const r of netChanges(rs)) {
         // (How long an element's transitions run changes only with its classes, its style rules or the page's look, not with a value written to it: kept across the frames of a move, below.)
         if (r.attributeName === 'class' || r.type !== 'attributes' || (r.attributeName === 'style' && /transition/.test(`${r.oldValue}${r.target.getAttribute('style')}`))) overTrans = new WeakMap();
-        if (needsReread(r)) { overDirty = true; overDrop(r.target); continue; }
+        if (needsReread(r)) { overDirty = true; overDrop(r.target); if (gpuProbe.on) overWhyAdd(`${r.type === 'attributes' ? r.attributeName : r.type} on ${overName(r.target)}`); continue; }
         // (A value the painter reads at each paint, eased by the page's CSS: the browser shows the ease, so the group waits in the SVG.
         // An outline's d is not eased by any of the overlays' styles.)
         // (2 Nov 2026: its transitions are read in the next frame's read phase (overReadNow), not here, in the observer's microtask
