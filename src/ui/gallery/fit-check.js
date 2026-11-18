@@ -47,10 +47,10 @@ export function drawOutlines(problems, { box, doc = document }) {
     const b = box(el);
     if (!b || !(b.width > 0 && b.height > 0)) continue;
     const d = doc.createElement('div');
-    d.style.cssText = `position:fixed;left:${b.left}px;top:${b.top}px;width:${b.width}px;height:${b.height}px;box-sizing:border-box;border:2px solid #e5242b;border-radius:4px;box-shadow:0 0 0 1px rgba(255,255,255,.55)`;
+    d.style.cssText = `position:fixed;left:${b.left}px;top:${b.top}px;width:${b.width}px;height:${b.height}px;box-sizing:border-box;border:2px solid var(--danger);border-radius:4px;box-shadow:0 0 0 1px var(--surface)`;
     const t = doc.createElement('span');
     t.textContent = nums.join(', ');
-    t.style.cssText = 'position:absolute;left:-2px;top:-2px;transform:translateY(-100%);background:#e5242b;color:#fff;font:600 12px/16px system-ui,sans-serif;padding:0 5px;border-radius:4px 4px 4px 0;white-space:nowrap';
+    t.style.cssText = 'position:absolute;left:-2px;top:-2px;transform:translateY(-100%);background:var(--danger);color:var(--text-inverse);font:600 12px/16px system-ui,sans-serif;padding:0 5px;border-radius:4px 4px 4px 0;white-space:nowrap';
     d.append(t);
     wrap.append(d);
     n++;

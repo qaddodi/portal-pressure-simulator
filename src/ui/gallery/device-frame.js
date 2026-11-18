@@ -51,16 +51,16 @@ export const fitScale = (w, h, roomW, roomH) => Math.max(0.1, Math.min(1, roomW 
 
 const CSS = `
 html, body { margin: 0; height: 100%; }
-body { font: 500 14px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif; background: #eceae6; color: #1b1b1d; display: flex; flex-direction: column; }
-.dfr-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 10px 14px; background: #fbfaf8; border-bottom: 1px solid #d6d3cc; }
-.dfr-bar button, .dfr-bar a { font: inherit; font-weight: 600; min-height: 34px; padding: 0 12px; border-radius: 9px; border: 1px solid #c9c5bc; background: #fff; color: inherit; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
-.dfr-bar button[aria-pressed="true"] { background: #1b1b1d; color: #fff; border-color: #1b1b1d; }
-.dfr-note { flex: 1 1 260px; color: #5b5a57; font-weight: 500; }
+body { font: 500 14px/1.4 var(--font-ui, system-ui, sans-serif); background: var(--bg); color: var(--text); display: flex; flex-direction: column; }
+.dfr-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 10px 14px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.dfr-bar button, .dfr-bar a { font: inherit; font-weight: 600; min-height: 34px; padding: 0 12px; border-radius: 9px; border: 1px solid var(--border-strong); background: var(--surface-2); color: inherit; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+.dfr-bar button[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: var(--text); }
+.dfr-bar button:disabled { opacity: .45; cursor: default; }
+.dfr-note { flex: 1 1 260px; color: var(--text-2); font-weight: 500; }
 .dfr-room { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .dfr-wrap { position: relative; flex: none; }
-.dfr-wrap iframe { position: absolute; left: 0; top: 0; border: 0; background: #fff; transform-origin: 0 0; border-radius: 6px; box-shadow: 0 0 0 1px #0002, 0 12px 40px -12px #0005; }
-.dfr-size { font-variant-numeric: tabular-nums; color: #5b5a57; }
-@media (prefers-color-scheme: dark) { body { background: #17171a; color: #eee; } .dfr-bar { background: #202024; border-color: #38383e; } .dfr-bar button, .dfr-bar a { background: #2a2a2f; border-color: #46464d; } .dfr-bar button[aria-pressed="true"] { background: #eee; color: #17171a; } .dfr-note, .dfr-size { color: #a5a5ab; } }
+.dfr-wrap iframe { position: absolute; left: 0; top: 0; border: 0; background: var(--surface); transform-origin: 0 0; border-radius: 6px; box-shadow: var(--shadow-2); }
+.dfr-size { font-variant-numeric: tabular-nums; color: var(--text-2); }
 `;
 
 /**

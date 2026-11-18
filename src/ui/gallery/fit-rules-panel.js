@@ -12,13 +12,13 @@ const IO = { box: readBox, rects: readRects, style: readStyle, metric: readMetri
 const css = `
 .fitc { display: flex; flex-direction: column; gap: 8px; font: 500 13px/1.35 var(--font-ui, system-ui, sans-serif); color: var(--text, inherit); }
 .fitc-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.fitc button { font: inherit; font-weight: 600; min-height: 36px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line, rgba(128,128,128,.4)); background: var(--surface, transparent); color: inherit; cursor: pointer; }
-.fitc button.go { background: var(--danger, #e5242b); border-color: transparent; color: #fff; }
+.fitc button { font: inherit; font-weight: 600; min-height: 36px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: inherit; cursor: pointer; }
+.fitc button.go { background: var(--danger); border-color: transparent; color: var(--text-inverse); }
 .fitc [hidden] { display: none !important; }
 .fitc-status { color: var(--text-2, inherit); }
 .fitc-list { margin: 0; padding: 0 0 0 22px; max-height: 38vh; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 6px; }
 .fitc-list li { overflow-wrap: anywhere; }
-.fitc-list b { color: var(--danger, #e5242b); font-weight: 650; }
+.fitc-list b { color: var(--danger); font-weight: 650; }
 `;
 
 function copyText(text) {

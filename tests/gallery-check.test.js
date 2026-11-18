@@ -62,7 +62,7 @@ test('the red outlines: one per element, numbered as the list is, replaced by th
   assert.equal(outs.length, 2);
   assert.match(outs[0].style.cssText, /left:\s*10px/);
   assert.deepEqual(outs.map((o) => o.textContent), ['1, 3', '2']);
-  assert.match(outs[0].style.cssText, /#e5242b|rgb\(229, 36, 43\)/, 'red');
+  assert.ok(/var\(--danger\)/.test(outs[0].style.cssText) || /var\(--danger\)/.test(outs[0].getAttribute('style')), 'the danger colour');
   drawOutlines([{ kind: 'small', text: 'x', el: b }], { box: IO.box });
   assert.equal(document.querySelectorAll(`#${OUTLINE_ID}`).length, 1, 'never two layers');
   assert.equal(document.getElementById(OUTLINE_ID).children.length, 1);
