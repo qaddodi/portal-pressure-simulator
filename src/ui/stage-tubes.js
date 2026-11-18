@@ -120,7 +120,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     if (prepBusy || !live.figureShown || now - prepAt < 1000) return;
     prepAt = now;
     if (!prepCalm() || live.figureHidden() || gpuOverMemory()) return;   // (the lobule's preparation ahead keeps ~130 MB; over the memory envelope it is given back, and not made again until under)
-    const q = live.lz.preparePieces();
+    const q = live.lz.preparePieces(now < prepRush);   // (a hand reaching for the Lobule button: prepared for the state as it is, at once)
     if (!q.length) return;
     prepBusy = true;
     prepQ = q;
