@@ -72,3 +72,15 @@ test('whenQuiet waits out a gesture, calls once, and a cancel stops it', async (
   assert.equal(m, 0, 'cancelled');
 });
 
+
+test('handDown: a drag in the hand holds deferred work for as long as it lasts, not for twelve looks (the tester at 390 px: view-switch pieces ran mid-way through a slider drag)', () => {
+  const { q, fire, tick } = rig();
+  assert.equal(q.handDown(), false);
+  fire('pointerdown', { pointerId: 1, buttons: 1 });
+  for (let i = 0; i < 40; i++) { tick(120); fire('pointermove', { pointerId: 1, buttons: 1 }); assert.equal(q.handDown(), true, `a drag of ${(i + 1) * 120} ms`); }
+  fire('pointerup', { pointerId: 1 });
+  assert.equal(q.handDown(), false, 'let go');
+  fire('pointerdown', { pointerId: 2, buttons: 1 });
+  tick(5001);
+  assert.equal(q.handDown(), false, 'a press that never saw its release stops counting after 5 s');
+});

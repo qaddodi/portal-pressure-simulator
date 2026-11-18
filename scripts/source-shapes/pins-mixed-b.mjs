@@ -220,7 +220,7 @@ export default [
   { file: 'src/ui/stage*', need: [/x\.stenF = f;/, 'Where the pressure falls along a stenosed vessel (combined plan V1)'] },
   { file: 'src/ui/stage*', need: [/if \(it\.kind !== 'v'\) return null;\n\s*const fa = it\.x\.stenF, fb = it\.ra\?\.stenF, f = it\.f;\n\s*if \(!fa && !fb\) return null;/, 'Where the pressure falls along a stenosed vessel (combined plan V1)'] },
   // quiet
-  { file: 'src/ui/stage*', need: [/import \{ (?:leftAlone, )?sinceInput(?:, booting, holdCover)? \} from '\.\/quiet\.js/, 'one clock of input for deferred work (quiet.js): no second listener set'] },
+  { file: 'src/ui/stage*', need: [/import \{ (?:leftAlone, )?sinceInput(?:, booting, holdCover)?(?:, handDown)? \} from '\.\/quiet\.js/, 'one clock of input for deferred work (quiet.js): no second listener set'] },
   { file: 'src/ui/stage*', forbid: [/let inputAt|const pressed = new Set/, 'one clock of input for deferred work (quiet.js): no second listener set (no second set of listeners)'] },
   { file: 'src/ui/veins-gl.js', need: [/if \(!leftAlone\(PUBLISH_QUIET_MS\)\) return;/, 'one clock of input for deferred work (quiet.js): no second listener set (prepare() publishes the optional builds after a gesture)'] },
   { file: 'src/ui/gl-compile.js', need: [/import \{ leftAlone \} from '\.\/quiet\.js/, 'one clock of input for deferred work (quiet.js): no second listener set'] },

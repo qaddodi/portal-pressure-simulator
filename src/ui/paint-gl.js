@@ -870,7 +870,10 @@ export function createPaintGL(gl) {
     try {
       const r = resources();
       const { rec, W, H, mip, wrap, tile } = job;
-      if (!job.out) {
+      // (A sliced paint's first step only sets up: the painter's targets (tens of MB of multisampled storage, made at the first picture of a warm period), the texture's storage and the shapes' buffers.
+      // 17 Nov 2026, the tester: the tissue's first slice ran 417 ms, its whole set-up and a tile in one frame. The tiles begin with the next step.)
+      const fresh = !job.out;
+      if (fresh) {
         job.out = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, job.out);
         const levels = mip ? Math.floor(Math.log2(Math.max(W, H))) + 1 : 1;
@@ -879,6 +882,7 @@ export function createPaintGL(gl) {
       // (The shapes' buffers are sent at each slice: another picture painted between two slices uses the same ones.)
       gl.bindBuffer(gl.ARRAY_BUFFER, r.bufC); gl.bufferData(gl.ARRAY_BUFFER, rec.cv.length ? rec.cv : EMPTY_CV, gl.STATIC_DRAW);
       gl.bindBuffer(gl.ARRAY_BUFFER, r.bufP); gl.bufferData(gl.ARRAY_BUFFER, rec.pv.length ? rec.pv : EMPTY_PV, gl.STATIC_DRAW);
+      if (fresh && ms < Infinity) { gl.flush(); job.setup = true; return false; }   // (the finally puts the host's state back)
       gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.enable(gl.SCISSOR_TEST);
       gl.blendEquationSeparate(gl.FUNC_ADD, gl.FUNC_ADD);
       let drawn = 0;

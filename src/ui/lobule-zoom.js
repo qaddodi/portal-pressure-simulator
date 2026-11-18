@@ -890,6 +890,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let lyV = null;
   const motionOf = (t) => { let mo = motion.get(t.id); if (!mo) motion.set(t.id, (mo = {})); return mo; };   // alloc-rare: only the first time a tube is asked for (kept by id across rebuilds)
   let drawVersion = 0, idleDrawn = '', lastSurface = 0;
+  const RAD_GAP_MS = 320;   // (the fastest a vessel's easing calibers are sent and its rows drawn again: drawGL)
+  let lastRadSend = 0;
   const binCache = new Map();
   // Any change may show in the lobule, except these, which never do (the model's frame arrives through update()).
   const UNSEEN = new Set(['frame', 'historyTick', 'details', 'found', 'presetLoading', 'presetList', 'lastHVPG', 'speed', 'lapse', 'tool', 'hiddenReadouts', 'hiddenEvents', 'booted']);
@@ -2004,7 +2006,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // (A tube's radii follow only its calibers, not the zoom: worked out again only when those change (the calibers, the lobule's size
       // and the layer to 4 decimals: calibersChanged). The zoom sets only how small a change is still sent, so a zoom frame compares
       // the kept radii with what was sent.)
-      const calCh = calibersChanged(rzOf(), G);
+      // (The calibers of a vessel that is only easing toward the model's (after a TIPS, the lymph's 70 vessels creeping by a third of a pixel at a time) are sent at RAD_GAP_MS at the fastest, unless the zoom or
+      // a lens moves or the layer is new: each send marks the vessel's rows, and each rows' redraw of a lobule's long vessels costs 100 to 145 ms on a Mac (17 Nov 2026, the tester: 20 of 21 slow frames in 7 s, every
+      // 0.5 to 1 s while the lobule was up). calibersChanged is asked only when a send is due, so a change it has not been asked about is still there to be found.)
+      const radDue = rzMoving || lensFrom || !radAll || kq !== radAllK || now - lastRadSend >= RAD_GAP_MS;
+      const calCh = radDue && calibersChanged(rzOf(), G);
       if (calCh || !radAll || kq !== radAllK) for (const t of tubeSet) {
         const r = radiiNow(t);
         t.maxR = maxOf(r);
@@ -2018,7 +2024,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         const reach = Math.ceil((t.maxR + (WALL[t.kind] || 0) + 10) / 2) * 2;
         if (reach > (binReach[t.id] || 0)) reachGrew = true;
       }
-      radAll = 'y'; radAllK = kq;
+      radAll = 'y'; radAllK = kq; if (radDue) lastRadSend = now;
       if (reachGrew) binCache.clear();
       if (bk !== binKey || reachGrew) {
         binKey = bk;

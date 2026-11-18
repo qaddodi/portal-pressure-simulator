@@ -307,12 +307,19 @@ export function createLobuleField(st, live) {
   // The liver's tone the dive starts from: the page's colour 60% of the way to the liver's.
   function liverTone(cs, bg) { const lv = rgb01(cs.getPropertyValue('--og-liver-2').trim()); return bg.map((x, i) => lerp(x, lv[i], 0.6)); }
   const stageBg = (cs, dark) => rgb01(cs.getPropertyValue('--stage-bg').trim() || cs.getPropertyValue('--bg').trim());
-  function preparePieces() {
+  // A new state of the patient is prepared for once it has held still for PREP_STATE_QUIET, unless the reader reaches for the lobule (force): 18 Nov 2026, the tester, a preset loaded in the Anatomy view:
+  // 0.7 s on, the preparation began again for the new state, tissue and a whole frame, and lz.drawGL ran 154 ms in one slice while the anatomy was on screen (and the model was still gliding to its new values).
+  const PREP_STATE_QUIET = 2500;
+  let prepSeen = '', prepSeenAt = 0;
+  function preparePieces(force = false) {
     if (live.fade > 0 || !live.F) return [];
     const rect = host.getBoundingClientRect(), W = Math.round(rect.width), H = Math.round(rect.height);
     if (W < 2 || H < 2) return [];
     const dark = isDark(), key = [W, H, dark, devicePixelRatio, live.zonesOn, live.lymphOn, live.bileOn, Object.values(fieldState()).join(',')].join('|');
     if (key === live.prepKey) return [];
+    const nowMs = performance.now();
+    if (key !== prepSeen) { prepSeen = key; prepSeenAt = nowMs; }
+    if (!force && live.prepKey !== '' && nowMs - prepSeenAt < PREP_STATE_QUIET) return [];   // (a state that is still changing is not prepared for: asked again, as the page is quiet)
     let cs, land, bg;
     const q = [
       () => { cs = styles(); bg = stageBg(cs, dark); land = live.api.landing(); },   // (the stage's kept copy of its styles: no live read)

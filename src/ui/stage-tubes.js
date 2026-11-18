@@ -22,7 +22,7 @@ import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { cardMoveLeft } from './card-motion.js';
 import { cavGrow } from './cavernoma-strand.js';
 import { fluidSpringFor } from './organ-ease.js';
-import { booting, holdCover, sinceInput } from './quiet.js';
+import { booting, holdCover, sinceInput, handDown } from './quiet.js';
 import { store } from './store.js';
 import { stumpCentre, stumpPinch } from './suture-marks.js';
 import { clamp, lerp } from './util.js';
@@ -93,7 +93,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   // the reader's hand travels to the press and the build does not wait for it. A card or sheet coming or going still holds every piece, card-motion.js.)
   let prepRush = 0;
   const prepQuiet = () => (performance.now() < prepRush ? 100 : 700);
-  function prepIdleGo(fn) { if (sinceInput() < prepQuiet() || settling() || cardMoveLeft() > 0) stageScope.timer(prepIdleGo, prepRush > performance.now() ? 120 : 400, fn); else if (window.requestIdleCallback) requestIdleCallback(fn, IDLE_ASK); else stageScope.timer(fn, 50); }
+  function prepIdleGo(fn) { if (handDown() || sinceInput() < prepQuiet() || settling() || cardMoveLeft() > 0) stageScope.timer(prepIdleGo, prepRush > performance.now() ? 120 : 400, fn); else if (window.requestIdleCallback) requestIdleCallback(fn, IDLE_ASK); else stageScope.timer(fn, 50); }
   const prepIdle = (fn) => { stageScope.timer(prepIdleGo, 0, fn); };
   const prepLoad = () => lobuleReady().then(prepLobule, prepLoadLost);
   const prepLoadLost = (err) => console.warn('The lobule view did not load.', err);
@@ -120,7 +120,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     if (prepBusy || !live.figureShown || now - prepAt < 1000) return;
     prepAt = now;
     if (!prepCalm() || live.figureHidden() || gpuOverMemory()) return;   // (the lobule's preparation ahead keeps ~130 MB; over the memory envelope it is given back, and not made again until under)
-    const q = live.lz.preparePieces();
+    const q = live.lz.preparePieces(now < prepRush);   // (a hand reaching for the Lobule button: prepared for the state as it is, at once)
     if (!q.length) return;
     prepBusy = true;
     prepQ = q;

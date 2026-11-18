@@ -448,7 +448,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 0 transpar
 .menu.se::before, .menu.se::after { content: ''; position: sticky; z-index: 1; flex: none; height: 12px; margin-left: -8px; margin-right: -8px; pointer-events: none; transition: opacity var(--d-small) var(--ease-move); }
 .menu.se::before { top: calc(-1 * var(--fade-pt, 8px)); margin-top: 0; margin-bottom: -13px; background: linear-gradient(to top, transparent, var(--surface)); opacity: var(--sedge-t); }
 .menu.se::after { bottom: calc(-1 * var(--fade-pb, 8px)); margin-top: -13px; margin-bottom: 0; height: 12px; background: linear-gradient(to bottom, transparent, var(--surface)); opacity: var(--sedge-b); }
-.menu.as-sheet { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: auto !important; min-width: 0; max-width: none; max-height: 75dvh; overflow: hidden auto; overscroll-behavior: contain; touch-action: pan-y;
+.menu.as-sheet { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: auto !important; min-width: 0; max-width: none; max-height: calc(100dvh - var(--top-safe, 64px) - 12px);   /* (18 Nov 2026: a phone's sheet is as tall as its words up to the room under the top bar, scrolling only past that; it stood at 75 % of the screen however much room was left above it) */ overflow: hidden auto; overscroll-behavior: contain; touch-action: pan-y;
   padding: 10px 8px calc(10px + env(safe-area-inset-bottom)); border-radius: var(--r-sheet) var(--r-sheet) 0 0; --edge-y: 100%; animation: none; }
 .menu.as-sheet.leaving { animation: none; }   /* (a menu sheet's entrance and exit are written in the page's frames, sheet-ride.js, so its glass and its words move as one; the plain menu's fade-out is not its) */
 /* (15 Nov 2026) A sheet with a field in it, the on-screen keyboard up (sheet-keyboard.js): it rests on the keyboard and is held to the room above it, so the
@@ -478,13 +478,13 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 0 transpar
 .why-pop.show { display: block; animation: slide-from-edge var(--d-small) var(--ease); }   /* (menu recs C11: arrives in --d-small with the menus' 4 px rise) */
 .why-pop.leaving { display: block; pointer-events: none; animation: scale-settle-out var(--d-flip) var(--ease-in) forwards; }
 /* (Why? on an upright phone or iPad: a short bottom sheet like every menu there, why.js; the scrim takes the tap. A swipe away is already sliding, so it plays no exit of its own.) */
-.why-pop.as-sheet { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 75dvh; touch-action: pan-y; padding: 12px 14px calc(14px + env(safe-area-inset-bottom)); border-radius: var(--r-sheet) var(--r-sheet) 0 0; --edge-y: 100%; animation: none; }   /* (the sheet's entrance and exit are written in the page's frames, sheet-ride.js) */
+.why-pop.as-sheet { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: calc(100dvh - var(--top-safe, 64px) - 12px); touch-action: pan-y; padding: 12px 14px calc(14px + env(safe-area-inset-bottom)); border-radius: var(--r-sheet) var(--r-sheet) 0 0; --edge-y: 100%; animation: none; }   /* (the sheet's entrance and exit are written in the page's frames, sheet-ride.js) */
 .why-pop.as-sheet.leaving { animation: none; }
 .why-pop.as-sheet.leaving[data-swiped] { animation: none; }
 .why-pop.as-sheet.pulling { animation: none; }
 /* (13 Nov 2026, menu recs C9) As a sheet it is one size from the moment it opens: the waiting lines and the answer that replaces them are laid in
    the same box, so its top no longer jumps up when the model answers. A long answer scrolls inside it. */
-.why-pop.as-sheet.as-sheet { height: min(70dvh, 480px); overflow: hidden auto; overscroll-behavior: contain; }
+.why-pop.as-sheet.as-sheet { height: auto; overflow: hidden auto; overscroll-behavior: contain; }
 .um-scrim.why-scrim { z-index: calc(var(--z-popover) - 1); }   /* (the card is in the page before its scrim, so the scrim is laid just under it) */
 .why-pop header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
 .why-pop h3 { margin: 0; font-size: var(--fs-14); font-weight: 600; display: flex; align-items: center; gap: 8px; }
