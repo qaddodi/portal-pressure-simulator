@@ -29,6 +29,40 @@ export async function runSteps(steps) {
   return fps;
 }
 
+// The same with each step's whole state ({ fp, snap, params }: the model as it stands, for a harness that gives a card its frames), kept on disk beside the
+// fingerprints under its own name.
+export async function runStepsFull(steps) {
+  const out = [];
+  const core = createCore((m) => { if (m.type === 'seqStep') out[m.i] = { fp: m.fp, snap: m.snap, params: m.params }; });
+  core.handle({ type: 'run', running: false });
+  await core.handle({ type: 'sequence', steps, reqId: 1 });
+  core.dispose();
+  return out;
+}
+const stepsOf = (d) => d.slides.map((s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, relax: s.relax, ramp: s.ramp, fine: !!s.lapse } : {}));
+export async function deckStatesFull(d) {
+  const steps = stepsOf(d);
+  const key = createHash('sha256').update(sourceHash() + JSON.stringify(steps)).digest('hex').slice(0, 24);
+  const file = join(CACHE, `${d.id}-${key}-full.bin`);
+  let full;
+  try { full = deserialize(readFileSync(file)); } catch {
+    full = await runStepsFull(steps);
+    try { mkdirSync(CACHE, { recursive: true }); const tmp = `${file}.${process.pid}`; writeFileSync(tmp, serialize(full)); renameSync(tmp, file); } catch { /* no cache: computed each time */ }
+  }
+  let last = full[0];
+  return d.slides.map((s, i) => (last = changes(s) || i === 0 ? full[i] : last));
+}
+
+/** An answer the model works out (a curve's sweep, a course's days), kept on disk under a hash of the files the states come from and of what was asked. */
+export async function kept(name, asked, compute) {
+  const key = createHash('sha256').update(sourceHash()).update(serialize(asked)).digest('hex').slice(0, 24);
+  const file = join(CACHE, `${name}-${key}.bin`);
+  try { return deserialize(readFileSync(file)); } catch { /* not kept yet */ }
+  const out = await compute();
+  try { mkdirSync(CACHE, { recursive: true }); const tmp = `${file}.${process.pid}`; writeFileSync(tmp, serialize(out)); renameSync(tmp, file); } catch { /* no cache: computed each time */ }
+  return out;
+}
+
 // Slide i's state: its own, or the last one before it that changed the model.
 export async function deckStates(d) {
   const steps = d.slides.map((s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, relax: s.relax, ramp: s.ramp, fine: !!s.lapse } : {}));

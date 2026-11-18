@@ -32,7 +32,7 @@ import { HVPG_CUTS, PPG_CUTS, HVPG_WORDS } from '../engine/pressure-cuts.js';
 import { TILE, tileShown, numName } from './table-marks.js';
 import { plotPanel } from './plot-look.js';
 import { BAVENO, BAVENO_AXES, bavenoRects, bavenoHatch, zoneArt, plotHeight, hatchKey } from './baveno-zones.js';
-import { frameFor, easeNow } from './frame.js';
+import { frameFor, easeNow, cancelFrame } from './frame.js';
 import { easeArrive, D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { createSvgGL, svgModel, setPts, moveAt } from './svg-gl.js';
 import { chartCtx } from './chart-ctx.js';
@@ -1152,7 +1152,8 @@ export function planePlot(plane, { card = false } = {}) {
     const step = () => { paintWalk(); if (stops.length && performance.now() < followTill) follow = nextFrame(step); else follow = 0; };
     follow = nextFrame(step);
   };
-  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (`${el.clientWidth}x${el.clientHeight}` !== size) frameFor('plane plot')(draw); }).observe(el);
+  const plotRO = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (`${el.clientWidth}x${el.clientHeight}` !== size) frameFor('plane plot')(draw); }) : null;
+  plotRO?.observe(el);
   const redraw = () => { if (el.isConnected) draw(); else frameFor('plane plot')(draw); };
   return {
     el,
@@ -1166,6 +1167,8 @@ export function planePlot(plane, { card = false } = {}) {
       drawn = '';
       redraw(); followDot();
     },
+    /** The plot is let go (its card replaced or closed): its size observer, the dot's follow and its picture's GPU context. */
+    dispose() { plotRO?.disconnect(); cancelFrame(follow); follow = 0; gl.dispose(); },
   };
 }
 
@@ -1228,6 +1231,7 @@ export function createPlaneTool() {
       if (!(k === sig && plot)) {
         sig = k; pl = p; had = '';
         if (!pl) { el.replaceChildren(); plot = null; return; }
+        plot?.dispose();   // (the plot the last slide's plane drew: its GPU context goes with it)
         plot = planePlot(pl, { card: true });
         el.replaceChildren(...[plot.el, pl.key === 'never' ? null : planeCardKey(pl), pl.hatchOf ? hatchKey() : null, read].filter(Boolean));
         if (last) this.pin(last);
@@ -1243,5 +1247,6 @@ export function createPlaneTool() {
       if (read.textContent !== t) read.textContent = t;
     },
     clear() { last = null; },
+    dispose() { plot?.dispose(); plot = null; },
   };
 }
