@@ -82,7 +82,7 @@ const ZOOM_TITLES = [['#zoomOut', 'Zoom out', 'Back out to the lobule'], ['#zoom
 import { initDebug } from './debug.js';
 import { initTopbarMotion } from './topbar-motion.js';
 import { FIRSTPASS, ORIGINS } from './blood.js';
-import { parseShare, cleanShare } from './share-link.js';
+import { parseShare, cleanShare, encodeShare as encodeShareCode } from './share-link.js';
 import { focusBack } from './focus-flow.js';
 import { deepMerge, sanitizeParamsReport } from '../engine/scenario.js';
 import { createPaintGate } from './paint-gate.js';
@@ -473,6 +473,8 @@ async function main() {
   window.pps.lookNow = (id) => applyLookAttrs(document.documentElement, knownLook(id));   // (a look on the page's attributes with nothing saved: the gallery page's looks, which must not change the look this browser keeps for the live site)
   // ?gallery on the preview copy only: the card gallery and debug page (gallery/page.js). The live site never reads it.
   { const g = new URLSearchParams(location.search).get('gallery'); if (g !== null && g !== 'frame' && /\/preview\//.test(location.pathname)) import('./gallery/page.js').then(({ startGallery }) => startGallery({ pps: window.pps })).catch((e) => caught('main:gallery', e)); }
+  // The bug packet ("What's wrong here?": a key chord, a long press on the preview pill, pps.packet) and a state link's extras (the `x` of its #s= payload), on the preview copy and a local run only: the live site never reads them.
+  if (/\/preview\//.test(location.pathname) || /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) import('./packet/trigger.js').then(({ installPacketTrigger }) => installPacketTrigger({ pps: window.pps })).catch((e) => caught('main:packet', e));
   const linked = await presenter.readLink();
   if (linked) mainMenu.open('scripts', { mark: typeof linked === 'string' ? linked : null });
   const shared = readShare(), back = new URLSearchParams(location.search).has('back');
@@ -759,7 +761,7 @@ async function loadPreset(id, opts = {}) {
 function encodeShare(extra) {
   const st = store.get();
   const payload = { v: 1, preset: st.presetId, params: st.params, view: st.view, ...extra };
-  return btoa(unescape(encodeURIComponent(JSON.stringify(payload)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return encodeShareCode(payload);
 }
 // (Read through share-link.js: prototype keys dropped, and only a known patient, view, selection and a finite camera kept.)
 function readShare() {
