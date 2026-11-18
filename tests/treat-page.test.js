@@ -8,7 +8,7 @@ const dom = new JSDOM('<!doctype html><body></body>', { pretendToBeVisual: true 
 const w = dom.window;
 globalThis.window = w; globalThis.document = w.document; globalThis.Element = w.Element; globalThis.HTMLElement = w.HTMLElement;
 for (const k of ['Node', 'NodeFilter', 'MutationObserver', 'getComputedStyle', 'Event', 'CustomEvent', 'DOMMatrixReadOnly', 'HTMLButtonElement']) globalThis[k] ??= w[k];
-globalThis.Event = w.Event;   // (the page's own: Node's has another class, and jsdom's elements take only theirs)
+globalThis.Event = w.Event; globalThis.CustomEvent = w.CustomEvent;   // (the page's own: Node's has another class, and jsdom's elements take only theirs)
 globalThis.addEventListener ??= () => {}; globalThis.removeEventListener ??= () => {};
 globalThis.matchMedia ??= () => ({ matches: false, addEventListener() {}, removeEventListener() {}, addListener() {} });
 globalThis.ResizeObserver ??= class { observe() {} disconnect() {} unobserve() {} };
@@ -53,21 +53,23 @@ const touch = (el, type, x, y, id = 1) => {
   Object.assign(e, { clientX: x, clientY: y, pointerId: id, isPrimary: true, pointerType: 'touch' });
   el.dispatchEvent(e);
 };
-function open() {
-  const k = sheet();
+function open(hold = false) {
+  const k = sheet(); k.hold = hold; k.land = () => k.landed?.();
+  k.card.addEventListener('sheet-refit', (e) => { k.landed ??= e.detail?.landed; });
   Object.defineProperty(k.card, 'offsetWidth', { value: 390 });
   const p = changesPage(k.card, k.sec); p.sync();
   p.row.click();
   k.page = k.card.querySelector(':scope > .tc-page');
   k.p = p;
+  if (!k.hold) k.land();   // (the sheet has landed at Full: the page slides in)
   return k;
 }
 
-test('opening: the page holds the Changes section, open, over the tabs and the body, which are put out of reach and slide away; the sheet is asked to refit once', () => {
+test('opening: the page holds the Changes section, open, over the tabs and the body, which are put out of reach; the sheet is asked to refit once and the page waits for it to land, then slides in', () => {
   const { card, tabs, body, sec } = sheet();
   const p = changesPage(card, sec); p.sync();
   Object.defineProperty(card, 'offsetWidth', { value: 390 });
-  let refits = 0; card.addEventListener('sheet-refit', () => refits++);
+  let refits = 0, landed = null; card.addEventListener('sheet-refit', (e) => { refits++; landed ??= e.detail?.landed; });
   p.row.click();
   const page = card.querySelector(':scope > .tc-page');
   assert.ok(page, 'a page');
@@ -76,10 +78,13 @@ test('opening: the page holds the Changes section, open, over the tabs and the b
   assert.ok(card.hasAttribute('data-page'), 'the sheet knows a page stands');
   assert.equal(tabs.inert && body.inert, true, 'the tabs and the body are out of reach under it');
   assert.equal(refits, 1);
-  assert.equal(xOf(page), 390, 'it starts off to the right, written at once (no frame shows it anywhere else)');
+  assert.equal(xOf(page), 390, 'it stands off to the right, written at once (no frame shows it anywhere else)');
+  for (let i = 0; i < 10; i++) tick();
+  assert.equal(xOf(page), 390, 'and stays there while the sheet is still on the move: a sheet that rises while the page slides carries it up, and it came in from the lower right');
+  landed();
   tick(); tick();
   const mid = xOf(page);
-  assert.ok(mid < 390 && mid > 0, `it slides in, in the frames (${mid})`);
+  assert.ok(mid < 390 && mid > 0, `it slides in, in the frames, once the sheet has landed (${mid})`);
   assert.ok(xOf(tabs) < 0 && xOf(tabs) === xOf(body), 'the tabs and the body slide back together');
   settle();
   assert.equal(xOf(page), 0, 'it ends exactly home');
@@ -88,21 +93,33 @@ test('opening: the page holds the Changes section, open, over the tabs and the b
   assert.equal(card.querySelectorAll('.tc-page').length, 1, 'a second tap makes no second page');
 });
 
-test('going back: the sheet is asked to refit, the tabs and the body are interactive again, the page slides out and is taken away', () => {
+test('a sheet that never lands does not hold the page for ever: it slides in after a moment', () => {
+  const k = open(true);
+  for (let i = 0; i < 30; i++) tick();   // (240 ms)
+  assert.equal(xOf(k.page), 390);
+  for (let i = 0; i < 60; i++) tick();   // (past 600 ms)
+  assert.ok(xOf(k.page) < 390, 'it has begun');
+  settle();
+  assert.equal(xOf(k.page), 0);
+});
+
+test('going back: what it covered is interactive at once, the page slides out and only then is the sheet asked to refit and the page taken away', () => {
   const { card, tabs, body, sec, page } = open();
   settle();
   let refits = 0; card.addEventListener('sheet-refit', () => refits++);
   card.querySelector('.tcp-back').click();
-  assert.equal(card.hasAttribute('data-page'), false);
   assert.equal(tabs.inert || body.inert, false);
-  assert.equal(refits, 1);
+  assert.equal(card.hasAttribute('data-page'), true, 'the sheet stays Full while the page slides out (it never moves with the page)');
+  assert.equal(refits, 0);
   tick(); tick();
   assert.ok(xOf(page) > 0 && xOf(page) < 390, 'the page slides out in the frames');
+  assert.equal(refits, 0);
   settle();
-  assert.equal(card.querySelector('.tc-page'), null, 'taken away once it has gone');
+  assert.equal(card.hasAttribute('data-page'), false, 'then the sheet goes back to its tab\'s height');
+  assert.equal(refits, 1);
+  assert.equal(card.querySelector('.tc-page'), null, 'and the page is taken away');
   assert.equal(tabs.style.transform + tabs.style.opacity + body.style.transform + body.style.opacity, '', 'what it covered is left as it was, nothing inline');
   assert.ok(sec.open, 'the section is whole and open, ready for the page to hold it again');
-  card.querySelector('.tcp-row') || 0;
 });
 
 test('a swipe right follows the finger: the page stands where the finger has it, and what it covers goes with it (the tester: it stayed at x=0 through a 320 px drag)', () => {
@@ -125,7 +142,7 @@ test('a short, slow pull comes home; a long one, or a flick, goes back', () => {
   touch(k.page, 'pointerdown', 40, 300); touch(k.page, 'pointermove', 60, 300);
   T += 400; touch(k.page, 'pointermove', 100, 300);   // 60 px, slowly
   T += 200; touch(k.page, 'pointerup', 100, 300);     // (held for 200 ms before lifting: no flick)
-  assert.ok(k.card.hasAttribute('data-page'), 'a short pull does not close');
+  assert.ok(k.tabs.inert, 'a short pull does not close');
   settle();
   assert.equal(xOf(k.page), 0, 'it comes home exactly');
   assert.equal(k.tabs.inert, true, 'what it covers is still out of reach');
@@ -134,7 +151,7 @@ test('a short, slow pull comes home; a long one, or a flick, goes back', () => {
   touch(k.page, 'pointerdown', 40, 300); touch(k.page, 'pointermove', 60, 300);
   T += 300; touch(k.page, 'pointermove', 240, 300);   // 200 px, slowly
   T += 20; touch(k.page, 'pointerup', 240, 300);
-  assert.equal(k.card.hasAttribute('data-page'), false, 'a long pull closes at once (the sheet refits)');
+  assert.equal(k.tabs.inert, false, 'a long pull closes at once');
   assert.equal(k.tabs.inert, false);
   settle();
   assert.equal(k.card.querySelector('.tc-page'), null, 'and the page is taken away when it has gone');
@@ -143,7 +160,7 @@ test('a short, slow pull comes home; a long one, or a flick, goes back', () => {
   touch(k.page, 'pointerdown', 40, 300); touch(k.page, 'pointermove', 60, 300);
   for (let i = 1; i <= 4; i++) { T += 16; touch(k.page, 'pointermove', 60 + i * 30, 300); }   // 1.9 px/ms
   touch(k.page, 'pointerup', 180, 300);
-  assert.equal(k.card.hasAttribute('data-page'), false, 'a quick flick of 120 px closes');
+  assert.equal(k.tabs.inert, false, 'a quick flick of 120 px closes');
   const at = xOf(k.page);
   tick(16);
   assert.ok(xOf(k.page) > at, 'and carries on from where the finger left it, never from a jump');
