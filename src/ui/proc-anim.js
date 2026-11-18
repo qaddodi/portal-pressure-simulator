@@ -599,6 +599,18 @@ export const stepMarks = (kind, i) => {
 };
 
 /**
+ * The first shot a procedure's camera takes: { shot, route, opt } as stage.cathShot / cathFocus take it (null: it has none, a graft, so the view stays where the figure is).
+ * The way out of the lobule lands on it in the one zoom, not on the whole figure first (presenter-proc.js procRise).
+ */
+export function procFirstShot(kind) {
+  const P = specOf(kind);
+  if (!P || P.graft) return null;
+  const shot = procFrame(kind, 0).shot;
+  if (!shot) return null;
+  return { shot, route: P.route || kind, opt: P.shotOpt?.[shot] || (P.shotMs ? SHOT_OWN : SHOT_CAM) };
+}
+
+/**
  * The procedure at t ms (pure): { u (0..1 of the way in), balloon, column (the sclerosant, 0..1), opacity, step (index into
  * steps, -1 once it has gone), shot ('way' | 'tip', '' once it has gone), and for the TIPS needle and wire (their tips, as u; 0:
  * not out) and flash (0..1 of the portal hit's rings, 0: none) }. stops: the route's stretches as u (stage.cathStops),

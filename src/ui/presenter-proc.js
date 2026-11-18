@@ -10,7 +10,7 @@ import { cancelFrame } from './frame.js';
 import { readAnims, readTiming } from './layout-snap.js';
 import { reduceMotionMQ as reduce } from './motion.js';
 import { camOn, slideTargets } from './presenter-words.js';
-import { playProcedure, procBlocked, procKindOf, procOffered, specOf, stepMarks } from './proc-anim.js';
+import { playProcedure, procBlocked, procFirstShot, procKindOf, procOffered, specOf, stepMarks } from './proc-anim.js';
 import { procNavPlan } from './proc-nav.js';
 import { store, setViewKey } from './store.js';
 import { clamp, cssVar, fmt } from './util.js';
@@ -26,6 +26,11 @@ export function createProc(st, live) {
   const cardsEntering = (left = 0) => throwCards().some((el) => throwEnters(el, left)) || [live.ui?.text, live.ui?.panel, live.ui?.data].some((el) => el && !el.hidden && readAnims(el, { subtree: true }).some((a) => { if (!animRunning(a)) return false; const t = readTiming(a.effect); return Number.isFinite(t?.endTime) && t.endTime - (t.localTime || 0) > left; }));
   // Where the way out of the lobule should land for a slide: its framing, asked for when the rise begins (null: the fit).
   const riseFor = (cam, s) => (cam === 'fit' ? null : { box: () => camBox(cam, s), kMax: s.kMax || 3.2, clear: !!s.clear, subject: focusRun(s) });
+  // Where the way out of the lobule lands for a procedure that starts from it (Tests, a card): the procedure's first shot, in the one zoom (null: the fit).
+  const procRise = (kind) => {
+    const f = procFirstShot(kind);
+    return f ? { vt: () => stage.cathShot?.(f.shot, { ...f.opt, route: f.route }) } : null;
+  };
   const figOf = (i) => (live.fig && live.fig.i === i ? live.fig.s : live.slides[i]);
   const lapseCam = (s) => (!s?.visual && !s?.cath && s?.lapse?.cam) || null;
   const figView = (s, lap) => (lapseCam(s) && !lap ? { ...s, cam: s.lapse.cam } : s);
@@ -182,7 +187,7 @@ export function createProc(st, live) {
     if (!park) { live.procShown = base - 1; live.procShownAt = i; live.procRing = live.procRingAt === i ? Math.max(base, live.procRing) : base; live.procRingAt = i; }   // (the ring is where the presses have counted to: a run that was a while starting begins there)
     live.procWait = true; procPaint();
     try {
-      await toAnatomy(null, () => !mine());
+      await toAnatomy(procRise(kind), () => !mine());
       if (!mine()) { drop(); return; }
       if (store.get().view !== 'anatomic') { setViewKey('anatomy'); await viewSettled(() => !mine(), stage); }
     } finally { live.procWait = false; }

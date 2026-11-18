@@ -86,8 +86,8 @@ export function createCath(st, live) {
     if (!a || !b) return u;
     return Math.max(0, Math.min(0.999, (a.start + u * (a.free - a.start) - b.start) / (b.free - b.start || 1)));
   }
-  function cathRoute() {
-    const kind = cath.st?.route || cath.kind || 'hvpg';
+  function cathRoute(over = '') {
+    const kind = over || cath.st?.route || cath.kind || 'hvpg';
     if (kind !== 'hvpg') return procRoute(kind);
     if (live.morph > 0.01 || CATH_IDS.some((id) => !geo[id]?.cur?.length || !E[id])) return null;
     if (cath.route?.kind === 'hvpg') return cath.route;
@@ -929,8 +929,8 @@ export function createCath(st, live) {
   // Where a treatment's route enters the plate (its lead-in from outside ends there): the view never follows the tip off the figure.
   const procIn = (r) => r.parts?.[1]?.d0 ?? r.start;
   // (steady: a refit to cards that moved, see animateVT.)
-  function cathFocus(mode, ms = 700, { both = false, near = false, arc = false, steady = false, scale = false, ostium = null } = {}) {   // (scale: the camera's own time for how far it goes, ms its ceiling: animateVT)
-    const r = cathRoute();
+  function cathFocus(mode, ms = 700, { both = false, near = false, arc = false, steady = false, scale = false, ostium = null, route = '' } = {}) {   // (scale: the camera's own time for how far it goes, ms its ceiling: animateVT)
+    const r = cathRoute(route);
     if (mode === 'home') { if (cath.saved) animateVT(cath.saved, ms, { arc, scale }); cath.saved = null; return true; }
     if (!r) return false;
     if (!cath.saved) cath.saved = { ...(live.vtTarget && live.vtAnim ? live.vtTarget : live.vt) };

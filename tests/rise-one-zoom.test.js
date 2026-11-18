@@ -8,6 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { cathFirstShot, cathLegs } from '../src/ui/cath-arrival.js';
+import { ENDO, GRAFTS, MEASURES, PLUGS, PROCS, procFirstShot, procFrame, specOf } from '../src/ui/proc-anim.js';
 import { presenterSource, } from './split-src.js';
 import { stageSource } from './stage-src.js';
 
@@ -46,18 +47,42 @@ test('the stage lands the rise on a view the presenter measured, and measures a 
   assert.match(src, /if \(!had\) cath\.saved = null;/, 'the aimed shot does not leave a view to go back to');
 });
 
-test('no way into the anatomy from the lobule stops at the fit unless the fit is where it is going', () => {
-  // Every call of toAnatomy with no framing lands on the whole figure. Each is listed with why that is right; a new one must be argued here.
+test('every procedure that starts from the lobule lands the rise on its own first shot', () => {
+  let n = 0;
+  for (const kind of [...Object.keys(PROCS), ...Object.keys(MEASURES), ...Object.keys(GRAFTS), ...Object.keys(ENDO), ...Object.keys(PLUGS)]) {
+    const P = specOf(kind), f = procFirstShot(kind);
+    if (P.graft) { assert.equal(f, null, `${kind}: a graft has no camera shot`); continue; }
+    const first = procFrame(kind, 0).shot;
+    if (!first) { assert.equal(f, null, kind); continue; }
+    n++;
+    assert.equal(f.shot, first, `${kind}: the rise lands on the shot the run opens with`);
+    assert.equal(f.route, P.route || kind, `${kind}: on its own route, not the HVPG catheter's`);
+    assert.ok(f.opt && typeof f.opt === 'object', kind);
+  }
+  assert.ok(n >= 10, 'the procedures and measurements were found');
+  const proc = readFileSync(new URL('../src/ui/presenter-proc.js', import.meta.url), 'utf8');
+  assert.match(proc, /await toAnatomy\(procRise\(kind\), \(\) => !mine\(\)\)/);
+  assert.match(proc, /stage\.cathShot\?\.\(f\.shot, \{ \.\.\.f\.opt, route: f\.route \}\)/);
+  const cath = readFileSync(new URL('../src/ui/stage-cath.js', import.meta.url), 'utf8');
+  assert.match(cath, /function cathRoute\(over = ''\) \{\s*\n\s*const kind = over \|\| cath\.st\?\.route/);
+  assert.match(cath, /const r = cathRoute\(route\);\s*\n\s*if \(mode === 'home'\)/);
+});
+
+test('no way out of the lobule stops at the fit unless the fit is where it is going', () => {
+  // A call of toAnatomy with no framing lands on the whole figure. The only two left are argued here; a new one fails until it is.
   const files = ['presenter.js', 'presenter-case.js', 'presenter-lapse.js', 'presenter-proc.js'];
-  const calls = [];
+  const nullCalls = [];
   for (const f of files) {
     const src = readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
-    for (const m of src.matchAll(/toAnatomy\(([^,)]*)/g)) calls.push(`${f}: ${m[1].trim()}`);
+    for (const m of src.matchAll(/toAnatomy\(null/g)) nullCalls.push(f);
   }
-  const nullCalls = calls.filter((c) => /: null$/.test(c)).map((c) => c.split(':')[0]).sort();
-  assert.deepEqual(nullCalls, [
-    'presenter-case.js',   // the case card shows the whole patient: the fit is where it goes
-    'presenter-lapse.js',  // cathTo: the rise already landed on its first shot (cathRise); here the lobule is no longer open
-    'presenter-proc.js',   // a procedure's slide: its own slide camera (riseFor) lands first; the procedure's shot is its own move after it
+  assert.deepEqual(nullCalls.sort(), [
+    'presenter-case.js',   // a case card shows the whole patient: the fit is the destination
+    'presenter-lapse.js',  // cathTo: the rise already landed on its first shot (cathRise); the lobule is no longer open here
   ]);
+  // and in the presenter every other way out passes a framing: a slide's own (riseFor), a catheter slide's (cathRise), or none only where the slide's view is not the anatomy
+  // (the Circuit: the figure is redrawn, the change between the views carries the camera, stage.js circGo)
+  const pres = presenterSource();
+  assert.match(pres, /toAnatomy\(inAnatomy \? riseFor\(cam, fv\) : ct \? cathRise\(ct, cathInstant\(to, lastAt\), lastAt\) : null, cut\)/);
+  assert.match(pres, /toAnatomy\(v === 'anatomic' \? riseFor\(cam, s\) : null, cut\)/);
 });
