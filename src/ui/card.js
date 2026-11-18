@@ -25,7 +25,7 @@ import { createCardDetails } from './card-details.js';
 import { frameFor } from './frame.js';
 import { restPass, cancelRest } from './rest-pass.js';
 import { runSoon, propSoon, attrSoon, classSoon, classNow, removeSoon } from './class-soon.js';
-import { readBox, readMetric } from './layout-snap.js';
+import { readBox, readMetric, readStyle } from './layout-snap.js';
 import { gradientCss } from './colormap.js';
 import { hvpgSev, ppgSev } from '../engine/pressure-cuts.js';
 import { reduceMotionMQ } from './motion.js';
@@ -176,8 +176,15 @@ export function createCard({ view, stage, ctx, onWhy }) {
   // card's still cut, the one motion (app.css .ac-in, .ac-leaving). The plate is kept across rebuilds (it is the first child).
   sheetParts(el);
   // alloc-rare: the card opens afresh: its class for the entrance's length, once for each open
-  const endIn = () => { el.classList.remove('ac-in'); reveal(); };   // (entered: its rest size known, bring the vessel above it)
+  const endIn = () => { el.classList.remove('ac-in'); backIn(null); reveal(); };   // (entered: its rest size known, bring the vessel above it)
   let inTimer = 0;
+  // A pick that comes while the card is still on its way out takes it from where it is (below, render): the glass comes back from the opacity and place it had reached, never from nothing.
+  const backIn = (from) => {
+    const p = el.querySelector(':scope > .sheet-plate');
+    if (!p) return;
+    if (from) { p.style.setProperty('--edge-o', String(from.o)); p.style.setProperty('--edge-x', `${from.x}px`); p.style.setProperty('--edge-y', `${from.y}px`); }
+    else { p.style.removeProperty('--edge-o'); p.style.removeProperty('--edge-x'); p.style.removeProperty('--edge-y'); }
+  };
   const opening = () => { switchIn(el); el.classList.add('ac-in'); clearTimeout(inTimer); inTimer = setTimeout(endIn, D_SMALL + 60); };
   const sizes = { h: 0 };
   let tallest = 0;   // (the tallest a lobule part's card has stood since it was picked: its least height)
@@ -553,6 +560,12 @@ export function createCard({ view, stage, ctx, onWhy }) {
     stopSheetGesture();
     clearTimeout(closeTimer);
     const leaving = el.classList.contains('ac-leaving');
+    // (Where the words (and so the glass, which fades with them) of a card going out stand now, read before its leave class is taken off: opacity and place.)
+    let lo = null;
+    if (leaving && typeof DOMMatrixReadOnly === 'function') {
+      const p0 = el.querySelector(':scope > .ac-body');   // (the words: the plate's own opacity is the glass's to hold)
+      if (p0) { const cs = readStyle(p0), mx = new DOMMatrixReadOnly(cs.transform === 'none' ? undefined : cs.transform), o = parseFloat(cs.opacity); if (o > 0.02 && o < 0.999) lo = { o, x: mx.m41, y: mx.m42 }; }   // alloc-rare: a pick during a card's leave
+    }
     el.classList.remove('ac-leaving');
     let focusedIdx = -1;
     if (keepFocus) for (let i = 0; i < actionable.length; i++) if (actionable[i].contains(document.activeElement)) { focusedIdx = i; break; }
@@ -614,6 +627,16 @@ export function createCard({ view, stage, ctx, onWhy }) {
       body.animate(still ? FADE_IN : WORDS_IN, WORDS_IN_OPT);
       // alloc-rare: the ghost goes when its fade ends: once per swap, with the ghost
       a.finished.then(() => old.remove(), () => old.remove());
+    } else if (lo && old && el.animate) {
+      // (A pick while the card was still on its way out: its old words, at the opacity they had reached, finish going out as a ghost while the new ones come in, and the glass
+      // comes back from where it is. Before, the old words went in one frame and the glass fell to nothing and rose again: a dip.)
+      old.classList.replace('ac-body', 'ac-ghost');
+      old.setAttribute('aria-hidden', 'true'); old.inert = true;
+      el.append(body);
+      const still = reduceMotionMQ.matches;
+      const a = old.animate(still ? [{ opacity: lo.o }, { opacity: 0 }] : [{ opacity: lo.o, translate: `${lo.x}px ${lo.y}px` }, { opacity: 0, translate: '0 -6px' }], { duration: D_FLIP * lo.o, easing: EASE_IN, fill: 'forwards' });
+      // alloc-rare: the ghost goes when its fade ends: once per pick that follows a leave
+      a.finished.then(() => old.remove(), () => old.remove());
     } else {
       if (old) old.remove();
       el.append(body);
@@ -621,7 +644,7 @@ export function createCard({ view, stage, ctx, onWhy }) {
     if (keepDet) { classNow(body, 'ac-under', true); body.inert = true; if (det) live.push(det.el); }   // (the rebuilt face goes under the details that are showing)
     // alloc-rare: the card is built when a selection (or the shunting flag) changes, once per pick
     el.setAttribute('aria-label', `${m.title}: actions`);
-    if (el.hidden || leaving || (resized && !swap)) opening();   // (opened afresh: it comes in from its edge. A pick while it is open never does: it is the swap above, with the glide)
+    if (el.hidden || leaving || (resized && !swap)) { opening(); backIn(leaving ? lo : null); }   // (opened afresh: it comes in from its edge. A pick while it is open never does: it is the swap above, with the glide)
     el.hidden = false;
     // Number keys trigger the verbs in order; show the number beside each.
     for (let i = 0; i < actionable.length && i < 9; i++) actionable[i].dataset.key = KEYS[i];

@@ -19,6 +19,7 @@ globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
 try { Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigator, configurable: true }); } catch { /* already there */ }
 
 document.documentElement.style.setProperty('--ramp-pressure', '#3b4cc0 0, #dddddd 0.5, #b40426 1');   // (the bar's colours)
+globalThis.DOMMatrixReadOnly = class { constructor() { this.m41 = 0; this.m42 = 0; } };
 const made = [];
 const proto = window.Element.prototype;
 proto.animate = function (kf, o) { let res; const a = { el: this, kf, o, finished: new Promise((r) => { res = r; }), cancel() { a.cancelled = true; }, finish() { res(); } }; made.push(a); return a; };
@@ -67,4 +68,27 @@ test('a pick that changes the card\'s height glides the card\'s plate from the h
   assert.equal(g.length, 1, 'the plate glides');
   assert.equal(g[0].kf[0].transform, `scaleY(${(292 / 196).toFixed(4)})`, 'from the old height');
   assert.equal(g[0].kf[1].transform, 'none');
+});
+
+test('a pick while the card is still on its way out takes it from where it is: the old words finish going out from the opacity they had reached, the glass comes back from there', async () => {
+  HEIGHT = 292; BODY = 280;
+  await pick('PVH_R_2'); await wait(400);
+  const ga = proto.getAnimations;
+  proto.getAnimations = () => [{ finished: new Promise(() => {}) }];   // (a leave that has not ended)
+  store.set({ selection: null }); await wait();
+  assert.ok(card.el.classList.contains('ac-leaving'), 'it is going out');
+  const words = card.el.querySelector(':scope > .ac-body'), plate = card.el.querySelector(':scope > .sheet-plate');
+  words.style.opacity = '0.6';   // (where its leave had got to, as the browser would answer)
+  plate.style.opacity = '0';     // (the glass holds its own opacity: the words are what is read)
+  made.length = 0;
+  await pick('REX');
+  assert.ok(!card.el.classList.contains('ac-leaving'));
+  const ghost = card.el.querySelector(':scope > .ac-ghost');
+  assert.equal(ghost, words, 'the old words stay as a ghost, not taken away in one frame');
+  const a = made.find((x) => x.el === ghost);
+  assert.ok(a, 'the ghost fades');
+  assert.equal(a.kf[0].opacity, 0.6, 'from the opacity it had reached');
+  assert.equal(a.kf[1].opacity, 0);
+  assert.equal(plate.style.getPropertyValue('--edge-o'), '0.6', 'the glass comes back from there, not from nothing');
+  proto.getAnimations = ga;
 });
