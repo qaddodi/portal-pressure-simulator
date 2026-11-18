@@ -4,7 +4,7 @@
 // globals it read being arguments.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { veinJoins, smoothRunOn, newJoinStore, joinKeyOf, nearCourse, runOnMiss, RUN_ON_MISS, STRAND_SNAP } from '../src/ui/vein-joins.js';
+import { veinJoins, veinJoinsStep, smoothRunOn, newJoinStore, joinKeyOf, nearCourse, runOnMiss, RUN_ON_MISS, STRAND_SNAP } from '../src/ui/vein-joins.js';
 import { forkJoins, nodeJoins } from '../src/ui/fork-joins.js';
 
 const N = 64;
@@ -268,4 +268,22 @@ test('the kept answer of fork-joins is the plain one forkJoins and nodeJoins giv
     assert.deepEqual(nodeJoins(ends), refNodeJoins(ends));
     assert.deepEqual(forkJoins(ends.map((e) => e.dir)), refForkJoins(ends.map((e) => e.dir)));
   }
+});
+
+// 18 Nov 2026: the Compare stop's 'joins all' ran 78 ms in one unit: the pass in slices, the ends against the courses a vessel at a time, with other calls of the pass in between.
+test('the joins pass in slices (a vessel at a time, other passes run between them) makes the joins and runs on of the whole pass, with a margin or without', () => {
+  let sliced = 0;
+  for (let seed = 1; seed <= 120; seed++) {
+    for (const margin of [0, 10]) {
+      const items = figure(seed), other = figure(seed + 500), W = newJoinStore(), S = newJoinStore(), X = newJoinStore();
+      const whole = joinsOut(veinJoins(items, N, W, margin)), straight = straightOut(W.straight);
+      let calls = 0;
+      while (!veinJoinsStep(items, N, S, margin, 0)) { calls++; assert.ok(calls < 1000); veinJoins(other, N, X, margin); }   // (until 0: every call stops after one vessel)
+      sliced += calls > 0;
+      assert.equal(S.jr, null);
+      assert.deepEqual(joinsOut(S.out), whole, `joins of figure ${seed}, margin ${margin}`);
+      assert.deepEqual(straightOut(S.straight), straight, `runs on of figure ${seed}, margin ${margin}`);
+    }
+  }
+  assert.ok(sliced > 100, `${sliced} of the passes were cut`);
 });

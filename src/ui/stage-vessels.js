@@ -26,7 +26,7 @@ import { beadRadius } from './varix-bead.js';
 import { LOOK_SITE } from './varix-look.js';
 import { isStent } from '../engine/topology.js';
 import { JOIN_F_NOFADE } from './tube-join-glsl.js';
-import { newJoinStore, runOnSamples, smoothRunOn as smoothPass, veinJoins as joinsPass } from './vein-joins.js';
+import { newJoinStore, runOnSamples, smoothRunOn as smoothPass, veinJoins as joinsPass, veinJoinsStep as joinsPassStep } from './vein-joins.js';
 import { ARTERY_WALL, readArteryWall, writeArteryWall } from './artery-wall.js';
 import { F_DIFFUSE, F_DOTTED, F_EDGE, F_NOCASE, F_SHADOW, F_SHUNT, F_SPEC, F_VEIL, F_WHOLE, TUBE_TEXELS, binVeins } from './veins-gl.js';
 import { writeJoinNow, writePoints } from './veins-sweep.js';
@@ -215,6 +215,9 @@ export function createVessels(st, live) {
   const FR_STORES = [newJoinStore(), newJoinStore()];   // alloc-rare: kept, made once for the stage
   let frFlip = 0;
   function frameFrom(pc, items, sOf, morphMiss) {
+    // (A piece uploaded but not prepared yet is not drawn from: the frame that did prepared it whole on the spot, 170.9 ms of 'prepare 3 (webs)' in one frame, 18 Nov 2026, now that the
+    // preparing runs in slices of its own. It is binned on the CPU as a piece not made is, till its last slice is done.)
+    if (pc.set && live.veins.morphSetReady && !live.veins.morphSetReady(pc.set)) return morphMiss('preparing');
     for (let i = 0; i < items.length; i++) if (!pc.path.has(items[i].row)) return morphMiss('vessels');
     // (A store of its own for this frame, the other the last one's: the courses it handed the renderer are not written over while it may read them.)
     frFlip ^= 1;
@@ -432,6 +435,14 @@ export function createVessels(st, live) {
     const J = joinsPass(items, N_SAMPLES, st, margin);
     live.glStraight = st.straight;
     return J;
+  }
+  // The same pass in slices (vein-joins.js veinJoinsStep): false while there is more of it to do, until `until` (performance.now() ms); true with the answer in st, and the pairs that run on in glStraight as veinJoins leaves them.
+  function veinJoinsStep(items, st, margin, until) {
+    live.glRadDirty = true; live.glStore = st;
+    for (let i = 0; i < items.length; i++) { const it = items[i], id = it.kind === 'v' ? it.x.e.id : ''; it.cut = id === 'SV_MID' ? divideLen(id) : 0; it.ghost0 = id === firstPiece('PV_TRUNK') && divideLen(id) > 0; }
+    const done = joinsPassStep(items, N_SAMPLES, st, margin, until);
+    if (done) live.glStraight = st.straight;
+    return done;
   }
   const smoothRunOn = (items, st = live.glStore) => smoothPass(items, live.glStraight, st);
   // (The memo is one kept object written in place by each whole sync, with its widths list and its classes buffer; glowBits' second slot is the
@@ -1093,5 +1104,5 @@ export function createVessels(st, live) {
     live.veins.draw(T, live.vLook, live.bloodLook(), rows);
     return true;
   }
-  return { JUMP_MMHG, LENS_FADE, NO_LIST, cavaAsOne, cssNum, drawVeins, et, glItems, glWanted, glowOnlyOk, itemRadii, lenOfArc, lensNow, mix3, sendRadii, smoothRunOn, sweepBin, syncGlowOnly, syncVeins, toRGB, veinJoins, veinsRows };
+  return { JUMP_MMHG, LENS_FADE, NO_LIST, cavaAsOne, cssNum, drawVeins, et, glItems, glWanted, glowOnlyOk, itemRadii, lenOfArc, lensNow, mix3, sendRadii, smoothRunOn, sweepBin, syncGlowOnly, syncVeins, toRGB, veinJoins, veinJoinsStep, veinsRows };
 }

@@ -1859,7 +1859,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (The joins pass, and the courses redrawn smooth where one vessel runs on into the next: vein-joins.js, which makes nothing in a frame. veinJoins leaves the pairs that run on in glStraight, as it always did,
   // and the store it wrote into in glStore for smoothRunOn.)
   let glStore = null;
-  const { MORPH_GPU, MORPH_JSLACK, MORPH_SLACK, joinKey, joinsKept, joinsOf, morphMiss, morphOff, morphTrackSoon, mt, rowKey, setOf, sweepPiece, visAt: visAt$ } = createMorph({ BLOOD_PAD, EV, GL_ROWS, N_SAMPLES, cavaAsOne, cbAt, edgeVisible, geo, itemRadii, reachOf, strandAt, veinJoins, vesselAt, wrap }, live);
+  const { MORPH_GPU, MORPH_JSLACK, MORPH_SLACK, joinKey, joinsKept, joinsOf, morphMiss, morphOff, morphTrackSoon, mt, rowKey, setOf, sweepPiece, visAt: visAt$ } = createMorph({ BLOOD_PAD, EV, GL_ROWS, N_SAMPLES, cavaAsOne, cbAt, edgeVisible, geo, itemRadii, reachOf, strandAt, veinJoins, veinJoinsStep, vesselAt, wrap }, live);
   function visAt(...a) { return visAt$(...a); }   // <stage-split stub>
   let shownCol = new Map(), lensFrom = null, lensT0 = 0, lensMode = null;
     let plateDim = null, plateSat = 1, netA = 1;
@@ -1867,11 +1867,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     let liveKeyWas = '', liveSet = false, bowelAt = NaN;   // (liveKeyWas: '' for none, 'kept' while liveKeyOld holds the last key's parts; bowelAt: the bowel's float last handed to the live stack, NaN after a setLive)
     let revF = null, revH = null, revT = 0, revP = null, revFlip = false;
     let balloonSqueeze = 1;
-  const { JUMP_MMHG, LENS_FADE, NO_LIST, cavaAsOne: cavaAsOne$, cssNum, drawVeins: drawVeins$, et, glItems, glWanted, glowOnlyOk: glowOnlyOk$, itemRadii: itemRadii$, lenOfArc, lensNow, mix3, sendRadii: sendRadii$, smoothRunOn, sweepBin, syncGlowOnly, syncVeins: syncVeins$, toRGB: toRGB$, veinJoins: veinJoins$, veinsRows } = createVessels({ E, EV, FADE_DOWN_Y, FADE_IN, FEEDER_FADE_Y, GL_ROWS, IVC_JOIN, LIGATED, MAP, MORPH_GPU, MORPH_JSLACK, MORPH_SLACK, N_SAMPLES, ORIGIN_LUMEN, PORTAL_CASING, SIN_FADE, STRAIGHT_COLL, TIER_ALPHA, TIER_ART, TIER_GROUP, TIER_LIFT, TIER_LIFT_FRONT, W_TAU, arcLen, binList, binMemo, binTube, binTubeOf, divideLen, easeInOut, edgeQ, geo, getOrganCovers, glow, joinKey, joinRoom, joinsKept, joinsOf, keep, layerMode, lenOfItem, levelTier, morphMiss, morphOff, morphTrackSoon, mt, noteMoveFrame, reachOf, refreshCTM, rowKey, selAKey, setOf, settleRes, spot, spotOn, strandAt, subPixel, sweepPiece, syncMapInk, tubeData, tubeFill, vCanvas, vesselAt, vh, viewKeep, viewNext, viewSame, widthMoving, wrap, wrapCS, wrapCls }, live);
+  const { JUMP_MMHG, LENS_FADE, NO_LIST, cavaAsOne: cavaAsOne$, cssNum, drawVeins: drawVeins$, et, glItems, glWanted, glowOnlyOk: glowOnlyOk$, itemRadii: itemRadii$, lenOfArc, lensNow, mix3, sendRadii: sendRadii$, smoothRunOn, sweepBin, syncGlowOnly, syncVeins: syncVeins$, toRGB: toRGB$, veinJoins: veinJoins$, veinJoinsStep: veinJoinsStep$, veinsRows } = createVessels({ E, EV, FADE_DOWN_Y, FADE_IN, FEEDER_FADE_Y, GL_ROWS, IVC_JOIN, LIGATED, MAP, MORPH_GPU, MORPH_JSLACK, MORPH_SLACK, N_SAMPLES, ORIGIN_LUMEN, PORTAL_CASING, SIN_FADE, STRAIGHT_COLL, TIER_ALPHA, TIER_ART, TIER_GROUP, TIER_LIFT, TIER_LIFT_FRONT, W_TAU, arcLen, binList, binMemo, binTube, binTubeOf, divideLen, easeInOut, edgeQ, geo, getOrganCovers, glow, joinKey, joinRoom, joinsKept, joinsOf, keep, layerMode, lenOfItem, levelTier, morphMiss, morphOff, morphTrackSoon, mt, noteMoveFrame, reachOf, refreshCTM, rowKey, selAKey, setOf, settleRes, spot, spotOn, strandAt, subPixel, sweepPiece, syncMapInk, tubeData, tubeFill, vCanvas, vesselAt, vh, viewKeep, viewNext, viewSame, widthMoving, wrap, wrapCS, wrapCls }, live);
   function toRGB(...a) { return toRGB$(...a); }   // <stage-split stub>
   function cavaAsOne(...a) { return cavaAsOne$(...a); }   // <stage-split stub>
   function itemRadii(...a) { return itemRadii$(...a); }   // <stage-split stub>
   function veinJoins(...a) { return veinJoins$(...a); }   // <stage-split stub>
+  function veinJoinsStep(...a) { return veinJoinsStep$(...a); }   // <stage-split stub>
   function glowOnlyOk(...a) { return glowOnlyOk$(...a); }   // <stage-split stub>
   function sendRadii(...a) { return sendRadii$(...a); }   // <stage-split stub>
   function syncVeins(...a) { return syncVeins$(...a); }   // <stage-split stub>

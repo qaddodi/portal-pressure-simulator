@@ -9,7 +9,7 @@ import { ENT_W } from './veins-bin.js';
 import { sweptRowBoxes } from './tube-cull.js';
 
 export function createMorph(st, live) {
-  const { BLOOD_PAD, EV, GL_ROWS, N_SAMPLES, cavaAsOne, cbAt, edgeVisible, geo, itemRadii, reachOf, strandAt, veinJoins, vesselAt, wrap } = st;
+  const { BLOOD_PAD, EV, GL_ROWS, N_SAMPLES, cavaAsOne, cbAt, edgeVisible, geo, itemRadii, reachOf, strandAt, veinJoins, veinJoinsStep: joinsStep, vesselAt, wrap } = st;
   // ── The change between the views on the GPU (2 Nov 2026, his iPhone: "going from anatomy to circuit is so laggy") ──
   // Each frame of the change had binned every vessel again on the CPU and sent the 4 MB list up. Now the change is cut into stretches
   // (MORPH_PIECES), and each stretch's binning, listing everything that can draw in a cell anywhere along it (veins-sweep.js), is made
@@ -128,15 +128,25 @@ export function createMorph(st, live) {
       }
     } finally { live.glStraight = gs; live.glRadDirty = gd; live.glStore = gst; takeBackRadii(nLent); }
   }
-  const joinsWide = (items, t) => atWidths(items, t, () => veinJoins(items, newJoinStore(), MORPH_NEAR));
-  function joinsMain(items, t, wide) {
-    return atWidths(items, t, () => {
-      // (The joins within the limit are made last, so the run-on state left is theirs.)
-      const st = newJoinStore(), J = veinJoins(items, st).slice(), have = J.slice();
-      for (const j of wide) if (!have.some((h) => h.key === j.key && (h.x - j.x) ** 2 + (h.y - j.y) ** 2 < 1600)) J.push(j);
+  // A moment's joins as a job run in units (18 Nov 2026, the Compare stop: 'joins own' 94.3 ms, 'joins all' 78 ms in one): the joins within the limit (veinJoinsStep, a vessel at a time until
+  // 3 ms are used), then the joins themselves the same way, then the smoothing, the reach and the merge in one. Each slice scales the radii to the moment's widths on its own (atWidths).
+  // The run-on state the smoothing reads is the pairs the joins left in their own store, set for it, so no other pass between the units can change it.
+  const stepJoins = joinsStep || ((items, store, margin) => { veinJoins(items, store, margin); return true; });
+  const joinsJob = (items, t) => ({ items, t, wide: { st: newJoinStore(), done: false }, main: { st: newJoinStore(), done: false }, res: null });
+  /** One unit of the job: 'reach', 'joins' or 'smooth' (the last leaves job.res = { J, smooth, reach }). */
+  function joinsJobStep(job) {
+    const { items, t } = job;
+    if (!job.wide.done) { job.wide.done = atWidths(items, t, () => stepJoins(items, job.wide.st, MORPH_NEAR, performance.now() + 3)); return 'reach'; }
+    if (!job.main.done) { job.main.done = atWidths(items, t, () => stepJoins(items, job.main.st, 0, performance.now() + 3)); return 'joins'; }
+    job.res = atWidths(items, t, () => {
+      const st = job.main.st, J = st.out.slice(), have = J.slice();
+      for (const j of job.wide.st.out) if (!have.some((h) => h.key === j.key && (h.x - j.x) ** 2 + (h.y - j.y) ** 2 < 1600)) J.push(j);
+      live.glStraight = st.straight; live.glStore = st;
       return { J, smooth: live.smoothRunOn(items, st), reach: new Map(items.map((it) => [it.row, reachOf(it)])) };
     });
+    return 'smooth';
   }
+  const JOB_KIND = { reach: ' (reach)', joins: '', smooth: ' (smooth)' };
   // A join by what it joins: its members, the trunk they end on, a fork.
   const joinKey = (j) => j.key;   // (a join the joins pass made carries its key)
   const rowKey = (items) => items.map((it) => it.row).join(',');
@@ -410,16 +420,16 @@ export function createMorph(st, live) {
     if (!w) { pc.work = { items: itemsAt(t, pc.anat), own: null, o: null, all: null, q: 1, J2: [] }; return 'items'; }
     if (!w.own) { w.own = itemsAt(t, pc.anat, false); return 'items own'; }
     // (The joins of the side's own vessels too: a vessel binned for the other side changes the joins it takes part in.)
-    if (!w.ow) { w.ow = joinsWide(w.own, t); return 'joins own (reach)'; }
-    if (!w.o) { w.o = joinsMain(w.own, t, w.ow); return 'joins own'; }
-    if (!w.aw) { w.aw = joinsWide(w.items, t); return 'joins all (reach)'; }
-    if (!w.all) { w.all = joinsMain(w.items, t, w.aw); kind = 'joins all'; }
+    if (!w.o) { const oj = w.oj ||= joinsJob(w.own, t), ph = joinsJobStep(oj); if (oj.res) w.o = oj.res; return `joins own${JOB_KIND[ph]}`; }
+    if (!w.all) { const aj = w.aj ||= joinsJob(w.items, t), ph = joinsJobStep(aj); kind = `joins all${JOB_KIND[ph]}`; if (!aj.res) return kind; w.all = aj.res; }
     // (The joins at moments between too: one can be there for less than a step, as two ends pass each other.)
     // (A moment between is two units, its vessels' courses and then their joins: together one ran 72.8 ms, 18 Nov 2026.)
     else if (snaps.length && w.q < MORPH_JSUB) {
-      if (!w.mid) { const u = lerp(snaps[snaps.length - 1].t, t, w.q / MORPH_JSUB); w.mid = { u, items: itemsAt(u, pc.anat, false) }; return 'items between'; }
-      if (!w.mid.w) { w.mid.w = joinsWide(w.mid.items, w.mid.u); return 'joins between (reach)'; }
-      w.J2.push(...joinsMain(w.mid.items, w.mid.u, w.mid.w).J); w.mid = null; w.q++; kind = 'joins between';
+      if (!w.mid) { const u = lerp(snaps[snaps.length - 1].t, t, w.q / MORPH_JSUB); w.mid = { u, items: itemsAt(u, pc.anat, false), job: null }; return 'items between'; }
+      const mj = w.mid.job ||= joinsJob(w.mid.items, w.mid.u), ph = joinsJobStep(mj);
+      kind = `joins between${JOB_KIND[ph]}`;
+      if (!mj.res) return kind;
+      w.J2.push(...mj.res.J); w.mid = null; w.q++;
     }
     if (!(w.all && (!snaps.length || w.q >= MORPH_JSUB))) return kind;
     pc.work = null;

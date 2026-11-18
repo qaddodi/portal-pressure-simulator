@@ -73,7 +73,9 @@ test('a set is prepared in three steps with the same result as the whole, and a 
   // (18 Nov 2026: five, the Compare stop's 'prepare' ran as one 405 ms slice on the phone: the points, the joins' list, the patches, the webs, the rows.)
   // (A step answers 2 to be asked for again, the webs being read in slices; 1 for the next step; 0 for the last.)
   let steps = 0;
-  for (let r, n = 0; (r = b.g.prepareMorphStep(B, steps)); n++) { assert.ok(n < 1e5, 'ends'); if (r !== 2) steps++; }
+  assert.equal(b.g.morphSetReady(B), false, 'not before its first step');
+  for (let r, n = 0; (r = b.g.prepareMorphStep(B, steps)); n++) { assert.ok(n < 1e5, 'ends'); assert.equal(b.g.morphSetReady(B), false, 'a frame draws from no set part prepared (18 Nov 2026: the whole preparing on the spot ran 170.9 ms of webs in one frame)'); if (r !== 2) steps++; }
+  assert.equal(b.g.morphSetReady(B), true, 'ready once its last step is done');
   assert.ok(steps >= 3 && steps <= 4, `${steps + 1} steps`);
   assert.deepEqual(Object.keys(B.derived).sort(), Object.keys(A.derived).sort());
   assert.equal(B.derived.ent, B.entCPU);

@@ -80,5 +80,5 @@ test('Figure resolution never changes the canvas mid-zoom: no fade copy that sta
   assert.doesNotMatch(st, /fading\(vCanvas\)\) return 'the canvas is fading/);   // (the fade is an alpha in the present: it no longer stops the glass)
   // A redraw through the zoom keeps the camera it started with, so it never counts as a move (settleRes, Adapt's frame gaps).
   const draw = fn('  function drawVeinsNow(fullComposite) {');
-  assert.ok(draw.indexOf('if (key !== veinsDrawKey) {') < draw.indexOf('settleRes();'));
+  assert.ok(draw.indexOf('if (key !== veinsDrawKey) {') < draw.indexOf("framePart('draw: resolution', settleRes);"));
 });

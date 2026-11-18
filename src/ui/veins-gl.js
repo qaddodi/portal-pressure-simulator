@@ -2977,8 +2977,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (step === 0) { if (B.ent !== S.entCPU && B.ptsFor !== S.entCPU) deriveBundlePts(B, S.entCPU, S.cellsCPU, S.nCells); return true; }
     if (step === 1) { if (B.ent !== S.entCPU) deriveBundle(B, S.entCPU, S.cellsCPU, S.nCells, S.morph); return true; }
     if (step === 2) { if (patchesWanted() && !B.patchOk) deriveJoinPatches(B); return true; }
-    if (!webJoins()) return false;
-    if (step !== 3) { stage2Prepare(B, tubeNow, nTubes, S.morph.joinBase, 2); return false; }
+    if (!webJoins()) { S.prepared = S.prepKey; return false; }
+    if (step !== 3) { stage2Prepare(B, tubeNow, nTubes, S.morph.joinBase, 2); S.prepared = S.prepKey; return false; }
     // (The webs are read in slices of about 3 ms: 2 asks for this step again, till they are all read, then 1 for the next step.)
     const st = stage2Prepare(B, tubeNow, nTubes, S.morph.joinBase, 1, performance.now() + 3);
     return st.midGen === B.gen ? 1 : 2;
@@ -3833,12 +3833,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     prepareMorphSet(S) { if (S && S.owner === api && morphSets.has(S)) prepareSet(S); },
     /** The same in steps, 0, 1, 2 (each a slice of its own): true while a later step remains. */
     prepareMorphStep(S, step) { return (S && S.owner === api && morphSets.has(S)) ? (prepareSetStep(S, step) | 0) : 0; },
-    /** Whether a morph set is uploaded and prepared (the pieces ready count). */
-    morphSetReady(S) { return !!S && S.owner === api && morphSets.has(S) && !!S.entCPU && S.prepKey !== undefined; },
+    /** Whether a morph set is uploaded and prepared, every step of it, for the Tube's mode now (the pieces ready count; a frame draws from no other). */
+    morphSetReady(S) { return !!S && S.owner === api && morphSets.has(S) && !!S.entCPU && S.prepared !== undefined && S.prepared === prepKey(); },
     /** Draws from a morph set (null: the figure's own binning again). A set uploaded but not prepared is prepared at once. */
     useMorphSet(S) {
       if (S && !(S.owner === api && morphSets.has(S))) return;
-      if (S && S.prepKey === undefined) prepareSet(S);
+      if (S && S.prepared !== prepKey()) prepareSet(S);
       useMorphSet(S);
     },
     dropMorphSet(S) { if (S) dropSet(S); },

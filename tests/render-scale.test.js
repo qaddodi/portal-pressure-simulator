@@ -82,7 +82,7 @@ test('Auto: 1/zoom past the home framing, in steps down to 10%, changed only onc
   assert.match(fn, /(?:live\.)?vtGliding/);
   assert.match(fn, /if \(k === (?:live\.)?autoK && !(?:live\.)?moveLow && a === (?:live\.)?adaptK\) return;/, 'no reallocation unless the share changes');
   assert.match(fn, /(?:live\.)?autoK = k; (?:live\.)?moveLow = false; easeRes\(\);/, 'and that change eases');
-  assert.match(stage, /settleRes\(\); {3}\/\/ \(the view moved/);
+  assert.match(stage, /framePart\('draw: resolution', settleRes\); {3}\/\/ \(the view moved/);
 });
 
 test('every resize for a share goes through easeRes; the copy is laid over first, then the canvas is resized', () => {
