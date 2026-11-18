@@ -388,7 +388,7 @@ test('zoom: the teaching card rides the zoom where it stands, tucked or not: not
 
 // The presenter's half, run on stand-ins: the words' rise as the zoom holds it, and the glide that carries it.
 const wordsWorld = ({ base = 0, d = 126 } = {}) => {
-  const src = js.match(/const riseOn = [\s\S]*?\n\s*const liftTo = [^\n]*/)?.[0];
+  const src = js.match(/const riseOn = \(\(\) => \{[\s\S]*?\n\s*const liftTo = [^\n]*/)?.[0];
   assert.ok(src, 'the words\' rise is in presenter.js');
   const LIP = 24, slip = { lift: d + base, base }, events = [], ticks = [];
   const card = () => {

@@ -77,7 +77,7 @@ test("item 31: lobule pan and zoom frames reuse each tube's radii, compare inks 
   assert.match(gl, /const r = radiiNow\(t\);/);
   assert.match(src, /if \(radNowAt\[t\.id\] !== (?:live\.)?radStamp\) \{ for \(let i = 0; i < N; i\+\+\) r\[i\] = radiusAt\(t, i\); radNowAt\[t\.id\] = (?:live\.)?radStamp; \}/);
   assert.doesNotMatch(gl, /flat\(2\)\.map\(\(x\) => x\.toFixed\(3\)\)/);
-  assert.match(gl, /if \(inkMoved \|\| !akSame\)/);
+  assert.match(gl, /if \(inkMoved \|\| !akSame(?: \|\| washQ !== washSent)?\)/);   // (the wedge wash on its slide asks for the pass too: lobule-wash.js)
   assert.match(gl, /if \(cs !== lookCs\) \{ lookCs = cs; lookNow = lookOf\(cs\); lookSig = JSON\.stringify\(lookNow\); \}/);
   assert.doesNotMatch(gl, /const lsig = JSON\.stringify\(look\)/);
 });

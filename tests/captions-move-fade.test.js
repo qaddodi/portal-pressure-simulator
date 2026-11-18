@@ -15,6 +15,12 @@ const { createCaptions } = await import('../src/ui/label-captions.js');
 const TEXT = await import('../src/ui/text-gl.js');
 await TEXT.loadGlyphs();
 
+// (The eases read the wall clock, performance.now. A test that waits real milliseconds judges the fades by how busy the machine is: under
+// load a 40 ms wait took 300 and the ghost was gone before it was looked at. A frame here takes back from the clock whatever its wait ran over
+// the time it asked for, so a stalled machine shows the same frames as an idle one; the clock still runs, so the layer's own timers work.)
+const realNow = performance.now.bind(performance);
+let stalled = 0;
+performance.now = () => realNow() - stalled;
 const tick = (ms = 40) => new Promise((r) => setTimeout(r, ms));
 const LOOK = { lh: 1.2, gap: 0, halo: 0, haloC: '', runs: { name: { size: 12, weight: 600, ls: 0.5, fill: 'rgba(0, 0, 0, 1)', op: 1, upper: true, mr: 0 } } };
 function rig() {
@@ -26,7 +32,7 @@ function rig() {
   R.box.getBoundingClientRect = () => ({ width: 1000, height: 500, left: 0, top: 0, right: 1000, bottom: 500 });
   R.cap = createCaptions(R.box, { labelGL, deferred: true });
   R.cap.attach({ top: R.top, order: 2, near: R.near, active: () => true, scale: () => 2 });
-  R.frame = async (ms) => { await tick(ms); R.cap.drawNow(); R.top.present(); };
+  R.frame = async (ms) => { const t0 = realNow(); await tick(ms); const over = realNow() - t0 - ms; if (over > 4) stalled += over; R.cap.drawNow(); R.top.present(); };
   return R;
 }
 

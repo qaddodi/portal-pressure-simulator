@@ -60,7 +60,8 @@ test('the gap under the words is the same with the readings tucked, out or on th
   // Runs the real liftTo against a stand-in stage, then places the cards as styles/app.css does: the readings' card's top is 25 px above
   // the box tucked and 1 px out (top: -1px - 24px * (1 - u)), the instrument card's top is u * d - 1 px under the box's, and the box and
   // the words rise by --pz-lift and --pz-rise.
-  const src = js.match(/const riseOn = [\s\S]*?\n\s*const liftTo = [^\n]*/)?.[0];
+  // (presenter.js has its own `riseOn` (the stage's rise); the rise this runs is the one in the zoom part, which the pattern names by its opening.)
+  const src = js.match(/const riseOn = \(\(\) => \{[\s\S]*?\n\s*const liftTo = [^\n]*/)?.[0];
   assert.ok(src, 'riseOn, setRise, the words\' rise and liftTo are in presenter.js');
   const LIP = 24, Y = 600, Tb = 480;   // (the box's top at rest, the words' card's foot at rest)
   for (const base of [0, 70]) for (const d of [60, 128, 210]) {
