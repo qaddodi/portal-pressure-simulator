@@ -2693,6 +2693,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     return out;
   }
   // Lays the layer out as layoutFor gave it, its window where the figure is now and no wrap.
+  const SH = { m: null, look: null, dx: 0, dy: 0 }, shiftNow = () => shiftLayer(SH.m, SH.look, SH.dx, SH.dy), piecesNow = () => eachPiece(la[0], la[1], fboW, fboH);
   function layOut(L) {
     ensureFBO(L[0], L[1]);
     la[0] = L[2]; la[1] = L[3]; lAnch[0] = L[4]; lAnch[1] = L[5]; wo[0] = 0; wo[1] = 0;
@@ -3711,13 +3712,13 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     // (Not mid pan or pinch: a finished program's publishing is its status read, a small draw and, for the one-vessel build, every
     // cell uploaded again and the next frame whole. The general programs draw the same picture meanwhile.)
     if (!leftAlone(PUBLISH_QUIET_MS)) return;
-    for (const k of Object.keys(aux)) publishAux(k);
+    for (const k of Object.keys(aux)) part('veins: publish ' + k, publishAux, k);
     for (const t of freeTasks.slice()) {
       let done = true;
       try { done = t.done(); } catch (e) { caught('veins-gl:3064', e); /* (dropped) */ }
       if (!done) continue;
       freeTasks.splice(freeTasks.indexOf(t), 1);
-      try { t.run(); } catch (e) { console.warn('Veins renderer: a warm-up drawn over the figure failed.', e); }
+      try { part('veins: warm-up task', t.run.bind(t)); } catch (e) { console.warn('Veins renderer: a warm-up drawn over the figure failed.', e); }
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     if (!later.length) return;
@@ -3725,11 +3726,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       const sts = startsOf(k);
       if (!sts.every((st) => gl.getProgramParameter(st.p, pcx.COMPLETION_STATUS_KHR))) continue;
       later.splice(later.indexOf(k), 1);
-      if (k === 'heads') finishHeads();
-      else if (k === 'plain') { finishPlain(); if (plainCell) warm('plain'); }
-      else if (k === 'tube') { finishTube(); if (tubePt) fboOK = false; else tubeGiveUp('the Tube vessel shaders failed'); }
-      else if (k === 'tube2') { finishTube2(); if (tube2) { fboOK = false; queuePrep(); } }
-      else if (k === 'tube3') { finishTube3(); if (tube3) { fboOK = false; queuePrep(); } }
+      if (k === 'heads') part('veins: finish heads', finishHeads);
+      else if (k === 'plain') { part('veins: finish plain', finishPlain); if (plainCell) part('veins: warm plain', warm, 'plain'); }
+      else if (k === 'tube') { part('veins: finish tube', finishTube); if (tubePt) fboOK = false; else tubeGiveUp('the Tube vessel shaders failed'); }
+      else if (k === 'tube2') { part('veins: finish tube 2', finishTube2); if (tube2) { fboOK = false; queuePrep(); } }
+      else if (k === 'tube3') { part('veins: finish tube 3', finishTube3); if (tube3) { fboOK = false; queuePrep(); } }
     }
     if (!later.length) freeShaders();
   }
@@ -4232,16 +4233,18 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         }
       }
       if (pan) {
-        shiftLayer(m, look, dx, dy);
-        if (parts) { if (parts.k) meshCellsPass(m, look, parts.mark); partCells += parts.k; }
+        SH.m = m; SH.look = look; SH.dx = dx; SH.dy = dy;
+        part('veins: shift layer', shiftNow);
+        if (parts) { if (parts.k) part('veins: cells pass', meshCellsPass, m, look, parts.mark); partCells += parts.k; }
       }
       else {
-        layOut(layoutFor(m));
+        // (Each named for ?perf: the first draw of a view on a cold GPU spent 547 ms in 'draw vessels' with nothing named inside it, 18 Nov 2026.)
+        part('veins: lay out', layOut, layoutFor(m));
         gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
         gl.viewport(0, 0, fboW, fboH);
-        clearLayer();   // (the whole layer, a lowered frame too: the filtered read at the corner's edge sees clear texels beyond it)
-        if (lowTubeNow) lowTubeDraw(m, look, lowK2);
-        else { pM = m; pLook = look; pMode = 0; eachPiece(la[0], la[1], fboW, fboH); }
+        part('veins: clear layer', clearLayer);   // (the whole layer, a lowered frame too: the filtered read at the corner's edge sees clear texels beyond it)
+        if (lowTubeNow) part('veins: lowered draw', lowTubeDraw, m, look, lowK2);
+        else { pM = m; pLook = look; pMode = 0; part('veins: pieces', piecesNow); }
       }
       setBase(m); keepLook(); tubesNew = false; clearMarks(); drawnNow();
       fboOK = true;

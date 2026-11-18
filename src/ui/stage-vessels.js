@@ -6,7 +6,7 @@ import { cssColor8 } from './css-color.js';
 import { createColourFollow } from './display-state.js';
 import { D_SURFACE, easeMove } from './ease.js';
 import { PEEL_GLOW, peelGlow } from './flow-peel.js';
-import { easeNow, figOpt, settling } from './frame.js';
+import { easeNow, figOpt, framePart, settling } from './frame.js';
 import { writeGlowTexels } from './glow-texels.js';
 import { gpuProbe } from './gpu-probe.js';
 import { liftEnd, nearPath } from './highlight-math.js';
@@ -1050,7 +1050,7 @@ export function createVessels(st, live) {
   function drawVeinsNow(fullComposite) {
     // (The bowel's float handed to the live stack only when it moved or a setLive made new cuts (bowelAt NaN): handed every drawn frame, it marked the textures new (veins-gl
     // shift), so no rest frame was the blood's alone: every lumen repainted, a new picture for the glass each time. 13 Nov 2026, the Mac's heat at rest.)
-    if (live.liveSet || live.liveOn()) { live.syncLiveOrgans(); if (live.liveSet) { const dy = live.bowelDy(); if (dy !== live.bowelAt) { live.bowelAt = dy; live.veins.organs.shift('bowel', dy); } } }
+    if (live.liveSet || live.liveOn()) { framePart('draw: live organs', live.syncLiveOrgans); if (live.liveSet) { const dy = live.bowelDy(); if (dy !== live.bowelAt) { live.bowelAt = dy; live.veins.organs.shift('bowel', dy); } } }
     if (!live.veins || live.veins.lost || !live.vLook || !live.F) return false;
     if (!live.CTM) refreshCTM();
     const m = live.CTM;
