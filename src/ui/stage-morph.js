@@ -163,6 +163,7 @@ export function createMorph(st, live) {
   // The building is a may task (frame.js): a slice a frame at most, each under SLICE_MS, held for motion and input. The first check is
   // made in the frame after the first binning (the first picture), not 400 ms after it; later ones settle for 400 ms (a burst of
   // binnings is one check).
+  const PREP_KIND = ['prepare 0 (points)', 'prepare 1 (joins)', 'prepare 2 (patches)', 'prepare 3 (webs)', 'prepare 4 (rows)'];
   const TRACK_TAG = 'view-switch pieces', CHECK_TAG = 'view-switch check', COIL_TAG = 'view-switch coil check', SLICE_MS = 8, SETTLE_MS = 400, COIL_WAIT_MS = 3000;
   const SHOWN_HOLD_MS = 3000, shownGate = settleGate(SHOWN_HOLD_MS);   // (the shown vessels changing all the while, a time-lapse: frame.js settleGate)
   function morphTrackSoon() {
@@ -282,9 +283,13 @@ export function createMorph(st, live) {
   // What a unit of the building costs (a moving mean, per kind), to fit several of them in one slice when they are small.
   const unitEst = {};
   const noteUnit = (kind, ms) => {
-    unitEst[kind] = unitEst[kind] == null ? ms : Math.max(unitEst[kind] * 0.8, ms);
-    const u = mt.stats.units[kind] || (mt.stats.units[kind] = { n: 0, ms: 0, max: 0 });   // alloc-rare: once per kind of unit
-    u.n++; u.ms += ms; if (ms > u.max) u.max = ms;
+    // ('prepare 2 (patches)': a prepare step by its own name in the readout, estimated as 'prepare' as ever: the Compare stop's readout showed 'prepare' as one 270 ms unit, 18 Nov 2026.)
+    const est = kind.startsWith('prepare') ? 'prepare' : kind;
+    unitEst[est] = unitEst[est] == null ? ms : Math.max(unitEst[est] * 0.8, ms);
+    for (const k of est === kind ? [kind] : [kind, est]) {   // (the steps' own names beside the whole's)
+      const u = mt.stats.units[k] || (mt.stats.units[k] = { n: 0, ms: 0, max: 0 });   // alloc-rare: once per kind of unit (and a prepare step)
+      u.n++; u.ms += ms; if (ms > u.max) u.max = ms;
+    }
   };
   // (What the next unit is expected to cost: an upload or a send as it has cost, else the most any of a stretch's own units has: which of
   // those comes next is not known, and the units of a stretch are small, so several are taken in one slice.)
@@ -348,8 +353,8 @@ export function createMorph(st, live) {
       // unit with it, an upload slice ran up to 237 ms on Mohammad's Mac, 10 Nov 2026. A frame that draws from a piece not yet prepared
       // has it prepared on the spot (useMorphSet).)
       // (In steps, each its own unit and so its own slice where it is long: his Mac's readout, 17 Nov 2026, "longest unit: prepare 98 ms", 63 slices over 8 ms.)
-      kind = 'prepare';
       const i = bd.prep[0], pc = mt.pieces[i], step = bd.prepStep | 0;
+      kind = PREP_KIND[step] || 'prepare';
       let more = false;
       if (pc?.set) { const v = live.veins; more = v.prepareMorphStep ? v.prepareMorphStep(pc.set, step) : (v.prepareMorphSet?.(pc.set), false); }
       if (more) bd.prepStep = step + 1;
