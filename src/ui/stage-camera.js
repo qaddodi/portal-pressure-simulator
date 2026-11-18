@@ -123,7 +123,9 @@ addEventListener('orientationchange', saRead);
   }
   // (A narrowing's "60 %" is drawn in the figure: its size there is that of the labels' names on screen at any zoom, sweep batch 03 at 6–7 px.)
   function applyClampFs() {   // (a solve at another stage, live.glSuppress, takes the size it reads and writes nothing on the page: frame.js settleGate)
-    const sk = live.CTM?.sc || 0, cfs = sk > 0 ? (live.clampBase / sk).toFixed(2) : ''; if (live.glSuppress) { if (cfs && cfs !== live.clampFs) { live.clampFs = cfs; placeClampLabels(); } return; }
+    // (The scale taken in steps of 2 %, 1 % off at most: these sizes on screen are written to styles that the overlays' reading holds, so a step of
+    // every frame of a zoom or of a change between the views was a new reading of those groups in each frame, 18 Nov 2026. A 12 px name is 0.12 px off.)
+    const sk = live.CTM?.sc > 0 ? Math.exp(Math.round(Math.log(live.CTM.sc) * 50) / 50) : 0, cfs = sk > 0 ? (live.clampBase / sk).toFixed(2) : ''; if (live.glSuppress) { if (cfs && cfs !== live.clampFs) { live.clampFs = cfs; placeClampLabels(); } return; }
     const csw = sk > 0 ? `${(7 / sk).toFixed(2)}px` : '';   // (the clamps' halo, 7 px on screen: --clamp-sw, app.css)
     if (csw && csw !== live.clampSw) { live.clampSw = csw; for (let i = 0; i < clampGs.length; i++) clampGs[i].style.setProperty('--clamp-sw', csw); }
     if (cfs && cfs !== live.clampFs) { live.clampFs = cfs; for (let i = 0; i < clampGs.length; i++) clampGs[i].style.setProperty('--clamp-fs', `${cfs}px`); placeClampLabels(); }

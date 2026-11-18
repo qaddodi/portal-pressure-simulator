@@ -17,7 +17,7 @@ globalThis.document ??= { documentElement: { dataset: {}, style: { setProperty()
 globalThis.addEventListener ??= () => {};
 globalThis.getComputedStyle ??= () => ({ getPropertyValue: () => '' });
 
-const { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } = await import('../src/ui/stage-over.js');
+const { overUnits, overRun, needsReread, netChanges, styleKey, OVER_CLASS, OVER_ALL } = await import('../src/ui/stage-over.js');
 const { strictRefused, readGroup, cssLocal, elMat, liveOf } = await import('../src/ui/organ-paint.js');
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 
@@ -57,6 +57,20 @@ test('a new reading only for what the painter does not read at each paint, and n
   assert.equal(needsReread({ type: 'attributes', attributeName: 'class', oldValue: `on ${OVER_CLASS}`, target: el('on') }), false);
   assert.equal(needsReread({ type: 'attributes', attributeName: 'class', oldValue: 'caud', target: el('caud on') }), true);
   assert.equal(needsReread({ type: 'attributes', attributeName: 'class', oldValue: 'circuit', target: el(`circuit ${OVER_ALL}`) }), false);
+});
+
+test('a frame of the camera or of a change between the views asks for no new reading of the overlays', () => {
+  // The root's view box moves on every such frame: no reading holds it. A nested svg's own view box is a group's frame.
+  assert.equal(needsReread({ type: 'attributes', attributeName: 'viewBox', oldValue: '300.0 0.0 820.0 920.0', target: { ownerSVGElement: null, getAttribute: () => '300.0 0.0 820.1 920.0' } }), false);
+  assert.equal(needsReread({ type: 'attributes', attributeName: 'viewBox', oldValue: '0 0 1 1', target: { ownerSVGElement: {}, getAttribute: () => '0 0 2 2' } }), true);
+  const st = (old, now) => needsReread({ type: 'attributes', attributeName: 'style', oldValue: old, target: { getAttribute: () => now } });
+  assert.equal(st('opacity: 0.99998;', 'opacity: 0.99984;'), false, 'a fade of the calipers: the painter reads the opacity at each paint');
+  assert.equal(st('opacity: 0.5; fill-opacity: 1;', 'fill-opacity: 0.4; opacity: 0.2;'), false);
+  assert.equal(st('', 'opacity: 0.5;'), true, 'an opacity set where there was none: the painter takes it from another place now');
+  assert.equal(st('opacity: 0.5;', ''), true, 'and one taken off');
+  assert.equal(st('opacity: 1; fill: red;', 'opacity: 0.5; fill: blue;'), true, 'anything else in the style is read again');
+  assert.equal(st('--halo-k: 1.150;', '--halo-k: 1.149;'), true, 'a custom property a style rule reads');
+  assert.equal(styleKey('Opacity : 1 ;stroke-width:2px;;'), 'opacity;stroke-width:2px');
 });
 
 test('a batch of changes that came to nothing (the marks\' data-gl taken off and put back) asks for no new reading', () => {

@@ -29,7 +29,7 @@ import { HOVER_LINK } from './hover-link.js';
 import { createExplain } from './label-explain.js';
 import { createGlassGL, glassRegions, CARD } from './glass-gl.js';
 import { createVeinsGL, TUBE_TEXELS, MAX_TIERS, ORIGIN_GREY } from './veins-gl.js';
-import { frameFor, lateFrameFor, cancelFrame, noteDraw, easeNow, afterMotion, setSaver as setFrameSaver, onRenderScale, figOpt, figLab, onFigLab, readFrameFor, frameGapFor, restGapFor, inMotion, cameraMoving } from './frame.js';
+import { frameFor, lateFrameFor, cancelFrame, noteDraw, easeNow, afterMotion, setSaver as setFrameSaver, onRenderScale, figOpt, figLab, onFigLab, readFrame as readFrameAt, frameGapFor, restGapFor, inMotion, cameraMoving } from './frame.js';
 import { softwareYield } from './sw-yield.js';
 import { layoutWatch } from './idle-keys.js';
 import { surface } from './gpu-surfaces.js';
@@ -44,7 +44,14 @@ const nextFrame = frameFor('stage');
 // (1 Nov 2026, "Move everything to GPU": zero layout inside the frame. Boxes the figure's pieces keep clear of (the slide's cards, the
 // key pill, the readings' own sizes, the home look's room) are read first in a frame, before anything is written (frame.js readFrame),
 // never between the frame's writes, and only when something they measure may have changed.)
-const readFrame = readFrameFor('stage-read');
+// (Each read callback is its own tag, 'stage-read:<its name>', kept per function: ?perf and the frame list then say WHICH read of the stage held
+// a frame, and how many frames ask for it, where one 'stage-read' sum only said that something did: 18 Nov 2026, the play-tester's 40 to 400 ms.)
+const readTags = new WeakMap();
+const readFrame = (cb) => {
+  let tag = readTags.get(cb);
+  if (!tag) readTags.set(cb, tag = `stage-read:${cb.name || 'anon'}`);   // alloc-rare: once per read callback, at its first ask
+  return readFrameAt(cb, tag);
+};
 // (2 Nov 2026, the Anatomy to Circuit change on his iPhone: between the two views the frame does only what the screen shows. The SVG's
 // hidden paths wait for the landing (updateGeometry), and the labels are carried with the vessels, solved again as the change reaches
 // its second half and as it lands (labelSig, updateLabels).)
@@ -2548,6 +2555,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     overWatching = true;
     const watch = new MutationObserver((rs) => {
       for (const r of netChanges(rs)) {
+        // (How long an element's transitions run changes only with its classes, its style rules or the page's look, not with a value written to it: kept across the frames of a move, below.)
+        if (r.attributeName === 'class' || r.type !== 'attributes' || (r.attributeName === 'style' && /transition/.test(`${r.oldValue}${r.target.getAttribute('style')}`))) overTrans = new WeakMap();
         if (needsReread(r)) { overDirty = true; overDrop(r.target); continue; }
         // (A value the painter reads at each paint, eased by the page's CSS: the browser shows the ease, so the group waits in the SVG.
         // An outline's d is not eased by any of the overlays' styles.)
@@ -2592,7 +2601,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const now = performance.now();
     for (const [el, t] of overEasing) if (t < now || !el.isConnected) { overEasing.delete(el); overDrop(el); overDirty = true; }
     const key = overKey();
-    if (key !== overKeyWas || overFor !== overKeptFor) { overKept.clear(); overKeptFor = overFor; }
+    if (key !== overKeyWas || overFor !== overKeptFor) { overKept.clear(); overKeptFor = overFor; overTrans = new WeakMap(); }
     if (overDirty || key !== overKeyWas) {
       overDirty = false; overKeyWas = key;
       // (2 Nov 2026, the iPhone trace: the groups' styles were read here, after the frame's writes, and the browser restyled the page in
@@ -2617,14 +2626,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!overCheck.size) return false;
     const t = performance.now();
     let eased = false;
-    overTrans = new WeakMap();
     for (const el of overCheck) { if (!el.isConnected) continue; const ms = transMs(el); if (ms > 0) { overEasing.set(el, t + ms + 50); eased = true; } }
     overCheck.clear();
     return eased;
   }
   function overReadNow() {
     if (!veins?.overlay || veins.lost || !wrap.classList.contains('gl-on')) { overCheck.clear(); return; }
-    overTrans = new WeakMap();
     overChecked();
     const easing = [...overEasing.keys()];
     let why = null;

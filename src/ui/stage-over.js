@@ -52,11 +52,32 @@ export function needsReread(rec) {
   if (rec.type !== 'attributes') return true;
   const a = rec.attributeName;
   if (a === 'd' || a === 'transform' || a === 'opacity' || a === 'fill-opacity' || a === 'stroke-opacity') return false;
+  // (The overlays' own view box, written on every frame the camera or a change between the views moves: no group's reading holds it. The painter takes each
+  // group's frame from the page at each paint, and the frames it undoes by a parent's (getCTM against getCTM) both hold the view box. Left to the rule below
+  // it dropped every kept reading of every group on every frame of a move: a read of each overlay element's styles at the start of each frame, 40 to 400 ms
+  // at the play-tester's Mac and iPhone, 18 Nov 2026, in view changes, presets, deck slides, zoom and pan.)
+  if (a === 'viewBox') return rec.target?.ownerSVGElement != null;   // (a nested svg's own view box is a group's frame: read again)
+  // (An inline style whose only change is an opacity the painter reads at each paint, the calipers' fade: the same as the attributes above.)
+  if (a === 'style' && rec.oldValue != null) return styleKey(rec.oldValue) !== styleKey(rec.target.getAttribute('style'));
   if (a === 'class') {
     const strip = (v) => String(v || '').split(/\s+/).filter((c) => c && c !== OVER_CLASS && c !== OVER_ALL).sort().join(' ');
     return strip(rec.oldValue) !== strip(rec.target.getAttribute('class'));
   }
   return true;
+}
+
+// An inline style as what a reading depends on: each declaration, the three opacities the painter reads at each paint (liveOf) by name alone
+// (whether the element sets one or not decides where the painter takes it from, the page's computed value or its own).
+const PAINT_READ = new Set(['opacity', 'fill-opacity', 'stroke-opacity']);
+export function styleKey(text) {
+  const out = [];
+  for (const d of String(text || '').split(';')) {
+    const i = d.indexOf(':');
+    if (i < 0) continue;
+    const name = d.slice(0, i).trim().toLowerCase();
+    if (name) out.push(PAINT_READ.has(name) ? name : `${name}:${d.slice(i + 1).trim()}`);
+  }
+  return out.sort().join(';');
 }
 
 /**
