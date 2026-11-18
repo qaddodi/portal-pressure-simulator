@@ -36,3 +36,16 @@ test('a 3000-point wiggly outline is cut in well under a quarter of a second', (
   assert.equal(out.length, 2998 * 3);
   assert.ok(ms < 250, `${ms.toFixed(0)} ms`);
 });
+
+test('a long thin wavy outline of 12000 points is cut quickly and covers its area', () => {
+  // A snake: a sine centre line, 6000 points out along one side and 6000 back along the other.
+  const n = 6000, P = [];
+  for (let i = 0; i < n; i++) { const x = i * 0.5, y = 40 * Math.sin(i * 0.02); P.push(x, y + 2 + 0.2 * Math.sin(i)); }
+  for (let i = n - 1; i >= 0; i--) { const x = i * 0.5, y = 40 * Math.sin(i * 0.02); P.push(x, y - 2 + 0.2 * Math.sin(i * 1.3)); }
+  const out = [], t0 = performance.now();
+  earClip(P, 2 * n, out);
+  const ms = performance.now() - t0;
+  assert.equal(out.length, (2 * n - 2) * 3);
+  assert.ok(Math.abs(triArea(P, out) - polyArea(P, 2 * n)) < 1e-6 * polyArea(P, 2 * n));
+  assert.ok(ms < 300, `${ms.toFixed(0)} ms`);
+});

@@ -44,6 +44,7 @@ import { CELL, ENT_W, binVeins, splitRows, splitCells, cellsOfJoinEntries } from
 import { gpuProbe, COUNTED } from './gpu-probe.js';
 // (A named part of the frame while frames are watched (frame.js framePart, set on gpuProbe): the rows' redraw says which of its steps held a frame, 17 Nov 2026, the tester, lz.drawGL 52 to 153 ms.)
 const part = (tag, fn, a, b, c) => (gpuProbe.part ? gpuProbe.part(tag, fn, a, b, c) : fn(a, b, c));
+const namePart = part;   // (for the places where a parameter is called part)
 import { changedRows } from './flow-rows.js';
 import { leftAlone, whenQuiet } from './quiet.js';
 import { uniformCache } from './uniform-cache.js';
@@ -2981,7 +2982,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (step === 1) { if (B.ent !== S.entCPU) deriveBundle(B, S.entCPU, S.cellsCPU, S.nCells, S.morph); return true; }
     if (step === 2) { if (patchesWanted() && !B.patchOk) deriveJoinPatches(B); return true; }
     if (!webJoins()) { S.prepared = S.prepKey; return false; }
-    if (step !== 3) { stage2Prepare(B, tubeNow, nTubes, S.morph.joinBase, 2); S.prepared = S.prepKey; return false; }
+    if (step !== 3) {   // (the rows, in slices of about 3 ms like the webs: 2 asks for this step again)
+      const st = stage2Prepare(B, tubeNow, nTubes, S.morph.joinBase, 2, performance.now() + 3);
+      if (!(st.gen === B.gen && st.R.rows)) return 2;
+      S.prepared = S.prepKey; return false;
+    }
     // (The webs are read in slices of about 3 ms: 2 asks for this step again, till they are all read, then 1 for the next step.)
     const st = stage2Prepare(B, tubeNow, nTubes, S.morph.joinBase, 1, performance.now() + 3);
     return st.midGen === B.gen ? 1 : 2;
@@ -3614,7 +3619,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // (?perf's lumen pass line: the pass's counts, then the lumen target's size in MP and its share of the vessel layer's.)
   const lumenCountsOut = (out) => { tubePass.lumenCounts(out); out[5] = lumTarget ? lumTarget.w * lumTarget.h / 1e6 : 0; out[6] = lumTarget && fboW ? lumTarget.w / fboW : 0; };
   function lumenFrame(m, look, blood) {
-    if (!meshTargets()) return false;
+    if (!namePart('veins: lumen targets', meshTargets)) return false;
     if (!lumTarget) lumTarget = createLumenTarget(gl);
     // (?lumen=off: no lumen pass; the target is one clear pixel, which the compositor reads as no lumen, so no blood is drawn.)
     // (A lowered view switch frame (ownLow; the lumen share is 1 then, see morphLowNow): the pass draws into the corner of the full-size target, as the layer's was drawn, and the compositor reads it
@@ -3641,7 +3646,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     tubePass.webColour = !!(blood.origin || (dyeAny && blood.dye !== false));   // (the same two tests lumenBind makes for its origin and dyeOn uniforms)
     pM = scaled ? lumenView(m, LK.sx, LK.sy, LK.ms) : m; pLook = look; pMode = 5; lumBoxNow = bx;
     pRedo = lumenDepth.needs(m, wo, la, lw0, lh0, bx);
-    eachPiece(la[0], la[1], fboW, fboH);
+    namePart('veins: lumen strips and webs', () => eachPiece(la[0], la[1], fboW, fboH));
     pMode = 0; lumK = null; lumBoxNow = null;
     if (pRedo) { lumenDepth.drawn(m, wo, la, lw0, lh0, bx); if (gpuProbe.on) gpuProbe.note('lumen depth redraws'); }
     LUMD.all = LUMC.all; LUMD.n = LUMC.n; LUMD.r.set(LUMC.r);
@@ -4678,7 +4683,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // blood-only frames among them): before the compositor's own pass, which reads it. The compositor's target, viewport and program are set again after.
       if (stage3 && (blood.on || (dyeAny && blood.dye !== false) || blood.origin)) {
         fencePart('before lumen pass');   // (?perf: what was queued ahead of the lumen pass is a step of its own, so the next one is the pass alone)
-        gpuProbe.time(gl, 'lumen layer', lumenFrame, m, look, blood);
+        namePart('veins: lumen layer', gpuProbe.time.bind(gpuProbe), gl, 'lumen layer', () => lumenFrame(m, look, blood));   // (named: the first pick's 'veins: composite' of 380-520 ms held it, and no row said which part of the composite was cold, 18 Nov 2026)
         fencePart(who === 'lobule' ? 'lobule lumen pass' : 'lumen pass'); fenceLumen(who === 'lobule', lumenCountsOut);   // (?perf: the pass timed on its own, with its strips, webs and rows, sampled frames only)
         rebind(); gl.viewport(0, 0, PW(), PH()); gl.useProgram(prg.p);
         if (gpuProbe.on) gpuProbe.gauge(who === 'lobule' ? 'lobule vessel renderer' : 'vessel renderer', tubePass.gaugeText());

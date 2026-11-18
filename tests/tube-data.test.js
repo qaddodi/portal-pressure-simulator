@@ -360,3 +360,21 @@ test('tubeRows: a trunk lists the mouths of the branches that end on its side, o
   assert.equal(b.n, 3);
   for (let q = 0; q < b.n; q++) assert.deepEqual(Array.from(b.rows.subarray(q * TUBE_ROW_FLOATS + MOUTH_AT, (q + 1) * TUBE_ROW_FLOATS)), Array.from(out.rows.subarray(b.rows[q * TUBE_ROW_FLOATS] * TUBE_ROW_FLOATS + MOUTH_AT, (b.rows[q * TUBE_ROW_FLOATS] + 1) * TUBE_ROW_FLOATS)));
 });
+
+test('tubeRows: made in slices (a place and the tables kept in out.tr, an interleaved whole call in between), the rows are those of the whole', () => {
+  const rows = [straight(-300, 0, 300, 0, T)], joins = [];
+  for (let i = 0; i < 40; i++) { rows.push(straight(-190 + i * 10 + 0.5, 0, -190 + i * 10 + 0.5, 100, 2)); joins.push({ x: -190 + i * 10 + 0.5, y: 0, reach: 14, k: 0.4, fillet: 1, members: [0, i + 1], trunk: 0 }); }
+  const sc = scene(rows, joins);
+  const ent = new Float32Array(sc.ent.length * 2); ent.set(sc.ent); ent.set(sc.ent, sc.ent.length);
+  const whole = tubeRows(sc.tube, sc.nRows, ent, {}, sc.pts);
+  const out = {}; let calls = 0;
+  while (tubeRows(sc.tube, sc.nRows, ent, out, sc.pts, 0, 0) === false) {
+    assert.ok(out.tr, 'its place is kept');
+    tubeRows(sc.tube, sc.nRows, ent, {}, sc.pts);   // (another caller uses the shared tables between the slices)
+    assert.ok(++calls < 1000);
+  }
+  assert.ok(calls >= 3, `${calls} slices`);
+  assert.equal(out.tr, null);
+  assert.deepEqual(Array.from(out.rows.subarray(0, sc.nRows * TUBE_ROW_FLOATS)), Array.from(whole.rows.subarray(0, sc.nRows * TUBE_ROW_FLOATS)));
+  assert.equal(out.exact, whole.exact); assert.equal(out.ended, whole.ended);
+});

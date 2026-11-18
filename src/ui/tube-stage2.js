@@ -295,7 +295,7 @@ export function stage2Prepare(B, tubeNow, nTubes, joinBase, upTo = 2, until = In
   const st = B.s2 || (B.s2 = { gen: -1, entries: NO_JOINS, R: {}, W: {}, joinBase: -1, n: 0, midGen: -1, midNow: null, midJoinBase: NaN, entGen: -1 });   // alloc-rare: once per bundle
   if (st.gen === B.gen && st.R.rows) return st;
   // (In two parts a caller may run in separate slices (upTo 1: the entries and the webs; 2: the rows too): the first is kept for the binning (B.gen), the Tube's stage and the join base it was made for.)
-  if (st.midGen === B.gen && st.midNow === tubeNow && st.midJoinBase === joinBase) return upTo < 2 ? st : stage2Rows(B, st, tubeNow, nTubes, joinBase);
+  if (st.midGen === B.gen && st.midNow === tubeNow && st.midJoinBase === joinBase) return upTo < 2 ? st : stage2Rows(B, st, tubeNow, nTubes, joinBase, until);
   if (st.entGen !== B.gen || st.midNow !== tubeNow || st.midJoinBase !== joinBase) {
   // (The entries a cell lists: the same entry is listed by every cell it reaches, so a swept set lists it tens of times; each once here, in first-listed order.)
   const list = B.jl.view, n0 = B.jl.n || 0;
@@ -310,15 +310,16 @@ export function stage2Prepare(B, tubeNow, nTubes, joinBase, upTo = 2, until = In
   st.ji = new Int32Array(n);   // alloc-rare: a new binning only, sized by its joins
   for (let k = 0; k < n; k++) st.ji[k] = joinBase >= 0 ? Math.round(B.ent[st.uniq[k] * 8]) : -1;
   joinEntriesInto(B.ent, st.uniq, n, joinBase, st.entries);
-  st.n = n; st.entGen = B.gen; st.midNow = tubeNow; st.midJoinBase = joinBase; st.W.run = null;
+  st.n = n; st.entGen = B.gen; st.midNow = tubeNow; st.midJoinBase = joinBase; st.W.run = null; st.R.tr = null;
   }
   // (The webs are read in slices when a caller gives `until` (performance.now() ms, upTo 1): it is asked again, with the same arguments, until st.midGen is B.gen.)
   if (!webInstancesStep(st.entries, tubeNow, B.pts.pts, st.W, !B.noEnds, upTo < 2 ? until : Infinity)) return st;
   st.midGen = B.gen;
-  return upTo < 2 ? st : stage2Rows(B, st, tubeNow, nTubes, joinBase);
+  return upTo < 2 ? st : stage2Rows(B, st, tubeNow, nTubes, joinBase, upTo === 2 ? until : Infinity);
 }
-function stage2Rows(B, st, tubeNow, nTubes, joinBase) {
-  tubeRows(tubeNow, nTubes, st.entries, st.R, B.pts.pts, B.noEnds ? F_ENDS : 0);
+// (Given `until` the rows are made in slices: st.gen is B.gen only once they are all made, so a caller asks again while it is not.)
+function stage2Rows(B, st, tubeNow, nTubes, joinBase, until = Infinity) {
+  if (tubeRows(tubeNow, nTubes, st.entries, st.R, B.pts.pts, B.noEnds ? F_ENDS : 0, until) === false) return st;
   st.gen = B.gen; st.joinBase = joinBase;
   return st;
 }

@@ -136,10 +136,13 @@ export function joinLegs(ent, q, pts, nRows) {
  * another row when a join is two rows' ends and the two bend by no more than CONT_DEG; the first such join wins. out.exact: the exact rows' count; out.ended: the rows with a join end.
  */
 export const F_ENDS = 8192;   // a row flag (tubeData float 10) for `only` below: this row's ends in a join are worked out
-export function tubeRows(tubeData, nRows, joinEntries, out, pts = null, only = 0) {
+export function tubeRows(tubeData, nRows, joinEntries, out, pts = null, only = 0, until = Infinity) {
   if (!out.rows || out.rows.length < nRows * TUBE_ROW_FLOATS) out.rows = new Float32Array(nRows * TUBE_ROW_FLOATS);   // alloc-rare: grown with the vessel rows
   const rows = out.rows;
-  for (let r = 0; r < nRows; r++) {
+  // (Resumable, 18 Nov 2026, the Compare stop's 'prepare 4 (rows)' of 195 ms in one: given `until` (performance.now() ms) the sweeps over the join entries stop at the first entry past it and
+  // return false, with their place and tables kept in out.tr; asked again with the same arguments they go on from there. Without `until`, or once it returns out, as ever.)
+  const run = until < Infinity ? out.tr || null : null;
+  if (!run) for (let r = 0; r < nRows; r++) {
     const o = r * TUBE_FLOATS, b = r * TUBE_ROW_FLOATS;
     const dotted = (Math.floor(tubeData[o + T_FLAGS] + 0.5) & F_DOTTED) !== 0;
     const clipped = tubeData[o + T_CLIP0] > CLIP_EPS || tubeData[o + T_CLIP1] < 1 - CLIP_EPS;
@@ -148,15 +151,20 @@ export function tubeRows(tubeData, nRows, joinEntries, out, pts = null, only = 0
   }
   if (pts) {
     const n = Math.floor(joinEntries.length / 8);
-    let nDefer = 0;
+    let nDefer = run ? run.nDefer : 0;
     // (An entry that repeats an earlier one — the binning lists a join once for each cell it touches — can change nothing: ends are only ever taken, so what the first did, the copy finds done. Each distinct entry once.)
     let size = 16;
     while (size < n * 2) size *= 2;
     if (SEEN.length < size) SEEN = new Int32Array(size);   // alloc-rare: grown with the number of join entries
-    SEEN.fill(0, 0, size);
+    if (run) { SEEN.set(run.seen); if (DEFER.length < run.defer.length * 2) DEFER = new Int32Array(run.defer.length * 2); DEFER.set(run.defer); } else SEEN.fill(0, 0, size);   // alloc-rare: a resumed run puts its tables back (another call may have used them between)
     const mask = size - 1;
+    let iters = 0;
     // Two sweeps: the second takes the entries the first found no trunk for (their ends may meet a junction another entry has made a continuation of: see `carrier` below).
-    for (let pass = 0; pass < 2; pass++) for (let k = 0, kn = pass === 0 ? n : nDefer; k < kn; k++) {
+    for (let pass = run ? run.pass : 0; pass < 2; pass++) for (let k = run && pass === run.pass ? run.k : 0, kn = pass === 0 ? n : nDefer; k < kn; k++) {
+      if (until < Infinity && iters++ > 0 && performance.now() > until) {
+        out.tr = { pass, k, nDefer, seen: SEEN.slice(0, size), defer: DEFER.slice(0, nDefer) };   // alloc-rare: once per slice of a sliced run
+        return false;
+      }
       const e = pass === 0 ? k : DEFER[k];
       const q = e * 8;
       if (pass === 0) {
@@ -278,6 +286,7 @@ export function tubeRows(tubeData, nRows, joinEntries, out, pts = null, only = 0
       for (let m = 0; m < MOUTH_N; m++) if (rows[tb + m] === 0) { rows[tb + m] = mouthCode(r, sl === 2); break; }
     }
   }
+  out.tr = null;
   let exact = 0, joinOnly = 0, ended = 0;
   for (let r = 0; r < nRows; r++) {
     const b = r * TUBE_ROW_FLOATS;
