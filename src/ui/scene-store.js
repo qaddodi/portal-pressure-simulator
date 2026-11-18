@@ -146,11 +146,14 @@ export function bucketOf(sel) {
 
 // ── Rules: read from the page's style sheets, or from a sheet's text ──
 // A rule: { sel (one complex selector), spec, order, decls, conds: [[kind, text]] }. Registered custom properties: { name: { inherits, initial } }.
+const DECLS_KEPT = new WeakMap();   // (a CSSOM rule → its declarations, read only)
+const SPEC_KEPT = new Map();   // (selector text → its specificity: a rebuild of the rules, which happens whenever a sheet is added or grows, reads each selector once ever)
 function newRules() { return { list: [], buckets: new Map(), props: Object.create(null), order: 0, bad: false }; }
 function addRule(R, selText, decls, conds) {
   if (!decls.length) return;
   for (const sel of splitList(selText)) {
-    const spec = specificity(sel);
+    let spec = SPEC_KEPT.get(sel);
+    if (!spec) SPEC_KEPT.set(sel, (spec = specificity(sel)));   // alloc-rare: a selector's text is worked out once, however often the sheets are read again (read only, never written)
     if (spec.hasPE) continue;   // (a pseudo-element's style is not the element's)
     const r = { sel, spec, order: R.order++, decls, conds };   // alloc-rare: style rules are read once, when the sheets change
     R.list.push(r);
@@ -168,10 +171,17 @@ export function rulesFromSheets(sheets) {
   const walk = (rules, conds) => {
     for (const r of rules) {
       if (r.selectorText !== undefined && r.style) {
-        const decls = [], st = r.style;
-        for (let i = 0; i < st.length; i++) { const nm = st[i]; if (nm.startsWith('--')) pushDecl(decls, nm, st.getPropertyValue(nm), st.getPropertyPriority(nm) === 'important'); }
-        for (const p of PROPS) { const v = st.getPropertyValue(p); if (v) pushDecl(decls, p, v, st.getPropertyPriority(p) === 'important'); }
-        for (const p of ['marker', 'mask-image', 'animation', 'all']) { const v = st.getPropertyValue(p); if (v && !(p === 'mask-image' && st.getPropertyValue('mask'))) pushDecl(decls, p, v, st.getPropertyPriority(p) === 'important'); }
+        // (A rule's declarations are read from the CSSOM once, ever: a rule object is the same one at every rebuild, and about 6,000 rules with some 40 property reads
+        // each were the 700 to 800 ms the first reading took after a sheet came or grew, 18 Nov 2026, the tester's liveRead on the first switches.)
+        let decls = DECLS_KEPT.get(r);
+        if (!decls) {
+          decls = [];
+          const st = r.style;
+          for (let i = 0; i < st.length; i++) { const nm = st[i]; if (nm.startsWith('--')) pushDecl(decls, nm, st.getPropertyValue(nm), st.getPropertyPriority(nm) === 'important'); }
+          for (const p of PROPS) { const v = st.getPropertyValue(p); if (v) pushDecl(decls, p, v, st.getPropertyPriority(p) === 'important'); }
+          for (const p of ['marker', 'mask-image', 'animation', 'all']) { const v = st.getPropertyValue(p); if (v && !(p === 'mask-image' && st.getPropertyValue('mask'))) pushDecl(decls, p, v, st.getPropertyPriority(p) === 'important'); }
+          DECLS_KEPT.set(r, decls);
+        }
         addRule(R, r.selectorText, decls, conds);
         if (r.cssRules && r.cssRules.length) R.bad = true;   // (nested rules: not read here)
       } else if (r.name !== undefined && r.inherits !== undefined && r.syntax !== undefined) addProperty(R, r.name, r.inherits, r.initialValue);
@@ -187,6 +197,7 @@ export function rulesFromSheets(sheets) {
     }
   };
   for (const sh of sheets) {
+    if (aside(sh)) continue;
     let rules;
     try { rules = sh.cssRules; } catch { R.bad = true; continue; }
     const m = sh.media?.mediaText;
@@ -585,21 +596,34 @@ const pageEnv = {
   },
 };
 /** The page's sheets' signature: their number and each one's count of rules (plate-gl adds rules to a sheet of its own). */
+// (The menus' twin sheet (plate-gl.js: rules for .bp- classes, which no figure element has), made when the first menu opens: counted as a new sheet it made the
+// whole engine again.)
+const aside = (sh) => !!sh.ownerNode?.hasAttribute?.('data-plate-twins');
 function sheetsSig(sheets) {
-  let s = String(sheets.length);
-  for (let i = 0; i < sheets.length; i++) { let n = -1; try { n = sheets[i].cssRules.length; } catch { /* (a sheet that cannot be read) */ } s += ',' + n; }
+  let s = '';
+  for (let i = 0; i < sheets.length; i++) { if (aside(sheets[i])) continue; let n = -1; try { n = sheets[i].cssRules.length; } catch { /* (a sheet that cannot be read) */ } s += ',' + n; }
   return s;
 }
+let sigFresh = false;   // (the sheets' signature taken for this reading: not again for each element's style, which read every sheet's rule count each time)
 function engine() {
   if (typeof document !== 'object' || !document.styleSheets) return null;
+  if (sigFresh && pageEngine) return pageEngine;
   const sheets = document.styleSheets, sig = sheetsSig(sheets);
   if (!pageEngine || sig !== pageSig) { pageSig = sig; pageEngine = createSceneStyle(rulesFromSheets(sheets), pageEnv); }
+  sigFresh = true;
   return pageEngine;
 }
 const CHECK_KEYS = ['display', 'visibility', 'opacity', 'fill', 'stroke', 'fillOpacity', 'strokeOpacity', 'strokeWidth', 'strokeDasharray', 'mask', 'clipPath'];
 const checked = new Set();
 /** Forget the page's styles worked out so far (the start of a reading: the page may have changed since the last). */
-export function sceneBegin() { if (!OFF) engine()?.begin(); }
+let held = 0;
+export function sceneBegin() { if (OFF || held) return; sigFresh = false; engine()?.begin(); }
+/** Runs `fn` as one reading: the page's styles worked out for it are kept across the groups it reads (each would else work out its parents again, from the root, with every rule of their tag and classes tried). Nothing may be written in `fn`. */
+export function sceneBatch(fn) {
+  sceneBegin();
+  held++;
+  try { return fn(); } finally { held--; }
+}
 /** The element's style as the page computes it, worked out here: a record (camelCase properties and getPropertyValue), or null (ask the browser). */
 export function sceneStyle(el) {
   if (OFF || !el) return null;

@@ -23,6 +23,7 @@ import { fading } from './res-fade.js';
 import { cssColor8 } from './css-color.js';
 import { readFail, mulTo, elMat } from './organ-paint.js';
 import { dropLive } from './live-style.js';
+import { sceneBatch } from './scene-store.js';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js';
 import { elBoxInto } from './shape-gl.js';
 import { HOVER_LINK } from './hover-link.js';
@@ -2644,7 +2645,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       overKept.set(u, r);
       return r;
     };
-    const run = overRun(overUnits(worldOver, gOver), read);
+    const run = sceneBatch(() => overRun(overUnits(worldOver, gOver), read));   // (one reading: the units' shared parents are worked out once)
     overStop = run.whole ? null : { unit: run.stop, why: why?.[0] || '?', el: why?.[1] || null };
     overGot = run;
   }
