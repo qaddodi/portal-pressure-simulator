@@ -758,6 +758,9 @@
    and then only as far as its smallest lettering stays 12 px on the screen. (Glitch hunt, 22 Oct: there the cards had zoomed to half,
    tile bars, ratings and tables down to 7 px.) The words' card keeps its sizes and its own two steps (Regular, Compact). */
 .pz.short:not(.stack):not(.low) :is(.pz-data, .pz-panel) { --s-cap: calc(var(--t-cap) * var(--ts, 1)); --s-lab: max(12px, calc(var(--t-lab) * var(--ts, 1))); --s-body: calc(var(--t-body) * var(--ts, 1)); --s-val: calc(var(--t-val) * var(--ts, 1)); --s-big: calc(var(--t-big) * var(--ts, 1)); }
+/* (A full-width slide's words keep the teaching card's size and are never zoomed by its fit: the chart under them is what gives way (17 Nov 2026, Mohammad's rule that the teaching body never shrinks;
+   the tester: 15.5 px on HVPG 13 to 15, Shunts 15 and 16, Ascites 8 and Varices 10 and 11 at 1440 x 780, 18 px on a card that is not compact). The role size above stays for the rest of the panel and for the data card.) */
+.pz.short:not(.stack):not(.low) .pz-panel > .pz-ph { --s-body: calc(clamp(17px, calc(2.311 * var(--pzh)), 28px) * var(--ts, 1)); zoom: 1; }
 .pz.short:not(.stack):not(.low) .pz-data.pz-lt { --pz-gap: 6px; }
 .pz.short:not(.stack):not(.low) .pz-data.pz-lt .pz-tiles { gap: 6px; }
 .pz.short:not(.stack):not(.low) .pz-data.pz-lt .pz-tiles .pz-tile { padding-block: 4px; }

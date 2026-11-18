@@ -20,4 +20,5 @@ export default [
   { file: 'src/ui/card-throw.js', need: [/r\.v \+= Math\.min\(Math\.max\(0, now - r\.last\), STALL_MAX\); r\.last = now;/, `${W} a long frame holds a card's move where it stood: the move's clock goes on by at most STALL_MAX a frame`] },
   { file: 'src/ui/stage-morph.js', need: [/inMotion\(\) \|\| cardMoveLeft\(\) > 0/, `${W} the view switch's pieces are not built inside a card's entrance or exit`] },
   { file: 'src/ui/presenter.js', need: [/throwFade\(el, 0, D_SMALL\);   \/\/ alloc-rare: boot cover: once per load/, `${W} the first slide's cards fade in with the cover leaving, on the throw clock, not all at once as the cover lifts`] },
+  { file: 'styles/app-09-tests.css', need: [/\.pz\.short:not\(\.stack\):not\(\.low\) \.pz-panel > \.pz-ph \{ --s-body: calc\(clamp\(17px, calc\(2\.311 \* var\(--pzh\)\), 28px\) \* var\(--ts, 1\)\); zoom: 1; \}/, `${W} a full-width slide's words keep the teaching card's size and are never zoomed by the fit in the compact layout: the chart under them gives way`] },
 ];
