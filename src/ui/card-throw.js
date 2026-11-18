@@ -13,6 +13,7 @@ import { caught } from './caught.js';
 import { D_SMALL, D_SURFACE } from './ease.js';
 import { signalMove } from './num-move.js';
 import { readBox } from './layout-snap.js';
+import { STALL_MAX } from './glide-clock.js';
 
 /** How far (px) the new card comes in from, and the stagger (ms) of a second card behind the first. */
 export const THROW_IN = 56, THROW_STAGGER = 40;
@@ -101,7 +102,13 @@ function land(el, r, x, o) {
   try { r.done?.(); } finally { settleLands(el, r.kind !== 'out'); }
 }
 function stepRun(el, r, now) {
-  const k = r.ms > 0 ? (now - r.t0) / r.ms : 1;
+  // (The move's own clock goes on by what the frame took but never by more than STALL_MAX, as the camera's glides do (glide-clock.js): a frame of 200 ms, the deck's first card arriving
+  // with the slide built behind it, carried the fade of a card from nothing to whole in one step, which read as the card popping in after a wait (the tester, iPhone, 17 Nov 2026: the title
+  // card at 0 for 700 ms then 1 in one step, frames of 194 to 239 ms). A long frame now holds the card where it stood and the move goes on from there; the guard still lands it by the wall clock.)
+  // (A staggered card's wait is the wall clock's: it is the move after it that a long frame is held back on.)
+  if (now < r.t0) { r.v = now; r.last = now; return; }
+  r.v += Math.min(Math.max(0, now - r.last), STALL_MAX); r.last = now;
+  const k = r.ms > 0 ? (r.v - r.t0) / r.ms : 1;
   if (k < 0) return;   // (a staggered card waits where it starts)
   const p = throwInto(pos, r.kind, k, r.from, r.to);
   r.x = p.x; r.o = p.o;
@@ -170,7 +177,8 @@ function start(el, kind, to, ms, delay, done) {
   signalMove();
   const dead = performance.now() + delay + ms + GUARD_MS;
   const run = ++runIds; lastRun.set(el, run);
-  runs.set(el, { run, kind, from, to, x: from.x, o: from.o, t0: easeNow() + delay, ms, done, dead });
+  const n0 = easeNow();
+  runs.set(el, { run, kind, from, to, x: from.x, o: from.o, t0: n0 + delay, v: n0, last: n0, ms, done, dead });
   outCheck();   // A replacement that no longer goes out can release the waiting slide immediately.
   if (!ask) ask = nextFrame(step);
   guardBy(dead);
