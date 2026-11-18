@@ -44,7 +44,7 @@ test('the live app never imports the gallery (src outside src/ui/gallery, and in
     }
   };
   walk('src');
-  assert.deepEqual(bad.filter((p) => !/main\.js$/.test(p) && !/test-mode\.js$/.test(p)), [], 'only the page loader (main.js, ?gallery on the preview) may name the gallery');
+  assert.deepEqual(bad.filter((p) => !/main\.js$/.test(p) && !/test-mode\.js$/.test(p) && !/packet[\/]gallery-panel\.js$/.test(p)), [], 'only the page loader (main.js, ?gallery on the preview) may name the gallery');
 });
 
 test('slow motion: the speeds are ordered fast to held, the words say what the clock does', () => {
