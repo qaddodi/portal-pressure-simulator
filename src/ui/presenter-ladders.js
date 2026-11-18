@@ -301,8 +301,11 @@ export function createLadders(st, live) {
       // (Regular only, 17 Nov 2026, Mohammad: "Fix this issue everywhere": the words never step down for the data card's height. The data card's blocks step
       // smaller, its instrument folds behind Show, its own fit does the rest. Only a phone held sideways, where no room is left, still steps the words down.)
       const sw = H <= SIDEWAYS_MAX_H * k;
-      const step = () => (sw ? put(WIDE.title, WIDE.words) : put(1, 1));
-      const title = () => put(1, 1) || (sw && put(WIDE.title, WIDE.words));
+      // (17 Nov 2026, the TIPS deck's data card clipped at its foot on a Mac, slides 8 and 20: the instrument's pictures and the 12 px floor of its words left it nothing to give, and the words'
+      // card kept all the room. The title is what gives way first, to the card-type.js steps (WIDE.title, then WIDE.tight), the words never: --pz-bk stays 1. The instrument is then not squeezed.)
+      const steps = () => put(1, 1) || put(WIDE.title, 1) || put(WIDE.tight, 1);
+      const step = () => (sw ? put(WIDE.title, WIDE.words) : steps());
+      const title = () => (sw ? put(1, 1) || put(WIDE.title, WIDE.words) : steps());
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const foldH = (s) => colHeight(cw / k, s);
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame

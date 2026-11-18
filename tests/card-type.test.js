@@ -34,11 +34,12 @@ test('the stylesheet sets the card sizes the sums below use', () => {
   assert.match(css, /\.pz-abb \{[^}]*font: 600 var\(--s-lab\)\/1\.1 var\(--font-ui\);/);
 });
 
-test('the fit has two sizes: Regular, else Compact for the whole card; the title never steps down alone', () => {
+test('the fit has two sizes: Regular, else Compact for the whole card; the words never step down off a sideways phone (the title may, alone)', () => {
   assert.match(js, /if \(small && fits\(\)\) \{ k = over = Math\.max\(COMPACT, floor\); el\.style\.setProperty\('--pz-fit', String\(k\)\); \}/);
   // (Regular only off a phone on its side, 17 Nov 2026: the data card's blocks, its fold and its own fit give way, never the words: tests/wide-words-regular.test.js.)
-  assert.match(js, /const step = \(\) => \(sw \? put\(WIDE\.title, WIDE\.words\) : put\(1, 1\)\);/);
-  assert.match(js, /const title = \(\) => put\(1, 1\) \|\| \(sw && put\(WIDE\.title, WIDE\.words\)\);/);
+  // (The title alone may step down before the data card is squeezed (WIDE.title, WIDE.tight), the words never: --pz-bk stays 1. 17 Nov 2026, the TIPS deck's data card.)
+  assert.match(js, /const step = \(\) => \(sw \? put\(WIDE\.title, WIDE\.words\) : steps\(\)\);/);
+  assert.match(js, /const title = \(\) => \(sw \? put\(1, 1\) \|\| put\(WIDE\.title, WIDE\.words\) : steps\(\)\);/);
   assert.match(js, /below = step\(\); \}/);
   assert.doesNotMatch(js, /--pz-ptk|\bTK\b/);
   // (A phone's words keep Regular, 17 Nov 2026: the figure's share gives way (figFloorOf), then the data card closes, tests/phone-words-plan.test.js.)

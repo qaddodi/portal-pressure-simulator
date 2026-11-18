@@ -13,7 +13,10 @@ const wide = src.slice(a, b);
 test('off a phone on its side every step of the stacked layout puts the words at Regular', () => {
   assert.ok(a > 0 && b > a);
   assert.match(wide, /const sw = H <= SIDEWAYS_MAX_H \* k;/);
-  assert.match(wide, /const step = \(\) => \(sw \? put\(WIDE\.title, WIDE\.words\) : put\(1, 1\)\);/);
+  // (17 Nov 2026, later: the title may step down before the data card is squeezed, to WIDE.title then WIDE.tight, the words (--pz-bk) never: Mohammad, the TIPS deck's data card clipped.)
+  assert.match(wide, /const steps = \(\) => put\(1, 1\) \|\| put\(WIDE\.title, 1\) \|\| put\(WIDE\.tight, 1\);/);
+  assert.match(wide, /const step = \(\) => \(sw \? put\(WIDE\.title, WIDE\.words\) : steps\(\)\);/);
+  assert.match(wide, /const title = \(\) => \(sw \? put\(1, 1\) \|\| put\(WIDE\.title, WIDE\.words\) : steps\(\)\);/);
   // Every call that sets Compact is behind the sideways test: the title/ladder/squeeze steps go through step() or title() and the final fallback too.
   const calls = [...wide.matchAll(/put\(WIDE\.title, WIDE\.words\)/g)].map((m) => wide.slice(Math.max(0, m.index - 60), m.index));
   for (const c of calls) assert.match(c, /sw \? |sw && |sidewaysWords/, `a Compact step outside the sideways test: …${c}`);
