@@ -51,10 +51,10 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       if (!card || reduceMotionMQ.matches || closing) { if (closing) e.preventDefault(); return; }
       e.preventDefault();
       const h0 = readMetric(card, 'offsetHeight');
-      if (!d.open) { d.open = true; glides = glideCard(card, h0, readMetric(card, 'offsetHeight'), { prior: glides, cut: [d, d.closest('.tc-body')], free: [d.closest('.tc-body')] }); return; }
+      if (!d.open) { d.open = true; glides = glideCard(card, h0, readMetric(card, 'offsetHeight'), { prior: glides, cut: [d, d.closest('.tc-body')], free: [d.closest('.tc-body')] }); card.dispatchEvent(new Event('sheet-refit')); return; }   // (a phone's sheet then takes the height its words now ask for: dock-sheet.js)
       closing = true;
       const a = d.lastElementChild.animate([{ opacity: 1 }, { opacity: 0 }], { duration: D_SMALL * 0.6, easing: EASE_ARRIVE, fill: 'forwards' });
-      const fold = () => { closing = false; const was = readMetric(card, 'offsetHeight'); d.open = false; a.cancel(); glides = glideCard(card, was, readMetric(card, 'offsetHeight'), { prior: glides }); };
+      const fold = () => { closing = false; const was = readMetric(card, 'offsetHeight'); d.open = false; a.cancel(); glides = glideCard(card, was, readMetric(card, 'offsetHeight'), { prior: glides }); card.dispatchEvent(new Event('sheet-refit')); };
       a.finished.then(fold, fold);
     });
     return d;

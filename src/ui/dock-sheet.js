@@ -279,6 +279,9 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
   // A new tab refits the sheet to its content (the height eases).
   if (fit) el.addEventListener('click', (e) => { if (size === half() && e.target.closest('[role="tab"]')) restPass(refitTab); });   // (measured between frames, rest-pass.js)
   const refitTab = () => apply(true, drawnHeight());
+  // A section that opens or closes in the sheet (Treat's Changes) refits it the same way: 18 Nov 2026, the tester at 390 px, Procedures with four changes: Changes opened in a sheet 530 px tall with 124 px of room left
+  // above it, and its rows scrolled inside it. The refit is measured between frames, once the section has its new height.
+  if (fit) el.addEventListener('sheet-refit', () => { if (size === half()) restPass(refitTab); });
   apply();
   // A turn of the device or a new window size changes the stops and the room (px over the thumb dock): a sheet takes its size
   // again once the size has held for a moment (a sheet in the hand is left to its release).

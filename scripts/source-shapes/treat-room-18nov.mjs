@@ -5,4 +5,6 @@ export default [
   { file: 'src/ui/main.js', need: [/'--vdock-edge': px\(vdH \? vdTop - nbvH : 0\)/, `${W} the dock's own top edge is published`] },
   { file: 'styles/app-07-floating.css', need: [/max-height: calc\(100% - var\(--top-safe\) - 4px - var\(--cmp-occ, 0px\) - var\(--vdock-edge, var\(--vdock-h\)\) - var\(--gap\)\);/, `${W} the card's cap is that edge`] },
   { file: 'styles/app-07-floating.css', need: [/@media \(max-width: 1100px\) \{ \.treat-card \{ max-height: calc\(100% - var\(--top-safe\) - var\(--cmp-occ, 0px\) - var\(--vdock-h\) - 2 \* var\(--gap\) - 12px\); \} \}/, `${W} a narrow window keeps the view switch's reserve`] },
+  { file: 'src/ui/dock-sheet.js', need: [/if \(fit\) el\.addEventListener\('sheet-refit', \(\) => \{ if \(size === half\(\)\) restPass\(refitTab\); \}\);/, `${W} a section that opens or closes in a phone sheet refits it (Treat's Changes: the sheet stood at 530 px with 124 px of room above it)`] },
+  { file: 'src/ui/chart.js', need: [/card\.dispatchEvent\(new Event\('sheet-refit'\)\); return; \}/, /glides = glideCard\(card, was, readMetric\(card, 'offsetHeight'\), \{ prior: glides \}\); card\.dispatchEvent\(new Event\('sheet-refit'\)\); \};/, `${W} the section tells its sheet`] },
 ];
