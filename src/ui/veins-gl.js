@@ -2931,8 +2931,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     return wjV;
   };
   const patchesWanted = () => !webJoins();
+  // (In two parts a caller may run in separate slices (prepareSetStep): the rows' points, then the joins' list and the bundle's own marks. B.ptsFor: the binning the points are of.)
+  const deriveBundlePts = (B, ent, cells, n) => { pointsFromEntries(ent, cells, n, nTubes, B.pts); B.ptsFor = ent; };
   const deriveBundle = (B, ent, cells, n, morph) => {
-    pointsFromEntries(ent, cells, n, nTubes, B.pts);
+    if (B.ptsFor !== ent) deriveBundlePts(B, ent, cells, n);
+    B.ptsFor = null;
     joinEntryList(cells, n, B.jl);
     B.ent = ent; B.morph = morph; B.dirty = false; B.gen++; B.patchOk = false; B.s2 = null;
     if (!morph) {
@@ -2968,10 +2971,13 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     S.prepKey = prepKey();
     if (!S.prepKey) return false;
     const B = (S.derived ||= newBundle());
-    if (step === 0) { if (B.ent !== S.entCPU) deriveBundle(B, S.entCPU, S.cellsCPU, S.nCells, S.morph); return true; }
-    if (step === 1) { if (patchesWanted() && !B.patchOk) deriveJoinPatches(B); return true; }
-    if (webJoins()) stage2Prepare(B, tubeNow, nTubes, S.morph.joinBase);
-    return false;
+    // (Five steps, none longer than the one thing it makes: the Compare stop's 'prepare' ran as one 405 ms slice on the phone, 18 Nov 2026. A step cut short is made again whole.)
+    if (step === 0) { if (B.ent !== S.entCPU && B.ptsFor !== S.entCPU) deriveBundlePts(B, S.entCPU, S.cellsCPU, S.nCells); return true; }
+    if (step === 1) { if (B.ent !== S.entCPU) deriveBundle(B, S.entCPU, S.cellsCPU, S.nCells, S.morph); return true; }
+    if (step === 2) { if (patchesWanted() && !B.patchOk) deriveJoinPatches(B); return true; }
+    if (!webJoins()) return false;
+    stage2Prepare(B, tubeNow, nTubes, S.morph.joinBase, step === 3 ? 1 : 2);
+    return step === 3;
   }
   function prepareSet(S) { for (let k = 0; prepareSetStep(S, k); k++); }
   // The sets made under another mode than the one now are made again, one a free moment, never while a set is in use.

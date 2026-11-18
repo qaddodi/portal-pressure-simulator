@@ -98,3 +98,27 @@ test('between the views a frame draws only the webs of the joins it has (12 Nov 
   D.frame({}, h.E.tubeNow, h.E.nTubes, -1, null, joins);
   assert.equal(D.wb.n, all, 'the figure\'s own binning: the joins record is not read');
 });
+
+test('stage2Prepare in two parts (the webs, then the rows) ends as the whole does, and the first part is kept for the binning it was made for', () => {
+  const h = makeHarness();
+  const whole = bundleOf(h), parts = bundleOf(h);
+  const w = stage2Prepare(whole, h.E.tubeNow, h.E.nTubes, -1);
+  const p1 = stage2Prepare(parts, h.E.tubeNow, h.E.nTubes, -1, 1);
+  assert.equal(p1.gen, -1, 'after the first part the record is not yet one a frame may use');
+  assert.ok(!p1.R.rows, 'no rows yet');
+  const mid = p1.entries;
+  const p2 = stage2Prepare(parts, h.E.tubeNow, h.E.nTubes, -1, 2);
+  assert.equal(p2.entries, mid, 'the second part keeps what the first made');
+  assert.equal(p2.gen, 1);
+  assert.equal(p2.n, w.n);
+  assert.deepEqual(Array.from(p2.R.rows), Array.from(w.R.rows));
+  assert.deepEqual(Array.from(p2.W.data.subarray(0, p2.W.count * 12)), Array.from(w.W.data.subarray(0, w.W.count * 12)));
+  // A new binning between the parts: the first part is made again.
+  const again = bundleOf(h);
+  stage2Prepare(again, h.E.tubeNow, h.E.nTubes, -1, 1);
+  const before = again.s2.entries;
+  again.gen++;
+  stage2Prepare(again, h.E.tubeNow, h.E.nTubes, -1, 2);
+  assert.notEqual(again.s2.entries, before, 'made again for the new binning');
+  assert.equal(again.s2.gen, 2);
+});
