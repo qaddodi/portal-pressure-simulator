@@ -429,6 +429,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   const RISE_READY_MS = 2500;   // (the longest the rise waits for the organs' picture: past it, the live drawing shows, as before)   // motion-scale: not a move (a longest wait)
   // (cut: the owning transition was replaced or stopped. Checked after every wait and before every write, so a stale exit stops
   // where it is and touches neither the camera nor the store; the newer transition owns the hold from then on.)
+  // (next.box: a function, asked for when the rise begins; next.vt: the view itself, measured then: a catheter slide's first shot, cathRise.)
+  const riseOn = (next) => (next.vt ? stage.riseToVT(next.vt) : stage.riseTo(next.box, next.kMax, next.clear, next.subject));
   async function toAnatomy(next, cut = () => false) {
     if (cut()) return;
     const st = store.get();
@@ -440,7 +442,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       stage.prepRise?.();
       stage.lobuleHold?.(true);
       if (stage.riseReady && !booting) { await until(() => cut() || stage.riseReady(), RISE_READY_MS); if (cut()) return; }
-      if (next && !reduce.matches && !booting) stage.riseTo(next.box, next.kMax, next.clear, next.subject);
+      if (next && !reduce.matches && !booting) riseOn(next);
       stage.exitSinusoid();
       await waitCut(60, cut);
       await until(() => cut() || (!store.get().lobule && !store.get().sinusoid && stage.lobuleSettled()), 9000);
@@ -458,7 +460,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // straight on. Eased out as well, the zoom came to rest at the whole lobule and set off again: it stopped midway (Mohammad, 20 Oct,
     // Circulation 9 to 10).)
     if (stage.lobuleOpen()) { const ms = reduce.matches || booting ? 0 : RISE_FIT_MS; if (stage.lobuleFocus('fit', { ms, ease: 'in' })) { await waitCut(ms + 150, () => cut() || !stage.lobuleGlide?.()); if (cut()) return; } }
-    if (next && !reduce.matches && !booting) stage.riseTo(next.box, next.kMax, next.clear, next.subject);   // (box: a function, asked for when the rise begins)
+    if (next && !reduce.matches && !booting) riseOn(next);
     setViewKey('anatomy');
     await until(() => cut() || stage.lobuleSettled(), 6000); if (!cut()) await waitCut(80, cut);
   }
@@ -595,7 +597,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // each live reading as it gives the tiles theirs. A run played through is kept for the slide (evKept), so coming back to it played through
   // shows the graph whole.
   let evg = null;
-  const { LIVE_EASE, LIVE_RUN, LIVE_SET, abPick, abSlow, bedside, beside, besideHook, cathOut, cathTo, clotMarks, evDrop, evKept, lapseRow, lapseText, liveKeys, markFocus, merge, onHidden, paintKey, procBack, procEl, procSteps, skipLapse, stentedKept, stentedOf, stopLapse: stopLapse$, strainEl, strainStop, whatIfEl } = createLapse({ CC, NEVER, cath, cathFrame, cathStop, cathTrack, clearPill, dataTo, figureOut, host, liveSet, morphTo, nextFrame, paintChrome, procAtOf, procHeld, procKind, procRingOf, procStop, procTarget, procThen, pushEnd, stage, stateReady, toAnatomy, viewSettled, waitCut, xKey }, live);
+  const { LIVE_EASE, LIVE_RUN, LIVE_SET, abPick, abSlow, bedside, beside, besideHook, cathOut, cathRise, cathTo, clotMarks, evDrop, evKept, lapseRow, lapseText, liveKeys, markFocus, merge, onHidden, paintKey, procBack, procEl, procSteps, skipLapse, stentedKept, stentedOf, stopLapse: stopLapse$, strainEl, strainStop, whatIfEl } = createLapse({ CC, NEVER, cath, cathFrame, cathStop, cathTrack, clearPill, dataTo, figureOut, host, liveSet, morphTo, nextFrame, paintChrome, procAtOf, procHeld, procKind, procRingOf, procStop, procTarget, procThen, pushEnd, stage, stateReady, toAnatomy, viewSettled, waitCut, xKey }, live);
   function stopLapse(...a) { return stopLapse$(...a); }   // <stage-split stub>
 
   // ev (evRun): a procedure's change, played on the model's own course (ease 0: no settling, so the pressures fall as the model's physics has
@@ -1130,7 +1132,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const keepAt = s.cathKeep && !ct ? to : -1, cathGone = cathAside ? cathOut(false, cut, keepAt) : null;
     if (!cathAside && cath.on && (!ct || si !== shownState)) { await cathOut(si !== shownState && shownState >= 0 && (booting || reduce.matches || freshPatient(s, lap, pre)), cut, keepAt); if (cut()) return; }
     tx?.phase('to-anatomy');
-    if (outNow) { await toAnatomy(inAnatomy ? riseFor(cam, fv) : null, cut); if (cut()) return; slideLayers(s); if (cut()) return; }
+    if (outNow) { await toAnatomy(inAnatomy ? riseFor(cam, fv) : ct ? cathRise(ct, cathInstant(to, lastAt), lastAt) : null, cut); if (cut()) return; slideLayers(s); if (cut()) return; }
     // (A patient still being computed off screen: after a short wait the arc shows.)
     const lateT = states[si] && (!lap || states[stateOf[to]]) ? 0 : stimer(() => { if (!cut()) loading(true); }, 260);
     // (A time-lapse with its own params plays from them set and settled: the chain's start state, not the slide before's.)

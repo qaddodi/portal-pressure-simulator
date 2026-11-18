@@ -1532,7 +1532,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // zooms straight to that framing, so there is no stop at the fit on the way. The box is asked for when the rise
   // begins (the plate is brought up to date first, so it is measured as it will be). It expires if the lobule was not open to rise from.
   let riseBox = null, riseExp = 0, riseUsed = false;
-  const { animateVT: animateVT$, frameBox, railEnd, riseTo, riseVT: riseVT$, vtFor, zoomToBox } = createGlide({ CIRC_C, applyVT, arcRoom, screenW, camSettle, camSettleIdle, circVB, dpr, driftEnd, glideXfStart, glideXfStep, logMove, nextFrame, refreshCTM, rideStep, safeInsets, sameView, sitesPaint, svg, vbCenter, vtTrack, viewXfRetargetTo }, live);
+  const { animateVT: animateVT$, frameBox, railEnd, riseTo, riseToVT, riseVT: riseVT$, vtFor, zoomToBox } = createGlide({ CIRC_C, applyVT, arcRoom, screenW, camSettle, camSettleIdle, circVB, dpr, driftEnd, glideXfStart, glideXfStep, logMove, nextFrame, refreshCTM, rideStep, safeInsets, sameView, sitesPaint, svg, vbCenter, vtTrack, viewXfRetargetTo }, live);
   function animateVT(...a) { return animateVT$(...a); }   // <stage-split stub>
   function riseVT(...a) { return riseVT$(...a); }   // <stage-split stub>
   function zoomLiver() {
@@ -3080,6 +3080,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** Frame the catheter's route ('route'), its tip close up ('tip'), or go back to the view before ('home'); a treatment's
      *  shots are 'way' (its whole route) and 'tip' (the stretch it works on). arc: a long move pulls back and comes in. */
     cathFocus,
+    /** Where cathFocus(mode, ms, opt) would frame the view, without moving it (null: no route to frame yet). The way out of the lobule lands on it (riseToVT). */
+    cathShot(mode, opt) { const had = !!cath.saved; let ok = false; const v = aimView(() => { ok = cathFocus(mode, 0, opt); }); if (!had) cath.saved = null; return ok ? v : null; },
     /** A treatment route's named stretches as u (0..1 of the way in, as setCatheter takes it): { tract: [u0, u1], … }, or null. */
     /** A place on one treatment route as the same place on another (u): a reading that goes on from where a procedure left the catheter. */
     cathCarry,
@@ -3256,7 +3258,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     },
     cameraZoom: () => ((diveT <= 0 || diveT >= 1) && !lz?.sinBusy() ? null : (refreshCTM(), Math.log(CTM.sc) + diveZ + lz.sinZoom() + zShift)),
     /** The next way out of the lobule lands on this box of the plate (or the fit, for null or 'fit'): one zoom, no stop between. */
-    riseTo, holdHome, prepRise, riseReady, warmLobule: () => warmLobule$(),
+    riseTo, riseToVT, holdHome, prepRise, riseReady, warmLobule: () => warmLobule$(),
     /** The camera is about to glide only to refit the figure to cards that changed (the same slide): a probe showing rides that glide out, never hides. */
     carryProbe() { dpr.refitUntil = performance.now() + 300; },
     /** The presenter's card followed frame by frame: aimView(fn) (where fn's framing would go), viewNow(), follow(v0, v1), followAt(u), followEnd(), following(). */

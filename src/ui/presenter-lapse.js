@@ -1,7 +1,7 @@
 // The time-lapse and the procedure's graph
 // (moved out of presenter.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { clotWords } from './callout-math.js';
-import { CATH_END, cathLegs } from './cath-arrival.js';
+import { CATH_END, cathFirstShot } from './cath-arrival.js';
 import { attrSoon, runSoon } from './class-soon.js';
 import { nb } from './glue.js';
 import { liveText } from './live-text.js';
@@ -74,6 +74,13 @@ export function createLapse(st, live) {
   }
   // (What the tools hand a tracing card of a slide that has the catheter beside it: the card's balloon moves the figure's, and a card stood up starts the catheter.)
   const besideHook = { move: (v) => { if (cath.beside) cathBeside(v); }, start: (v) => { if (cath.beside || !cath.on) cathBeside(v); } };
+  // Where the way out of the lobule lands for a catheter slide: the first shot cathTo opens with (cathFirstShot), asked for when the rise begins, so the zoom out of the
+  // lobule is one move to the catheter and not to the whole figure first (Mohammad, 18 Nov 2026, HVPG slide 5 to 6). Null: the fit, as before (no route to frame yet).
+  const cathRise = (mode, instant = false, from = -1) => {
+    const resume = !instant && !!parked && parked.at === from && (mode === 'wedge' || mode === 'result');
+    const shot = cathFirstShot(mode, { resume, instant, u: resume ? 1 : cath.v.u });
+    return { vt: () => stage.cathShot?.(shot.leg, { both: shot.both, near: shot.near, ostium: mode === 'blocked' }) };
+  };
   async function cathTo(mode, fp, cut, instant = false, from = -1) {
     // (The catheter this slide's predecessor parked (cathOut keepAt): taken once, only by the slide that follows it, and only for a step that has the balloon up.)
     const back = parked; parked = null;
@@ -110,7 +117,7 @@ export function createLapse(st, live) {
     const v = cath.v, ms = (m) => (reduce.matches ? 0 : m);
     if (instant) {
       if (!cath.on || v.opacity < 1) cathTrack('opacity', 1, 650);
-      const leg = cathLegs(mode, 1, true)[0], at = ms(leg === 'route' ? 1300 : 1500);
+      const leg = cathFirstShot(mode, { instant: true }).leg, at = ms(leg === 'route' ? 1300 : 1500);
       stage.cathFocus(leg, at, leg === 'tip' ? { both: true } : undefined); cath.cam = leg;
       await waitCut(at, cut); return;
     }
@@ -342,5 +349,5 @@ export function createLapse(st, live) {
     liveText('span', 'pzl-t', [lapseText(s, 0, s.days, false), lapseText(s, s.days, s.days, false), lapseText(s, s.days, s.days, true)], lapseText(s, 0, s.days, false)).el);
   const evKept = new WeakMap();
   function evDrop() { live.evg = null; }   // (the graph is the data card's tool's: it lives with the card)
-  return { LIVE_EASE, LIVE_RUN, LIVE_SET, abPick, abSlow, bedside, beside, besideHook, cathOut, cathTo, clotMarks, evDrop, evKept, lapseRow, lapseText, liveKeys, markFocus, merge, onHidden, paintKey, procBack, procEl, procSteps, skipLapse, stentedKept, stentedOf, stopLapse, strainEl, strainStop, whatIfEl };
+  return { LIVE_EASE, LIVE_RUN, LIVE_SET, abPick, abSlow, bedside, beside, besideHook, cathOut, cathRise, cathTo, clotMarks, evDrop, evKept, lapseRow, lapseText, liveKeys, markFocus, merge, onHidden, paintKey, procBack, procEl, procSteps, skipLapse, stentedKept, stentedOf, stopLapse, strainEl, strainStop, whatIfEl };
 }
