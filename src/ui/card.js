@@ -92,7 +92,7 @@ const WORDS_OUT = [{ opacity: 1, translate: '0 0' }, { opacity: 0, translate: '0
 const WORDS_IN = [{ opacity: 0, translate: '0 6px' }, { opacity: 1, translate: '0 0' }];
 // A pick while the card is open crosses the old words over the new ones on one clock, one for one: what the old words give up the new ones take, so the two opacities always make 1 (linear, together,
 // D_FLIP). Out on its own curve and a delayed start, the old words were half gone before the new ones began and the words dipped to half for 100 ms on every pick (the tester, 17 Nov 2026).
-const SWAP_OUT_OPT = { duration: D_FLIP, easing: 'linear', fill: 'forwards' }, SWAP_IN_OPT = { duration: D_FLIP, easing: 'linear', fill: 'backwards' };
+const SWAP_OUT_OPT = { duration: D_FLIP, easing: 'linear', fill: 'forwards' }, SWAP_IN_OPT = { duration: D_FLIP, easing: 'linear', fill: 'backwards' };   // motion-scale: own pace (a crossfade of the old words and the new ones: linear, so the two opacities add up to one at every step, never a dip or a flash)
 const FADE_OUT = [{ opacity: 1 }, { opacity: 0 }], FADE_IN = [{ opacity: 0 }, { opacity: 1 }];
 // The card's face and its details trade places in the same box (17 Nov 2026): the face leaves 20 px toward the left as the details come in from 20 px at the right,
 // and Back is the same two moves reversed. Opacity and translate only; the card's height never changes. With Reduce Motion they only fade.
