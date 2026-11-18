@@ -14,6 +14,7 @@ import { D_SMALL, D_SURFACE } from './ease.js';
 import { signalMove } from './num-move.js';
 import { readBox } from './layout-snap.js';
 import { STALL_MAX } from './glide-clock.js';
+import { cardMoveFor } from './card-motion.js';
 
 /** How far (px) the new card comes in from, and the stagger (ms) of a second card behind the first. */
 export const THROW_IN = 56, THROW_STAGGER = 40;
@@ -162,6 +163,7 @@ let endMove = null;
 const settle = () => { if (!runs.size) { if (guardT) clearTimeout(guardT); guardT = 0; guardAt = Infinity; if (endMove) { endMove(); endMove = null; } } };
 function start(el, kind, to, ms, delay, done) {
   endMove ||= beginMotion('card throw', ms + delay + 2000);
+  cardMoveFor(ms + delay + 120);   // (the work made for the rest after, the other view's labels solved ahead, waits for the landing: card-motion.js)
   const from = here(el);
   if (kind === 'out' && to.x !== from.x && el.isConnected) {   // (never cut at the screen's edge: throwReach)
     let box = null;
