@@ -112,7 +112,9 @@ export function createMorph(st, live) {
   // hold the contacts just past the limit of an end meeting a course (MORPH_NEAR) and a pair's every contact: a frame's courses are within the
   // slack of the stretch's, so a join at the limit is there in some frames and in no moment of the stretch, and which contact of a pair comes
   // first depends on the widths. Those a frame does not have are written as reaching nothing. (Made ahead, between frames, never in one.)
-  function joinsAhead(items, t) {
+  // (In two parts a caller may run in separate slices (18 Nov 2026, the Compare stop's longest unit: 'joins own' at 94.3 ms): the joins within the limit, then the contacts the
+  // pass meant and the run-on state they leave, which the vessels' smoothing reads at once, so these two stay together. Each scales the radii to the moment's widths on its own.)
+  function atWidths(items, t, fn) {
     // alloc-rare: made ahead of the change, in a task between frames (the stretches' build), never in a frame
     const gs = live.glStraight, gd = live.glRadDirty, gst = live.glStore, nLent = lendRadii(items), saved = [];
     try {
@@ -121,15 +123,19 @@ export function createMorph(st, live) {
         saved.push(o, o.glR, o.glMaxR);
         o.glR = o.glR.map((r) => r * k); o.glMaxR *= k;
       }
-      try {
-        // (The joins within the limit are made last, so the run-on state left is theirs.)
-        const wide = veinJoins(items, newJoinStore(), MORPH_NEAR), st = newJoinStore(), J = veinJoins(items, st).slice(), have = J.slice();
-        for (const j of wide) if (!have.some((h) => h.key === j.key && (h.x - j.x) ** 2 + (h.y - j.y) ** 2 < 1600)) J.push(j);
-        return { J, smooth: live.smoothRunOn(items, st), reach: new Map(items.map((it) => [it.row, reachOf(it)])) };
-      } finally {
+      try { return fn(); } finally {
         for (let i = 0; i < saved.length; i += 3) { saved[i].glR = saved[i + 1]; saved[i].glMaxR = saved[i + 2]; }
       }
     } finally { live.glStraight = gs; live.glRadDirty = gd; live.glStore = gst; takeBackRadii(nLent); }
+  }
+  const joinsWide = (items, t) => atWidths(items, t, () => veinJoins(items, newJoinStore(), MORPH_NEAR));
+  function joinsMain(items, t, wide) {
+    return atWidths(items, t, () => {
+      // (The joins within the limit are made last, so the run-on state left is theirs.)
+      const st = newJoinStore(), J = veinJoins(items, st).slice(), have = J.slice();
+      for (const j of wide) if (!have.some((h) => h.key === j.key && (h.x - j.x) ** 2 + (h.y - j.y) ** 2 < 1600)) J.push(j);
+      return { J, smooth: live.smoothRunOn(items, st), reach: new Map(items.map((it) => [it.row, reachOf(it)])) };
+    });
   }
   // A join by what it joins: its members, the trunk they end on, a fork.
   const joinKey = (j) => j.key;   // (a join the joins pass made carries its key)
@@ -404,13 +410,16 @@ export function createMorph(st, live) {
     if (!w) { pc.work = { items: itemsAt(t, pc.anat), own: null, o: null, all: null, q: 1, J2: [] }; return 'items'; }
     if (!w.own) { w.own = itemsAt(t, pc.anat, false); return 'items own'; }
     // (The joins of the side's own vessels too: a vessel binned for the other side changes the joins it takes part in.)
-    if (!w.o) { w.o = joinsAhead(w.own, t); return 'joins own'; }
-    if (!w.all) { w.all = joinsAhead(w.items, t); kind = 'joins all'; }
+    if (!w.ow) { w.ow = joinsWide(w.own, t); return 'joins own (reach)'; }
+    if (!w.o) { w.o = joinsMain(w.own, t, w.ow); return 'joins own'; }
+    if (!w.aw) { w.aw = joinsWide(w.items, t); return 'joins all (reach)'; }
+    if (!w.all) { w.all = joinsMain(w.items, t, w.aw); kind = 'joins all'; }
     // (The joins at moments between too: one can be there for less than a step, as two ends pass each other.)
     // (A moment between is two units, its vessels' courses and then their joins: together one ran 72.8 ms, 18 Nov 2026.)
     else if (snaps.length && w.q < MORPH_JSUB) {
       if (!w.mid) { const u = lerp(snaps[snaps.length - 1].t, t, w.q / MORPH_JSUB); w.mid = { u, items: itemsAt(u, pc.anat, false) }; return 'items between'; }
-      w.J2.push(...joinsAhead(w.mid.items, w.mid.u).J); w.mid = null; w.q++; kind = 'joins between';
+      if (!w.mid.w) { w.mid.w = joinsWide(w.mid.items, w.mid.u); return 'joins between (reach)'; }
+      w.J2.push(...joinsMain(w.mid.items, w.mid.u, w.mid.w).J); w.mid = null; w.q++; kind = 'joins between';
     }
     if (!(w.all && (!snaps.length || w.q >= MORPH_JSUB))) return kind;
     pc.work = null;

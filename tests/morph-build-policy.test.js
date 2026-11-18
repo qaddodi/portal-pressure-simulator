@@ -179,6 +179,9 @@ test('a slice is cut inside 8 ms from units that are small; a unit that cannot b
   const last = m.mt.stats.last, units = Object.values(m.mt.stats.units).reduce((n, u) => n + u.n, 0);
   assert.ok(last.slices < units, `${units} units in ${last.slices} slices: several share one`);
   assert.equal(m.mt.stats.over, 6, 'only the six uploads (20 ms each) are over');
+  // (18 Nov 2026: a moment's joins in two units each, the Compare stop's 'joins own' ran 94.3 ms in one: the reach pass, then the joins and the run-on state they leave. Each pass once.)
+  const U = m.mt.stats.units;
+  for (const k of ['joins own', 'joins all', 'joins between']) assert.equal(U[`${k} (reach)`]?.n, U[k]?.n, `${k}: one reach pass each, not made again`);
   assert.ok(last.longestMs >= 20 && last.longestMs < 30);
   assert.ok(log.units > 0);
   for (const [k, u] of Object.entries(m.mt.stats.units)) if (k !== 'upload') assert.ok(u.max < 8, `${k} unit ${u.max} ms`);
