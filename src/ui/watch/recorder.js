@@ -8,12 +8,13 @@
 // Pure of the page: the clock, the frame hook, the rest pass and the sources are handed in, so tests/watch-recorder.test.js runs it in Node.
 //   sources: { cam(): [k, x, y] | null, labels(): [[key, x, y, w, h, alpha, ax?, ay?]] | null, cards(): [[name, x, y, w, h, alpha]] | null,
 //              traces(): slide camera traces (closed or open) | null, vb(): view units | null }
+// judgeWith(history) -> findings: the registry's series rules when start.js hands it in (every series rule anyone registered), else the motion rules.
 import { exportHistory } from './history.js';
 import { judgeMotion, MOTION_RULES } from './motion-rules.js';
 
 export const KEEP_MS = 20000, MIN_GAP_MS = 16, JUDGE_MS = 1000, COOLDOWN_MS = 4000, MAX_FINDINGS = 60;
 
-export function createWatch({ now = () => performance.now(), onFrames, rest = (fn) => fn(), sources = {}, env = () => ({}), rules = MOTION_RULES, onFinding = null, keepMs = KEEP_MS, judgeMs = JUDGE_MS } = {}) {
+export function createWatch({ now = () => performance.now(), onFrames, rest = (fn) => fn(), sources = {}, env = () => ({}), rules = MOTION_RULES, judgeWith = null, onFinding = null, keepMs = KEEP_MS, judgeMs = JUDGE_MS } = {}) {
   const t0 = now(), startedAt = new Date().toISOString();
   let samples = [], events = [], traces = [], vb = null, last = -1e9, lastJudge = t0, stop = null, on = false;
   const found = [], said = new Map();   // (findings so far, and when each rule+what was last reported)
@@ -49,7 +50,7 @@ export function createWatch({ now = () => performance.now(), onFrames, rest = (f
   function judge() {
     takeTraces();
     const fresh = [];
-    for (const f of judgeMotion(raw(), rules)) {
+    for (const f of judgeWith ? judgeWith(raw()) : judgeMotion(raw(), rules)) {
       const key = `${f.rule}|${f.what}`, prev = said.get(key);
       if (prev != null && now() - prev < COOLDOWN_MS) continue;
       said.set(key, now()); fresh.push(f); found.push(f);

@@ -17,7 +17,7 @@ test('a rule needs a dashed id, an owner file, a why and a check; a taken id is 
   assert.equal(registerRule(good), false);
   assert.ok(clashes().includes('zt-label-under-card'));
   assert.ok(ruleIds().includes('zt-label-under-card'));
-  assert.deepEqual(rulesOwning('src/ui/label-gl.js').map((r) => r.id), ['zt-label-under-card']);
+  assert.deepEqual(rulesOwning('src/ui/label-gl.js').map((r) => r.id).filter((id) => id.startsWith('zt-')), ['zt-label-under-card']);
   assert.ok(RULES.some((r) => r.id === 'zt-label-under-card'), 'RULES is live');
 });
 

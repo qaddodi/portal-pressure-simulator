@@ -8,6 +8,9 @@ import { restPass } from '../rest-pass.js';
 import { createWatch } from './recorder.js';
 import { pageSources, watchEvents } from './sources.js';
 import { createDot } from './dot.js';
+import { runRules } from '../selfcheck/rules.js';
+import { framesOf } from '../selfcheck/rules-motion.js';
+import '../selfcheck/plugins.js';
 
 /** Waits for the app's window.pps (main.js makes it after the top bar is wired), up to `limit` ms, then starts. */
 export async function startWatch(get = () => window.pps, limit = 30000) {
@@ -23,6 +26,7 @@ export function begin(pps) {
   const w = createWatch({
     onFrames: onFrameEnd, rest: restPass, sources: src,
     env: () => ({ vw: innerWidth, vh: innerHeight }),
+    judgeWith: (h) => runRules(null, { history: framesOf(h), kinds: ['series'], env: h.env }),   // (every series rule in the registry, the motion rules among them)
     onFinding: () => dot && dot.add(),
   });
   dot = createDot({ watch: w });

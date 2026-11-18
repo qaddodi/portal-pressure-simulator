@@ -112,3 +112,28 @@ function fakeDoc() {
   const el = () => { const e = { children: [], style: {}, hidden: false, textContent: '', listeners: {}, setAttribute() {}, append(...c) { this.children.push(...c); }, remove() {}, addEventListener(n, f) { this.listeners[n] = f; } }; return e; };
   return { createElement: () => el() };
 }
+
+// ---- the registry (src/ui/selfcheck/rules.js): the motion rules are series rules there, and the recorder's findings are the same through it ----
+import { runRules, ruleIds, RULES } from '../src/ui/selfcheck/rules.js';
+import { framesOf } from '../src/ui/selfcheck/rules-motion.js';
+import '../src/ui/selfcheck/plugins.js';
+
+test('the motion rules are registered as series rules, with owner and why, and judge the frames the registry gives them', () => {
+  for (const id of ['flash', 'stuck-mid', 'label-slide', 'label-detached', 'label-dim-alpha', 'number-width-jump', 'camera-straight', 'camera-slide']) {
+    const r = RULES.find((x) => x.id === id);
+    assert.ok(r, id); assert.equal(r.kind, 'series'); assert.ok(r.owner && r.why);
+  }
+  assert.ok(ruleIds().includes('flash'));
+  const a = [1, 1, 1, 0, 0, 0, 1, 1];
+  const frames = a.map((v, i) => ({ t: i * 16, c: null, L: [['n:x', 1, 1, 1, 1, v]], K: null }));
+  const f = runRules(null, { history: framesOf({ samples: frames, events: [], traces: [] }), only: 'flash', kinds: ['series'] });
+  assert.equal(f.length, 1); assert.equal(f[0].rule, 'flash'); assert.match(f[0].owner, /label-gl/);
+  assert.deepEqual(runRules(null, { history: framesOf({ samples: frames.map((x) => ({ ...x, L: [['n:x', 1, 1, 1, 1, 1]] })), events: [] }), only: 'flash', kinds: ['series'] }), []);
+});
+
+test('the recorder judges through the registry when asked (every series rule anyone registered)', () => {
+  let a = 1; const seen = [];
+  const r = rig({ labels: () => [['n:a', 100, 100, 40, 12, a]] }, { judgeWith: (h) => runRules(null, { history: framesOf(h), kinds: ['series'], env: h.env }), onFinding: (f) => seen.push(f) });
+  r.frame(20); a = 0; r.frame(3); a = 1; r.frame(90);
+  assert.equal(seen.length, 1); assert.equal(seen[0].rule, 'flash');
+});
