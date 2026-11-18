@@ -3,6 +3,8 @@
 // of Treat's Changes (treat-page.js): the page slides in from the right over what it covers, which slides back a third as far and fades; a swipe right from anywhere on the page takes it
 // with the finger, one number (how far it stands from home, px) written each frame the page's glide runs and on each move of the finger, and a let-go carries the finger's speed on (a flick,
 // or a pull past SHEET_CLOSE_PX / SHEET_CLOSE_SHARE of the page's width, goes back; a short pull comes home) as the sheets' own do (ease.js releaseSpeed, isFlick, settleSlope).
+// It moves by `transform`, never `translate`: a sheet's own glides (sheet-move.js glideSheet: every child of the sheet rides its refit) and its entrance (app-10 sheet-rise: every child) write
+// `translate` on the page and on what it covers too, and one property written by two movers is a fight (18 Nov 2026, the tester at 390 px: Changes rose from 528 px below the sheet, not from the right).
 // A sideways drag only: a vertical one scrolls the page's list (touch-action: pan-y), a slider keeps its own.
 import { glideCall, glideStop } from './script-glide.js';
 import { easeArrive, carried, settleSlope, releaseSpeed, isFlick, D_SMALL, CARRY_MAX, SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE } from './ease.js';
@@ -16,16 +18,20 @@ const LINEAR = (u) => u;
  * onPop(): the back has begun (the caller makes what it covers interactive, the sheet refits); onGone(): the page is home away (the caller takes it out).
  * Returns { pop(v), at() }: pop goes back (v: the finger's speed along +x, px per ms; 0 for a tap), at() is how far the page stands from home (0 open .. width gone).
  */
-export function pushPage(page, away, width, { onPop, onGone } = {}) {
+export function pushPage(page, away, width, { onPop, onGone, plate = false } = {}) {
   const W = Math.max(1, width), still = reduceMotionMQ.matches;
   let x = W, popped = false, s = null;
+  // (A page of its own text over words that are still fading would show both: a backing, the sheet's solid paper, that is whole while the page covers them and fades with them, from the first frame.)
+  const back = plate && !still ? document.createElement('i') : null;
+  if (back) { back.className = 'pp-plate'; back.setAttribute('aria-hidden', 'true'); page.prepend(back); }
   const apply = (px) => {
     x = px;
     const open = 1 - px / W;   // 0 closed .. 1 open
     if (still) page.style.opacity = open.toFixed(3);
-    else page.style.translate = `${px.toFixed(2)}px 0px`;
+    else page.style.transform = `translateX(${px.toFixed(2)}px)`;
+    if (back) back.style.opacity = Math.min(1, 2.5 * (px / W)).toFixed(3);
     for (const a of away) {
-      if (!still) a.style.translate = `${(-PAGE_AWAY * W * open).toFixed(2)}px 0px`;
+      if (!still) a.style.transform = `translateX(${(-PAGE_AWAY * W * open).toFixed(2)}px)`;
       a.style.opacity = (1 - open).toFixed(3);
     }
   };
@@ -44,8 +50,8 @@ export function pushPage(page, away, width, { onPop, onGone } = {}) {
     s = null;
     onPop?.();
     run(W, v, () => {
-      page.style.translate = ''; page.style.opacity = '';
-      for (const a of away) { a.style.translate = ''; a.style.opacity = ''; }
+      page.style.transform = ''; page.style.opacity = '';
+      for (const a of away) { a.style.transform = ''; a.style.opacity = ''; }
       onGone?.();
     });
   }

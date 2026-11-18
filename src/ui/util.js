@@ -1106,7 +1106,7 @@ export function menuPush(back, title, kids) {
   el.append(page); el.classList.add('pushed');
   // (The slide, a swipe right that follows the finger and its let-go are page-push.js, in the cards' frames: the same mover as Treat's Changes page.)
   root.inert = true;
-  const push = pushPage(page, [root], el.offsetWidth, {
+  const push = pushPage(page, [root], readMetric(el, 'offsetWidth'), {
     onPop: () => { root.inert = false; el.classList.remove('pushed'); page.inert = true; backBtn.blur(); },
     onGone: () => page.remove(),
   });

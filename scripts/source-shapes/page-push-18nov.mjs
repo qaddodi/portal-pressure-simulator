@@ -5,5 +5,7 @@ export default [
   { file: 'src/ui/page-push.js', need: [/glideCall\(page, ms, LINEAR, \(u\) => apply\(from \+ dist \* \(c > 0 \? carried\(easeArrive\(u\), u, c\) : easeArrive\(u\)\)\), done\);/, `${W} the slide is a frame-clock glide (glideCall), the pages' own curve, carrying the finger's speed on a let-go`] },
   { file: 'src/ui/page-push.js', need: [/if \(flick \|\| s0\.dx > Math\.min\(SHEET_CLOSE_PX, W \* SHEET_CLOSE_SHARE\)\) pop\(v\);\s+else run\(0, v\);/, `${W} a let-go goes back on a flick or a long pull by the sheets' own rules, and a short one comes home`] },
   { file: 'src/ui/page-push.js', need: [/glideStop\(page\);[^\n]*\n\s+s\.on = true; s\.x = e\.clientX - x;/, `${W} a finger that catches a page mid-slide takes it from where it stands`] },
-  { file: 'src/ui/util.js', need: [/const push = pushPage\(page, \[root\], el\.offsetWidth, \{/, `${W} Settings' pages use the same mover`] },
+  { file: 'src/ui/util.js', need: [/const push = pushPage\(page, \[root\], readMetric\(el, 'offsetWidth'\), \{/, `${W} Settings' pages use the same mover`] },
+  { file: 'styles/app-10-thumb-dock.css', need: [/#app\.thumb\.panel-open \.panel\.has-plate > :not\(\.tc-page\), #app\.thumb \.treat-card\.has-plate > :not\(\.tc-page\)/, `${W} a page added to a sheet later does not play the sheet's entrance (sheet-rise from the sheet's foot: the tester saw Changes rise from 528 px below)`] },
+  { file: 'src/ui/page-push.js', need: [/page\.style\.transform = `translateX\(\$\{px\.toFixed\(2\)\}px\)`;/, `${W} the page slides by transform, a property no sheet glide or entrance writes (they write translate on every child)`] },
 ];

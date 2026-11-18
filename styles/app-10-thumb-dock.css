@@ -103,7 +103,7 @@
   /* A sheet moved by its content (has-plate, sheet-move.js) rises and sinks the same way, but by its content's translate alone under
      its still clip: no --sink is eased frame by frame on the main thread. The box holds (sheet-hold) so its leave still ends on it. */
   #app.thumb.panel-open .panel.has-plate, #app.thumb .treat-card.has-plate, #app.thumb .instrument-workspace.float-ui.entering.has-plate { animation: none; }
-  #app.thumb.panel-open .panel.has-plate > *, #app.thumb .treat-card.has-plate > *, #app.thumb .instrument-workspace.float-ui.entering.has-plate > * { animation: sheet-rise var(--d-small) var(--ease) backwards; }
+  #app.thumb.panel-open .panel.has-plate > :not(.tc-page), #app.thumb .treat-card.has-plate > :not(.tc-page), #app.thumb .instrument-workspace.float-ui.entering.has-plate > :not(.tc-page) { animation: sheet-rise var(--d-small) var(--ease) backwards; }
   #app.thumb :is(#panel, #treatCard, #historyCard, #dock).has-plate.card-leaving { --card-out: sheet-hold; animation-duration: var(--d-small) !important; }
   #app.thumb :is(#panel, #treatCard, #historyCard, #dock).has-plate.card-leaving > * { animation: sheet-sink var(--d-small) var(--ease-in) forwards; }
   /* (13 Nov 2026, menu recs C4) A switch (Treat to Tests, Layers to Settings, a vessel's card to Details) is one motion: the one coming in
