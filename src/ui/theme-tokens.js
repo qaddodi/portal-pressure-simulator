@@ -270,7 +270,7 @@ export const TOKENS = {
     // data card tiles and the FibroScan panel share one warm cream with a warm edge
     // Deep clay, softened (18 Nov 2026; Mohammad: "less red, the intestine like it was before, tone the rest down a bit"): the organs keep Soft's warm hues, richer than
     // before (OKLab L .645/.525/.385, chroma about 1.4x, hue turned toward clay and away from red) and the organ layer a little firmer (.72, kidney .88:
-    // styles/app-06-plate.css). The gut is quieter than Soft's old one (chroma x.74, --gut-a .62; Mohammad: the intestines still too bold). First version of Deep clay: 6405d100.
+    // styles/app-06-plate.css). The heart and right atrium are toned down (chroma x.68, hue +6; Mohammad). The gut is quieter than Soft's old one (chroma x.74, --gut-a .62; Mohammad: the intestines still too bold). First version of Deep clay: 6405d100.
     // (Before Deep clay:) the organs, re-derived from Linen's (C3, 8 Nov): each tone keeps Linen's hue and chroma and sits the same OKLab step (ΔE) from Oat that Linen's sits from Linen.
     // (The old pins were tuned for the near-white paper; the lit faces were ΔE 3 to 10 from Oat, Linen's are 6 to 21.) Edge strength: casing-a .66 (Linen .64); the knock-out is Oat itself.
     'knockout': 'rgba(221, 208, 185, .75)', 'casing-rgb': '51 37 26', 'casing-a': '.66', 'tube-shade': '.2',
@@ -283,8 +283,8 @@ export const TOKENS = {
     'og-kidney-1': '#b37996', 'og-kidney-2': '#964f75', 'og-kidney-3': '#642f4c',
     'og-gb-1': '#88a16a', 'og-gb-2': '#607b3a', 'og-gb-3': '#3c511c',
     'og-gut-1': '#d2bdb2', 'og-gut-2': '#bc9a89', 'og-gut-3': '#8a6856',
-    'og-heart-1': '#c37667', 'og-heart-2': '#a64b3a', 'og-heart-3': '#6f2b1f',
-    'og-ra-1': '#c87365', 'og-ra-2': '#a9473a', 'og-ra-3': '#72271e',
+    'og-heart-1': '#b78373', 'og-heart-2': '#985c49', 'og-heart-3': '#66392b',
+    'og-ra-1': '#ba8272', 'og-ra-2': '#9a5a49', 'og-ra-3': '#68372a',
     'organ-body': '#cec6b7', 'organ-body-line': '#b5a791',
     'organ-liver': '#774433', 'organ-spleen': '#634962', 'organ-gut': '#956a57', 'organ-stomach': '#8d6255', 'organ-heart': '#834046', 'organ-kidney': '#724963', 'organ-pancreas': '#8f7c4f', 'organ-gb': '#627054', 'organ-aorta': '#978580',
     'diaphragm': '#8E7566',

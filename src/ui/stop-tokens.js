@@ -5,7 +5,7 @@
 // tests/stop-tokens.test.js fails when the style rules these read change, until this is made again.
 
 /** The hash of the style rules and tokens the stops are computed from (scripts/stop-inputs.mjs). */
-export const STOP_HASH = "9349a1557cfb";
+export const STOP_HASH = "ae7f1e31ec3f";
 /** The looks that compute differently (each other look is one of these: STOP_LOOK). */
 export const STOP_COLS = ["light","soft","dark","navy"];
 /** Every look (Light, Soft, Dark, Navy, Black, and System as the device's light or dark) → its column. */
@@ -35,16 +35,16 @@ export const STOPS = {
   "|stop-color:var(--og-gb-2)||": ["rgb(152, 177, 109)",1,"rgb(96, 123, 58)",1,"rgb(76, 94, 27)",1,"rgb(58, 76, 58)",1],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--og-gut-1)||": ["rgb(244, 207, 193)",1,"rgb(210, 189, 178)",1,"rgb(150, 113, 100)",1,"rgb(127, 91, 98)",1],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--og-gut-2)||": ["rgb(229, 168, 147)",1,"rgb(188, 154, 137)",1,"rgb(140, 88, 71)",1,"rgb(86, 62, 74)",1],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-heart-1)||": ["rgb(233, 172, 161)",1,"rgb(195, 118, 103)",1,"rgb(141, 79, 71)",1,"rgb(142, 74, 82)",1],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-heart-2)||": ["rgb(202, 119, 104)",1,"rgb(166, 75, 58)",1,"rgb(113, 40, 32)",1,"rgb(94, 46, 60)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-heart-1)||": ["rgb(233, 172, 161)",1,"rgb(183, 131, 115)",1,"rgb(141, 79, 71)",1,"rgb(142, 74, 82)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-heart-2)||": ["rgb(202, 119, 104)",1,"rgb(152, 92, 73)",1,"rgb(113, 40, 32)",1,"rgb(94, 46, 60)",1],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--og-kidney-1)||": ["rgb(217, 164, 188)",1,"rgb(179, 121, 150)",1,"rgb(125, 72, 100)",1,"rgb(122, 71, 102)",1],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--og-kidney-2)||": ["rgb(165, 94, 133)",1,"rgb(150, 79, 117)",1,"rgb(80, 19, 59)",1,"rgb(78, 44, 70)",1],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--og-liver-1)||": ["rgb(227, 184, 167)",1,"rgb(187, 124, 97)",1,"rgb(136, 91, 76)",1,"rgb(133, 81, 79)",1],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--og-liver-2)||": ["rgb(198, 130, 109)",1,"rgb(158, 83, 49)",1,"rgb(111, 52, 37)",1,"rgb(90, 52, 64)",1],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--og-panc-1)||": ["rgb(237, 217, 168)",1,"rgb(180, 150, 81)",1,"rgb(145, 122, 69)",1,"rgb(125, 108, 76)",1],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--og-panc-2)||": ["rgb(214, 181, 112)",1,"rgb(147, 112, 13)",1,"rgb(130, 98, 29)",1,"rgb(84, 73, 56)",1],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-ra-1)||": ["rgb(225, 153, 143)",1,"rgb(200, 115, 101)",1,"rgb(133, 60, 55)",1,"rgb(150, 70, 80)",1],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-ra-2)||": ["rgb(192, 100, 86)",1,"rgb(169, 71, 58)",1,"rgb(103, 19, 15)",1,"rgb(99, 43, 58)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-ra-1)||": ["rgb(225, 153, 143)",1,"rgb(186, 130, 114)",1,"rgb(133, 60, 55)",1,"rgb(150, 70, 80)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-ra-2)||": ["rgb(192, 100, 86)",1,"rgb(154, 90, 73)",1,"rgb(103, 19, 15)",1,"rgb(99, 43, 58)",1],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--og-spleen-1)||": ["rgb(210, 178, 199)",1,"rgb(170, 126, 155)",1,"rgb(118, 87, 110)",1,"rgb(110, 79, 120)",1],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--og-spleen-2)||": ["rgb(165, 118, 149)",1,"rgb(140, 85, 122)",1,"rgb(82, 44, 72)",1,"rgb(72, 52, 86)",1],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--og-stomach-1)||": ["rgb(237, 206, 194)",1,"rgb(179, 128, 104)",1,"rgb(144, 112, 101)",1,"rgb(130, 88, 95)",1],   // colour-exempt: computed from styles/tokens.css
