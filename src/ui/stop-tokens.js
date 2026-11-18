@@ -5,16 +5,16 @@
 // tests/stop-tokens.test.js fails when the style rules these read change, until this is made again.
 
 /** The hash of the style rules and tokens the stops are computed from (scripts/stop-inputs.mjs). */
-export const STOP_HASH = "3bfaa2637bb2";
+export const STOP_HASH = "61aa151596f1";
 /** The looks that compute differently (each other look is one of these: STOP_LOOK). */
 export const STOP_COLS = ["light","soft","dark","navy"];
 /** Every look (Light, Soft, Dark, Navy, Black, and System as the device's light or dark) → its column. */
 export const STOP_LOOK = {"light":0,"soft":1,"dark":2,"navy":3,"black":2,"sys-light":0,"sys-dark":2};
 /** Each stop's colour and opacity per column, in the anatomy. */
 export const STOPS = {
-  "caud-d0|||": ["rgb(227, 184, 167)",0.5,"rgb(200, 158, 142)",0.5,"rgb(136, 91, 76)",0.5,"rgb(133, 81, 79)",0.5],   // colour-exempt: computed from styles/tokens.css
-  "caud-d1|||": ["rgb(227, 184, 167)",0.26,"rgb(200, 158, 142)",0.26,"rgb(136, 91, 76)",0.26,"rgb(133, 81, 79)",0.26],   // colour-exempt: computed from styles/tokens.css
-  "caud-d2|||": ["rgb(227, 184, 167)",0,"rgb(200, 158, 142)",0,"rgb(136, 91, 76)",0,"rgb(133, 81, 79)",0],   // colour-exempt: computed from styles/tokens.css
+  "caud-d0|||": ["rgb(227, 184, 167)",0.5,"rgb(187, 124, 97)",0.5,"rgb(136, 91, 76)",0.5,"rgb(133, 81, 79)",0.5],   // colour-exempt: computed from styles/tokens.css
+  "caud-d1|||": ["rgb(227, 184, 167)",0.26,"rgb(187, 124, 97)",0.26,"rgb(136, 91, 76)",0.26,"rgb(133, 81, 79)",0.26],   // colour-exempt: computed from styles/tokens.css
+  "caud-d2|||": ["rgb(227, 184, 167)",0,"rgb(187, 124, 97)",0,"rgb(136, 91, 76)",0,"rgb(133, 81, 79)",0],   // colour-exempt: computed from styles/tokens.css
   "cg-in|||": ["rgb(107, 36, 50)",0,"rgb(107, 36, 50)",0,"rgb(107, 36, 50)",0,"rgb(107, 36, 50)",0],   // colour-exempt: computed from styles/tokens.css
   "cg-out|||": ["rgb(107, 36, 50)",0.55,"rgb(107, 36, 50)",0.55,"rgb(107, 36, 50)",0.55,"rgb(107, 36, 50)",0.55],   // colour-exempt: computed from styles/tokens.css
   "fl-bot|||": ["rgb(224, 198, 119)",0.4,"rgb(220, 185, 94)",0.42,"rgb(240, 198, 122)",0.24,"rgb(240, 198, 122)",0.24],   // colour-exempt: computed from styles/tokens.css
@@ -29,26 +29,26 @@ export const STOPS = {
   "mt-b|||": ["rgb(255, 255, 255)",1,"rgb(255, 255, 255)",1,"rgb(255, 255, 255)",1,"rgb(255, 255, 255)",1],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--light-ink);stop-opacity:.22||": ["rgb(255, 255, 255)",0.22,"rgb(255, 255, 255)",0.22,"rgb(255, 255, 255)",0.22,"rgb(255, 255, 255)",0.22],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--light-ink);stop-opacity:0||": ["rgb(255, 255, 255)",0,"rgb(255, 255, 255)",0,"rgb(255, 255, 255)",0,"rgb(255, 255, 255)",0],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-eso-1)||": ["rgb(234, 199, 184)",1,"rgb(207, 173, 158)",1,"rgb(141, 106, 92)",1,"rgb(122, 85, 89)",1],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-eso-2)||": ["rgb(213, 156, 136)",1,"rgb(186, 131, 111)",1,"rgb(126, 77, 61)",1,"rgb(82, 53, 68)",1],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-gb-1)||": ["rgb(202, 216, 164)",1,"rgb(175, 188, 137)",1,"rgb(111, 122, 66)",1,"rgb(86, 112, 74)",1],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-gb-2)||": ["rgb(152, 177, 109)",1,"rgb(127, 151, 84)",1,"rgb(76, 94, 27)",1,"rgb(58, 76, 58)",1],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-gut-1)||": ["rgb(244, 207, 193)",1,"rgb(217, 182, 166)",1,"rgb(150, 113, 100)",1,"rgb(127, 91, 98)",1],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-gut-2)||": ["rgb(229, 168, 147)",1,"rgb(201, 143, 122)",1,"rgb(140, 88, 71)",1,"rgb(86, 62, 74)",1],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-heart-1)||": ["rgb(233, 172, 161)",1,"rgb(206, 146, 136)",1,"rgb(141, 79, 71)",1,"rgb(142, 74, 82)",1],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-heart-2)||": ["rgb(202, 119, 104)",1,"rgb(175, 94, 80)",1,"rgb(113, 40, 32)",1,"rgb(94, 46, 60)",1],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-kidney-1)||": ["rgb(217, 164, 188)",1,"rgb(192, 140, 164)",1,"rgb(125, 72, 100)",1,"rgb(122, 71, 102)",1],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-kidney-2)||": ["rgb(165, 94, 133)",1,"rgb(140, 72, 110)",1,"rgb(80, 19, 59)",1,"rgb(78, 44, 70)",1],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-liver-1)||": ["rgb(227, 184, 167)",1,"rgb(200, 158, 142)",1,"rgb(136, 91, 76)",1,"rgb(133, 81, 79)",1],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-liver-2)||": ["rgb(198, 130, 109)",1,"rgb(171, 105, 85)",1,"rgb(111, 52, 37)",1,"rgb(90, 52, 64)",1],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-panc-1)||": ["rgb(237, 217, 168)",1,"rgb(207, 187, 139)",1,"rgb(145, 122, 69)",1,"rgb(125, 108, 76)",1],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-panc-2)||": ["rgb(214, 181, 112)",1,"rgb(186, 153, 85)",1,"rgb(130, 98, 29)",1,"rgb(84, 73, 56)",1],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-ra-1)||": ["rgb(225, 153, 143)",1,"rgb(198, 128, 118)",1,"rgb(133, 60, 55)",1,"rgb(150, 70, 80)",1],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-ra-2)||": ["rgb(192, 100, 86)",1,"rgb(165, 75, 63)",1,"rgb(103, 19, 15)",1,"rgb(99, 43, 58)",1],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-spleen-1)||": ["rgb(210, 178, 199)",1,"rgb(186, 155, 175)",1,"rgb(118, 87, 110)",1,"rgb(110, 79, 120)",1],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-spleen-2)||": ["rgb(165, 118, 149)",1,"rgb(141, 96, 126)",1,"rgb(82, 44, 72)",1,"rgb(72, 52, 86)",1],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-stomach-1)||": ["rgb(237, 206, 194)",1,"rgb(210, 180, 168)",1,"rgb(144, 112, 101)",1,"rgb(130, 88, 95)",1],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-stomach-2)||": ["rgb(217, 160, 140)",1,"rgb(190, 135, 115)",1,"rgb(130, 80, 64)",1,"rgb(87, 56, 70)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-eso-1)||": ["rgb(234, 199, 184)",1,"rgb(179, 128, 104)",1,"rgb(141, 106, 92)",1,"rgb(122, 85, 89)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-eso-2)||": ["rgb(213, 156, 136)",1,"rgb(150, 88, 59)",1,"rgb(126, 77, 61)",1,"rgb(82, 53, 68)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-gb-1)||": ["rgb(202, 216, 164)",1,"rgb(136, 161, 106)",1,"rgb(111, 122, 66)",1,"rgb(86, 112, 74)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-gb-2)||": ["rgb(152, 177, 109)",1,"rgb(96, 123, 58)",1,"rgb(76, 94, 27)",1,"rgb(58, 76, 58)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-gut-1)||": ["rgb(244, 207, 193)",1,"rgb(211, 184, 168)",1,"rgb(150, 113, 100)",1,"rgb(127, 91, 98)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-gut-2)||": ["rgb(229, 168, 147)",1,"rgb(193, 147, 124)",1,"rgb(140, 88, 71)",1,"rgb(86, 62, 74)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-heart-1)||": ["rgb(233, 172, 161)",1,"rgb(195, 118, 103)",1,"rgb(141, 79, 71)",1,"rgb(142, 74, 82)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-heart-2)||": ["rgb(202, 119, 104)",1,"rgb(166, 75, 58)",1,"rgb(113, 40, 32)",1,"rgb(94, 46, 60)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-kidney-1)||": ["rgb(217, 164, 188)",1,"rgb(179, 121, 150)",1,"rgb(125, 72, 100)",1,"rgb(122, 71, 102)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-kidney-2)||": ["rgb(165, 94, 133)",1,"rgb(150, 79, 117)",1,"rgb(80, 19, 59)",1,"rgb(78, 44, 70)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-liver-1)||": ["rgb(227, 184, 167)",1,"rgb(187, 124, 97)",1,"rgb(136, 91, 76)",1,"rgb(133, 81, 79)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-liver-2)||": ["rgb(198, 130, 109)",1,"rgb(158, 83, 49)",1,"rgb(111, 52, 37)",1,"rgb(90, 52, 64)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-panc-1)||": ["rgb(237, 217, 168)",1,"rgb(180, 150, 81)",1,"rgb(145, 122, 69)",1,"rgb(125, 108, 76)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-panc-2)||": ["rgb(214, 181, 112)",1,"rgb(147, 112, 13)",1,"rgb(130, 98, 29)",1,"rgb(84, 73, 56)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-ra-1)||": ["rgb(225, 153, 143)",1,"rgb(200, 115, 101)",1,"rgb(133, 60, 55)",1,"rgb(150, 70, 80)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-ra-2)||": ["rgb(192, 100, 86)",1,"rgb(169, 71, 58)",1,"rgb(103, 19, 15)",1,"rgb(99, 43, 58)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-spleen-1)||": ["rgb(210, 178, 199)",1,"rgb(170, 126, 155)",1,"rgb(118, 87, 110)",1,"rgb(110, 79, 120)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-spleen-2)||": ["rgb(165, 118, 149)",1,"rgb(140, 85, 122)",1,"rgb(82, 44, 72)",1,"rgb(72, 52, 86)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-stomach-1)||": ["rgb(237, 206, 194)",1,"rgb(179, 128, 104)",1,"rgb(144, 112, 101)",1,"rgb(130, 88, 95)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-stomach-2)||": ["rgb(217, 160, 140)",1,"rgb(150, 88, 59)",1,"rgb(130, 80, 64)",1,"rgb(87, 56, 70)",1],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--og-vol-shade);stop-opacity:.17||": ["rgb(42, 20, 16)",0.17,"rgb(42, 20, 16)",0.17,"rgb(42, 20, 16)",0.17,"rgb(42, 20, 16)",0.17],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--og-vol-shade);stop-opacity:0||": ["rgb(42, 20, 16)",0,"rgb(42, 20, 16)",0,"rgb(42, 20, 16)",0,"rgb(42, 20, 16)",0],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--organ-gut);stop-opacity:calc(var(--organ-a) * 0.6)||": ["rgb(175, 130, 110)",0.264,"rgb(149, 106, 87)",0.312,"rgb(172, 146, 137)",0.18,"rgb(172, 146, 137)",0.18],   // colour-exempt: computed from styles/tokens.css

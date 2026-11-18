@@ -140,13 +140,13 @@ export const TOKENS = {
     'fx-ink': 'rgba(22, 24, 29, .88)',
     'stent-metal': '#667285', 'suture-thread': '#E8742A', 'suture-edge': '#3a1d0a', 'stent-marker': '#545D6C', 'stent-alpha': '.5', 'stent-glint': '.24', 'stent-rail-w': '1.15', 'stent-strut-w': '.8',
     // ── BEGIN device materials (visual-style D1): one table per look, read by the catheter shader (stage-cath.js, eus-scope.js: through toRGB), the tamponade marks (app.css) and the clots ──
-    // poly: the catheter's shaft (a blue-grey body that shows on paper) and its dark hairline; scope*: the EUS echoendoscope (insertion tube, rigid tip, transducer face, port) and its hairline
+    // poly: the catheter's shaft (a light silver-white body, neutral not blue, so it stands out against the blue veins and shows on paper by its dark hairline) and that hairline; scope*: the EUS echoendoscope (insertion tube, rigid tip, transducer face, port) and its hairline
     // (dark on the light looks, light on the dark ones); latex: compliant balloons (HVPG wedge, BRTO / BATO occlusion, tamponade; -a: the tamponade fill); nylon: the TIPS dilation balloon; steel: needles, wire;
     // platinum: marker bands and coils; glue: the cyanoacrylate cast (EUS coils and glue); ptfe: the covered stent's cover (D4)
-    'dev-poly': '#9AA9BC', 'dev-poly-edge': '#2A303B',
+    'dev-poly': '#E2E4E7', 'dev-poly-edge': '#2A303B',
     'dev-scope': '#2B2E33', 'dev-scope-tip': '#5C5E66', 'dev-scope-face': '#C7C9CC', 'dev-scope-edge': '#0B0D12', 'dev-port': '#0D0D0F',
     'dev-latex': '#DDB262', 'dev-latex-edge': '#8F6A33', 'dev-latex-a': '.45', 'dev-nylon': '#C9D9EE',
-    'dev-steel': '#7C8696', 'dev-platinum': '#8E949E', 'dev-glue': '#3B4E6B', 'dev-ptfe': '#D9DEE5', 'dev-tips-mesh': '#2A3650', 'dev-graft': '#F8F7F4', 'dev-stent-wire': '#7A5416', 'dev-stent-glint': '#F3DDA0', 'dev-stent-gold': '#B07A1C',
+    'dev-steel': '#9096A0', 'dev-platinum': '#8E949E', 'dev-glue': '#3B4E6B', 'dev-ptfe': '#D9DEE5', 'dev-tips-mesh': '#2A3650', 'dev-graft': '#F8F7F4', 'dev-stent-wire': '#7A5416', 'dev-stent-glint': '#F3DDA0', 'dev-stent-gold': '#B07A1C',
     // ── END device materials ──
     // chart series (validated categorical order, light)
     's1': '#2a78d6', 's2': '#eb6834', 's3': '#1baf7a', 's4': '#eda100', 's5': '#e87ba4', 's6': '#008300', 's7': '#4a3aa7', 's8': '#e34948',
@@ -268,20 +268,23 @@ export const TOKENS = {
       // a mid straw, between the old deep amber and Light's faint wash: visible against the beige ground, still translucent
     // status inks deepened for cream (the light theme's are tuned for white); the figure's label halo matches the paper
     // data card tiles and the FibroScan panel share one warm cream with a warm edge
-    // The organs, re-derived from Linen's (C3, 8 Nov): each tone keeps Linen's hue and chroma and sits the same OKLab step (ΔE) from Oat that Linen's sits from Linen.
+    // Deep clay, softened (18 Nov 2026; Mohammad: "less red, the intestine like it was before, tone the rest down a bit"): the organs keep Soft's warm hues, richer than
+    // before (OKLab L .645/.525/.385, chroma about 1.4x, hue turned toward clay and away from red) and the organ layer a little firmer (.72, kidney .88:
+    // styles/app-06-plate.css). The gut is Soft's own again. First version of Deep clay: 6405d100.
+    // (Before Deep clay:) the organs, re-derived from Linen's (C3, 8 Nov): each tone keeps Linen's hue and chroma and sits the same OKLab step (ΔE) from Oat that Linen's sits from Linen.
     // (The old pins were tuned for the near-white paper; the lit faces were ΔE 3 to 10 from Oat, Linen's are 6 to 21.) Edge strength: casing-a .66 (Linen .64); the knock-out is Oat itself.
     'knockout': 'rgba(221, 208, 185, .75)', 'casing-rgb': '51 37 26', 'casing-a': '.66', 'tube-shade': '.2',
     'leader': 'rgba(40, 42, 52, .42)', 'og-dark': 'rgba(60, 22, 18, .22)',
-    'og-liver-1': '#c89e8e', 'og-liver-2': '#ab6955', 'og-liver-3': '#7d3a28',
-    'og-stomach-1': '#d2b4a8', 'og-stomach-2': '#be8773', 'og-stomach-3': '#8a513d',
-    'og-eso-1': '#cfad9e', 'og-eso-2': '#ba836f', 'og-eso-3': '#885444',
-    'og-spleen-1': '#ba9baf', 'og-spleen-2': '#8d607e', 'og-spleen-3': '#5e3651',
-    'og-panc-1': '#cfbb8b', 'og-panc-2': '#ba9955', 'og-panc-3': '#87671e',
-    'og-kidney-1': '#c08ca4', 'og-kidney-2': '#8c486e', 'og-kidney-3': '#531c3f',
-    'og-gb-1': '#afbc89', 'og-gb-2': '#7f9754', 'og-gb-3': '#4b6528',
-    'og-gut-1': '#d9b6a6', 'og-gut-2': '#c98f7a', 'og-gut-3': '#965c47',
-    'og-heart-1': '#ce9288', 'og-heart-2': '#af5e50', 'og-heart-3': '#7a3127',
-    'og-ra-1': '#c68076', 'og-ra-2': '#a54b3f', 'og-ra-3': '#6f251d',
+    'og-liver-1': '#bb7c61', 'og-liver-2': '#9e5331', 'og-liver-3': '#6b3115',
+    'og-stomach-1': '#b38068', 'og-stomach-2': '#96583b', 'og-stomach-3': '#65351d',
+    'og-eso-1': '#b38068', 'og-eso-2': '#96583b', 'og-eso-3': '#65351d',
+    'og-spleen-1': '#aa7e9b', 'og-spleen-2': '#8c557a', 'og-spleen-3': '#5d3350',
+    'og-panc-1': '#b49651', 'og-panc-2': '#93700d', 'og-panc-3': '#5f4807',
+    'og-kidney-1': '#b37996', 'og-kidney-2': '#964f75', 'og-kidney-3': '#642f4c',
+    'og-gb-1': '#88a16a', 'og-gb-2': '#607b3a', 'og-gb-3': '#3c511c',
+    'og-gut-1': '#d3b8a8', 'og-gut-2': '#c1937c', 'og-gut-3': '#8e6149',
+    'og-heart-1': '#c37667', 'og-heart-2': '#a64b3a', 'og-heart-3': '#6f2b1f',
+    'og-ra-1': '#c87365', 'og-ra-2': '#a9473a', 'og-ra-3': '#72271e',
     'organ-body': '#cec6b7', 'organ-body-line': '#b5a791',
     'organ-liver': '#774433', 'organ-spleen': '#634962', 'organ-gut': '#956a57', 'organ-stomach': '#8d6255', 'organ-heart': '#834046', 'organ-kidney': '#724963', 'organ-pancreas': '#8f7c4f', 'organ-gb': '#627054', 'organ-aorta': '#978580',
     'diaphragm': '#8E7566',
