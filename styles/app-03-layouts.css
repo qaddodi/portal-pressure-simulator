@@ -315,6 +315,8 @@ html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentat
 .action-card.ac-leaving > * { --edge-x: -8px; }
 .action-card.docked > :is(.sheet-plate, .ac-body, .ac-ghost, .ac-details) { --edge-x: 0px; --edge-y: 24px; }
 .action-card.docked.ac-leaving > * { --edge-y: 16px; }
+/* (Built and not yet shown: its widgets are being drawn, card.js prepBegin) */
+.action-card.ac-prep { visibility: hidden; pointer-events: none; }
 .action-card.ac-in > :is(.sheet-plate, .ac-body) { animation: slide-from-edge var(--d-small) var(--ease-arrive) backwards; }
 .action-card.ac-leaving { pointer-events: none; animation: sheet-hold calc(var(--d-flip) * 4 / 3) var(--ease) forwards; }
 .action-card.ac-leaving > * { animation: slide-to-edge calc(var(--d-flip) * 4 / 3) var(--ease-in) forwards; }

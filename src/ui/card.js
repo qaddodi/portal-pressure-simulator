@@ -16,6 +16,7 @@
 // `actionable`, kept lists, and each element says what it is in `_acK`), and numbers are compared as numbers, never printed
 // into a string to be compared.
 
+import { widgetsPending, widgetState } from './widget-ready.js';
 import { store, updateParams } from './store.js';
 import { h, svgIcon, paintRange, isPhoneLayout, countTo, swapText, afterExit, markGone, switchIn, releaseWords } from './util.js';
 import { sheetParts, dragSheet, glideSheet, stopSheet, setSheetOffset, sheetOffset } from './sheet-move.js';
@@ -184,6 +185,22 @@ export function createCard({ view, stage, ctx, onWhy }) {
   // arrives or a control's picture that is drawn changes it in the middle of the entrance, which moves the card's own foot-anchored top and what the entrance is measured against. It is as tall as it first measured until it has
   // landed, then lets go to its words' height with the card glide (card-glide.js), never a step.
   let pinH = 0, releasing = false;
+  // The card opens when its widgets are up (18 Nov 2026, Mohammad, the iPhone: "half-rendered: a default background, sliders not in their final render, then it switches to the real look"). Built hidden (ac-prep: its box is laid
+  // out, so its pictures are drawn), then its plate, glass, paper and words all begin together, in the same frame, on the final render. At most PREP_MAX_MS; widget-ready.js says when waiting is pointless.
+  const PREP_MAX_MS = 450;
+  let prepOn = false, prepT = 0, prepAt = 0;
+  function prepEnd() { prepOn = false; clearTimeout(prepT); el.classList.remove('ac-prep'); }
+  function prepBegin() {
+    prepOn = true; prepAt = performance.now(); el.classList.add('ac-prep');
+    const poll = () => {
+      if (!prepOn) return;
+      const up = !widgetsPending(el) && document.fonts?.status !== 'loading', late = performance.now() - prepAt >= PREP_MAX_MS;
+      if (!up && !late) { prepT = setTimeout(poll, 24); return; }
+      if (!up) widgetState.misses++;
+      prepEnd(); opening(); backIn(null); reveal();
+    };
+    prepT = setTimeout(poll, 0);   // (after this build's own frame: the widgets are drawn in a rest pass of their own)
+  }
   const endIn = () => {
     el.classList.remove('ac-in'); backIn(null);
     if (pinH) { pinH = 0; releasing = true; el.style.height = ''; setTimeout(() => { releasing = false; }, 400); }
@@ -301,6 +318,7 @@ export function createCard({ view, stage, ctx, onWhy }) {
   const afterLeave = () => { el.hidden = true; el.classList.remove('ac-leaving'); finishDet(); dropDetails(); releaseWords(el); stage.cardsMoved?.(); };   // (gone: the view pans back)
   function hide() {
     stopSheetGesture();
+    if (prepOn) { prepEnd(); el.hidden = true; }   // off-screen: it was never shown, so there is no leave to play
     if (el.dataset.swiped) { delete el.dataset.swiped; el.hidden = true; setSheetOffset(el, 0); }   // (pulled away: already out of sight behind the tab row)
     if (!el.hidden && !el.classList.contains('ac-leaving')) {
       // (It fades back toward the edge it came from: the left on a Mac, the foot on a phone. With Reduce Motion it only fades: app.css.)
@@ -669,7 +687,9 @@ export function createCard({ view, stage, ctx, onWhy }) {
     if (keepDet) { classNow(body, 'ac-under', true); body.inert = true; if (det) live.push(det.el); }   // (the rebuilt face goes under the details that are showing)
     // alloc-rare: the card is built when a selection (or the shunting flag) changes, once per pick
     el.setAttribute('aria-label', `${m.title}: actions`);
-    if (el.hidden || leaving || (resized && !swap)) { opening(); backIn(leaving ? lo : null); }   // (opened afresh: it comes in from its edge. A pick while it is open never does: it is the swap above, with the glide)
+    // (A card coming up from nothing is built where it cannot be seen and opened once its GPU widgets are drawn, ac-prep: never shown in the page's fallback look and then changed. A pick that finds it open or going out is the swap and the glide as before.)
+    if (el.hidden && !leaving && !prepOn) prepBegin();
+    else if (el.hidden || leaving || (resized && !swap)) { if (!prepOn) { opening(); backIn(leaving ? lo : null); } }   // (opened afresh: it comes in from its edge. A pick while it is open never does: it is the swap above, with the glide)
     el.hidden = false;
     // Number keys trigger the verbs in order; show the number beside each.
     for (let i = 0; i < actionable.length && i < 9; i++) actionable[i].dataset.key = KEYS[i];

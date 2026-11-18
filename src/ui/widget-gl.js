@@ -15,6 +15,7 @@
 // `pad`: CSS px of picture around the element's box (a shadow reaches past it). The picture is the box plus pad on every side; the paint
 // callback draws the box at (pad, pad).
 
+import { widgetState } from './widget-ready.js';
 import { createTraceGL, fitPen } from './trace-gl.js';
 import { onTheme } from './theme-epoch.js';
 import { onCanvasResized } from './util.js';
@@ -54,7 +55,7 @@ export function widgetGL(el, paint, { pad = 0 } = {}) {
       if (!ctx || ctx.onGPU !== true) return false;
       try { paint(ctx, p.w, p.h, pad); } catch (e) { caught('widget-gl:paint', e); }
       const ok = ctx.end?.() !== false;
-      if (ok && !api.live) { api.live = true; el.classList.add('wgl-on'); }
+      if (ok && !api.live) { api.live = true; widgetState.live++; el.classList.add('wgl-on'); }
       return ok;
     },
     dispose() {
