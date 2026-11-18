@@ -444,11 +444,14 @@ body { font-optical-sizing: auto; font-kerning: normal; }
    frame coming in) shows no solid card: the solid card for a frame, then the frost, read as the blur flickering as each card opened (Mohammad,
    2 Nov 2026). Only a card about to be drawn there ([data-gl-wait], for at most 300 ms): one held out of that canvas or not drawn there keeps
    the solid card, never a bare one (HVPG 6 on the iPhone, 2 Nov: both cards bare over the lobule). Where the figure's canvas cannot take the glass at all
-   (a dive) the attribute is off and the solid card stands. */
-:root:root[data-cardgl] :is(.pz-shade, .pz-shade.pz-card, .pz-shade.stack, .pz-data.pz-data, .pz-case, .pz-bar, .pz.stack .pz-bar, .pz-scales, .pz-fk, .pz .pz-fk.pz-fk)[data-gl-wait]:not([data-gl]) { background: none; }
-:root:root[data-cardgl] .has-plate.has-plate > .sheet-plate.sheet-plate.sheet-plate[data-gl-wait]:not([data-gl]) { background: none; }
+   (a dive) the attribute is off and the solid card stands.
+   18 Nov 2026, Mohammad on his Mac and iPhone, "all vessel and tips etc cards show text before card still": the wait is no longer a bare card but a PAPER, the surface
+   at half strength (--gl-paper), on the card's own layer so it fades in with its words: the words always have a card under them, whenever the glass presents late.
+   glass-gl.js keeps it (data-gl-wait) until two animation frames have passed since the glass was drawn, and only then takes it off (applyMark). */
+:root:root[data-cardgl] :is(.pz-shade, .pz-shade.pz-card, .pz-shade.stack, .pz-data.pz-data, .pz-case, .pz-bar, .pz.stack .pz-bar, .pz-scales, .pz-fk, .pz .pz-fk.pz-fk)[data-gl-wait]:not([data-gl]) { background: var(--gl-paper); }
+:root:root[data-cardgl] .has-plate.has-plate > .sheet-plate.sheet-plate.sheet-plate[data-gl-wait]:not([data-gl]) { background: var(--gl-paper); }
 :root:root[data-cardgl] .pz.stack.stack .pz-data.pz-sheet[data-gl-wait]:not([data-gl])::before, :root:root[data-cardgl] .pz.stack.stack .pz-data.pz-sheet[data-gl-wait]:not([data-gl])::after,
-:root:root[data-cardgl] .pz.pz-wide.pz-wide .pz-data.pz-sheet[data-gl-wait]:not([data-gl])::before, :root:root[data-cardgl] .pz.pz-wide.pz-wide .pz-data.pz-sheet[data-gl-wait]:not([data-gl])::after { background: none; }
+:root:root[data-cardgl] .pz.pz-wide.pz-wide .pz-data.pz-sheet[data-gl-wait]:not([data-gl])::before, :root:root[data-cardgl] .pz.pz-wide.pz-wide .pz-data.pz-sheet[data-gl-wait]:not([data-gl])::after { background: var(--gl-paper); }
 
 /* ── Numbers hold still (2 Nov 2026: "make sure the text everywhere and the numbers everywhere aren't jiggly and changing sizes constantly") ──
    The body sets tabular figures, which every element inherits, and the `font` shorthand sets them back to proportional (and sets

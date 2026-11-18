@@ -678,6 +678,8 @@ button.finding { cursor: pointer; }
 /* The Present cards' frost tint (Mohammad, 2 Nov 2026: "the blur sucks now it's just transparent"): 66 % of the surface over a 22 px blur (74 % and 30 px read muddy)
    (glass-gl.js CARD), so a card reads frosted, never see-through. */
 :root { --pz-frost: 66%; }
+/* (The paper a card shows from its first frame until its glass is on screen, glass-gl.js: the surface at about the frost's own strength less a third, so the glass beneath it taking over is a change of blur, not a card appearing. 18 Nov 2026.) */
+:root { --gl-paper: color-mix(in srgb, var(--surface) 55%, transparent); }
 /* The one glass tint (13 Nov 2026, "Tint and blur of glass should be the same EVERYWHERE"; menu recs C6, "Do all!"): every card, sheet, toast, menu,
    dialog and the palette declares its --gl-tint as this, the surface at --pz-frost (glass-gl.js CARD.tint, the GPU's own). Declared where --surface is
    (the page, and the figure's colour-map wrap, which has its own surface), so each resolves it with the surface it stands on. */

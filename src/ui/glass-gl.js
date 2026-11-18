@@ -58,6 +58,8 @@ export function roundPath(w, h, r) {
 export const glassDpr = () => Math.min(2, window.devicePixelRatio || 1);
 /** The longest a glass drawn in the figure's canvas goes between two blurs when only the figure under it has been drawn again (a host that gives view()). */
 export const REBLUR_MS = 50;
+/** How long (ms) a card's first mark waits for the two animation frames that show its glass was presented, on a page that runs none (a hidden one). */
+export const MARK_HOLD_MS = 120;
 // (Off by default since 1 Nov 2026: on an iPhone the callouts' glass, blurred only every 50 ms while the figure under it moved each frame
 // (a catheter's pulse, eased colours), stepped between a fresh blur and a stale one and read as a hard flicker (FHVP on HVPG 3, IVC on
 // HVPG 7). The option reblur: REBLUR_MS (tests) brings the 50 ms hold back.)
@@ -563,7 +565,7 @@ export function dropsOf(v) {
 }
 const WHY_WATCH = typeof location !== 'undefined' && /[?&](perf|offgpu)\b/.test(location.search || '');
 const WHY_FNS = [];   // (each glass's reporter: pps.glassWhy)
-export function createGlassGL(wrap, source, layers, { software = false, live = () => true, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, reblur = 0, fresh = null, dirty = null, dirtyRects = null, pictureRects = null, camKey = null, full = false, onHoles = null, dip = null, pan = null, panning = null } = {}) {
+export function createGlassGL(wrap, source, layers, { markHold = true, software = false, live = () => true, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, reblur = 0, fresh = null, dirty = null, dirtyRects = null, pictureRects = null, camKey = null, full = false, onHoles = null, dip = null, pan = null, panning = null } = {}) {
   if (reblur > 0) fresh = null;
   // (cards.callouts: the figure's callouts, a glass.add region of their own (stage.js): the cards' machinery, with the callouts' own ways kept: no
   // wait for a first draw, no html[data-cardgl], one turn ('all') between the cards' two, one over-list, their shadow and tint strength, the parent's box.)
@@ -625,7 +627,35 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   const revealArm = () => { if (reveal.size && !revealT) revealT = setTimeout(revealSweep, STALE_MS); };
   const revealFree = () => { reveal.releaseAll(); clearTimeout(revealT); revealT = 0; };
   const markOf = new WeakMap();
-  const unmark = () => { for (const g of marked) g.removeAttribute('data-gl'); marked.clear(); unwait(); cover.clear(); revealFree(); };
+  // The first mark of a card waits for its glass to be on screen, not only drawn (18 Nov 2026, Mohammad on his Mac and iPhone: "all vessel and tips etc cards show text before card still"). data-gl takes the
+  // page's own card off at once, in the frame the glass is first drawn; the glass is drawn into the figure's canvas, which the browser presents on its own beat, a frame or more after the page's change
+  // when the GPU is behind (the frames in which a card comes in are its busiest), so the words showed over a card taken away and a glass not yet there. Now the card the page paints for the wait
+  // (data-gl-wait: a translucent paper, app-03 --gl-paper, in the card's own layer, fading with its words) stays until two animation frames have passed since the glass was drawn, with a timer for a page
+  // that runs none; only then is it taken off (applyMark). The words always have a card under them, the paper's own, whenever the glass is late. Cards drawn here before swap as they did.
+  const holding = new Map();   // card → { mk, t } (its first mark, held)
+  function applyMark(g) {
+    const h = holding.get(g);
+    if (!h) return;
+    clearTimeout(h.t); holding.delete(g);
+    if (waiting.has(g)) { waiting.delete(g); g.removeAttribute('data-gl-wait'); }
+    if (!g.isConnected || !marked.has(g)) return;   // (gone, or no longer drawn: settleMarks has given it back)
+    g.setAttribute('data-gl', h.mk); markOf.set(g, h.mk);
+  }
+  function holdMark(g, mk) {
+    const h = holding.get(g);
+    if (h) { h.mk = mk; return; }
+    const go = () => applyMark(g);   // alloc-rare: one for each card at its first draw
+    const e = { mk, t: setTimeout(go, MARK_HOLD_MS) };   // alloc-rare: same
+    holding.set(g, e);
+    requestAnimationFrame(() => requestAnimationFrame(go));
+  }
+  function cancelHold(g) {
+    const h = holding.get(g);
+    if (!h) return;
+    clearTimeout(h.t); holding.delete(g);
+    if (waiting.has(g)) { waiting.delete(g); g.removeAttribute('data-gl-wait'); }
+  }
+  const unmark = () => { for (const g of marked) g.removeAttribute('data-gl'); for (const g of [...holding.keys()]) cancelHold(g); marked.clear(); unwait(); cover.clear(); revealFree(); };
   // (Any glass over any other hides it whole, its words too: the lower one is cut where every glass above it lies, glass-cover.js, on the one
   // board every renderer's glasses share (the cards' and the callouts'), above and below as the page stacks them (p.st, read with the page).
   // cssClip: each card's own clip-path as its page read gives it (one it has is never cut).)
@@ -727,6 +757,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     inListSet.clear(); for (const p of list) inListSet.add(p.g);
     if (wasDrawn.size) for (const g of wasDrawn) if (!inListSet.has(g)) wasDrawn.delete(g);
     for (const [g, w] of waiting) {
+      if (holding.has(g)) continue;   // (drawn, its paper kept until its glass is presented: applyMark)
       // (A card held bare while faded that is now to be drawn stays bare until its glass is drawn, a first draw's wait from here: let go
       // in this pass, a frame whose glass did not draw (its blur not made yet) showed its solid fill for that frame as it came in.)
       if (!want.has(g) && !(w.faded && inListSet.has(g))) { if (w.faded && fadedNow.has(g)) continue; g.removeAttribute('data-gl-wait'); waiting.delete(g); }
@@ -975,8 +1006,13 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       // (Marked in the frame its glass is first drawn here: the browser's blur and this one never both show, nor neither. "edge": its own
       // edge and shadows are drawn here too, and the page's are taken off.)
       const mk = edge ? 'edge' : '';
-      if (!p.g.hasAttribute('data-gl') || markOf.get(p.g) !== mk) { p.g.setAttribute('data-gl', mk); markOf.set(p.g, mk); }
-      if (waiting.has(p.g)) { waiting.delete(p.g); p.g.removeAttribute('data-gl-wait'); }
+      if (holding.has(p.g)) holdMark(p.g, mk);   // (its first mark still held: the flavour it will take)
+      else if (!p.g.hasAttribute('data-gl')) {
+        // (The first mark of a card waited for, or never drawn here before: held until its glass is on screen. A card drawn before swaps at once, as it did.)
+        if ((waiting.has(p.g) || !wasDrawn.has(p.g)) && typeof requestAnimationFrame === 'function' && markHold) holdMark(p.g, mk);
+        else { p.g.setAttribute('data-gl', mk); markOf.set(p.g, mk); }
+      } else if (markOf.get(p.g) !== mk) { p.g.setAttribute('data-gl', mk); markOf.set(p.g, mk); }
+      if (waiting.has(p.g) && !holding.has(p.g)) { waiting.delete(p.g); p.g.removeAttribute('data-gl-wait'); }
       gaveUp.delete(p.g); wasDrawn.add(p.g);
       now.add(p.g);
     }
@@ -986,7 +1022,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   // between it and the figure's canvas), goes back to the browser's glass now: marked, it would show no glass at all. In the figure's
   // canvas a glass not drawn there goes back to the browser's whatever it is.)
   function settleMarks(now) {
-    for (const g of marked) if (!now.has(g) && (cards || hostOn || !g.isConnected)) { if (g.isConnected) g.removeAttribute('data-gl'); marked.delete(g); }
+    for (const g of marked) if (!now.has(g) && (cards || hostOn || !g.isConnected)) { cancelHold(g); if (g.isConnected) g.removeAttribute('data-gl'); marked.delete(g); }
     for (const g of now) marked.add(g);
   }
   // Drawn into the figure's canvas (setHost; recs A1, glass). The loop reads the glasses as before; when they, the canvas's place or the
