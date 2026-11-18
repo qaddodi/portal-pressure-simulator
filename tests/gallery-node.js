@@ -69,6 +69,10 @@ export async function boot() {
     return type === 'webgl2' ? (this.__gl ??= newGL(this)) : null;
   };
   g.getComputedStyle = (el, p) => page.liveStyle(el, p);
+  // (jsdom has no Web Animations: an element's animate() is a finished one, so a card's entrance and a pane's fade end at once.)
+  const done = () => ({ finished: Promise.resolve(), ready: Promise.resolve(), playState: 'finished', effect: null, cancel() {}, finish() {}, pause() {}, play() {}, commitStyles() {}, addEventListener() {}, removeEventListener() {}, onfinish: null, oncancel: null });
+  win.Element.prototype.animate ??= () => done();
+  win.Element.prototype.getAnimations ??= () => [];
   booted = { page, win };
   return booted;
 }
@@ -205,3 +209,64 @@ const wrap = (nodes) => { const d = document.createElement('div'); d.append(...[
 export const liveContexts = () => (globalThis.__glAll || []).filter((g) => !g.__lost);
 /** Where a context was made: the app's own frames of its stack, the nearest first. */
 export const madeAt = (gl) => String(gl.__made || '').split('\n').slice(2).filter((l) => /\/src\//.test(l)).slice(0, 4).map((l) => l.trim().replace(/\(?file:\/\/.*?\/src\//, '(src/').replace(/^at /, '')).join(' < ');
+
+// ── The main app's cards: Tests-card panes and structure cards ──
+/** The Tests card's panes and the structure card as the page builds them (dock.js, card.js), for a patient the catalog names. One patient is loaded at a time on this
+ *  rig's own model; the dock and the card are made once and kept, as the page keeps them. */
+export async function mainRig() {
+  await boot();
+  const { createCore } = await import('../src/worker-core.js');
+  const { store } = await import('../src/ui/store.js');
+  const { deepMerge } = await import('../src/engine/scenario.js');
+  const { createDock } = await import('../src/ui/dock.js');
+  const { createCard } = await import('../src/ui/card.js');
+  const { createDoppler } = await import('../src/ui/doppler.js');
+  const { createFibroScan } = await import('../src/ui/fibroscan.js');
+  const { createTrialsPane } = await import('../src/ui/trials-pane.js');
+  const frames = [];
+  const core = createCore((m) => { if (m.type === 'frame') frames.push(m); });
+  core.handle({ type: 'visibility', visible: true });
+  const noop = () => {};
+  let last = null;
+  /** The patient: the preset, then the patch (a deep merge over its params, settled), as the gallery's own openers do (openers.js loadPatient). */
+  async function patient(preset, params) {
+    frames.length = 0;
+    await core.handle({ type: 'run', running: false });
+    await core.handle({ type: 'preset', id: preset });
+    if (params) { await core.handle({ type: 'setParams', params: deepMerge(core.engine().paramsTarget(), params), settle: true }); }
+    await turnAll();
+    const f = frames.at(-1);
+    store.set({ presetId: preset, params: core.engine().paramsTarget(), frame: f });
+    last = f;
+    return f;
+  }
+  await patient('healthy');
+  store.set({ healthy: { P: last.P, Q: last.Q } });
+  const lazyOf = (inst) => ({ now: () => inst, get: () => Promise.resolve(inst) });
+  const dock = createDock({ strip: document.getElementById('strip'), head: document.getElementById('dockHead'), body: document.getElementById('dockBody'), onWhy: noop, onAction: noop, onProbe: noop,
+    lazy: { doppler: lazyOf(createDoppler({ onProbe: noop })), fibroscan: lazyOf(createFibroScan()), trials: lazyOf(createTrialsPane()) },
+    onReveal: noop, onLobule: noop, onOpen: noop, onClose: noop, onLayout: noop, isVisible: () => true, marks: () => [], onBeat: noop, onFromReadings: noop });
+  const card = createCard({ view: document.getElementById('stageView'), stage: {}, onWhy: noop,
+    ctx: { action: noop, showPane: noop, probe: noop, startShunt: noop, canShunt: () => false, select: noop, zoomLobule: noop, askSinusoid: noop, paneApi: noop, openIr: noop, injectDye: noop, releaseDye: noop, dyeInjecting: () => false, canDye: () => true } });
+  const feed = async (f) => { for (let k = 0; k < 3; k++) { store.setFrame(f); dock.update(f, true); card.update(f); await runFrames(1); } };
+  return {
+    /** A Tests-card pane for a patient: its words. */
+    async pane(e) {
+      const f = await patient(e.preset, e.params);
+      dock.show(e.sub === 'wall' ? 'varixwall' : e.pane, { reveal: true });
+      await feed(f); await runFrames(4);
+      if (e.organ) { document.querySelector(`.dock-pane[data-pane="fibroscan"] .ps-btn[data-organ="${e.organ}"]`)?.click(); await feed(f); await runFrames(3); }
+      const id = e.sub === 'wall' ? 'varixwall' : e.pane, el = dock.pane(id).el;
+      return { el, labels: [...el.querySelectorAll('[aria-label]')].map((x) => x.getAttribute('aria-label')), words: textOf(el) };
+    },
+    /** A structure card for a picked vessel or organ, its Details face when asked: its words; close() takes the card away again. */
+    async pick(e) {
+      const f = await patient(e.preset, e.params);
+      store.set({ selection: e.sel });
+      card.render(); await feed(f); await runFrames(6);
+      if (e.details) { card.el.querySelector('.ac-name')?.click(); await runFrames(6); }
+      return { el: card.el, labels: [...card.el.querySelectorAll('[aria-label]')].map((x) => x.getAttribute('aria-label')), words: textOf(card.el),
+        async close() { store.set({ selection: null }); card.render(); await runFrames(6); } };
+    },
+  };
+}

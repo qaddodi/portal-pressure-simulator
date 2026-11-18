@@ -12,12 +12,15 @@ import { galleryDeck } from '../src/ui/gallery/deck.js';
 import { CATALOG } from '../src/ui/gallery/catalog.js';
 import { check } from '../scripts/clinical-wording.mjs';
 import { deckStatesFull } from './deck-states.js';
-import { slideRig, watching, liveContexts, madeAt } from './gallery-node.js';
+import { slideRig, mainRig, watching, liveContexts, madeAt } from './gallery-node.js';
 import { snapshotLive } from './gl-live.js';
+
+// (Opened by the on-device sweep and the headless layout sweep, which boot the whole page.)
+const SHEETS_NOT_OPENED_HERE = CATALOG.filter((x) => x.kind === 'sheet').map((x) => x.id);
 
 const deck = galleryDeck();
 const entries = CATALOG.filter((e) => e.kind === 'slide');
-let rig, states;
+let rig, states, main;
 
 // The standing text rules that are not in clinical-wording.mjs (the owner's, 18 Nov 2026): Baveno VIII only, the PPG named with a minus sign.
 const MORE = [
@@ -32,6 +35,7 @@ const rules = (text, prose = true) => [...check(prose ? text : text.replace(/(^|
 before(async () => {
   states = await deckStatesFull(deck);
   rig = await slideRig(deck, states);
+  main = await mainRig();
 }, { timeout: 280000 });
 
 const KINDS = ['texture', 'framebuffer', 'renderbuffer', 'buffer', 'vao', 'program', 'shader', 'contexts'];
@@ -69,3 +73,41 @@ for (const e of entries) {
     assert.deepEqual(left, [], `${e.id}: opened and closed twice, the GPU holds more after the second close (a resource kept per open). Contexts still held, made at: ${liveContexts().filter((g) => !had.has(g)).map(madeAt).join(' | ') || 'none new (its objects are in a context that stays)'}`);
   });
 }
+
+// ── The main app's own cards: each Tests-card pane for the patients that change it, each structure card with its Details face ──
+const leaks = (a, b) => held(a, b);
+const wordsProblems = (text, labels) => [['card', text, false], ...labels.map((l) => ['aria-label', l, true])].flatMap(([where, t, prose]) => rules(String(t), prose).map((r) => `${where}: ${r}`));
+
+for (const e of CATALOG.filter((x) => x.kind === 'pane')) {
+  test(`${e.id} opens and reads right`, { timeout: 60000 }, async () => {
+    const first = await watching(() => main.pane(e));
+    assert.equal(first.threw, null, `threw: ${first.threw?.stack || first.threw}`);
+    assert.deepEqual(first.said, [], 'the page logged errors while it opened');
+    assert.ok((first.value.words + first.value.labels.join(" ")).length > 20, `${e.id}: the pane is empty`);   // (the FibroScan draws its numbers on a canvas: its words are its labels)
+    assert.deepEqual(wordsProblems(first.value.words, first.value.labels), []);
+    // (A pane stays in the page; opened again it must not make more on the GPU than the first time.)
+    const a = snapshotLive();
+    const again = await watching(() => main.pane(e));
+    assert.equal(again.threw, null, `threw on the second open: ${again.threw?.stack || again.threw}`);
+    assert.deepEqual(leaks(a, snapshotLive()), [], `${e.id}: opened a second time, the GPU holds more (a resource made per open)`);
+  });
+}
+for (const e of CATALOG.filter((x) => x.kind === 'pick')) {
+  test(`${e.id} opens, reads right and lets go`, { timeout: 60000 }, async () => {
+    const first = await watching(async () => { const o = await main.pick(e); const out = { words: o.words, labels: o.labels }; await o.close(); return out; });
+    assert.equal(first.threw, null, `threw: ${first.threw?.stack || first.threw}`);
+    assert.deepEqual(first.said, [], 'the page logged errors while it opened');
+    assert.ok(first.value.words.length > 10, `${e.id}: the card is empty`);
+    assert.deepEqual(wordsProblems(first.value.words, first.value.labels), []);
+    const a = snapshotLive(), had = new Set(liveContexts());
+    const again = await watching(async () => { const o = await main.pick(e); await o.close(); });
+    assert.equal(again.threw, null, `threw on the second open: ${again.threw?.stack || again.threw}`);
+    assert.deepEqual(leaks(a, snapshotLive()), [], `${e.id}: opened and closed twice, the GPU holds more after the second close. New contexts made at: ${liveContexts().filter((g) => !had.has(g)).map(madeAt).join(' | ') || 'none'}`);
+  });
+}
+// The sheets (the Treat page, History, Settings, the menus, the palette, Compare, toasts) need the whole app booted and are not opened here; this keeps that list honest,
+// so a sheet added to the catalog is noticed and given a place.
+test('the sheets the Node runner does not open are the catalog\'s sheets, and no others', () => {
+  const sheets = CATALOG.filter((x) => x.kind === 'sheet').map((x) => x.id).sort();
+  assert.deepEqual(sheets, SHEETS_NOT_OPENED_HERE.slice().sort());
+});
