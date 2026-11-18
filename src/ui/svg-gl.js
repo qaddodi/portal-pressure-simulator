@@ -126,6 +126,8 @@ function lookOf(o, size) {
   };
 }
 const looks = new WeakMap();
+/** The look the picture read for a piece (its fill, stroke, strength, type size, anchor…), or undefined before the piece is placed: the record the painter draws from, handed to the screen report's chart reader (selfcheck/chart-reader.js). */
+export const lookOfPiece = (el) => looks.get(el);
 // A piece whose strength the stylesheet changes (a class on or off: a ring, a value, a name) and eases (its transition on opacity): the
 // picture runs that ease itself, from the strength it drew to the new one, on the stylesheet's duration and curve, since a model is never
 // styled by the page and its own transition would not run. [from, to, t0, ms, ease]

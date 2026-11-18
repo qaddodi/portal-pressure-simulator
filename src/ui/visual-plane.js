@@ -953,6 +953,9 @@ export function planePlot(plane, { card = false } = {}) {
     const key = `${size}|${fs}|${ptsVer}|${rg ? ringKeys.map((k) => rg[k]).join(',') : '-'}|${sizeWas}|${was ? `${was.x},${was.y}` : '-'}|${stops.length ? stops.map((s) => `${s.f[pl.x.key]},${s.f[pl.y.key]},${s.name}`).join(';') : ''}`;
     if (key === drawn) return;
     drawn = key;
+    // (Marks the screen report reads, selfcheck/chart-reader.js: the keys of the axes, and whether they are cut to the points plotted.)
+    svg.setAttribute('data-xk', pl.x.key); svg.setAttribute('data-yk', pl.y.key);
+    if (pl.fit && !card) svg.setAttribute('data-fit', 'on'); else svg.removeAttribute('data-fit');
     // (A scatter, a plane with no zones, draws axes of its own on a panel: hasAxes.)
     const axed = !card && hasAxes(pl), fr = axed ? axesFrame(pl, W, H, fs) : frame(W, H), { X, Y } = scaler(pl, fr);
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
@@ -1024,6 +1027,7 @@ export function planePlot(plane, { card = false } = {}) {
       const sx = now.x.toFixed(1), sy = now.y.toFixed(1), to = { x: +sx, y: +sy };
       if (!dotGo || dotGo.tx !== to.x || dotGo.ty !== to.y) { const at = dotEased() || to; dotGo = { fx: at.x, fy: at.y, tx: to.x, ty: to.y, t0: easeNow() }; }
       ringG.style.transform = `translate(${sx}px, ${sy}px)`;
+      ringG.setAttribute('data-v', `${pl.x.key}:${rg[pl.x.key]},${pl.y.key}:${rg[pl.y.key]}`);   // (the readings the dot is placed from, as the tiles print them: the screen report's number check)
       ringG.style.opacity = '1';
     } else ringG.style.opacity = '0';
     // The card's zones name themselves, clear of the dot where it stands and all along its way there.
