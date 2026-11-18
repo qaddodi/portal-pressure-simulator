@@ -198,3 +198,17 @@ test('stage: the links are written into the rows put() filled, by the model\'s m
   assert.ok(stage.indexOf('    if (on) {\n      // (At idle rest the junctions') > 0 && stage.indexOf('    if (on) {\n      // (At idle rest the junctions') < stage.indexOf('const retired = retireRows(flowData, flowWas, flowNow, FLOW_TEXELS * 4);'));
 });
 
+
+// 18 Nov 2026: a paused figure kept drawing for 22 s after a patient was picked (the chevrons on): each link in a long chain followed the B its parent had eased to so far,
+// so the links reached their goals one after the other. They follow the parent's goal now, and the whole chain is at rest in about nine seconds, a time that
+// does not grow with the number of links.
+test('a long chain of links comes to rest in the time of one, not of all of them in turn', () => {
+  const N = 30, mk = (scale) => { const it = []; let x = 0, m = 30; for (let i = 0; i < N; i++) { const mi = m * (i % 2 ? 1.12 : 0.9) * scale(i); it.push(item(i + 1, `n${i}`, `n${i + 1}`, mi, 9, 100, [x, 0], [x + 100, 0])); x += 100; m = mi; } return it; };
+  const c = createStreamChain();
+  c.step(mk(() => 1), 1, 1);   // (made fresh: at its goals)
+  // Every speed changes by a little more than a tenth, as a preset picked does: the goals move, the links ease.
+  const kB = -Math.expm1(-(1 / 60) / 1), kW = -Math.expm1(-(1 / 60) / 0.25);
+  let rest = -1;
+  for (let f = 0; f < 60 * 30; f++) { c.step(mk(() => 1.1), kW, kB); if (!c.easing) { rest = f / 60; break; } }
+  assert.ok(rest >= 0 && rest < 11, `at rest after ${rest} s`);
+});

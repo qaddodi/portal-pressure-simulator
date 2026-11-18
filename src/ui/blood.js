@@ -922,7 +922,7 @@ export function chainParents(items, out = new Int32Array(items.length)) {
 export function createStreamChain() {
   // Each key's state lives in slot `SK.get(key)` of these lists (one list a field), written in place; a slot freed when its key goes is
   // used again by the next key. (Fields: p parent key, r root key, w weight, B, A, sj, s0, pA, pB, fresh, stable.)
-  const SK = new Map(), sKey = [], sLive = [], sP = [], sR = [], sW = [], sB = [], sA = [], sSj = [], sS0 = [], sPA = [], sPB = [], sFresh = [], sStable = [], free = [];
+  const SK = new Map(), sKey = [], sLive = [], sP = [], sR = [], sW = [], sB = [], sBt = [], sA = [], sSj = [], sS0 = [], sPA = [], sPB = [], sFresh = [], sStable = [], free = [];
   let slots = 0;
   const close = (v, to, k, tol) => (Math.abs(to - v) <= tol ? to : v + (to - v) * k);
   const api = { par: [], root: [], A: [], B: [], w: [], ef: [], et: [], easing: false };
@@ -937,7 +937,7 @@ export function createStreamChain() {
     if (s === undefined) {
       s = free.length ? free.pop() : slots++;
       SK.set(key, s);
-      sKey[s] = key; sLive[s] = 1; sP[s] = -1; sR[s] = -1; sW[s] = 0; sB[s] = 1; sA[s] = 0; sSj[s] = 0; sS0[s] = 0; sPA[s] = 0; sPB[s] = 1; sFresh[s] = true; sStable[s] = false;
+      sKey[s] = key; sLive[s] = 1; sP[s] = -1; sR[s] = -1; sW[s] = 0; sB[s] = 1; sBt[s] = 1; sA[s] = 0; sSj[s] = 0; sS0[s] = 0; sPA[s] = 0; sPB[s] = 1; sFresh[s] = true; sStable[s] = false;
     }
     return s;
   };
@@ -957,7 +957,10 @@ export function createStreamChain() {
     if (p >= 0) {
       const pi = items[p], ps = slotOf(pi.key), ratio = Math.abs(pi.m / it.m);
       const thru = sR[ps] >= 0 && sW[ps] === 1 && sStable[ps];
-      peA = thru ? sA[ps] : 0; peB = thru ? sB[ps] : 1;
+      // (The parent's B it is going to: a child follows its parent's goal, not the B the parent has eased to so far. Each following the one before it, a chain of links
+      // reached its goal one after the other, 22 s for the figure's 43 vessels, and a paused figure drew the whole time, 18 Nov 2026. The child's A is made from the parent's
+      // B as it stands (below), so the junction still holds at every step.)
+      peA = thru ? sA[ps] : 0; peB = thru ? sBt[ps] : 1;
       Bw = (peB * pi.m) / it.m;
       // (A link already drawn through this parent holds to wider bounds: CHAIN_HOLD.)
       const held = sW[s] > 0 && sP[s] === pi.key, rM = held ? CHAIN_RATIO * CHAIN_HOLD : CHAIN_RATIO, bM = held ? CHAIN_B_MAX * CHAIN_HOLD : CHAIN_B_MAX;
@@ -977,6 +980,7 @@ export function createStreamChain() {
       if (sW[s] === 0 && mark.get(it.key) !== stamp) { sP[s] = want; sR[s] = wantR; sB[s] = Bw; if (want >= 0) api.easing = true; }
     }
     sStable[s] = sP[s] >= 0 && want === sP[s] && wantR === sR[s];
+    sBt[s] = sStable[s] ? Bw : sB[s];   // (the B this link is going to; a link not made, or being changed, stands at its own)
     // The junction, through the current link's parent (as it was when last drawn, if it is no longer a candidate).
     // (Always by the root the vessel draws now, sR: through its parent's own A and B where that root is the parent's, else from the parent's
     // own stream. Until 13 Nov a link that held took the parent's thru answer (peA), which flips the moment the parent's own link starts to
