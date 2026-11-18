@@ -110,5 +110,5 @@ export function netChanges(records) {
  * the app: nothing they select is part of the figure's groups (see stage.js overKey). A deck's start and stop put several of them on or off at once, and each read
  * every overlay group again (167 ms, then 91 ms; 83 ms twice at a stop, 18 Nov 2026).
  */
-export const OVER_CARD_CLASSES = ['vessel-card', 'dock-open', 'panel-open', 'menu-sheet-open', 'presenting', 'pz-hush', 'pz-hush-in', 'pz-held', 'pz-blacked', 'pz-covered', 'projector'];
+export const OVER_CARD_CLASSES = ['vessel-card', 'dock-open', 'panel-open', 'menu-sheet-open', 'presenting', 'pz-hush', 'pz-hush-in', 'pz-held', 'pz-blacked', 'pz-covered', 'projector', 'thumb', 'thumb-ui'];
 export const OVER_CARD_RE = new RegExp(`(?:^|\\s)(?:${OVER_CARD_CLASSES.join('|')})(?=\\s|$)`, 'g');
