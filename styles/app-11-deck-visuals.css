@@ -453,6 +453,16 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 :root:root[data-cardgl] .pz.stack.stack .pz-data.pz-sheet[data-gl-wait]:not([data-gl])::before, :root:root[data-cardgl] .pz.stack.stack .pz-data.pz-sheet[data-gl-wait]:not([data-gl])::after,
 :root:root[data-cardgl] .pz.pz-wide.pz-wide .pz-data.pz-sheet[data-gl-wait]:not([data-gl])::before, :root:root[data-cardgl] .pz.pz-wide.pz-wide .pz-data.pz-sheet[data-gl-wait]:not([data-gl])::after { background: var(--gl-paper); }
 
+/* A phone's cards have a backing of their own that does not depend on the GPU (18 Nov 2026, Mohammad on his iPhone, build 450551ac: the Portal vein card at rest with the whole bowel drawing showing through it,
+   and the organ names crossing its rows). The frost is drawn in the figure's canvas under the card, and where the browser presents that late or never (WebKit's WebGL, a lost or refused context) a card whose own
+   backing was taken off (data-gl) was bare: the figure through its words. On a phone the card keeps the surface at 84 % under its words always, the paper of the wait the same value, so the frost arriving, or not,
+   changes the blur behind it and never whether a card is there to read. */
+:root { --gl-solid: color-mix(in srgb, var(--surface) 84%, transparent); }
+html.thumb-ui { --gl-paper: var(--gl-solid); }
+html.thumb-ui .pz-shade.pz-shade.pz-shade.pz-shade[data-gl], html.thumb-ui .pz .pz-data.pz-data.pz-data.pz-data.pz-data[data-gl], html.thumb-ui .pz .pz-fk.pz-fk.pz-fk.pz-fk.pz-fk[data-gl], html.thumb-ui .pz .pz-case.pz-case.pz-case.pz-case.pz-case[data-gl], html.thumb-ui .pz .pz-bar.pz-bar.pz-bar.pz-bar.pz-bar[data-gl], html.thumb-ui .pz .pz-scales.pz-scales.pz-scales.pz-scales.pz-scales[data-gl],
+html.thumb-ui .has-plate.has-plate > .sheet-plate.sheet-plate.sheet-plate[data-gl],
+html.thumb-ui .pz.pz.pz .pz-data.pz-data.pz-sheet.pz-sheet[data-gl]::before, html.thumb-ui .pz.pz.pz .pz-data.pz-data.pz-sheet.pz-sheet[data-gl]::after { background: var(--gl-solid); }
+
 /* ── Numbers hold still (2 Nov 2026: "make sure the text everywhere and the numbers everywhere aren't jiggly and changing sizes constantly") ──
    The body sets tabular figures, which every element inherits, and the `font` shorthand sets them back to proportional (and sets
    font-feature-settings back to normal): a rule that said `font: 600 14px …` and had no font-variant-numeric of its own drew its digits
