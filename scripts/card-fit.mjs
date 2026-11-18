@@ -1,7 +1,7 @@
 // Every card fits, on every slide (recs D4, A16). Walks each deck slide by slide with Next, at the Mac and the iPhone width, with the GL draws
 // stubbed (state and DOM only: no GPU, no pixels), and fails when a slide's text card scrolls, cuts a line, or stands partly off the screen.
 //
-//   node scripts/card-fit.mjs [--dir dist] [--device mac,iphone] [--decks id,id | all] [--theme light|dark] [--jobs 2] [--shard 1/3] [--out file.json] [--slide n] [--no-zoom] [--verbose]
+//   node scripts/card-fit.mjs [--dir dist] [--device mac,iphone] [--decks id,id | all] [--theme light|dark] [--jobs 2] [--shard 1/3] [--out file.json] [--slide n] [--no-zoom] [--old-rules] [--verbose]
 //
 // It judges layout only ("does every word the card holds show whole?"), so it says nothing about look or speed, and runs on a runner with no
 // graphics card. A shard takes every n-th deck (balanced by slide count), so CI can split it over jobs (checks.yml).
@@ -14,6 +14,9 @@
 //   zoomed   the same slide with its instrument card enlarged, by the corner icon and by a tap on the card (Mac and iPad landscape, where it is offered):
 //            the instrument card must be larger than at rest and stand whole inside the screen (the page's own getBoundingClientRect answers the resting box while a card
 //            rides the zoom, so the judge reads getClientRects). `--no-zoom` leaves this pass out.
+//   small    lettering under 12 px on the screen (standing rule, 17 Nov).        ratio     a slide title under 1.4 times the words under it.
+//   sideways something inside a card that scrolls sideways.                       styled    a card on the screen before it was whole (still laying out, words before their backing, fonts loading, a bare tag).
+//   `--old-rules` judges only the first six kinds. The judging is src/ui/gallery/fit-rules.js, which the gallery page's Check button runs on the device too.
 // Known, accepted cases go in scripts/card-fit-allowance.json: { "<deck>:<slide n>:<device>": "<why>" }; a listed case that no longer fails is an error
 // too (delete it), so the list only ever shrinks.
 
@@ -23,6 +26,8 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { CHROMIUM_ARGS, openApp } from './shoot.mjs';
 import { DECKS } from '../src/ui/decks.js';
+import { readCards, readZoom, judgeCards, judgeZoom, linesOf, WORDS_MIN_PX } from '../src/ui/gallery/fit-rules.js';
+import { inPage } from './fit-io.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);
@@ -44,74 +49,13 @@ const ALLOW = existsSync(ALLOW_FILE) ? JSON.parse(readFileSync(ALLOW_FILE, 'utf8
 // The GL draws do nothing: the page's state, layout and words are real, the picture is not.
 const STUB = `(() => { for (const C of [window.WebGL2RenderingContext]) { if (!C) continue; const P = C.prototype; for (const k of ['drawArrays', 'drawElements', 'drawArraysInstanced', 'drawElementsInstanced', 'drawRangeElements', 'clear', 'blitFramebuffer']) if (P[k]) P[k] = function () {}; } })();`;
 
-// Runs in the page: what does not fit right now.
-const READ = () => {
-  const vw = innerWidth, vh = innerHeight;
-  // (Seen when it, and everything it sits in, would show: opacity does not inherit, so a card faded out or parked by its parent has to be found on the way up.)
-  const vis = (el) => {
-    for (let n = el; n && n !== document.documentElement; n = n.parentElement) { const cs = getComputedStyle(n); if (cs.display === 'none' || (n === el && cs.visibility === 'hidden') || +cs.opacity <= 0.05 || n.hidden) return false; }
-    return getComputedStyle(el).visibility !== 'hidden';
-  };
-  const name = (el) => `${el.tagName.toLowerCase()}.${String(el.className?.baseVal ?? el.className).split(' ').slice(0, 3).join('.')}`;
-  const clipped = [], off = [];
-  const root = document.querySelector('.pz');
-  if (root) for (const el of root.querySelectorAll('*')) {
-    if (el.childElementCount || !el.textContent.trim() || el.classList.contains('sr-only') || !vis(el)) continue;
-    const r = el.getBoundingClientRect();
-    if (!r.width) continue;
-    if (el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflow !== 'visible') clipped.push(`${name(el)} "${el.textContent.trim().slice(0, 40)}" sw${el.scrollWidth}>cw${el.clientWidth}`);
-    // (Wholly outside the screen is a card parked away or a slide's leftover waiting off stage, not text cut by the edge: only text that is partly in view counts.)
-    const inView = r.right > 0 && r.left < vw && r.bottom > 0 && r.top < vh;
-    if (inView && (r.right > vw + 2 || r.left < -2 || r.bottom > vh + 2 || r.top < -2)) {
-      let p = el, sc = false;
-      while (p && p !== root) { const o = getComputedStyle(p); if (/auto|scroll/.test(o.overflowY + o.overflowX)) { sc = true; break; } p = p.parentElement; }
-      if (!sc) off.push(`${name(el)} "${el.textContent.trim().slice(0, 40)}" [${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.right)},${Math.round(r.bottom)}]`);
-    }
-  }
-  // (A card whose real content runs past its box. Not scrollHeight: the GL words' and traces' overlay canvases stand 18 px past the box of a card whose
-  // overflow is clipped, which made every such card look like it scrolled. The content is what is not a canvas.)
-  const scroll = ['.pz-text', '.pz-data', '.pz-panel'].map((q) => {
-    const e = document.querySelector(q);
-    if (!e || !vis(e)) return null;
-    const box = e.getBoundingClientRect();
-    let low = 0, who = '';
-    for (const k of e.querySelectorAll('*')) {
-      if (k.tagName === 'CANVAS' || k.closest('canvas')) continue;
-      // (Inside a box of its own that clips, such as the ascites belly's fill, it is that box that cuts it, not the card.)
-      let clippedInside = false;
-      for (let n = k.parentElement; n && n !== e; n = n.parentElement) { const o = getComputedStyle(n); if (o.overflowY !== 'visible' || o.overflowX !== 'visible') { clippedInside = true; break; } }
-      if (clippedInside) continue;
-      const r = k.getBoundingClientRect();
-      if (!r.width || !r.height || !vis(k)) continue;
-      if (r.bottom - box.bottom > low) { low = r.bottom - box.bottom; who = name(k); }
-    }
-    return low > 2 ? `${q} content runs ${Math.round(low)} px past its box (${who}; box ${Math.round(box.width)} x ${Math.round(box.height)} at y ${Math.round(box.top)}, screen ${vw} x ${vh}; teaching card ${(() => { const t = document.querySelector('.pz-text')?.getBoundingClientRect(); return t ? `y ${Math.round(t.top)}-${Math.round(t.bottom)}` : 'none'; })()})` : null;
-  }).filter(Boolean);
-  // (No card is enlarged until it is asked: a slide that lands with one up, or the zoomed state left over from the one before, is a finding.)
-  const enlarged = [document.querySelector('#app')?.classList.contains('pz-zoomed') && 'the page is in its zoomed state', document.querySelector('.pz-data')?.dataset.zoomed !== undefined && 'the data card is zoomed', document.querySelector('.pz-zbtn')?.getAttribute('aria-expanded') === 'true' && 'the enlarge icon says it is up'].filter(Boolean).map((t) => `${t} on entry`);
-  return { n: document.querySelector('.pzb-n')?.textContent || '', enlarged, clipped: clipped.slice(0, 12), off: off.slice(0, 12), scroll };
-};
-
-// Runs in the page with a card enlarged: where the two cards really are (getClientRects: the zoom pins getBoundingClientRect to the resting box).
-const ZREAD = () => {
-  const vw = innerWidth, vh = innerHeight, o = {};
-  for (const q of ['.pz-text', '.pz-data']) {
-    const e = document.querySelector(q), r = e?.getClientRects()[0];
-    o[q] = r && r.width ? [Math.round(r.left), Math.round(r.top), Math.round(r.right), Math.round(r.bottom)] : null;
-  }
-  return { vw, vh, boxes: o, up: document.querySelector('.pz-zbtn')?.getAttribute('aria-expanded') === 'true' };
-};
-const zoomFailing = (z, rest, how) => {
-  if (!z.up) return [`zoomed (${how}): the card did not enlarge`];
-  // (The camera zooms into the card: the instrument card is the focus and is what must stand whole and larger. The teaching card rides the same turn, where it stands.)
-  const b = z.boxes['.pz-data'], r0 = rest.boxes['.pz-data'], out = [];
-  if (!b) return [`zoomed (${how}): the enlarged card is not on the screen`];
-  if (b[0] < -2 || b[1] < -2 || b[2] > z.vw + 2 || b[3] > z.vh + 2) out.push(`zoomed (${how}): enlarged card [${b}] runs off the ${z.vw} x ${z.vh} screen`);
-  if (r0 && (b[2] - b[0]) < (r0[2] - r0[0]) * 1.02) out.push(`zoomed (${how}): the enlarged card did not grow (${r0[2] - r0[0]} px wide at rest, ${b[2] - b[0]} px zoomed)`);
-  return out;
-};
-
-const failing = (r) => [...(r.enlarged || []).map((t) => `enlarged: ${t}`), ...r.scroll.map((t) => `scroll: ${t}`), ...r.clipped.map((t) => `clipped: ${t}`), ...r.off.map((t) => `off: ${t}`)];
+// The judging lives in src/ui/gallery/fit-rules.js, shared with the gallery page's Check button: the readers run in the page (their source text goes in
+// as it is, scripts/fit-io.mjs), the judges are plain functions of what they return.
+const OLD_RULES = argv.includes('--old-rules');   // (only the four first kinds: scroll, clipped, off, enlarged, zoomed; the 17 Nov standing-rule checks left out)
+const READ = (page) => inPage(page, readCards, { minPx: WORDS_MIN_PX });
+const ZREAD = (page) => inPage(page, readZoom);
+const zoomFailing = (z, rest, how) => linesOf(judgeZoom(z, rest, how));
+const failing = (r) => linesOf(judgeCards(r, { oldRules: OLD_RULES }));
 
 async function walkDeck(browser, d, device) {
   const rec = { deck: d.id, device, steps: [], problems: [], errors: [] };
@@ -132,24 +76,26 @@ async function walkDeck(browser, d, device) {
     for (let k = 0; k < 160; k++) {
       await idle();
       await app.page.waitForTimeout(900);
-      const r = await app.page.evaluate(READ);
+      const r = await READ(app.page);
       // (Judged only on what stands still: a card or a line still gliding in reads 27 px off the screen for a moment, and the second read 0.7 s later no longer agrees.)
       await app.page.waitForTimeout(700);
-      const r2 = await app.page.evaluate(READ);
+      const r2 = await READ(app.page);
       const both = (x, y) => x.filter((t) => y.includes(t));
       r.enlarged = both(r.enlarged, r2.enlarged); r.scroll = both(r.scroll, r2.scroll); r.clipped = both(r.clipped, r2.clipped); r.off = both(r.off, r2.off);
+      r.small = both(r.small, r2.small); r.sideways = both(r.sideways, r2.sideways); r.styled = both(r.styled, r2.styled);
+      if (r.title !== r2.title || r.body !== r2.body) r.title = r.body = 0;   // (a title still easing to its size)
       const [a, b] = r.n.split('/').map((x) => parseInt(x, 10));
       const slide = a || k + 1;
       const f = failing(r);
       // (The slide with its instrument card enlarged, by the corner icon and then by a tap on an empty part of the card: both cards zoom, whole on the screen.
       // Only where the icon is offered; put back before Next.)
       if (ZOOM && await app.page.evaluate(() => { const z = document.querySelector('.pz-zbtn'), d = document.querySelector('.pz-data'); return !!z && !!d && getComputedStyle(z).display !== 'none' && d.getBoundingClientRect().width > 0 && !d.hidden; })) {
-        const rest = await app.page.evaluate(ZREAD);
+        const rest = await ZREAD(app.page);
         const judge = async (how) => {
           await app.page.waitForTimeout(1800);
-          const z1 = await app.page.evaluate(ZREAD);
+          const z1 = await ZREAD(app.page);
           await app.page.waitForTimeout(700);
-          const z2 = await app.page.evaluate(ZREAD);
+          const z2 = await ZREAD(app.page);
           const zf = zoomFailing(z2, rest, how).filter((t) => zoomFailing(z1, rest, how).includes(t));
           // (A press that opened nothing (the icon offered while the cards were still gliding in, or planned with another margin than the zoom uses) is listed, not failed:
           // it is how the zoom has always behaved, and it changes no card's fit.)
