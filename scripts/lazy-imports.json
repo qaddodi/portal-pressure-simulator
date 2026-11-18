@@ -15,6 +15,7 @@
     "src/ui/main.js → ./perf-readout.js": "?perf only, at boot",
     "src/ui/main.js → ./lap.js": "?lap only, at boot (the device lap, a measuring aid)",
     "src/ui/main.js → ./offgpu-overlay.js": "?offgpu only, at boot",
+    "src/ui/main.js → ./watch/start.js": "?watch only, on the preview copy or a local run, at boot (the motion recorder and its red dot)",
     "src/ui/presenter.js → ./test-decks/demo-all-new-visuals.js": "the preview copy only, when the presenter module is read in",
     "src/ui/presenter.js → ./gallery/deck.js": "the preview copy only, with the Testing deck above (the gallery deck: every card kind, one slide each)",
     "src/ui/main.js → ./gallery/page.js": "?gallery on the preview copy only (the card gallery and debug page), at boot; no person reaches it from a tap and the live site never reads it",

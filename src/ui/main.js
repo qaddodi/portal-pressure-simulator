@@ -1369,6 +1369,8 @@ function wireTopbar() {
   if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
   // ?offgpu=1 in the address: the live count of work off the GPU, flashing red when it happens during motion (offgpu-overlay.js). Without it, never loaded.
   if (/[?&]offgpu=1\b/.test(location.search)) import('./offgpu-overlay.js').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
+  // ?watch in the address, on the preview copy (or a local run): the motion recorder and its red dot (watch/start.js; docs/watch.md). Without it, never loaded.
+  if (/[?&]watch\b/.test(location.search) && (/\/preview\//.test(location.pathname) || /^(localhost|127\.0\.0\.1)$/.test(location.hostname))) import('./watch/start.js').then(({ startWatch }) => startWatch(() => window.pps)).catch(() => { /* a measuring aid only */ });
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());
