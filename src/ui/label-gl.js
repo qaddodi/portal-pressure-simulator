@@ -1785,7 +1785,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
     hostTail();
     // (R09: while a ride or a landing glide has the pictures off their DOM labels, the labels' pointer events are held off, app.css
     // #labels.lb-displaced: a click or a hover would land where the label was. A class between frames; keyboard and focus are untouched.)
-    { const off = displacedNow(!!rideM, 0); if (off !== displaced) { displaced = off; classSoon(svg, 'lb-displaced', off); } }
+    // (Nor while a change between the views or a slide's glide has them crossing: the old view's pictures stand as ghosts on the vessels and the new ones come in at
+    // their anchors, while the DOM labels keep the layout they had until the change lands and then jump to it, in one frame, 234 to 683 px: the hit targets of
+    // the tester's Anatomy to Circuit, 18 Nov 2026. A click mid-change landed where no label was drawn. Held off for the length of the crossing, as for a ride.)
+    { const off = displacedNow(!!rideM, ghosts.length > 0 || xfNew < 1 || xfOld < 1 ? 1 : 0); if (off !== displaced) { displaced = off; classSoon(svg, 'lb-displaced', off); } }
     // (A full atlas is packed again beside the old one, never reset (repackWork). And the second page is made at rest, ahead of the first
     // picture that needs it, once the first is more than half full.)
     if ((needRepack && !stuck) || rp || todo.size) settleSoon();   // (a repack goes on a few copies a frame, and what the pass left over is built next, R11/R12)
