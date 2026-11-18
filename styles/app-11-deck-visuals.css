@@ -551,14 +551,14 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 .pz .pz-data.has-tool > .pz-dh:has(> .pz-hr:not([data-n="0"])) { flex-wrap: wrap; justify-content: space-between; align-items: baseline; text-align: left; gap: 2px 12px; }
 .pz .pz-data.has-tool > .pz-dh:has(> .pz-hr:not([data-n="0"])) > span:first-child { flex: 1 1 auto; text-wrap: balance; }
 .pz-hi { display: inline-flex; align-items: baseline; gap: .3em; }
-.pz-hk { font-size: .86em; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); }
+.pz-hk { font-size: max(.86em, 12px);   /* (never under 12 px on the screen: the header's key names were 10.3 px, .86 of a 12 px reading; the tester, 17 Nov 2026) */ font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); }
 .pz-hi > b { font: 600 1.15em/1 var(--font-ui); letter-spacing: 0; color: var(--text); }
 /* (Style A, Mohammad 7 Nov 2026: no rating dot; the number wears its rating's ink and the label look's outline, the theme's --label-halo 3 px under the fill, as the Anatomy and Circuit labels. The GPU words draw it (glWords halo); this is the page's own words once they take over, the same outline, so nothing changes at the hand-over. Where the GPU words are up, app.css .glw-on makes this stroke clear.) */
 .pz-hi > b { -webkit-text-stroke: 3px var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; }
 .pz-hi[data-rate="mid"] > b { color: var(--caution-ink); }
 .pz-hi[data-rate="hi"] > b { color: var(--danger-ink); }
 .pz-hi[data-rate="none"] > b { color: var(--text-3); }
-.pz-hi > small { font-size: .86em; font-weight: 500; color: var(--text-3); }
+.pz-hi > small { font-size: max(.86em, 12px); font-weight: 500; color: var(--text-3); }
 .pz-hi > small[hidden] { display: none; }
 .pz.stack .pz-hr:is([data-n="3"], [data-n="4"]) .pz-hi > small { display: none; }
 .pz.pz .pz-data.pz-data[data-tool^="criteria:"] > .pz-dh > .pz-hr { font: var(--caps-w) calc(1em / 1.3)/1.25 var(--font-ui); }   /* (the criteria card's name is set larger, in the display face: its readings keep the other cards' size) */

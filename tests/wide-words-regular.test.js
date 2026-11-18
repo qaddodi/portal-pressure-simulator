@@ -26,6 +26,6 @@ test('off a phone on its side every step of the stacked layout puts the words at
 });
 
 test('the data card gives way instead: its blocks step down, its instrument folds', () => {
-  assert.match(wide, /for \(const s of DK\) \{ if \(below\) break; stepDk\(s\); below = step\(\); \}/);
+  assert.match(wide, /for \(const s of DK\) \{ if \(below \|\| s < dkMin - 1e-6\) break; stepDk\(s\); below = step\(\); \}/);
   assert.match(wide, /if \(!below && canFold && !held\) \{ setFolds\(true\);/);
 });

@@ -1,7 +1,7 @@
 // One of the six ladders zoomed; layout and fit
 // (moved out of presenter.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { throwLanded, throwing } from './card-throw.js';
-import { SIDEWAYS_MAX_H, WIDE, figFloorOf, pairRise, phonePlan, sidewaysWords, titleFloorK } from './card-type.js';
+import { SIDEWAYS_MAX_H, WIDE, figFloorOf, pairRise, phonePlan, sidewaysWords, titleFloorK, dkFloorOf } from './card-type.js';
 import { createInsetHold } from './inset-hold.js';
 import { readBox, readMetric, readStyle } from './layout-snap.js';
 import { reduceMotionMQ as reduce } from './motion.js';
@@ -260,7 +260,7 @@ export function createLadders(st, live) {
     if (cardOn && !p && !low) {
       const ts0 = live.ui.text.style, fit0 = () => parseFloat(ts0.getPropertyValue('--pz-fit')) || 1;
       if (fit0() < 0.999) {
-        const hEl = live.ui.text.querySelector('.pz-h'), bEl = live.ui.text.querySelector('.pz-line, p');
+        const hEl = live.ui.text.querySelector('.pz-h'), bEl = live.ui.text.querySelector('.pz-line') || live.ui.text.querySelector('p:not(.pz-eqk)');
         const f = titleFloorK(hEl ? parseFloat(readStyle(hEl).fontSize) : 0, bEl ? parseFloat(readStyle(bEl).fontSize) : 0), a = Math.max(WIDE.title, f);
         // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         for (const tk of f < a ? [a, f] : [a]) {
@@ -322,7 +322,7 @@ export function createLadders(st, live) {
       // (The title stops at TITLE_RATIO times the words, card-type.js titleFloorK: a title that reads as a bold first line is not a title. The pair then rises into its top margin, below, and the data card's own fit does the rest.)
       const steps = () => {
         if (put(tk0, 1)) return true;
-        const hEl = live.ui.text.querySelector('.pz-h'), bEl = live.ui.text.querySelector('.pz-line, p');
+        const hEl = live.ui.text.querySelector('.pz-h'), bEl = live.ui.text.querySelector('.pz-line') || live.ui.text.querySelector('p:not(.pz-eqk)');
         const f = titleFloorK(hEl ? parseFloat(readStyle(hEl).fontSize) / tk0 : 0, bEl ? parseFloat(readStyle(bEl).fontSize) : 0), a = Math.max(WIDE.title, f);   // (the title as it is at tk 1: put(tk0, 1) left it at tk0)
         return (a < tk0 && put(a, 1)) || (f < a && f < tk0 && put(f, 1));
       };
@@ -338,7 +338,9 @@ export function createLadders(st, live) {
       const ladder = () => {
         // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         if (short) { for (const c of ['pz-lt', 'pz-lt2']) { if (below) break; dd.classList.add(c); ch = colHeight(cw / k) * k; below = step(); } return; }
-        for (const s of DK) { if (below) break; stepDk(s); below = step(); }   // (the data card's blocks a step or two smaller: no further, or the words would squeeze)
+        // (The blocks step down only while their smallest lettering, the tiles' names, stays 12 px on the screen: a step of 0.86 took them to 10.3 px, the tester, 17 Nov 2026. dkFloorOf, card-type.js.)
+        const kEl = dd.querySelector('.pz-tiles .pzt-k'), dkMin = dkFloorOf(kEl ? parseFloat(readStyle(kEl).fontSize) : 0);
+        for (const s of DK) { if (below || s < dkMin - 1e-6) break; stepDk(s); below = step(); }   // (the data card's blocks a step or two smaller: no further, or the words would squeeze)
       };
       // When even the smallest blocks leave the pair too tall, the words' card gives way once more before anything is cut off: its title one
       // step down, then the CAUSES line gone, the blocks stepping again from full size under each (Mohammad, 23 Oct, Sites 4 on a Mac at a
