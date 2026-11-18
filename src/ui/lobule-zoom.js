@@ -272,7 +272,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // whose numbers the picture draws as they stand; a change to one asks for a frame of the picture.
   const leadersBox = h('div', { class: 'lz-leaders svg-gl-box', 'aria-hidden': 'true' });
   const leaders = svgModel('svg', { 'data-look': 'small.root', viewBox: '0 0 1 1', preserveAspectRatio: 'none' });
-  const leadGL = createSvgGL(leadersBox, { host: 'lobule', follows: true });
+  const leadGL = createSvgGL(leadersBox, { host: 'lobule', follows: true, big: true });   // (the screen-size layer: a pool of its own, so it and the card's small pictures never resize one buffer in turn)
   const leadPaint = () => leadGL.paint();
   leadGL.cv.setAttribute('aria-hidden', 'true'); leadGL.cv.removeAttribute('role');
   leadGL.show(leaders, false);

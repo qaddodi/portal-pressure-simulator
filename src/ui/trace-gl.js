@@ -86,11 +86,17 @@ const progList = (started) => {
 const NO_OPTS = Object.freeze({});   // (a stroke asked for with no options: nothing is made for it)
 const LS_TEXT = new Map();
 const lsText = (n) => LS_TEXT.get(n) ?? (LS_TEXT.size >= 400 && LS_TEXT.clear(), LS_TEXT.set(n, `${n}px`).get(n));   // alloc-rare: the text of a letter spacing is made the first time that spacing is set, then looked up
-function sharedGL() {
-  if (!pools.length) { const first = makePool(); pools.push(first); if (first.dead) return null; }
-  if (pools[0].dead) return null;
-  pools[0].users++;
-  return pools[0];
+// A layer the size of the screen (the lobule's leaders) has a pool of its own (17 Nov 2026, the tester, the lobule view at rest: the shared buffer resized every one to two seconds, 10 to 16 times in 6.5 s,
+// each dearer than the last, 285, 416, 599, 858 ms, every one in the first frame of a card's picture): the screen-size layer grew the one buffer and the small pictures between its frames cut it back,
+// a grow and a shrink in turn. A pool of its own keeps the small charts' buffer at card size and the layer's at the screen's, and neither resizes the other's. Where a second context cannot be made, the
+// layer takes the shared pool as before.)
+function sharedGL(big = false) {
+  if (!pools.length) { pools.push(makePool()); }
+  if (big && !pools[1]) pools[1] = makePool();
+  const p = big && pools[1] && !pools[1].dead ? pools[1] : pools[0];
+  if (p.dead) return null;
+  p.users++;
+  return p;
 }
 const startPool = (p) => (p.started ||= Object.fromEntries(Object.entries(SRC).map(([k, [vs, fs]]) => [k, startProgram(p.gl, vs, fs)])));   // alloc-rare: a pool's programs are started once
 // Paint (a colour or a linear gradient of up to sixteen stops: the profile's curve has a stop per station), shared by the fills and the strokes' laying down. Positions in CSS px.
@@ -372,7 +378,7 @@ const premulInto = (out, o, c, alpha = 1) => { const v = rgba(c), a = v[3] * alp
 
 /** The GPU drawer for one chart, over `host` (the chart's 2D canvas), or null where it cannot be (the 2D canvas draws the chart). */
 // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
-export function createTraceGL(host, { redraw = null, under = null, lose = null, keep = false, name = '' } = {}) {   // (keep: a widget's picture is never taken down by a frame the GPU could not draw: the last completed picture stays until the retry draws it again)
+export function createTraceGL(host, { redraw = null, under = null, lose = null, keep = false, name = '', big = false } = {}) {   // (keep: a widget's picture is never taken down by a frame the GPU could not draw: the last completed picture stays until the retry draws it again)
   // (canvasSize never measures: a chart drawn before the observer reported its box drew nothing, and draws again once it has one,
   // with or without this drawer)
   let unsized = null;   // (the size subscription's release, called by dispose)
@@ -385,7 +391,7 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
   canvas.className = 'trace-gl';
   canvas.style.pointerEvents = 'none';
   let gl = null, glCanvas = canvas, shown = null;
-  let shared = sharedGL();
+  let shared = sharedGL(big);   // (big: a layer the size of the screen, a pool of its own)
   if (shared) {
     try { shown = canvas.getContext('bitmaprenderer'); } catch { shown = null; }
     if (shown) { gl = shared.gl; glCanvas = shared.canvas; }
@@ -825,7 +831,7 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
     /** Starts a frame over a chart w × h CSS px, drawn at Wd × Hd device px. False: the GPU cannot draw now (the 2D canvas draws the chart). */
     begin(w, h, Wd, Hd) {
       if (!api.ready || w < 1 || h < 1) { api.hide(); return false; }
-      if (!bigNoted && bigLayer(Wd, Hd)) { bigNoted = true; caught('trace-gl:big-layer', new Error(`a chart layer of ${Wd} x ${Hd} device px (${name || host.parentElement?.className?.split?.(' ')[0] || '?'}) went through the shared pool: every hand-over copies the whole buffer`)); }   // alloc-rare: once per page
+      if (!bigNoted && !big && bigLayer(Wd, Hd)) { bigNoted = true; caught('trace-gl:big-layer', new Error(`a chart layer of ${Wd} x ${Hd} device px (${name || host.parentElement?.className?.split?.(' ')[0] || '?'}) went through the shared pool: every hand-over copies the whole buffer`)); }   // alloc-rare: once per page
       if (shown) {
         // (Another chart's frame still open in the shared context is finished first: its picture handed over before this one starts.)
         if (shared.active && shared.active !== api) shared.active.end();

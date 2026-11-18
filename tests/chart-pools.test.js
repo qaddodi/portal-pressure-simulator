@@ -117,3 +117,34 @@ test('one full-screen chart does not leave every small chart handing over a full
   assert.equal(sharedStats.resizes, r1, 'and then left alone');
   big.dispose(); small.dispose();
 });
+
+test('a screen-size layer with a pool of its own and the small pictures never resize one buffer in turn (the lobule view at rest: 10 to 16 resizes in 6.5 s, each dearer than the last; the tester, 17 Nov 2026)', () => {
+  const big = createTraceGL(host(), { big: true }), small = createTraceGL(host());
+  assert.ok(big && small);
+  clock += 5000;
+  // (warm-up: each draws once and finds its size)
+  for (let i = 0; i < 5; i++) { clock += 16; assert.ok(draw(big, 1860, 1200)); assert.ok(draw(small, 200, 90)); }
+  const r0 = sharedStats.resizes;
+  // (a minute and a half of the lobule at rest: the leader layer draws now and then, the card's picture between, past every quiet spell the shared buffer used to be cut back in)
+  for (let i = 0; i < 5400; i++) {
+    clock += 16;
+    if (i % 90 === 0) assert.ok(draw(big, 1860, 1200));
+    if (i % 7 === 0) assert.ok(draw(small, 200, 90));
+  }
+  assert.equal(sharedStats.resizes - r0, 0, `buffer resizes while at rest: ${sharedStats.resizes - r0}`);
+  big.dispose(); small.dispose();
+});
+
+test('without a pool of its own the same alternation does resize (what the tester saw), so the test above holds the pool to it', () => {
+  const big = createTraceGL(host()), small = createTraceGL(host());
+  clock += 5000;
+  for (let i = 0; i < 5; i++) { clock += 16; draw(big, 1860, 1200); draw(small, 200, 90); }
+  const r0 = sharedStats.resizes;
+  for (let i = 0; i < 5400; i++) {
+    clock += 16;
+    if (i % 90 === 0) draw(big, 1860, 1200);
+    if (i % 7 === 0) draw(small, 200, 90);
+  }
+  assert.ok(sharedStats.resizes - r0 >= 10, `one shared buffer: ${sharedStats.resizes - r0} resizes`);
+  big.dispose(); small.dispose();
+});
