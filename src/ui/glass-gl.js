@@ -931,15 +931,22 @@ export function createGlassGL(wrap, source, layers, { markHold = true, software 
       unmark();
       // (holesWhile: while the figure is not on this canvas (the dive), the browser's own glass is still laid over the labels: the labels
       // leave its place out, as they do under a glass drawn here, so a label is never seen through a card. Not drawn, only told.)
-      if (cards?.holesWhile && list.length && wanted() && cards.holesWhile()) { try { const R = nowGeo(list); if (R) { tellHoles(R.panes); holeOnly = true; } } catch (e) { caught('glass-gl:holes', e); } }
-      else if (holeOnly) { holeOnly = false; tellHoles(NONE); }
+      holesUndrawn(list);
       return false;
     }
     if (holeOnly) holeOnly = false;
     if (host) { const r = hostDraw(list); if (r !== undefined) return r; }
     // (Not drawn in the figure's canvas: the browser's glass, until the figure's canvas can take it again.)
     unmark();
+    holesUndrawn(list);
     return false;
+  }
+  // The labels leave a card's place out whether or not its glass is drawn in the figure's canvas (18 Nov 2026, Mohammad on his iPhone: the organ names SMALL BOWEL and COLON crossing the rows of the Portal vein card). They
+  // were told of the glasses drawn there only, and of the cards while the dive had the glass off the canvas; a card whose glass the browser would not take, held out, given up on or not wanted at all (no WebGL2, Blur effect off,
+  // reduced transparency) had labels showing through its backing, the faint smear at best. The card's place is told whatever happens to its glass; not drawn, only told.
+  function holesUndrawn(list) {
+    if (!cards || co || !list.length) { if (holeOnly) { holeOnly = false; tellHoles(NONE); } return; }
+    try { const R = nowGeo(list); if (R) { tellHoles(R.panes); holeOnly = true; } } catch (e) { caught('glass-gl:holes', e); }
   }
   // Each glass over the blurred copy (bound on unit 0, the glass's program in use and its view set), in context G at k device px per
   // CSS px, marked as it is drawn; a mark no longer drawn is given back.
