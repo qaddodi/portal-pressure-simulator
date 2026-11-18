@@ -35,8 +35,8 @@ try {
     console.log(name.padEnd(22), JSON.stringify(m));
     if (!m) { bad.push(`${name}: no sheet showed`); return; }
     // (A sheet that scrolls has used the room: its top is at the top bar's foot, give or take the gap.)
-    // (Search is a list of results whose height is fixed on purpose, so it does not jump as the query changes: its list scrolls inside it.)
-    if (m.scrolls && m.room > 40 && name !== 'Search') bad.push(`${name}: scrolls while stopping ${m.room}px short of the room under the top bar (sheet ${m.top}-${m.bottom}, ${m.h}px)`);
+    // (Layers stops under half the screen on purpose, so the figure stays in view as its rows are toggled. Search is a list of results whose height is fixed on purpose, so it does not jump as the query changes: its list scrolls inside it.)
+    if (m.scrolls && m.room > 40 && name !== 'Search' && name !== 'Layers') bad.push(`${name}: scrolls while stopping ${m.room}px short of the room under the top bar (sheet ${m.top}-${m.bottom}, ${m.h}px)`);
   };
   await tab('Treat').click();
   for (const t of ['Drugs', 'Fluids', 'Procedures']) { await page.locator('[role="tab"]', { hasText: t }).first().click(); await check('Treat ' + t); }

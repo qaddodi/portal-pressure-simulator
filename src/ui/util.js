@@ -1,5 +1,6 @@
 // DOM & formatting helpers.
 import { saver, frame, readFrame } from './frame.js';
+import { enterWhenReady } from './widget-ready.js';
 import { restPass, restAttr, restRemove } from './rest-pass.js';
 import { glWords } from './gl-words.js';
 import { slideFold } from './fold-slide.js';
@@ -460,7 +461,7 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   // (`safe`: a menu sheet whose rows change the figure (Layers, Blood) is a card the camera frames around, as Tests and Treat are: the figure sits in the strip above it
   // and each toggle shows. It counts where it rests, not mid-ride (data-rest-translate), and stops counting once it is leaving: stage-fit.js cardsRead. 16 Nov 2026.)
   if (asSheet && safe) { el.dataset.safe = safe; el.dataset.safeRest = ''; el.dataset.restTranslate = '0 0'; }
-  switchIn(el);
+  // (A menu's entrance waits for its widgets too, enterWhenReady: held where it cannot be seen, then its ride and its glass begin together.)
   // A sheet has a scrim that takes the tap away, as the main menu's does (it dims nothing: menu recs C5).
   const scrim = asSheet ? h('div', { class: 'um-scrim' }) : null;
   // (In the one sheet layer, cut on the dock's top line: sheet-layer.js. The scrim too, so the dock is never dimmed or covered.)
@@ -515,7 +516,8 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   };
   if (el.classList.contains('app-menu')) { const ro = new ResizeObserver(() => { if (!el.isConnected) ro.disconnect(); else clipBar(); }); ro.observe(el); }
   put();
-  if (asSheet) rideIn(el, reduceMotionMQ.matches, ...menuRide(reduceMotionMQ.matches));   // (a menu sheet comes up on the page's frames, so its glass and its words are one piece: sheet-ride.js)
+  switchIn(el);
+  const cancelEnter = enterWhenReady(el, () => { if (el.isConnected && asSheet) rideIn(el, reduceMotionMQ.matches, ...menuRide(reduceMotionMQ.matches)); });   // (a menu sheet comes up on the page's frames, so its glass and its words are one piece: sheet-ride.js)
   // (Its fill, ring and shadow are the GPU's, a plate laid under it: plate-gl.js. It reads the look from this menu's own CSS.)
   const plate = glassPlate(el) || plateFor(el, 'menu');
   // Arrow keys walk the rows (Up, Down, Home, End; wrapping at the ends), as every native menu does; Tab still leaves.
@@ -537,7 +539,7 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   const swap = () => { if (openMenu?.el !== el || mq.matches === asSheet) return; openMenu.swapping = true; closePopover(); popover(anchor, content, { cls, align, place, onClose, sheet, title }); };
   const onResize = () => { if (!asSheet && openMenu?.el === el) put(); };
   mq?.addEventListener('change', swap); addEventListener('resize', onResize);
-  openMenu = { el, anchor, put, plate, scrim, cleanup: () => { releaseSurface(me); vv?.removeEventListener('resize', onVV); mq?.removeEventListener('change', swap); removeEventListener('resize', onResize); kbSheet?.off(); if (!openMenu?.swapping) onClose?.(); } };
+  openMenu = { el, anchor, put, plate, scrim, cleanup: () => { cancelEnter(); releaseSurface(me); vv?.removeEventListener('resize', onVV); mq?.removeEventListener('change', swap); removeEventListener('resize', onResize); kbSheet?.off(); if (!openMenu?.swapping) onClose?.(); } };
   restAttr(anchor, 'aria-expanded', 'true');   // (a screen reader's state, written between frames)
   // Focus goes in however it was opened (focus-flow.js): from the keyboard to its first control, from a mouse or a finger to the menu itself, so the keys
   // act on it and Tab starts inside it, not on the button behind it. (Whether it was the keyboard is read now: a mouse click moves :focus-visible by the timer.)

@@ -27,3 +27,37 @@ test('a screen on which no widget has ever come up stops waiting after two waits
   widgetState.live = 1;
   assert.equal(widgetsPending(card(wrap(false))), true, 'a widget that has come up makes the screen one that has them');
 });
+
+import { enterWhenReady, PREP_MAX_MS } from '../src/ui/widget-ready.js';
+// A surface held until its widgets are drawn: at once when nothing is pending, else held (prep-hold) and shown, at most PREP_MAX_MS later, in one task with its hold taken off.
+function fakeEl(pendingNow) {
+  const cls = new Set();
+  let pending = pendingNow;
+  return { isConnected: true, hidden: false, cls, set pending(v) { pending = v; },
+    classList: { add: (c) => cls.add(c), remove: (c) => cls.delete(c), contains: (c) => (c === 'wgl-on' ? false : cls.has(c)) },
+    querySelectorAll: () => (pending ? [wrap(false)] : []) };
+}
+test('enterWhenReady: nothing pending shows at once and holds nothing', () => {
+  widgetState.live = 1; widgetState.misses = 0;
+  const e = fakeEl(false); let shown = 0;
+  enterWhenReady(e, () => { shown++; });
+  assert.equal(shown, 1); assert.equal(e.cls.has('prep-hold'), false);
+});
+test('enterWhenReady: a pending widget holds the surface, and it is shown with the hold taken off in the same task, never after the cap', async () => {
+  widgetState.live = 1; widgetState.misses = 0;
+  const e = fakeEl(true); let shown = 0, heldAtShow = null;
+  enterWhenReady(e, () => { shown++; heldAtShow = e.cls.has('prep-hold'); });
+  assert.equal(shown, 0); assert.equal(e.cls.has('prep-hold'), true, 'held');
+  await new Promise((r) => setTimeout(r, PREP_MAX_MS + 150));
+  assert.equal(shown, 1, 'shown once, at the cap at the latest');
+  assert.equal(heldAtShow, false, 'the hold is off when its entrance begins');
+  assert.equal(widgetState.misses, 1, 'a wait that ran out is counted');
+});
+test('enterWhenReady: put away before it was shown, it is never shown', async () => {
+  widgetState.live = 1; widgetState.misses = 0;
+  const e = fakeEl(true); let shown = 0;
+  enterWhenReady(e, () => { shown++; });
+  e.hidden = true;
+  await new Promise((r) => setTimeout(r, 80));
+  assert.equal(shown, 0); assert.equal(e.cls.has('prep-hold'), false);
+});

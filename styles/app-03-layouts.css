@@ -315,6 +315,8 @@ html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentat
 .action-card.ac-leaving > * { --edge-x: -8px; }
 .action-card.docked > :is(.sheet-plate, .ac-body, .ac-ghost, .ac-details) { --edge-x: 0px; --edge-y: 24px; }
 .action-card.docked.ac-leaving > * { --edge-y: 16px; }
+/* A surface held until its GPU widgets are drawn (widget-ready.js enterWhenReady: Treat, History, the Tests and chart sheets, the menus): laid out and not seen, nothing of it animating; the entrance begins when the hold comes off. */
+.prep-hold, .prep-hold > * { visibility: hidden !important; animation: none !important; }
 /* (Built and not yet shown: its widgets are being drawn, card.js prepBegin) */
 .action-card.ac-prep { visibility: hidden; pointer-events: none; }
 .action-card.ac-in > :is(.sheet-plate, .ac-body) { animation: slide-from-edge var(--d-small) var(--ease-arrive) backwards; }

@@ -12,4 +12,7 @@ export default [
   { file: 'src/ui/card.js', need: [/if \(el\.hidden && !leaving && !prepOn\) prepBegin\(\);/, /const up = !widgetsPending\(el\) && document\.fonts\?\.status !== 'loading', late = performance\.now\(\) - prepAt >= PREP_MAX_MS;/, `${W} a card coming up from nothing is built hidden (ac-prep) and opened once its widgets are drawn and its fonts are in, at most PREP_MAX_MS`] },
   { file: 'src/ui/card.js', need: [/if \(prepOn\) \{ prepEnd\(\); el\.hidden = true; \}/, `${W} a card closed while still being built is never shown`] },
   { file: 'styles/app-03-layouts.css', need: [/\.action-card\.ac-prep \{ visibility: hidden; pointer-events: none; \}/, `${W} the card being built is laid out and not seen`] },
+  { file: 'src/ui/main.js', need: [/switchIn\(el\); enterWhenReady\(el, NOOP\); \};/, `${W} Treat, History and every sheet that arrives are held until their widgets are drawn`] },
+  { file: 'src/ui/util.js', need: [/const cancelEnter = enterWhenReady\(el, \(\) => \{ if \(el\.isConnected && asSheet\) rideIn\(/, `${W} a menu's ride waits for its widgets too`] },
+  { file: 'styles/app-03-layouts.css', need: [/\.prep-hold, \.prep-hold > \* \{ visibility: hidden !important; animation: none !important; \}/, `${W} the hold: laid out, not seen, nothing animating`] },
 ];
