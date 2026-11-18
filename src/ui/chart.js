@@ -17,7 +17,7 @@ import { SURGICAL, surgicalVerbs } from './surgical-shunts.js';
 import { PROCEDURES, procLabel, procLong } from './procedure-names.js';
 import { glideCard } from './card-glide.js';
 import { readMetric } from './layout-snap.js';
-import { D_SMALL, EASE_ARRIVE } from './ease.js';
+import { D_FLIP, D_SMALL, EASE_ARRIVE } from './ease.js';
 import { reduceMotionMQ } from './motion.js';
 
 
@@ -209,7 +209,12 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       const card = body.isConnected && !reduceMotionMQ.matches ? body.closest('.has-plate') : null, h0 = card ? readMetric(card, 'offsetHeight') : 0;
       treatTab = id;
       for (const b of tabs.children) b.setAttribute('aria-selected', String(b.dataset.tab === id));
-      for (const [pid, , el] of panes) { const off = pid !== id; el.classList.toggle('tp-off', off); el.inert = off; el.setAttribute('aria-hidden', String(off)); }
+      for (const [pid, , el] of panes) {
+        const off = pid !== id;
+        el.classList.toggle('tp-off', off); el.inert = off; el.setAttribute('aria-hidden', String(off));
+        // (A tab that has faded out takes no height, so it is no part of the body's scrollable overflow: 18 Nov 2026, the tester at 390 px, a short tab under taller ones scrolled 156 px into blank.)
+        if (!off) el.classList.remove('tp-gone'); else setTimeout(() => { if (el.classList.contains('tp-off')) el.classList.add('tp-gone'); }, D_FLIP + 40);
+      }
       if (body.isConnected) spare();
       if (h0 > 0) glides = glideCard(card, h0, readMetric(card, 'offsetHeight'), { prior: glides, ride: [body.nextElementSibling], cut: [body, body.parentElement], free: [body.parentElement] });
     };

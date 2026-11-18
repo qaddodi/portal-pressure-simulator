@@ -417,9 +417,10 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 .treat-pane { padding-top: 4px; display: grid; clip-path: inset(-6px); }   /* (the pane is the shown tab's height: a taller tab fading out is cut at it, not scrolled into the card's body; the cut is a clip-path so the card's glide can open it with the plate, card-glide.js cutFrames) */
 .treat-pane > * { grid-area: 1 / 1; align-self: start; opacity: 1; translate: 0 0;
   transition: opacity var(--d-small) var(--ease-arrive) var(--d-flip), translate var(--d-small) var(--ease-arrive) var(--d-flip), visibility 0s; }   /* (1 Nov: a tab's list used to swap with the next at once; the old one fades first and sinks a little, then the new one rises in, the card's frame holding still) */
-.treat-pane > .tp-off { visibility: hidden; opacity: 0; translate: 0 var(--rise-y); max-height: 0; overflow: hidden;
-  transition: opacity var(--d-flip) var(--ease-in), translate var(--d-flip) var(--ease-in), visibility 0s linear var(--d-flip), max-height 0s linear var(--d-flip); }
-/* (18 Nov 2026, the tester, 390 px: the tabs not shown stood in the same grid cell, taller than the shown one, and their overflow made the card's body scroll 156 px into blank under a short tab. A tab that has faded out takes no height at all (its fade first: the step is delayed by --d-flip, as its visibility is), so it is no part of the body's scrollable overflow; no overflow cut on the pane itself, which the glide opens by its clip-path.) */
+.treat-pane > .tp-off { visibility: hidden; opacity: 0; translate: 0 var(--rise-y);
+  transition: opacity var(--d-flip) var(--ease-in), translate var(--d-flip) var(--ease-in), visibility 0s linear var(--d-flip); }
+.treat-pane > .tp-gone { max-height: 0; overflow: hidden; }   /* (set by chart.js once the tab's fade is over: no transition of a size, tests/off-gpu.test.js) */
+/* (18 Nov 2026, the tester, 390 px: the tabs not shown stood in the same grid cell, taller than the shown one, and their overflow made the card's body scroll 156 px into blank under a short tab. A tab that has faded out takes no height at all (chart.js sets tp-gone when its fade is over), so it is no part of the body's scrollable overflow; no overflow cut on the pane itself, which the glide opens by its clip-path.) */
 @media (prefers-reduced-motion: reduce) { .treat-pane > *, .treat-pane > .tp-off { translate: none; } }
 /* A wide Treat card lays the procedures out three or four to a row, as many as keep every name on one line (about
    180 px each): fewer rows, so the one height every tab shares leaves a far smaller blank band under the drugs and
