@@ -16,9 +16,9 @@ const LINEAR = (u) => u;
 /**
  * page: the page, already in the sheet; away: what it covers (put out of reach by the caller); width: how wide the page is (read once, in the tap, by the caller).
  * onPop(): the back has begun (the caller makes what it covers interactive, the sheet refits); onGone(): the page is home away (the caller takes it out).
- * Returns { pop(v), at() }: pop goes back (v: the finger's speed along +x, px per ms; 0 for a tap), at() is how far the page stands from home (0 open .. width gone).
+ * wait: the page stays off to the right until start() (its sheet is still moving). Returns { pop(v), at(), start() }: pop goes back (v: the finger's speed along +x, px per ms; 0 for a tap), at() is how far the page stands from home (0 open .. width gone).
  */
-export function pushPage(page, away, width, { onPop, onGone, plate = false } = {}) {
+export function pushPage(page, away, width, { onPop, onGone, plate = false, wait = false } = {}) {
   const W = Math.max(1, width), still = reduceMotionMQ.matches;
   let x = W, popped = false, s = null;
   // (A page of its own text over words that are still fading would show both: a backing, the sheet's solid paper, that is whole while the page covers them and fades with them, from the first frame.)
@@ -43,10 +43,11 @@ export function pushPage(page, away, width, { onPop, onGone, plate = false } = {
     glideCall(page, ms, LINEAR, (u) => apply(from + dist * (c > 0 ? carried(easeArrive(u), u, c) : easeArrive(u))), done);
   }
   apply(W);
-  run(0, 0);
+  let started = !wait;   // (wait: stands off to the right until start() is called, the caller's sheet being still on the move)
+  if (started) run(0, 0);
   function pop(v = 0) {
     if (popped) return;
-    popped = true;
+    popped = true; started = true;
     s = null;
     onPop?.();
     run(W, v, () => {
@@ -59,7 +60,7 @@ export function pushPage(page, away, width, { onPop, onGone, plate = false } = {
   page.style.touchAction = 'pan-y';
   page.addEventListener('pointerdown', (e) => {
     s = null;
-    if (popped || e.pointerType === 'mouse' || !e.isPrimary || e.target.closest?.('input[type="range"], textarea, [contenteditable]')) return;
+    if (popped || !started || e.pointerType === 'mouse' || !e.isPrimary || e.target.closest?.('input[type="range"], textarea, [contenteditable]')) return;
     s = { id: e.pointerId, x: e.clientX, y: e.clientY, on: false, trail: [], t: 0, dx: 0 };   // alloc-rare: one record a touch
   }, { passive: true });
   page.addEventListener('pointermove', (e) => {
@@ -90,5 +91,5 @@ export function pushPage(page, away, width, { onPop, onGone, plate = false } = {
   page.addEventListener('pointerup', end);
   page.addEventListener('pointercancel', end);
   page.addEventListener('lostpointercapture', end);
-  return { pop, at: () => x };
+  return { pop, at: () => x, start() { if (started || popped) return; started = true; run(0, 0); } };
 }

@@ -273,21 +273,23 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
   };
   // Takes the sheet to its size. glide: from the height it is drawn at (h0), the box held at the taller of the two for the ease and
   // committed once landed; otherwise at once (a turn of the device, an opening).
-  const apply = (glide = false, h0 = 0, easing) => {
+  // (after: told when this move has landed, the sheet still at its new height: a page that waits for the sheet to be still before it slides in (treat-page.js) is the one that asks. A move
+  // another takes over is never told: the asker has its own time limit.)
+  const apply = (glide = false, h0 = 0, easing, after) => {
     const v = sizeValue();
-    if (!glide || !isPhone() || reduceMotionMQ.matches) { stopSheet(el); commit(v); return; }
+    if (!glide || !isPhone() || reduceMotionMQ.matches) { stopSheet(el); commit(v); after?.(); return; }
     const h1 = pxOf(v), H = Math.max(h0, h1);
-    if (Math.abs(h1 - h0) < 1) { stopSheet(el); commit(v); return; }
+    if (Math.abs(h1 - h0) < 1) { stopSheet(el); commit(v); after?.(); return; }
     if (lay !== H) { stopSheet(el); hold(); el.style.height = `${H}px`; lay = H; growLaid(); setSheetOffset(el, H - h0); }
-    glideSheet(el, H - h1, { easing, done: () => commit(v), frame: growTo });
+    glideSheet(el, H - h1, { easing, done: () => { commit(v); after?.(); }, frame: growTo });
   };
   const drawnHeight = () => (lay || readMetric(el, 'offsetHeight')) - sheetOffset(el);
   // A new tab refits the sheet to its content (the height eases).
   if (fit) el.addEventListener('click', (e) => { if (size === half() && e.target.closest('[role="tab"]')) restPass(refitTab); });   // (measured between frames, rest-pass.js)
-  const refitTab = () => apply(true, drawnHeight());
+  const refitTab = (after) => apply(true, drawnHeight(), undefined, after);
   // A section that opens or closes in the sheet (Treat's Changes) refits it the same way: 18 Nov 2026, the tester at 390 px, Procedures with four changes: Changes opened in a sheet 530 px tall with 124 px of room left
   // above it, and its rows scrolled inside it. The refit is measured between frames, once the section has its new height.
-  if (fit) el.addEventListener('sheet-refit', () => { if (size === half()) restPass(refitTab); });
+  if (fit) el.addEventListener('sheet-refit', (e) => { const after = e.detail?.landed; if (size === half()) restPass(() => refitTab(after)); else after?.(); });   // (detail.landed: called once the refit has landed, or at once when there is none)
   apply();
   // A turn of the device or a new window size changes the stops and the room (px over the thumb dock): a sheet takes its size
   // again once the size has held for a moment (a sheet in the hand is left to its release).
