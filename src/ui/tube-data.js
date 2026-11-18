@@ -347,16 +347,30 @@ export function tubeBuckets(tube, on, nTubes, rowData, out) {
  * out.at: each web's join place (x, y), for the tests and the diagnostics only. out.joins: the joins read; out.empty: pairs left out for an angle outside the range; out.kinds: webs by the number of legs of their join.
  */
 export function webInstances(joinEntries, tubeData, pts, out, ends = true) {
+  out.run = null;
+  webInstancesStep(joinEntries, tubeData, pts, out, ends, Infinity);
+  return out;
+}
+/**
+ * webInstances in slices (18 Nov 2026: the Compare stop's prepare 'webs' step ran 461.6 ms in one): reads joins until `until` (performance.now() ms), then returns false with its place
+ * kept in out.run; called again with the same arguments it goes on from there. True when every join is read (out is then as webInstances leaves it). Set out.run = null to begin again.
+ */
+export function webInstancesStep(joinEntries, tubeData, pts, out, ends, until) {
   const nRows = Math.floor(tubeData.length / TUBE_FLOATS), nj = Math.floor(joinEntries.length / 8);
   if (!out.data || out.data.length < nj * 8 * WEB_FLOATS) out.data = new Float32Array(nj * 8 * WEB_FLOATS);   // alloc-rare: grown with the joins (up to 8 legs, 8 webs, a join), only on a new binning
   if (!out.at || out.at.length < nj * 8 * 2) out.at = new Float32Array(nj * 8 * 2);   // alloc-rare: grown with the joins, only on a new binning
   if (!out.kinds) out.kinds = new Int32Array(LEG_MAX + 1);   // alloc-rare: once
   if (!out.e || out.e.length < nj * 8) out.e = new Int32Array(nj * 8);   // alloc-rare: grown with the joins, only on a new binning (each web's join entry: out.e[web])
-  out.kinds.fill(0);
-  const seen = new Set();   // alloc-rare: geometry upload: once per binning, sized by the joins, never on a steady frame
+  let run = out.run;
+  if (!run) {
+    out.kinds.fill(0);
+    run = out.run = { e: 0, count: 0, joins: 0, skipped: 0, seen: new Set() };   // alloc-rare: geometry upload: once per binning, sized by the joins, never on a steady frame
+  }
+  const seen = run.seen;
   const data = out.data;
-  let count = 0, joins = 0, skipped = 0;
-  for (let e = 0; e < nj; e++) {
+  let count = run.count, joins = run.joins, skipped = run.skipped;
+  for (let e = run.e; e < nj; e++) {
+    if (until < Infinity && e > run.e && (e & 7) === 0 && performance.now() > until) { run.e = e; run.count = count; run.joins = joins; run.skipped = skipped; return false; }
     const q = e * 8;
     if (!(joinEntries[q + 2] > 0)) continue;
     const key = joinEntries.slice(q, q + 8).join(',');   // alloc-rare: same as above
@@ -400,8 +414,8 @@ export function webInstances(joinEntries, tubeData, pts, out, ends = true) {
       out.kinds[n]++;
     }
   }
-  out.count = count; out.joins = joins; out.empty = skipped;
-  return out;
+  out.count = count; out.joins = joins; out.empty = skipped; out.run = null;
+  return true;
 }
 
 /**

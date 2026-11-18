@@ -9,7 +9,7 @@ import { tubeStripVS } from './tube-geo.js';
 import { tubeWebVS, webIndex, WEB_FLOATS, WEB_FAR_TAPER } from './tube-joint.js';
 import { tubeLeanFS, tubeJoinDepthFS, TUBE_DEPTH_FS } from './tube-lean-glsl.js';
 import { tubeLumenFS } from './tube-lumen-glsl.js';
-import { tubeRows, tubeBuckets, webInstances, websByTier, TUBE_ROW_FLOATS, MOUTH_AT, F_ENDS } from './tube-data.js';
+import { tubeRows, tubeBuckets, webInstancesStep, websByTier, TUBE_ROW_FLOATS, MOUTH_AT, F_ENDS } from './tube-data.js';
 import { STRIP_VS_GLSL, MIN_RADIUS } from './veins-mesh.js';
 import { rowBoxes, rowBoxesFromSwept, rowsInside } from './tube-cull.js';
 
@@ -291,11 +291,12 @@ export function joinEntriesInto(ent, list, n, joinBase, out) {
  * veins-gl.js calls this when it makes a morph set (a free moment) and createStage2Data.frame calls it for a bundle that has none. Whatever replaces the webs builds its
  * records here and nowhere else. joinBase: the morph set's join rows (-1 for the figure's own).
  */
-export function stage2Prepare(B, tubeNow, nTubes, joinBase, upTo = 2) {
-  const st = B.s2 || (B.s2 = { gen: -1, entries: NO_JOINS, R: {}, W: {}, joinBase: -1, n: 0, midGen: -1, midNow: null, midJoinBase: NaN });   // alloc-rare: once per bundle
+export function stage2Prepare(B, tubeNow, nTubes, joinBase, upTo = 2, until = Infinity) {
+  const st = B.s2 || (B.s2 = { gen: -1, entries: NO_JOINS, R: {}, W: {}, joinBase: -1, n: 0, midGen: -1, midNow: null, midJoinBase: NaN, entGen: -1 });   // alloc-rare: once per bundle
   if (st.gen === B.gen && st.R.rows) return st;
   // (In two parts a caller may run in separate slices (upTo 1: the entries and the webs; 2: the rows too): the first is kept for the binning (B.gen), the Tube's stage and the join base it was made for.)
-  if (st.midGen === B.gen && st.midNow === tubeNow && st.midJoinBase === joinBase) return stage2Rows(B, st, tubeNow, nTubes, joinBase);
+  if (st.midGen === B.gen && st.midNow === tubeNow && st.midJoinBase === joinBase) return upTo < 2 ? st : stage2Rows(B, st, tubeNow, nTubes, joinBase);
+  if (st.entGen !== B.gen || st.midNow !== tubeNow || st.midJoinBase !== joinBase) {
   // (The entries a cell lists: the same entry is listed by every cell it reaches, so a swept set lists it tens of times; each once here, in first-listed order.)
   const list = B.jl.view, n0 = B.jl.n || 0;
   if (!st.seen || st.seen.length < B.ent.length / 8) st.seen = new Uint8Array(Math.ceil(B.ent.length / 8));   // alloc-rare: a new binning only
@@ -309,8 +310,11 @@ export function stage2Prepare(B, tubeNow, nTubes, joinBase, upTo = 2) {
   st.ji = new Int32Array(n);   // alloc-rare: a new binning only, sized by its joins
   for (let k = 0; k < n; k++) st.ji[k] = joinBase >= 0 ? Math.round(B.ent[st.uniq[k] * 8]) : -1;
   joinEntriesInto(B.ent, st.uniq, n, joinBase, st.entries);
-  webInstances(st.entries, tubeNow, B.pts.pts, st.W, !B.noEnds);
-  st.midGen = B.gen; st.midNow = tubeNow; st.midJoinBase = joinBase; st.n = n;
+  st.n = n; st.entGen = B.gen; st.midNow = tubeNow; st.midJoinBase = joinBase; st.W.run = null;
+  }
+  // (The webs are read in slices when a caller gives `until` (performance.now() ms, upTo 1): it is asked again, with the same arguments, until st.midGen is B.gen.)
+  if (!webInstancesStep(st.entries, tubeNow, B.pts.pts, st.W, !B.noEnds, upTo < 2 ? until : Infinity)) return st;
+  st.midGen = B.gen;
   return upTo < 2 ? st : stage2Rows(B, st, tubeNow, nTubes, joinBase);
 }
 function stage2Rows(B, st, tubeNow, nTubes, joinBase) {

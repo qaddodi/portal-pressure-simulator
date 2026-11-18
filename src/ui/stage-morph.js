@@ -357,7 +357,8 @@ export function createMorph(st, live) {
       kind = PREP_KIND[step] || 'prepare';
       let more = false;
       if (pc?.set) { const v = live.veins; more = v.prepareMorphStep ? v.prepareMorphStep(pc.set, step) : (v.prepareMorphSet?.(pc.set), false); }
-      if (more) bd.prepStep = step + 1;
+      if (more === 2) { /* the same step again: its next slice */ }
+      else if (more) bd.prepStep = step + 1;
       else { bd.prep.shift(); bd.prepStep = 0; morphMade(bd, i); }
     } else if (bd.results.length) {
       kind = 'upload';

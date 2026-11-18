@@ -2965,7 +2965,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const prepKey = () => (webJoins() ? 'web' : 'patch');
   // (In three steps a caller may run in separate slices (17 Nov 2026, his Mac's readout: the view-switch build's longest unit was "prepare" at 98 ms, 63 slices
   // over its 8 ms): the geometry data, the join patches, the Tube's stage 2 record. Each checks for itself whether it has anything to do, so one run in
-  // pieces, or cut short and made again, ends as the whole one did. True while a step after this one remains.)
+  // pieces, or cut short and made again, ends as the whole one did. 1 while a step after this one remains, 2 when this step is to be asked for again, 0 when it was the last.)
   function prepareSetStep(S, step) {
     if (lost || !S.entCPU) return false;
     S.prepKey = prepKey();
@@ -2976,10 +2976,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (step === 1) { if (B.ent !== S.entCPU) deriveBundle(B, S.entCPU, S.cellsCPU, S.nCells, S.morph); return true; }
     if (step === 2) { if (patchesWanted() && !B.patchOk) deriveJoinPatches(B); return true; }
     if (!webJoins()) return false;
-    stage2Prepare(B, tubeNow, nTubes, S.morph.joinBase, step === 3 ? 1 : 2);
-    return step === 3;
+    if (step !== 3) { stage2Prepare(B, tubeNow, nTubes, S.morph.joinBase, 2); return false; }
+    // (The webs are read in slices of about 3 ms: 2 asks for this step again, till they are all read, then 1 for the next step.)
+    const st = stage2Prepare(B, tubeNow, nTubes, S.morph.joinBase, 1, performance.now() + 3);
+    return st.midGen === B.gen ? 1 : 2;
   }
-  function prepareSet(S) { for (let k = 0; prepareSetStep(S, k); k++); }
+  function prepareSet(S) { for (let k = 0, r; (r = prepareSetStep(S, k)); ) if (r !== 2) k++; }
   // The sets made under another mode than the one now are made again, one a free moment, never while a set is in use.
   const prepTask = { done: () => true, run() {
     if (geoCur) { freeTasks.push(prepTask); return; }
@@ -3828,7 +3830,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      */
     prepareMorphSet(S) { if (S && S.owner === api && morphSets.has(S)) prepareSet(S); },
     /** The same in steps, 0, 1, 2 (each a slice of its own): true while a later step remains. */
-    prepareMorphStep(S, step) { return !!(S && S.owner === api && morphSets.has(S) && prepareSetStep(S, step)); },
+    prepareMorphStep(S, step) { return (S && S.owner === api && morphSets.has(S)) ? (prepareSetStep(S, step) | 0) : 0; },
     /** Whether a morph set is uploaded and prepared (the pieces ready count). */
     morphSetReady(S) { return !!S && S.owner === api && morphSets.has(S) && !!S.entCPU && S.prepKey !== undefined; },
     /** Draws from a morph set (null: the figure's own binning again). A set uploaded but not prepared is prepared at once. */

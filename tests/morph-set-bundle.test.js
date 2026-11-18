@@ -71,14 +71,15 @@ test('a set is prepared in three steps with the same result as the whole, and a 
   const A = a.g.makeMorphSet(swept()), B = b.g.makeMorphSet(swept());
   a.g.prepareMorphSet(A);
   // (18 Nov 2026: five, the Compare stop's 'prepare' ran as one 405 ms slice on the phone: the points, the joins' list, the patches, the webs, the rows.)
+  // (A step answers 2 to be asked for again, the webs being read in slices; 1 for the next step; 0 for the last.)
   let steps = 0;
-  while (b.g.prepareMorphStep(B, steps)) steps++;
+  for (let r, n = 0; (r = b.g.prepareMorphStep(B, steps)); n++) { assert.ok(n < 1e5, 'ends'); if (r !== 2) steps++; }
   assert.ok(steps >= 3 && steps <= 4, `${steps + 1} steps`);
   assert.deepEqual(Object.keys(B.derived).sort(), Object.keys(A.derived).sort());
   assert.equal(B.derived.ent, B.entCPU);
   const pts = B.derived.pts;
   for (let k = 0; k <= steps; k++) b.g.prepareMorphStep(B, k);
   assert.equal(B.derived.pts, pts, 'run again, the data made is kept');
-  assert.equal(b.g.prepareMorphStep(null, 0), false);
-  assert.equal(b.g.prepareMorphStep({}, 0), false, 'a set that is not this renderer\'s');
+  assert.equal(b.g.prepareMorphStep(null, 0), 0);
+  assert.equal(b.g.prepareMorphStep({}, 0), 0, 'a set that is not this renderer\'s');
 });

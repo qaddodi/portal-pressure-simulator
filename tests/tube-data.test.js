@@ -4,7 +4,7 @@ import { MAX_TIERS, TUBE_FLOATS } from '../src/ui/veins-mesh-data.js';
 import { N_SAMPLES } from '../src/ui/veins-mesh.js';
 import { WEB_FLOATS } from '../src/ui/tube-joint.js';
 import { endTrunk, endContinues, END_THRU_END } from '../src/ui/tube-join-glsl.js';
-import { F_DOTTED, TUBE_ROW_FLOATS, MOUTH_AT, MOUTH_N, mouthCode, TUBE_NO_END, tubeRows, tubeBuckets, rowIsExact, webInstances, websByTier } from '../src/ui/tube-data.js';
+import { F_DOTTED, TUBE_ROW_FLOATS, MOUTH_AT, MOUTH_N, mouthCode, TUBE_NO_END, tubeRows, tubeBuckets, rowIsExact, webInstances, webInstancesStep, websByTier } from '../src/ui/tube-data.js';
 import { scene, straight, ray } from './tube-web-helpers.js';
 
 // The Tube's row records, tier buckets and web instances (brief S2-J). Node only; hand-built scenes (tests/tube-web-helpers.js).
@@ -293,6 +293,29 @@ test('webInstances: counts are stable and equal on a repeat', () => {
   const b = webInstances(sc.ent, sc.tube, sc.pts, a);
   assert.equal(b.count, n); assert.equal(n, 4);
   assert.deepEqual(Array.from(b.data.subarray(0, n * WEB_FLOATS)), da);
+});
+
+// 18 Nov 2026: the Compare stop's 'prepare 3 (webs)' ran 461.6 ms in one slice; the joins are read in slices that end as the whole read does.
+test('webInstancesStep: read in slices (a place kept in out.run), the webs, counts and kinds are those of the whole read, repeats across a slice included', () => {
+  const rows = [straight(-300, 0, 300, 0, T)], joins = [];
+  for (let i = 0; i < 40; i++) { rows.push(straight(-190 + i * 10 + 0.5, 0, -190 + i * 10 + 0.5, 100, 2)); joins.push({ x: -190 + i * 10 + 0.5, y: 0, reach: 14, k: 0.4, fillet: 1, members: [0, i + 1], trunk: 0 }); }
+  const sc = scene(rows, joins);
+  // (every join listed twice, the second time after the others: a repeat in another slice is still left out)
+  const ent = new Float32Array(sc.ent.length * 2); ent.set(sc.ent); ent.set(sc.ent, sc.ent.length);
+  const whole = webInstances(ent, sc.tube, sc.pts, {});
+  assert.ok(whole.count > 40, `${whole.count} webs`);
+  const out = {}; let calls = 0;
+  while (!webInstancesStep(ent, sc.tube, sc.pts, out, true, 0)) { assert.ok(out.run, 'its place is kept'); assert.ok(++calls < 1000); }
+  assert.ok(calls >= 3, `${calls} slices`);
+  assert.equal(out.run, null);
+  assert.equal(out.count, whole.count); assert.equal(out.joins, whole.joins); assert.equal(out.empty, whole.empty);
+  assert.deepEqual(Array.from(out.kinds), Array.from(whole.kinds));
+  assert.deepEqual(Array.from(out.data.subarray(0, whole.count * WEB_FLOATS)), Array.from(whole.data.subarray(0, whole.count * WEB_FLOATS)));
+  assert.deepEqual(Array.from(out.e.subarray(0, whole.count)), Array.from(whole.e.subarray(0, whole.count)));
+  // a whole read after a cut-short one begins again
+  webInstancesStep(ent, sc.tube, sc.pts, out, true, 0);
+  const again = webInstances(ent, sc.tube, sc.pts, out);
+  assert.equal(again.count, whole.count);
 });
 
 test('websByTier: a web is drawn in the higher of its two rows\' tiers, once; a hidden row takes its webs with it', () => {
