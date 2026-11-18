@@ -7,6 +7,7 @@
 // (Next pressed mid-entrance, a swipe let go): its next move starts from there, never from a jump.
 
 import { frameFor, cancelFrame, easeNow, beginMotion } from './frame.js';
+import { enterWhenReady } from './widget-ready.js';
 import { easeArrive } from './ease.js';
 import { classSoon, runSoon } from './class-soon.js';
 import { caught } from './caught.js';
@@ -237,7 +238,9 @@ export function throwIn(el, dir, delay = 0) {
   // (A card already coming in is taken from where it is, never put back at its start: a second call for it mid-way (a repeated pass of
   // cardsIn, a staggered card asked again) used to drop it from full to nothing and slide it in again, a blink.)
   if (!was) { el.style.setProperty('transition', 'none', 'important'); write(el, s * THROW_IN, 0); runs.delete(el); }
-  start(el, 'in', { x: 0, o: 1 }, RAIL_MS, was?.kind === 'in' ? 0 : delay);
+  // (A card with a widget not yet drawn comes in when it is, held at its start meanwhile: no deck card is seen in the page's fallback look, widget-ready.js.)
+  const d = was?.kind === 'in' ? 0 : delay;
+  if (was) start(el, 'in', { x: 0, o: 1 }, RAIL_MS, d); else enterWhenReady(el, () => start(el, 'in', { x: 0, o: 1 }, RAIL_MS, d), undefined, false);
 }
 
 /** Brings el in where it stands, from nothing to whole, over ms after delay ms, on this clock: no slide, only the fade. For a card that comes
@@ -255,7 +258,7 @@ export function throwFade(el, delay = FADE_DELAY, ms = FADE_MS) {
   const was = runs.get(el);
   releaseHeld(el);
   if (!was) { el.style.setProperty('transition', 'none', 'important'); write(el, 0, 0); }
-  start(el, 'back', { x: 0, o: 1 }, ms, was ? 0 : delay);
+  if (was) start(el, 'back', { x: 0, o: 1 }, ms, 0); else enterWhenReady(el, () => start(el, 'back', { x: 0, o: 1 }, ms, delay), undefined, false);
 }
 
 /** A card let go short of a swipe (or one the swipe took along that the next slide keeps) eases back to its place from where the finger left it

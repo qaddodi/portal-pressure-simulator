@@ -20,10 +20,10 @@ export const PREP_MAX_MS = 450;
 /** Shows `el` by calling go() once its GPU widgets are drawn and the fonts are in: at once when nothing is pending (no hold, nothing changes); otherwise the element is held (prep-hold: laid out, not seen, no
  *  animation running, app-03-layouts.css) and go() is called, at most `max` ms later, with the hold taken off in the same task, so its plate, its glass and its words all begin in the same frame, on the final render.
  *  Returns the cancel. A wait that ran out is counted against the screen's widgets (widgetsPending). 18 Nov 2026, Mohammad: no surface opens half-rendered. */
-export function enterWhenReady(el, go, max = PREP_MAX_MS) {
+export function enterWhenReady(el, go, max = PREP_MAX_MS, hold = true) {
   const fontsIn = () => typeof document === 'undefined' || document.fonts?.status !== 'loading';
   if (!widgetsPending(el) && fontsIn()) { go(); return () => {}; }
-  el.classList.add('prep-hold');
+  if (hold) el.classList.add('prep-hold');   // (a surface already held out of sight by its own means, a thrown deck card at opacity 0, passes hold = false)
   const t0 = performance.now();
   let timer = 0, dead = false;
   const poll = () => {

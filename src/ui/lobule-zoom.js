@@ -890,7 +890,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let lyV = null;
   const motionOf = (t) => { let mo = motion.get(t.id); if (!mo) motion.set(t.id, (mo = {})); return mo; };   // alloc-rare: only the first time a tube is asked for (kept by id across rebuilds)
   let drawVersion = 0, idleDrawn = '', lastSurface = 0;
-  const RAD_GAP_MS = 320;   // (the fastest a vessel's easing calibers are sent and its rows drawn again: drawGL)
+  const RAD_GAP_MS = 320;   // motion-scale: not a move (a send rate). (the fastest a vessel's easing calibers are sent and its rows drawn again: drawGL)
   let lastRadSend = 0;
   const binCache = new Map();
   // Any change may show in the lobule, except these, which never do (the model's frame arrives through update()).

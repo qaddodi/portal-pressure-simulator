@@ -73,7 +73,7 @@ test("item 31: lobule pan and zoom frames reuse each tube's radii, compare inks 
   const gl = src.slice(src.indexOf('function drawGL('), src.indexOf('const num = (cs, n, d)'));
   // (Radii worked out only when the calibers change; the zoom only re-checks them against what was sent.)
   // (Kept as numbers, per vessel, written in place: calibersChanged says when they are worked out again, radiiNow does it.)
-  assert.match(gl, /const calCh = calibersChanged\(rzOf\(\), G\);/);
+  assert.match(gl, /const calCh = radDue && calibersChanged\(rzOf\(\), G\);/);
   assert.match(gl, /const r = radiiNow\(t\);/);
   assert.match(src, /if \(radNowAt\[t\.id\] !== (?:live\.)?radStamp\) \{ for \(let i = 0; i < N; i\+\+\) r\[i\] = radiusAt\(t, i\); radNowAt\[t\.id\] = (?:live\.)?radStamp; \}/);
   assert.doesNotMatch(gl, /flat\(2\)\.map\(\(x\) => x\.toFixed\(3\)\)/);

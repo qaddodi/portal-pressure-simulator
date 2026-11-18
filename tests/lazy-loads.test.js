@@ -63,7 +63,7 @@ test('the first dive is prepared ahead as before: the code is fetched as the fig
   assert.match(stage, /const prepLoad = \(\) => lobuleReady\(\)\.then\(prepLobule, prepLoadLost\);/);
   assert.match(stage, /const lobuleCode = \(\) => \((?:live\.)?lzCode \|\|= import\('\.\/lobule-zoom\.js'\)/);
   assert.match(prep, /if \(prepBusy \|\| !(?:live\.)?figureShown \|\| now - prepAt < 1000\) return;/);
-  assert.match(prep, /(?:live\.)?lz\.preparePieces\(\)/);
+  assert.match(prep, /(?:live\.)?lz\.preparePieces\((?:now < prepRush)?\)/);
 });
 
 test('a layer built after the store was set reads the slide\'s callout and a sinusoid already asked for', () => {

@@ -16,7 +16,7 @@
 // `actionable`, kept lists, and each element says what it is in `_acK`), and numbers are compared as numbers, never printed
 // into a string to be compared.
 
-import { widgetsPending, widgetState } from './widget-ready.js';
+import { widgetsPending, widgetState, enterWhenReady } from './widget-ready.js';
 import { store, updateParams } from './store.js';
 import { h, svgIcon, paintRange, isPhoneLayout, countTo, swapText, afterExit, markGone, switchIn, releaseWords } from './util.js';
 import { sheetParts, dragSheet, glideSheet, stopSheet, setSheetOffset, sheetOffset } from './sheet-move.js';
@@ -187,7 +187,7 @@ export function createCard({ view, stage, ctx, onWhy }) {
   let pinH = 0, releasing = false;
   // The card opens when its widgets are up (18 Nov 2026, Mohammad, the iPhone: "half-rendered: a default background, sliders not in their final render, then it switches to the real look"). Built hidden (ac-prep: its box is laid
   // out, so its pictures are drawn), then its plate, glass, paper and words all begin together, in the same frame, on the final render. At most PREP_MAX_MS; widget-ready.js says when waiting is pointless.
-  const PREP_MAX_MS = 450;
+  const PREP_MAX_MS = 450;   // motion-scale: not a move (the longest a card waits for its widgets before it opens)
   let prepOn = false, prepT = 0, prepAt = 0;
   function prepEnd() { prepOn = false; clearTimeout(prepT); el.classList.remove('ac-prep'); }
   function prepBegin() {
@@ -369,16 +369,21 @@ export function createCard({ view, stage, ctx, onWhy }) {
     const face = el.querySelector(':scope > .ac-body');
     el.append(d.el);
     d.update(store.get().frame);
-    const still = reduceMotionMQ.matches;
-    d.el.animate(still ? FADE_IN : SIDE_DET_IN, SWAP_IN_OPT);
-    if (face) {
-      const a = face.animate(still ? FADE_OUT : SIDE_FACE_OUT, SWAP_OUT_OPT);
-      // alloc-rare: one slide per tap; the face is hidden for good when it has gone (its words keep updating under the details)
+    // (The details come in when their widgets are drawn, with the face going out, in one task: enterWhenReady holds them unseen till then, widget-ready.js.)
+    const begin = () => {
+      if (det !== d || !detOpen) return;
+      const still = reduceMotionMQ.matches;
+      d.el.animate(still ? FADE_IN : SIDE_DET_IN, SWAP_IN_OPT);
+      if (face) {
+        const a = face.animate(still ? FADE_OUT : SIDE_FACE_OUT, SWAP_OUT_OPT);
+        // alloc-rare: one slide per tap; the face is hidden for good when it has gone (its words keep updating under the details)
       const done = () => { detDone = null; if (face.isConnected && detOpen) { classSoon(face, 'ac-under', true); propSoon(face, 'inert', true); } runSoon(() => a.cancel()); };   // (the class lands first, in the same task: the face is never seen again between the two)
-      detDone = done;
-      a.finished.then(() => { if (detDone === done) done(); }, () => {});
-    }
-    d.focus();
+        detDone = done;
+        a.finished.then(() => { if (detDone === done) done(); }, () => {});
+      }
+      d.focus();
+    };
+    enterWhenReady(d.el, begin);
     reveal();   // (the details' room is measured once they stand: tall ones scroll, and take the vertical touch)
   }
   function closeDetails() {

@@ -633,6 +633,7 @@ export function createGlassGL(wrap, source, layers, { markHold = true, software 
   // (data-gl-wait: a translucent paper, app-03 --gl-paper, in the card's own layer, fading with its words) stays until two animation frames have passed since the glass was drawn, with a timer for a page
   // that runs none; only then is it taken off (applyMark). The words always have a card under them, the paper's own, whenever the glass is late. Cards drawn here before swap as they did.
   const holding = new Map();   // card → { mk, t } (its first mark, held)
+  const markFrame = readFrameFor('glass-mark');
   function applyMark(g) {
     const h = holding.get(g);
     if (!h) return;
@@ -647,7 +648,7 @@ export function createGlassGL(wrap, source, layers, { markHold = true, software 
     const go = () => applyMark(g);   // alloc-rare: one for each card at its first draw
     const e = { mk, t: setTimeout(go, MARK_HOLD_MS) };   // alloc-rare: same
     holding.set(g, e);
-    requestAnimationFrame(() => requestAnimationFrame(go));
+    markFrame(() => markFrame(go));   // (two frames of the scheduler: the glass drawn in this one is presented by the next, and the one after has seen it)
   }
   function cancelHold(g) {
     const h = holding.get(g);
@@ -1016,7 +1017,7 @@ export function createGlassGL(wrap, source, layers, { markHold = true, software 
       if (holding.has(p.g)) holdMark(p.g, mk);   // (its first mark still held: the flavour it will take)
       else if (!p.g.hasAttribute('data-gl')) {
         // (The first mark of a card waited for, or never drawn here before: held until its glass is on screen. A card drawn before swaps at once, as it did.)
-        if ((waiting.has(p.g) || !wasDrawn.has(p.g)) && typeof requestAnimationFrame === 'function' && markHold) holdMark(p.g, mk);
+        if ((waiting.has(p.g) || !wasDrawn.has(p.g)) && markHold) holdMark(p.g, mk);
         else { p.g.setAttribute('data-gl', mk); markOf.set(p.g, mk); }
       } else if (markOf.get(p.g) !== mk) { p.g.setAttribute('data-gl', mk); markOf.set(p.g, mk); }
       if (waiting.has(p.g) && !holding.has(p.g)) { waiting.delete(p.g); p.g.removeAttribute('data-gl-wait'); }
