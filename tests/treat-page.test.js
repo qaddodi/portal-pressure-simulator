@@ -24,6 +24,7 @@ w.Element.prototype.animate = function () { throw new Error('the page must move 
 
 const { changesPage } = await import('../src/ui/treat-page.js');
 const { sheetHeight } = await import('../src/ui/dock-sheet.js');
+const { glideSheet } = await import('../src/ui/sheet-move.js');
 
 function sheet() {
   const card = document.createElement('section'); card.className = 'treat-card has-plate';
@@ -46,7 +47,7 @@ test('the row shows how many changes there are, and none when there are none', (
   assert.equal(p.row.querySelector('.tcp-n').textContent, '', 'the badge is empty (hidden by CSS) when nothing is changed');
 });
 
-const xOf = (el) => parseFloat(String(el.style.translate || '0').split(' ')[0]) || 0;
+const xOf = (el) => parseFloat(/translateX\((-?[\d.]+)px\)/.exec(el.style.transform || '')?.[1] ?? '0') || 0;
 const touch = (el, type, x, y, id = 1) => {
   const e = new w.Event(type, { bubbles: true, cancelable: true });
   Object.assign(e, { clientX: x, clientY: y, pointerId: id, isPrimary: true, pointerType: 'touch' });
@@ -99,7 +100,7 @@ test('going back: the sheet is asked to refit, the tabs and the body are interac
   assert.ok(xOf(page) > 0 && xOf(page) < 390, 'the page slides out in the frames');
   settle();
   assert.equal(card.querySelector('.tc-page'), null, 'taken away once it has gone');
-  assert.equal(tabs.style.translate + tabs.style.opacity + body.style.translate + body.style.opacity, '', 'what it covered is left as it was, nothing inline');
+  assert.equal(tabs.style.transform + tabs.style.opacity + body.style.transform + body.style.opacity, '', 'what it covered is left as it was, nothing inline');
   assert.ok(sec.open, 'the section is whole and open, ready for the page to hold it again');
   card.querySelector('.tcp-row') || 0;
 });
@@ -176,6 +177,42 @@ test('caught mid-slide, the finger takes the page from where it stands, and goin
   assert.ok(xOf(page) >= mid, 'going back moves toward gone');
   settle();
   assert.equal(card.querySelector('.tc-page'), null);
+});
+
+test('the page only ever slides sideways: its translate (the sheet\'s own vertical ride) is never written by the slide, and its transform never has a vertical part (the tester: it rose from 528 px below)', () => {
+  const { card, tabs, body, page } = open();
+  const seen = new Set();
+  const look = () => { for (const e of [page, tabs, body]) { seen.add(e.style.transform); assert.ok(!/translate\(|translateY|translate3d|,/.test(e.style.transform), `a vertical part in ${e.style.transform}`); assert.equal(e.style.translate, '', 'the slide does not use translate'); } };
+  look();
+  for (let i = 0; i < 40; i++) { tick(8); look(); }
+  assert.ok(seen.size > 5, 'it moved through many places');
+  card.querySelector('.tcp-back').click();
+  for (let i = 0; i < 40; i++) { tick(8); look(); }
+});
+
+test('while the sheet refits (glideSheet moves every child of it, the page too, by translate), the page keeps its sideways slide and is left at its place when the refit lands', () => {
+  const { card, page, tabs } = open();
+  glideSheet(card, 120);   // (the refit the page\'s own opening asks for, a sheet 120 px lower as it begins)
+  for (let i = 0; i < 6; i++) tick(8);
+  assert.ok(page.style.translate.includes('px'), 'the page rides the sheet vertically, as its other parts do');
+  assert.ok(/translateX\(/.test(page.style.transform) && xOf(page) < 390, 'and slides sideways at the same time');
+  settle();
+  assert.equal(xOf(page), 0, 'the slide lands exactly home');
+  assert.equal(parseFloat(tabs.style.opacity), 0);
+  assert.equal(page.style.translate, '0px 120px', 'the sheet\'s own ride ends where the sheet is, the slide untouched by it');
+});
+
+test('the page has its backing from the first frame, whole while it covers the words fading under it, gone as it lands', () => {
+  const { page } = open();
+  const plate = page.querySelector(':scope > .pp-plate');
+  assert.ok(plate, 'a backing in the page');
+  assert.equal(page.firstElementChild, plate, 'under the page\'s own words');
+  assert.equal(parseFloat(plate.style.opacity), 1, 'whole on the first frame, before the page has moved');
+  tick(); tick(); tick();
+  assert.ok(xOf(page) > 40, 'the page is partway over what it covers');
+  assert.equal(parseFloat(plate.style.opacity), 1, 'and the backing is whole');
+  settle();
+  assert.equal(parseFloat(plate.style.opacity), 0, 'once home the glass shows through it again');
 });
 
 test('the sheet is Full while a page stands and goes back to its tab\'s height after it (the phone at 390 x 844: room 654)', () => {

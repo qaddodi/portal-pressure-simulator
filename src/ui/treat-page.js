@@ -5,6 +5,7 @@
 // moved into the page, opened, with its own summary out of sight.
 import { h, icon } from './util.js';
 import { pushPage } from './page-push.js';
+import { readMetric } from './layout-snap.js';
 
 /** card: the Treat sheet; sec: the Changes section (chart.js treatChanges), back: the name of what the page goes back to. Returns { row, sync, close }: row goes in the body in the section's place. */
 export function changesPage(card, sec, back = 'Treat') {
@@ -16,14 +17,15 @@ export function changesPage(card, sec, back = 'Treat') {
     if (page) return;
     const tabs = card.querySelector(':scope > .treat-tabs'), body = card.querySelector(':scope > .tc-body');
     if (!tabs || !body) return;
-    const top = tabs.offsetTop;   // (read in the tap itself, once: the page stands where the tabs stood and runs to the sheet's foot)
+    const top = readMetric(tabs, 'offsetTop');   // (read in the tap itself, once: the page stands where the tabs stood and runs to the sheet's foot)
     sec.open = true;
     const backBtn = h('button', { class: 'tcp-back', type: 'button' }, icon('chev-left'), back);
     const p = page = h('div', { class: 'tc-page', role: 'group', 'aria-label': 'Changes', style: { top: `${top}px` } }, h('div', { class: 'tcp-head' }, backBtn, h('span', { class: 'tcp-title' }, 'Changes')), h('div', { class: 'tcp-body' }, sec));
     card.append(p); card.dataset.page = ''; card.dispatchEvent(new Event('sheet-refit'));
     away = keep(); for (const e of away) e.inert = true;
     // (The slide, the finger's follow and the let-go are page-push.js: one mover for every pushed page, written in the cards' own frames.)
-    push = pushPage(p, away, card.offsetWidth, {
+    push = pushPage(p, away, readMetric(card, 'offsetWidth'), {
+      plate: true,
       onPop: () => {
         page = null;   // (a tap on the row now opens a page again, while this one is still going out)
         for (const e of away) e.inert = false;
