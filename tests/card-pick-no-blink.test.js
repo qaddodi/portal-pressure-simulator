@@ -39,7 +39,7 @@ const pick = async (id) => { store.set({ selection: { type: 'edge', id } }); awa
 
 test('a pick of a card of another shape while one is open is the old words fading out and the new ones in: no re-entry, no removal in one frame', async () => {
   await pick('PVH_R_2');
-  await wait(400);   // (its entrance over)
+  await wait(800);   // (its build, held up to PREP_MAX_MS for its widgets and two frames, then its entrance over)
   assert.ok(!card.el.classList.contains('ac-in'), 'the first card has come in');
   made.length = 0;
   const first = card.el.querySelector(':scope > .ac-body');
