@@ -48,6 +48,8 @@ import { F_RING } from './veins-mesh-glsl.js';
 import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE } from './veins-gl.js';
 import { PERIOD, originFractionsInto, ORIGIN_N, DRIFT_PERIOD, DRIFT_RATE } from './blood.js';
 import { createSinusoidView } from './sinusoid-view.js';
+import { washProgress } from './sinusoid-wash.js';
+import { washInto } from './lobule-wash.js';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, calmFlowGapFor, restGapFor, calmFlowRule, noteCalmRule, frameCount, renderScale, onRenderScale, figOpt, framePart, easeNow, inMotion, settling, mayTask, cancelMay } from './frame.js';
 import { cardMoveLeft } from './card-motion.js';
 import { figureDensity } from './pixel-budget.js';
@@ -917,6 +919,17 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // The vessel attributes as last sent (tubeShown), the rows changed since the vessel layer was drawn (glRows), and the
   // look it was drawn with (glLook): a redraw of only those rows' cells stands in for a whole one (veins-gl drawRows).
   let tubeShown = null, glLook = '';
+  // The wedged column's wash (lobule-wash.js; HVPG and PPG slide 5): only while a slide asks (store.sinusoidWash) and the lobule has landed. washK: how far it has come (0 to 1),
+  // washQ: that in 200ths, washSent: what the vessels' attributes were last written for (the attributes are written again when it differs).
+  let washAt = 0, washK = 0, washQ = 0, washSent = 0, wedgeRaw = '', wedgeRGB = [0, 0, 0];
+  /** Work out the wash for this frame; true while it is running or its vessels still hold a different one (the loop keeps drawing). */
+  function washStep(now) {
+    const want = !!store.get().sinusoidWash && fade >= 0.98 && !gliding && !diveScaled && !sinTo && sinU === 0 && !!model && !model.hide;
+    if (!want) washAt = 0; else if (!washAt) washAt = now;
+    washK = want ? washProgress(now - washAt, reduce.matches) : 0;
+    washQ = Math.round(washK * 200);
+    return washQ !== washSent || (want && washK < 1);
+  }
   const glRows = new Set();
   let clock = 0, origins = null, originsF = null, originsPass = false;
   // (The First pass lens: the sinusoid cleans along its length, so its row carries the blend at its outlet and a Pe near 0 (blood.js originEnds).)
@@ -1569,6 +1582,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (rzMoving || lensFrom || tissueFading(now)) drawVersion++;   // a caliber still easing, the colours or a new tissue crossfading: redraw this frame
     if (greyMoving()) drawVersion++;   // (and the surround's grey, easing with the lens)
     if (liveMoving()) drawVersion++;   // (and the shader's share of the lobule's tissue, easing with its state)
+    if (washStep(now)) drawVersion++;   // (and the wedged column's wash on its slide: lobule-wash.js)
     if (lzWant != null && resSteady()) resSwap();
     const drew = draw(moving ? dt : 0);
     if (drew) { noteDraw('lobule-zoom'); lzYield?.drew(now); }
@@ -1981,6 +1995,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     T[0] = k * V.k; T[3] = k * V.k; T[4] = k * V.x; T[5] = k * V.y;   // (T[1], T[2] stay 0)
     const dSame = drawSame(cw, ch, T);
     const now = performance.now();
+    washStep(now);
     const origin = originOn();
     // The flow pass stays at display speed. Shapes and colors need at most 12.5 updates/s;
     // interactions and newly enabled layers refresh immediately.
@@ -1992,13 +2007,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // caliber still easing) wake it, and inks or radii that moved are sent then.
     const ver = drawVersion - viewBumps - (dt > 0 ? frameBumps : 0), kq = Math.round(k * V.k * 1000);   // (the scale to a thousandth)
     const surfSame = ver === sVer && dark === sDark && cw === sCw && ch === sCh;
-    const panOnly = dt === 0 && !rzMoving && !lensFrom && !!attrKey && !!radAll && bk === binKey && surfSame && kq === sK && cs === surfCs && now - lastSurface < 1000;
+    const panOnly = dt === 0 && !rzMoving && !lensFrom && washQ === washSent && !!attrKey && !!radAll && bk === binKey && surfSame && kq === sK && cs === surfCs && now - lastSurface < 1000;
     if (panOnly && gpuProbe.on) gpuProbe.note(COUNTED.lobuleSkip);
     // (A running camera's matrix change alone is not a reason for the pass: the
     // radii, colours and attribute maps follow the model, the lens and the calibers, never where the figure sits; the pass still
     // comes every 80 ms while running, which also re-checks the zoom's radius tolerance, and the draw below moves the layer.)
     const camDue = cs !== surfCs || !surfSame;
-    if (!panOnly && (dt === 0 || rzMoving || lensFrom || !attrKey || !radAll || bk !== binKey || camDue || now - lastSurface >= 80)) {
+    if (!panOnly && (dt === 0 || rzMoving || lensFrom || washQ !== washSent || !attrKey || !radAll || bk !== binKey || camDue || now - lastSurface >= 80)) {
       lastSurface = now; sVer = ver; sDark = dark; sCw = cw; sCh = ch; sK = kq; surfCs = cs;
       if (gpuProbe.on) gpuProbe.note(COUNTED.lobuleSurface);
       // Radii, re-sent when a tube's caliber changed (they follow only these few model values).
@@ -2056,7 +2071,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (cs !== lookCs) { lookCs = cs; lookNow = lookOf(cs); lookSig = JSON.stringify(lookNow); }   // alloc-rare: only when the stage's kept copy of the styles is a new one (a class, theme or system-setting change)
       const lyPq = Math.round(lyProt(m) * 100), lyFq = Math.round(lyF(m) * 100), artNow = cs.getPropertyValue('--artery'), bileNow = cs.getPropertyValue('--bile-duct'), selCh = selMoved(selIdsN);
       const akSame = attrKey !== '' && akMode === m.mode && akHide === m.hide && akOrigin === origin && akLymph === lymphOn && akBile === bileOn && akP === lyPq && akF === lyFq && akDark === dark && akArt === artNow && akBileInk === bileNow && akLook === lookSig && akRad === live.radStamp && !selCh;
-      if (inkMoved || !akSame) {
+      if (inkMoved || !akSame || washQ !== washSent) {
         attrKey = 'y'; akMode = m.mode; akHide = m.hide; akOrigin = origin; akLymph = lymphOn; akBile = bileOn; akBileInk = bileNow; akP = lyPq; akF = lyFq; akDark = dark; akArt = artNow; akLook = lookSig; akRad = live.radStamp;
         tubeData.fill(0);
         if (artNow !== artRaw) { artRaw = artNow; artRGB = rgb01(artNow.trim()); } if (bileOn && bileNow !== bileRaw) { bileRaw = bileNow; bileRGB = rgb01(bileNow.trim()) || BD_FILL; }   // alloc-rare: only when the artery's or the bile's colour token changed (a theme or palette change)
@@ -2101,6 +2116,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
           tubeData[o + 20] = 0; tubeData[o + 21] = 1; tubeData[o + 22] = t.len; tubeData[o + 23] = 0;
           if (edge) { put3(o + 24, edge); tubeData[o + 27] = 0; }
         }
+        // (The wedged column's wash over the vessels it has reached: written after the rows above, which clear it, and before the changed rows are found and sent.)
+        if (washQ > 0) {
+          const wedgeNow = cs.getPropertyValue('--tr-wedge');
+          if (wedgeNow !== wedgeRaw) { wedgeRaw = wedgeNow; wedgeRGB = rgb01(wedgeNow.trim()); }   // alloc-rare: only when the wedge's colour token changed (a theme or palette change)
+          washInto(tubeData, tubeSet, washQ / 200, G, wedgeRGB, TUBE_TEXELS * 4);
+        }
+        washSent = washQ;
         vesSet(g, null, null, null, null); framePart('lz.vessels: attributes send', vesTubes);
         // The pulse moves only some vessels' colours: those vessels alone are drawn again (see the draw below).
         if (!tubeShown) { tubeShown = tubeData.slice(); glDirty = true; }   // alloc-once: the first attribute pass of this renderer; the copy is kept and written in place after
