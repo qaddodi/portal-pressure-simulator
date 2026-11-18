@@ -236,7 +236,7 @@ test('the stage: off unless asked for; the painted groups\' SVG hidden by an emp
   assert.match(st, /groups\.set\(n, \[\{ spec, get m\(\) \{ const own = elMat\(u\); return up \? mulTo\(sc, elMat\(up\), own\) : own; \} \}\]\);/);
   assert.match(st, /for \(const u of overPainted\) if \(!now2\.has\(u\)\) u\.classList\.remove\(OVER_CLASS\);\n\s+for \(const u of now2\) u\.classList\.add\(OVER_CLASS\);/);
   // (Read each frame before the figure decides to sleep, and laid again alone, after the frame's draw, when only they changed: perf A3.)
-  assert.match(st, /syncOver\(\);\n(?:\s+\/\/ [^\n]*\n)+\s+const overAt = OVER_ON && (?:live\.)?veins\?\.top \? (?:live\.)?veins\.top\.presents : -1;\n\s+const rowsWait/);
+  assert.match(st, /framePart\('stage: overlays', syncOver\);\n(?:\s+\/\/ [^\n]*\n)+\s+const overAt = OVER_ON && (?:live\.)?veins\?\.top \? (?:live\.)?veins\.top\.presents : -1;\n\s+const rowsWait/);
   assert.match(st, /function overAlone\(at\) \{ if \(at >= 0 && (?:live\.)?veins\?\.overlay\?\.stale && !(?:live\.)?veins\.lost && (?:live\.)?veins\.top\.presents === at\) (?:live\.)?veins\.present\(\); \}/);
 });
 

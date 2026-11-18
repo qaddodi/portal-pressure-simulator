@@ -531,23 +531,23 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     }
     // Junction widths: where vessels meet, the largest narrows to the second largest and the
     // others widen toward it, so calibers change smoothly through every junction.
-    const J = junctionWidths();
+    const J = gpuProbe.time(null, 'update: junctions', junctionWidths);
     // Detect newly opened collaterals before the tubes are built: a revealing vessel is drawn as a
     // dashed stroke from its first frame (never first as a full tube that then vanishes).
-    trackChanges(f, p);
-    stepReveals(performance.now());
+    gpuProbe.time(null, 'update: track changes', trackChanges, f, p);
+    gpuProbe.time(null, 'update: reveals', stepReveals, performance.now());
     gpuProbe.time(null, 'update: tubes', renderTubes, p, t, J);
     // A selected vessel stays bright while the rest of the network recedes.
     flag.hasSel = st.selection?.type === 'edge' && !!E[st.selection.id]?.vis;
     // (An organ's card steps the whole network back the same way; the organ itself keeps full ink and its outline.)
     flag.orgSel = st.selection?.type === 'organ';
-    syncLift();
-    syncVeins(t);
-    live.updateOrganSel(st.selection, t);
+    gpuProbe.time(null, 'update: lift', syncLift);
+    gpuProbe.time(null, 'update: vessel sync', syncVeins, t);
+    gpuProbe.time(null, 'update: organ selection', live.updateOrganSel, st.selection, t);
     gpuProbe.time(null, 'update: nodes', updateNodesCircuit, f);
     gpuProbe.time(null, 'update: overlays', overlaysStep, f, p, t);
-    live.updateFocus();
-    dopApply();
+    gpuProbe.time(null, 'update: focus', live.updateFocus);
+    gpuProbe.time(null, 'update: doppler', dopApply);
     // (Not through a dive or a rise: the anatomy's labels fade out as it starts, and the way out lays them out once, for its landing.)
     // (Plan "Holding 120 Hz" rev 2 step 1: the figure's own work (geometry, tubes, overlays, organs) is the model frame's must; the labels
     // are a may task of it, laid out from the newest frame once the frame's must work is in, within its share, at most four frames late,

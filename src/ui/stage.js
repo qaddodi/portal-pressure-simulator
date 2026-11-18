@@ -30,7 +30,7 @@ import { HOVER_LINK } from './hover-link.js';
 import { createExplain } from './label-explain.js';
 import { createGlassGL, glassRegions, CARD } from './glass-gl.js';
 import { createVeinsGL, TUBE_TEXELS, MAX_TIERS, ORIGIN_GREY } from './veins-gl.js';
-import { frameFor, lateFrameFor, cancelFrame, noteDraw, easeNow, afterMotion, setSaver as setFrameSaver, onRenderScale, figOpt, figLab, onFigLab, readFrame as readFrameAt, frameGapFor, restGapFor, inMotion, cameraMoving } from './frame.js';
+import { frameFor, lateFrameFor, cancelFrame, noteDraw, easeNow, afterMotion, setSaver as setFrameSaver, onRenderScale, figOpt, figLab, onFigLab, readFrame as readFrameAt, framePart, frameGapFor, restGapFor, inMotion, cameraMoving } from './frame.js';
 import { softwareYield } from './sw-yield.js';
 import { layoutWatch } from './idle-keys.js';
 import { surface } from './gpu-surfaces.js';
@@ -2774,14 +2774,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (still) stillKey(keyNow, st);
     // A plate raster that lands while the figure is still (paused, or reduced motion) marks the vessel layer dirty: draw it.
     // (So do vessel rows waiting to be drawn again, veinsRows: a coil's last step is drawn as its cells alone, no longer as a dirty layer.)
-    syncOver();
+    framePart('stage: overlays', syncOver);
     // (The overlays changed: the picture laid again with them, by the present of this frame's own draw below, or alone after it when that laid
     // none. It was laid here first, ahead of the draw, so a frame of both laid the picture twice.)
     const overAt = OVER_ON && veins?.top ? veins.top.presents : -1;
     const rowsWait = veinsRows.size > 0 && !!veins && !veins.lost && !!vLook && !!F;
     if (still && !veinsDirty && !rowsWait && !glowSync && !(glLines && olDirty) && (!glLines || !marksStale()) && !(glLines && olFading()) && !mapEasing() && !clampFading() && !markA.moving() && !widthEasing && !bloodEasing && !plateEasing() && !sprayFading() && !veins?.organs?.fading && !lensFrom && !colEasing && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && keyDrawn.on && sameStill(keyNow, keyDrawn) && fSame && CTM === lastDrawCTM && !anyReveal()) { overAlone(overAt); sleep(); return; }
-    stepPlateEase();
-    stepMap(dt);
+    framePart('stage: plate ease', stepPlateEase);
+    framePart('stage: map', stepMap, dt);
     if (morph !== morphTarget) {
       viewClock.sync(morph); viewClock.aim(morphTarget, viewMs());
       morph = viewClock.tick(now);
@@ -2796,11 +2796,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       setViewBox(easeInOut(morph));
       rotStep();   // (stage-fit.js: a held view keeps its spot; a whole one glides to the turned framing, rec 8)
     }
-    stepReveals(now);
-    stepRest(dt);
-    if (F) stepBlood(dt);
-    stepSpray(dt);
-    const fluidMoved = stepFluid(dt, st, easeDt);
+    framePart('stage: reveals', stepReveals, now);
+    framePart('stage: rest', stepRest, dt);
+    if (F) framePart('stage: blood', stepBlood, dt);
+    framePart('stage: spray', stepSpray, dt);
+    const fluidMoved = framePart('stage: fluid', stepFluid, dt, st, easeDt);
     { const fe = fluidEasing(); if (fluidWas && !fe) fluidStillAt = now; fluidWas = fe; }
     // (For the ?perf readout: what eases while the organ picture is down.)
     if (gpuProbe.on && !plateOn()) {
@@ -2810,22 +2810,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // The vessel layer is redrawn only when something in it changed; the blood every frame.
     if (glowSync && !syncGlowOnly(easeInOut(morph))) syncVeins(easeInOut(morph));
-    olStep(now);
+    framePart('stage: outlines', olStep, now);
     if (fluidMoved || morph !== morphTarget || rotU !== rotTarget || widthEasing || bloodEasing || plateEasing() || veinsDirty || veinsRows.size > 0 || glowSync || sprayFading() || bolus.active || lensFrom || colEasing || !!veins?.organs?.fading) busyAt = now;
     if (morph !== morphTarget || rotU !== rotTarget || sprayFading() || bolus.active || lensFrom || plateEasing() || !!veins?.organs?.fading) restAt = now;   // (motion of the figure itself, not the model's own updates)
-    if (drawVeins(fluidMoved)) { busyAt = now; noteDraw('stage'); swYield?.drew(now); }
+    if (framePart('stage: draw vessels', drawVeins, fluidMoved)) { busyAt = now; noteDraw('stage'); swYield?.drew(now); }
     else if (veins && !veins.lost && vLook && F && veins.composite(vLook, bloodLook(), fluidMoved) !== false) { noteDraw('stage'); swYield?.drew(now); }
-    overAlone(overAt);
+    framePart('stage: overlays present', overAlone, overAt);
     drawnView = viewVersion;
     if (still) copyKey(keyNow, keyDrawn); else keyDrawn.on = false;
     // (The pinned labels drawn with the figure, in its frame, whenever its camera or its shape moved: label-gl.js pinDraw.)
-    if (labelGL && (CTM !== lastDrawCTM || morph !== pinMorph || !CTM)) { if (!CTM) refreshCTM(); pinMorph = morph; labelGL.pinDraw(); }
+    if (labelGL && (CTM !== lastDrawCTM || morph !== pinMorph || !CTM)) { if (!CTM) refreshCTM(); pinMorph = morph; framePart('stage: pinned labels', pinDrawNow); }
     lastDrawF = F; lastDrawCTM = CTM; lastAnim = anim || bolus.active || dyeShown;
     // (A drawn rest frame waits for the next on a timer too: the screen frames between two drawn ones are never asked for.)
     if (!(restGap && restAt !== now && parkFor(interval))) askAnimate();
   }
   askAnimate();
   // The overlays changed and the frame's draw laid no picture (`at`: how many pictures had been laid when the frame began): laid alone.
+  const pinDrawNow = () => labelGL.pinDraw();
   function overAlone(at) { if (at >= 0 && veins?.overlay?.stale && !veins.lost && veins.top.presents === at) veins.present(); }
   // Nothing to draw: the loop stops asking for frames (so the screen can idle) until something changes, and looks
   // again once a second in case a change came by a path that does not wake it. (The store, the page's visibility, the
