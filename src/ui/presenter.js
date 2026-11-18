@@ -431,7 +431,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // where it is and touches neither the camera nor the store; the newer transition owns the hold from then on.)
   // (next.box: a function, asked for when the rise begins; next.vt: the view itself, measured then: a catheter slide's first shot, cathRise.)
   const riseOn = (next) => (next.vt ? stage.riseToVT(next.vt) : stage.riseTo(next.box, next.kMax, next.clear, next.subject));
-  async function toAnatomy(next, cut = () => false) {
+  // (to: 'circuit' for a slide whose view is the Circuit: the way out of the lobule then asks for the Circuit as it goes, and the stage begins the change while the last of
+  // the rise is still settling (stage.js circGo, RISE_CIRC_T): the zoom out and the turn to the Circuit are one move, not a stop at the whole anatomy between them.)
+  async function toAnatomy(next, cut = () => false, to = 'anatomy') {
     if (cut()) return;
     const st = store.get();
     if (!st.lobule && !st.sinusoid) return;
@@ -461,6 +463,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // Circulation 9 to 10).)
     if (stage.lobuleOpen()) { const ms = reduce.matches || booting ? 0 : RISE_FIT_MS; if (stage.lobuleFocus('fit', { ms, ease: 'in' })) { await waitCut(ms + 150, () => cut() || !stage.lobuleGlide?.()); if (cut()) return; } }
     if (next && !reduce.matches && !booting) riseOn(next);
+    if (to === 'circuit') { stage.circuitEarly?.(true); setViewKey('circuit'); await until(() => cut() || stage.morphTargetNow?.() === 1, 6000); return; }
     setViewKey('anatomy');
     await until(() => cut() || stage.lobuleSettled(), 6000); if (!cut()) await waitCut(80, cut);
   }
@@ -510,12 +513,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       await until(() => { const n = cardSig(); if (n !== sig) { sig = n; since = performance.now(); } return cut() || performance.now() - since > 250; }, Math.max(0, 1800 - (performance.now() - t0)));
     }
     if (cut()) return;
-    await toAnatomy(v === 'anatomic' ? riseFor(cam, s) : null, cut);
+    const viaRise = v === 'circuit' && ms > 0 && store.get().lobule && !store.get().sinusoid;   // (out of the lobule into the Circuit slide: one move, see toAnatomy)
+    await toAnatomy(v === 'anatomic' ? riseFor(cam, s) : null, cut, viaRise ? 'circuit' : 'anatomy');
     if (cut()) return;
     // (A switch of view sets off here and the slide's framing is asked of it at once, below: it becomes the change's new end (stage-view.js viewXfRetargetTo),
     // so the camera travels once, on the change's clock, instead of a second glide starting 700 ms into a change that takes 1.3 s.)
-    const switching = store.get().view !== v;
-    if (switching) setViewKey(v === 'circuit' ? 'circuit' : 'anatomy');
+    const switching = viaRise || store.get().view !== v;
+    if (store.get().view !== v) setViewKey(v === 'circuit' ? 'circuit' : 'anatomy');
     // (Reduced motion keeps the glide, short: a jump of the whole figure is harder to follow than a quick move. Under the start's
     // cover it is set outright, so the reveal never catches it on its way.)
     const gl = booting ? 0 : ms || 300;
@@ -1117,7 +1121,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // for the new slide's words, which set the space the camera frames into, so the rise is one zoom straight to the slide's framing:
     // see camera.)
     const inAnatomy = !ct && cam && !LOBULE_CAM.test(cam) && (s.view || 'anatomic') === 'anatomic';
-    const outNow = (ct || (cam && !LOBULE_CAM.test(cam))) && (store.get().lobule || store.get().sinusoid) && (!inAnatomy || si !== shownState || liveOff);
+    // (A Circuit slide with the same patient waits for camera() too: it frames the Circuit region as the lobule is left, one move, see toAnatomy.)
+    const inView = inAnatomy || (!ct && !!cam && !LOBULE_CAM.test(cam) && s.view === 'circuit');
+    const outNow = (ct || (cam && !LOBULE_CAM.test(cam))) && (store.get().lobule || store.get().sinusoid) && (!inView || si !== shownState || liveOff);
     // (The lobule's layers change as this slide asks once the lobule is left, when it is left here: the zone bands the leaving
     // slide showed stay on the lobule through its way out, never switched off and repainted on it just before.)
     if (!outNow) slideLayers(s);

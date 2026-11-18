@@ -24,7 +24,7 @@ test('B14: a start overtaken during its awaits returns before it writes the deck
 });
 
 test('B15: toAnatomy takes a cut predicate, checks it after every wait, and every caller passes its own', () => {
-  const fn = between('  async function toAnatomy(next, cut = () => false) {', '  // Glide the camera to a slide');
+  const fn = between("  async function toAnatomy(next, cut = () => false, to = 'anatomy') {", '  // Glide the camera to a slide');
   // Every await is followed (on the same line or the next statement) by a cut() check before more writes.
   const lines = fn.split('\n');
   lines.forEach((l, i) => {

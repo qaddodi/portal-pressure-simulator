@@ -84,5 +84,21 @@ test('no way out of the lobule stops at the fit unless the fit is where it is go
   // (the Circuit: the figure is redrawn, the change between the views carries the camera, stage.js circGo)
   const pres = presenterSource();
   assert.match(pres, /toAnatomy\(inAnatomy \? riseFor\(cam, fv\) : ct \? cathRise\(ct, cathInstant\(to, lastAt\), lastAt\) : null, cut\)/);
-  assert.match(pres, /toAnatomy\(v === 'anatomic' \? riseFor\(cam, s\) : null, cut\)/);
+  assert.match(pres, /toAnatomy\(v === 'anatomic' \? riseFor\(cam, s\) : null, cut, viaRise \? 'circuit' : 'anatomy'\)/);
+});
+
+test('out of the lobule into a Circuit slide is one move: the Circuit begins as the rise nears its end, framed on the slide\'s own region', () => {
+  const pres = presenterSource(), stage = stageSource();
+  // the slide's own camera does it (cards in first, then the rise and the change together), not the transition's sequential rise to the whole anatomy
+  assert.match(pres, /const inView = inAnatomy \|\| \(!ct && !!cam && !LOBULE_CAM\.test\(cam\) && s\.view === 'circuit'\);/);
+  assert.match(pres, /\(!inView \|\| si !== shownState \|\| liveOff\)/);
+  assert.match(pres, /const viaRise = v === 'circuit' && ms > 0 && store\.get\(\)\.lobule && !store\.get\(\)\.sinusoid;/);
+  assert.match(pres, /if \(to === 'circuit'\) \{ stage\.circuitEarly\?\.\(true\); setViewKey\('circuit'\); await until\(\(\) => cut\(\) \|\| stage\.morphTargetNow\?\.\(\) === 1, 6000\); return; \}/);
+  // the framing is asked of the running change (a retarget), never a glide after it: switching stays true, the view key is only written when it differs
+  assert.match(pres, /const switching = viaRise \|\| store\.get\(\)\.view !== v;\s*\n\s*if \(store\.get\(\)\.view !== v\) setViewKey/);
+  // the stage lets only that ask begin early, from RISE_CIRC_T of the rise, and only once
+  assert.match(stage, /const RISE_CIRC_T = 0\.3;/);
+  assert.match(stage, /diveT > \(diveOut && circEarly \? RISE_CIRC_T : 0\)/);
+  assert.match(stage, /if \(circWait && !on && circEarly && e <= RISE_CIRC_T\) nextFrame\(circGo\)/);
+  assert.match(stage, /circEarly = false;\s*\/\/ \(asked for once/);
 });
