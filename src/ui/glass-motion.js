@@ -428,3 +428,11 @@ export function clockAt(c, now, out) {
   out.has = true;
   return out;
 }
+
+/** Whether the element or anything holding it up to the layer is hidden by its attribute: `chain` is the element and its parents. A card on its way out (.card-leaving: the stylesheet shows it through
+ *  its hidden attribute, app-08-cards.css) is not hidden, so its glass goes out with its words, over the same fade, never a frame before them (17 Nov 2026, the tester: closing Treat, History
+ *  and the other sheets, the glass was gone on the first frame and the words and paper then faded over bare figure). */
+export function hiddenIn(chain) {
+  for (let i = 0; i < chain.length; i++) { const e = chain[i]; if (e.hidden === true && !(e.classList && e.classList.contains('card-leaving'))) return true; }
+  return false;
+}

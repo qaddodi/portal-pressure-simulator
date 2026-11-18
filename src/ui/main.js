@@ -2006,13 +2006,15 @@ const tabletMQ = matchMedia(TABLET_UP_MQ);
 // sheet's paper (its plate, sheet-move.js) is drawn by the cards' glass in the figure's canvas (stage.cardGlass, glass-gl.js), following
 // the plate's slide from its translate and its eases, never a read in a frame. It is cut at the sheet's still foot (cut: the sheet's box, read with the
 // glass's other boxes when the page is read, not in each frame), as the sheet's own clip cuts what slides below it on the page. Where the figure's canvas cannot take it, the plate keeps its paper (app.css).
+// (A sheet that is closing has its hidden attribute set while the stylesheet still shows it (.card-leaving, app-08-cards.css): its glass stays in the list, and in glass-motion.js hiddenIn, until its
+// leave has played, so the paper goes out with the words. Left out at once, the glass was gone on the first frame and the words faded over bare figure: Treat, History, Findings. 17 Nov 2026.)
 const SHEETS = ['#panel', '#treatCard', '#historyCard', '#dock', '.action-card'];   // (the vessel card is glass on the shelf and on a phone alike)
 let sheetGL = null;
 function sheetGlass() {
   if (sheetGL) return;
   const els = SHEETS.map((q) => $(q)).filter(Boolean);
   if (!els.length) return;
-  const plates = () => els.filter((el) => !el.hidden && el.classList.contains('has-plate')).map((el) => el.querySelector(':scope > .sheet-plate')).filter(Boolean);
+  const plates = () => els.filter((el) => (!el.hidden || el.classList.contains('card-leaving')) && el.classList.contains('has-plate')).map((el) => el.querySelector(':scope > .sheet-plate')).filter(Boolean);
   // (glass.add asks again by itself while the figure's canvas is not made yet.)
   sheetGL = stage?.glass?.add(plates, { card: true, watch: els, before: els[0], cover: (g) => g.parentElement, cut: (g) => { const el = g.parentElement; const b = el && readBox(el); return b ? { bottom: b.bottom } : null; } }) || null;
 }

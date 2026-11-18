@@ -16,7 +16,7 @@ import { gpuProbe, COUNTED } from './gpu-probe.js';
 import { finalFrameFor, readFrameFor, framePhase, frameCount, cancelFrame, noteDraw, easeNow } from './frame.js';
 import { createRevealClock, ownable, STALE_MS } from './glass-clock.js';
 import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js';
-import { Inline, inlineShift, inlineTranslate, inlineShiftNew, inlineShiftOk, inlineTranslateNew, inlineTranslateOk, Motion, compileKeyframes, motionAt, movesOnly, clockOf, clockAt } from './glass-motion.js';
+import { hiddenIn, Inline, inlineShift, inlineTranslate, inlineShiftNew, inlineShiftOk, inlineTranslateNew, inlineTranslateOk, Motion, compileKeyframes, motionAt, movesOnly, clockOf, clockAt } from './glass-motion.js';
 import { pathPolys, fanTriangles } from './path-poly.js';
 import { easeArrive, easeMove, D_SURFACE } from './ease.js';
 import { caught } from './caught.js';
@@ -1647,7 +1647,6 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   const OWN_OPTS = { driven: isDrivenAnimation, get timeline() { return document.timeline; } };
   function ownAll() { for (const e of ownEls) { const m = anims.get(e); if (m) for (const [an, rec] of m) own(e, an, rec); } }
   // (Whether the element or anything holding it up to the layer is hidden by its attribute now: read from the attribute, no style or layout.)
-  const hiddenIn = (chain) => { for (let i = 0; i < chain.length; i++) if (chain[i].hidden === true) return true; return false; };
   function track(e) {
     if (!e?.getAnimations) return;
     const list = readAnims(e);

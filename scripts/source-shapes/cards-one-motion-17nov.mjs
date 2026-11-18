@@ -11,4 +11,5 @@ export default [
   { file: 'src/ui/dock.js', need: [/const canStage = \(target\) => open\.length >= 1 && !open\.includes\(target\)/, `${W} a tab picked from a pair is built before it is shown, as one picked from a single pane is`] },
   { file: 'styles/app-07-floating.css', need: [/\.dock-body\.split > \.dock-pane\.active\.staging:not\(\.landed\) \{ position: absolute; inset: 0; grid-area: auto; \}/, `${W} a pane built beside a pair stands over the body, out of the grid, so the pair does not move into one cell`] },
   { file: 'src/ui/card.js', need: [/\} else if \(lo && old && el\.animate\) \{/, `${W} a pick while the card is still going out takes it from where it is: the old words go on fading from the opacity they had, never in one frame`] },
+  { file: 'src/ui/main.js', need: [/els\.filter\(\(el\) => \(!el\.hidden \|\| el\.classList\.contains\('card-leaving'\)\) && el\.classList\.contains\('has-plate'\)\)/, `${W} a sheet that is closing keeps its glass in the list until its leave has played, so the paper goes out with the words`] },
 ];
