@@ -777,7 +777,7 @@ The ratings mirror `RATE` in `src/ui/table-marks.js` exactly; each judges the va
 | Key | Name | Unit | Normal | Amber | Red |
 |---|---|---|---|---|---|
 | `hvpg` | HVPG (wedged − free) | mmHg | ≤5 | >5 "Mild" | ≥10 "CSPH" |
-| `ppg` | PPG (portal − IVC) | mmHg | <6 | ≥6 "High" | ≥12 "Bleed risk" |
+| `ppg` | PPG (PV − IVC) | mmHg | <6 | ≥6 "High" | ≥12 "Bleed risk" |
 | `eus` | EUS-PPG (left portal vein − left hepatic vein, the two nodes the EUS-PPG animation reads) | mmHg | ≤5 | >5 "Mild" | ≥10 "CSPH" (read on the HVPG's cut-offs) |
 | `pv` | Portal vein pressure | mmHg | ≤10 | >10 "High" | ≥15 "Severe" |
 | `sin` | Sinusoidal pressure | mmHg | <9 | ≥9 "High" | ≥12 "Severe" |

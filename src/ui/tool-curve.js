@@ -297,7 +297,7 @@ const holds = (name, unit) => new RegExp(`(^|[^A-Za-z])${unit.replace(/[.*+?^${}
 export const xAxisName = (ax) => (ax.unit && ax.unit !== '×' && !holds(ax.name, ax.unit) ? `${ax.name}, ${ax.unit}` : ax.name);
 /** An axis named by an abbreviation is written out as the app defines it ("HVPG (wedged − free), mmHg"), so the axis reads plainly to
  *  anyone: the x axis's meta with its words spelled out (the same object when there is nothing to add). */
-const X_SPELT = { hvpg: 'HVPG (wedged − free)', ppg: 'PPG (portal − IVC)' };
+const X_SPELT = { hvpg: 'HVPG (wedged − free)', ppg: 'PPG (PV − IVC)' };
 export const spellAxis = (ax) => (X_SPELT[ax.k] ? { ...ax, name: X_SPELT[ax.k] } : ax);
 /** The name a cut-off on the x reading goes by on the chart, or '': the HVPG 10 line is the CSPH line ("CSPH ≥10"). */
 /** What an unnamed cut-off line of a reading marks, in the app's own words ("High >10"), or '' for the reading's name and number: the portal vein

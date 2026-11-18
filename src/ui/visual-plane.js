@@ -99,7 +99,7 @@ export const PLANES = {
     // on its level line. 29 Oct also took the axes' names off; 2 Nov, slide 11 of Sites: "the axes are not labeled ... tough to know HVPG
     // PPG", so both axes are named again, with their unit, beside the cut-off numbers.)
     x: { key: 'hvpg', min: 0, max: 20, ticks: [HVPG_CUTS.amber, HVPG_CUTS.red], name: 'HVPG (WHVP − FHVP), mmHg', fullFrom: 700, short: 'HVPG, mmHg', abbr: 'HVPG' },
-    y: { key: 'ppg', min: 0, max: 28, ticks: [PPG_CUTS.amber, PPG_CUTS.red], name: 'PPG (portal − IVC), mmHg', fullFrom: 700, short: 'PPG, mmHg', abbr: 'PPG' },
+    y: { key: 'ppg', min: 0, max: 28, ticks: [PPG_CUTS.amber, PPG_CUTS.red], name: 'PPG (PV − IVC), mmHg', fullFrom: 700, short: 'PPG, mmHg', abbr: 'PPG' },
     zones: [
       { when: [['hvpg', '<=', HVPG_CUTS.amber], ['ppg', '<', PPG_CUTS.amber]], t: 'Both normal', short: 'Both normal', tone: 'ok', note: `HVPG ≤${HVPG_CUTS.amber}, PPG <${PPG_CUTS.amber} mmHg` },
       { when: [['hvpg', '<=', HVPG_CUTS.amber]], t: 'PPG raised, HVPG normal', short: 'PPG only', tone: 'ppg', note: 'WHVP misses presinusoidal resistance' },
@@ -122,6 +122,9 @@ export const PLANES = {
     // being a reading the plot must not clamp. compact: the plot is wide and low, visual-plane CSS .pze-short.)
     noWords: true,
     compact: true,
+    // (18 Nov 2026, Mohammad: "we're extending it far more than we need on the x direction". A summary fits both axes to its points, fitAxis, so no
+    // slide leaves half its plot empty; x 20 and y 28 are the most it may grow to, where a slide's points (Sites: PPG 26.8) reach that far.)
+    fit: true,
   },
 };
 PLANES['flow-ppg'] = {
@@ -129,7 +132,7 @@ PLANES['flow-ppg'] = {
   // beta-blocker slides a patient down their line; carvedilol drops them to a lower one; a meal moves them right; a TIPS takes them near the floor.
   // No zones: it is a scatter with axes. The PPG 12 line is the bleed-risk cut-off the other planes name.)
   x: { key: 'pvFlow', min: 0, max: 2, ticks: [0, 0.5, 1, 1.5, 2], name: 'Portal flow, L/min', short: 'Flow, L/min', abbr: 'Flow' },
-  y: { key: 'ppg', min: 0, max: 20, ticks: [0, 5, 10, 15, 20], name: 'PPG (portal − IVC), mmHg', short: 'PPG, mmHg', abbr: 'PPG' },
+  y: { key: 'ppg', min: 0, max: 20, ticks: [0, 5, 10, 15, 20], name: 'PPG (PV − IVC), mmHg', short: 'PPG, mmHg', abbr: 'PPG' },
   zones: [],
   cuts: { y: [PPG_CUTS.red] },
   lineNames: { y: { [PPG_CUTS.red]: `PPG ≥${PPG_CUTS.red}` } },
@@ -148,6 +151,24 @@ export function planeOf(p) {
   if (!Array.isArray(pl.zones)) pl.zones = b?.zones || [];
   if (!pl.x?.key || !pl.y?.key || !(pl.x.max > (pl.x.min ?? 0)) || !(pl.y.max > (pl.y.min ?? 0))) return null;
   return pl;
+}
+/** An axis cut to the readings on it: the highest reading with `room` to spare (a quarter more), at least 30% past the highest cut-off line (the line's name
+ *  and its number stand there), up to the next `step`, never past the axis's declared max (the most a slide may need) nor under one step.
+ *  No reading: the axis as declared. 18 Nov 2026, Mohammad: "we're extending it far more than we need on the x direction". */
+export function fitAxis(a, vals, cuts = [], { room = 1.25, step = 2 } = {}) {
+  const v = (vals || []).filter(Number.isFinite);
+  if (!v.length) return a;
+  const lo = a.min ?? 0, need = Math.max(Math.max(...v) * room, ...(cuts || []).map((c) => c * 1.3));
+  const max = clamp(Math.ceil(need / step) * step, lo + step, a.max);
+  return max === a.max ? a : { ...a, max };
+}
+/** A plane with fit: true, its axes fitted to the points shown (and the rings they started from); any other plane, or no points, as it is.
+ *  The same plane back when nothing changes, so a redraw keeps its identity. */
+export function fitPlane(pl, points) {
+  if (!pl.fit || !points?.length) return pl;
+  const col = (k) => points.flatMap((p) => [p.f?.[k], p.from?.[k]]);
+  const x = fitAxis(pl.x, col(pl.x.key), pl.cuts?.x), y = fitAxis(pl.y, col(pl.y.key), pl.cuts?.y);
+  return x === pl.x && y === pl.y ? pl : { ...pl, x, y };
 }
 /** The zone the values in f fall in (the first whose conditions hold), or null. */
 export const zoneOf = (pl, f) => pl.zones.find((z) => holds(z.when, f)) || null;
@@ -883,7 +904,8 @@ const unitOf = (k) => TILE[k]?.u || '';
 
 /** The plot itself: an element whose CSS gives it a size; draw(points, ring) redraws it at that size.
  *  points: [{ f, from?, name, site }] (from: where the patient started, drawn as a ring with a line to the point); ring: the case's fingerprint or null. */
-export function planePlot(pl, { card = false } = {}) {
+export function planePlot(plane, { card = false } = {}) {
+  let pl = plane;   // (a summary with fit: true redraws on axes cut to its points, set())
   // (pze-axes from the start, so the plot has its size, which a scatter's axes need more of, before it is drawn.)
   const axes = !card && hasAxes(pl);
   const el = h('div', { class: 'pze-plot' + (card ? ' pze-incard' : '') + (card && pl.key === 'never' ? ' pze-ownwords' : '') + (axes ? ' pze-axes' : '') + (pl.compact ? ' pze-short' : ''), role: 'img' });
@@ -1134,7 +1156,7 @@ export function planePlot(pl, { card = false } = {}) {
   const redraw = () => { if (el.isConnected) draw(); else frameFor('plane plot')(draw); };
   return {
     el,
-    set(points, r = ring) { pts = points || []; ptsVer++; ring = r; redraw(); },
+    set(points, r = ring) { pts = points || []; ptsVer++; ring = r; if (!card) pl = fitPlane(plane, pts); redraw(); },
     ring(f) { ring = f; redraw(); followDot(); },
     /** The patient's trail: [{ f, name }] the stops before this slide, in order ([] takes it away). The dot's way starts again here. */
     trail(list) {

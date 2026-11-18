@@ -14,7 +14,7 @@ import { activeInterventions } from './inspector.js';
 // systemic circulation), so a long table reads as four short ones.
 const GROUPS = [['Pressure', 3], ['Flow', 3], ['Consequences', 2], ['Systemic', 3]];
 const ROWS = [
-  ['HVPG', (m) => m.hvpg, 1, 'mmHg'], ['Portal pressure', (m) => m.pv, 1, 'mmHg'], ['PPG (portal vein − IVC)', (m) => m.ppg, 1, 'mmHg'], ['Portal flow', (m) => m.pvFlow, 1, 'L/min'],
+  ['HVPG', (m) => m.hvpg, 1, 'mmHg'], ['Portal pressure', (m) => m.pv, 1, 'mmHg'], ['PPG (PV − IVC)', (m) => m.ppg, 1, 'mmHg'], ['Portal flow', (m) => m.pvFlow, 1, 'L/min'],
   ['Hepatic perfusion', (m) => m.liverPerfPct, 0, '%'], ['Shunt fraction', (m) => m.shuntFraction * 100, 0, '%'], ['Varix wall stress (model)', (m) => wallShare(m.varix) * 100, 0, '%'],
   ['Ascites formation', (m, live) => (live ? liveBalance(m.ascites.ratePerDay) : Math.round(m.ascites.ratePerDay / 100) * 100), 0, 'mL/day'], ['Right atrial pressure', (m) => m.ra, 1, 'mmHg'], ['MAP', (m) => m.map, 0, 'mmHg'], ['Cardiac output', (m) => m.co, 1, 'L/min'],
 ];

@@ -14,7 +14,7 @@ import { wallRead, wallShare } from './wall-read.js';
 export const METRICS = {
   pv: { label: 'Portal pressure', unit: 'mmHg', get: (m) => m.pv, digits: 1 },
   hvpg: { label: 'HVPG', unit: 'mmHg', get: (m) => m.hvpg, digits: 1 },
-  ppg: { label: 'PPG (portal vein − IVC)', unit: 'mmHg', get: (m) => m.ppg, digits: 1 },
+  ppg: { label: 'PPG (PV − IVC)', unit: 'mmHg', get: (m) => m.ppg, digits: 1 },
   pvFlow: { label: 'Portal vein flow', unit: 'L/min', get: (m) => m.pvFlow, digits: 2 },
   liverPerf: { label: 'Liver perfusion', unit: '%', get: (m) => m.liverPerfPct, digits: 0 },
   sinFlow: { label: 'Sinusoidal flow', unit: '% of normal', get: (m) => m.liverPerfPct, digits: 0 },
