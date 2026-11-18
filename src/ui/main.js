@@ -946,8 +946,8 @@ function buildHud() {
   rotateBtn.onclick = () => { stage.setCircuitRotated(!stage.circuitRotated()); syncRotate(); };
   syncRotate();
   // (The view's own button pressed again fits the figure to the screen, always the Fit button's framing: view-tap.js, stage-fit.js fitAgain.)
-  // Circuit from the sinusoid view (the pill keeps every view there, Mohammad 17 Nov 2026): out to the anatomy in the one glide first, then the turn to the circuit once the lobule is gone.
-  const circuitFromSinusoid = () => { const stop = store.on('lobule', () => { if (!store.get().lobule) { stop(); setViewKey('circuit'); } }); stage.exitSinusoid(); };
+  // Circuit from the sinusoid view (the pill keeps every view there, Mohammad 17 Nov 2026): out in the one glide, the turn to the circuit beginning as it ends (stage.exitSinusoid).
+  const circuitFromSinusoid = () => stage.exitSinusoid('circuit');
   // The lobule is made ready as the reader reaches for it (17 Nov 2026, the tester: opening it cold took 565 ms of stage, 386 of tissue, 161 of labels in one go): the pointer resting 0.22 s on its button, or a finger
   // down on it, warms it a piece at a time (stage.warmLobule), as a deck's rows warm theirs on hover.
   { const lb = $('#viewSeg button[data-view="lobule"]'); let warmT = 0;

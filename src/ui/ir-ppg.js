@@ -8,10 +8,11 @@
 
 import { h, icon, toast } from './util.js';
 import { ppgWord, NOT_SHOWN } from '../engine/pressure-cuts.js';
-import { store, logAction, setViewKey } from './store.js';
+import { store, logAction } from './store.js';
 import { MEASURES, READS, playProcedure, procRunning, procBlocked } from './proc-anim.js';
 import { createReading } from './tool-reading.js';
 import { createTakeover } from './monitor-takeover.js';
+import { leaveFor } from './leave-for-shot.js';
 
 let stageRef = null;
 /** main.js hands over the figure once it exists. */
@@ -60,7 +61,7 @@ export function createIrPpg({ busy = () => false, onChange = () => {} } = {}) {
     if (busy() || procRunning() || stageRef.cathBoxes?.().length) { toast('A procedure is in progress on the figure. Wait for it to finish.'); return; }
     const st = store.get(), why = procBlocked('irivc', st.params, st.frame?.metrics) || procBlocked('irpv', st.params, st.frame?.metrics);
     if (why) { toast(why); return; }
-    if (st.lobule || st.view !== 'anatomic') setViewKey('anatomy');   // (one legal write: the lobule and the sinusoid close and the view is the anatomy, R08)
+    leaveFor(stageRef, 'irivc');
     focus0 = store.get().focus; done = false;
     mon.configure({ kind: 'reading' }, { slide: { ...SLIDE }, fp: { ivc: NaN, pv: NaN, ppg: NaN } }); pinLive();   // (a new run: the monitor starts afresh, waiting for the catheter)
     tk.start();

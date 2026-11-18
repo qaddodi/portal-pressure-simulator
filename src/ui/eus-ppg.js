@@ -8,12 +8,13 @@
 import { h, icon, toast } from './util.js';
 import { glWords } from './gl-words.js';
 import { hvpgSev, hvpgWord, EUS_LINE_NOTE, EUS_SITE_NOTE, NOT_SHOWN } from '../engine/pressure-cuts.js';
-import { store, logAction, setViewKey } from './store.js';
+import { store, logAction } from './store.js';
 import { dataSoon, propSoon, attrSoon } from './class-soon.js';
 import { MEASURES, READS, playProcedure, procRunning } from './proc-anim.js';
 import { createReading } from './tool-reading.js';
 import { NODES } from '../engine/topology.js';
 import { createTakeover } from './monitor-takeover.js';
+import { leaveFor } from './leave-for-shot.js';
 
 let stageRef = null;
 /** main.js hands over the figure once it exists. */
@@ -63,7 +64,7 @@ export function createEusPpg() {
     playT = performance.now();
     if (procRunning() || stageRef.cathBoxes?.().length) { toast('A procedure is in progress on the figure. Wait for it to finish.'); return; }
     const st = store.get();
-    if (st.lobule || st.view !== 'anatomic') setViewKey('anatomy');   // (one legal write: the lobule and the sinusoid close and the view is the anatomy, R08)
+    leaveFor(stageRef, 'eus');
     const focus0 = store.get().focus;
     step = 0; done = false;
     tk.start();

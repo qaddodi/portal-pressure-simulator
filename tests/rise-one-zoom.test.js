@@ -83,7 +83,7 @@ test('no way out of the lobule stops at the fit unless the fit is where it is go
   // and in the presenter every other way out passes a framing: a slide's own (riseFor), a catheter slide's (cathRise), or none only where the slide's view is not the anatomy
   // (the Circuit: the figure is redrawn, the change between the views carries the camera, stage.js circGo)
   const pres = presenterSource();
-  assert.match(pres, /toAnatomy\(inAnatomy \? riseFor\(cam, fv\) : ct \? cathRise\(ct, cathInstant\(to, lastAt\), lastAt\) : null, cut\)/);
+  assert.match(pres, /toAnatomy\(inAnatomy \? riseFor\(cam, fv\) : ct \? cathRise\(ct, cathInstant\(to, lastAt\), lastAt\) : null, cut, circNew \? 'circuit' : 'anatomy'\)/);
   assert.match(pres, /toAnatomy\(v === 'anatomic' \? riseFor\(cam, s\) : null, cut, viaRise \? 'circuit' : 'anatomy'\)/);
 });
 
@@ -93,21 +93,40 @@ test('out of the lobule into a Circuit slide is one move: the Circuit begins as 
   assert.match(pres, /const inView = inAnatomy \|\| \(!ct && !!cam && !LOBULE_CAM\.test\(cam\) && s\.view === 'circuit'\);/);
   assert.match(pres, /\(!inView \|\| si !== shownState \|\| liveOff\)/);
   assert.match(pres, /const viaRise = v === 'circuit' && ms > 0 && store\.get\(\)\.lobule;/);
-  assert.match(pres, /if \(to === 'circuit'\) \{ stage\.circuitEarly\?\.\(true\); setViewKey\('circuit'\); await until\(\(\) => cut\(\) \|\| stage\.morphTargetNow\?\.\(\) === 1, 6000\); return; \}/);
+  assert.match(pres, /if \(to === 'circuit'\) \{ setViewKey\('circuit'\); await until\(\(\) => cut\(\) \|\| stage\.morphTargetNow\?\.\(\) === 1, 6000\); return; \}/);
   // the framing is asked of the running change (a retarget), never a glide after it: switching stays true, the view key is only written when it differs
   assert.match(pres, /const switching = viaRise \|\| store\.get\(\)\.view !== v;\s*\n\s*if \(store\.get\(\)\.view !== v\) setViewKey/);
-  // the stage lets only that ask begin early, from RISE_CIRC_T of the rise, and only once
+  // the stage lets any Circuit change begin early, from RISE_CIRC_T of the rise
   assert.match(stage, /const RISE_CIRC_T = 0\.3;/);
-  assert.match(stage, /diveT > \(diveOut && circEarly \? RISE_CIRC_T : 0\)/);
-  assert.match(stage, /if \(circWait && !on && circEarly && e <= RISE_CIRC_T\) nextFrame\(circGo\)/);
-  assert.match(stage, /circEarly = false;\s*\/\/ \(asked for once/);
+  assert.match(stage, /diveT > \(diveOut \? RISE_CIRC_T : 0\)/);
+  assert.match(stage, /if \(circWait && !on && e <= RISE_CIRC_T\) nextFrame\(circGo\)/);
+  assert.ok(!/circEarly|circuitEarly/.test(stage + pres), 'every Circuit change over a rising lobule may begin early: a slide, the button, the key');
 });
 
 test('out of the sinusoid into a Circuit slide is the same move: the way out carries on to the Circuit, not to the anatomy first', () => {
   const pres = presenterSource(), stage = stageSource();
-  assert.match(pres, /if \(to === 'circuit'\) stage\.circuitEarly\?\.\(true\);\s*\n\s*stage\.exitSinusoid\(to\);/);
+  assert.match(pres, /stage\.exitSinusoid\(to\);/);
   assert.match(pres, /stage\.morphTargetNow\?\.\(\) === 1\), 9000\); return; \}/);
   const fn = stage.slice(stage.indexOf("async exitSinusoid(view = 'anatomy')"), stage.indexOf('/** The Sinusoid button'));
   assert.equal((fn.match(/setViewKey\(view\)/g) || []).length, 3, 'every end of the way out asks for the view the slide wants');
   assert.ok(!/setViewKey\('anatomy'\)/.test(fn), 'none of them stops at the anatomy');
+});
+
+test('every exit from the lobule or the sinusoid goes straight to where it is going', () => {
+  const pres = presenterSource(), main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
+  // a Circuit slide on a new patient: out into the Circuit and the slide's region asked of the running change at once
+  assert.match(pres, /const circNew = outNow && !ct && !!cam && !LOBULE_CAM\.test\(cam\) && s\.view === 'circuit' && store\.get\(\)\.lobule && !reduce\.matches && !booting;/);
+  assert.match(pres, /circNew \? 'circuit' : 'anatomy'\); if \(cut\(\)\) return; if \(circNew\) frameTo\(cam, fv, 1500, SLIDE_OPT\);/);
+  // the Circuit button in the sinusoid is the same one way out
+  assert.match(main, /const circuitFromSinusoid = \(\) => stage\.exitSinusoid\('circuit'\);/);
+  // the cards that start a run from the lobule (free use) land the way out on the run's first shot, all through the one helper
+  const helper = readFileSync(new URL('../src/ui/leave-for-shot.js', import.meta.url), 'utf8');
+  assert.match(helper, /stage\.riseToVT\(\(\) => stage\.cathShot\(f\.shot, \{ \.\.\.f\.opt, route: f\.route \}\)\)/);
+  for (const [f, call] of [['hvpg-proc.js', /leaveFor\(stageRef, \{ shot: 'route', route: 'hvpg', opt: SHOT_NEAR \}\)/], ['hvpg-proc.js', /leaveFor\(stageRef, kind\)/], ['eus-ppg.js', /leaveFor\(stageRef, 'eus'\)/], ['ir-ppg.js', /leaveFor\(stageRef, 'irivc'\)/]]) {
+    const src = readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
+    assert.match(src, call, f);
+    assert.ok(!/setViewKey\('anatomy'\)/.test(src), `${f} writes no view of its own: the way out is leaveFor's`);
+  }
+  // and a first shot exists for each: the measurements and every treatment
+  for (const kind of ['eus', 'irivc', 'hvpgcath', 'tips', 'brto', 'bato']) assert.ok(procFirstShot(kind), kind);
 });
