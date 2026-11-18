@@ -956,3 +956,17 @@ html.pz-covered :is(.pz-shade, .pz-text, .pz-data, .pz-case, .pz-panel, .pz-bar,
   .app.thumb .instrument-workspace.float-ui:not(.side) .ab-ctl { margin-top: var(--ab-g); padding: calc(var(--ab-g) - 5px) 0 0; border-top: 1px solid var(--hairline); border-left: 0; align-content: start; }
 }
 .tl-pin > span { min-width: 8ch; text-align: center; }   /* (Compare / Stop: the pin keeps the width of its longer word, so the controls after it stay put, 16 Nov 2026) */
+
+/* Treat's Changes as a page of its own on a phone (treat-page.js, 18 Nov 2026): one row in the body, and a page that slides in over the tabs and the body, at the sheet's foot, with a back row. */
+.tcp-row { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; margin-top: 12px; padding: 0 4px 0 2px; border: 0; border-top: 1px solid var(--hairline); background: none; color: var(--text); font: 600 var(--fs-14)/1.2 var(--font-ui); text-align: left; cursor: pointer; }
+.tcp-row .tcp-t { flex: 1; }
+.tcp-n { min-width: 20px; padding: 1px 7px; border-radius: 10px; background: var(--accent-soft); color: var(--accent-ink); font-size: var(--fs-12); text-align: center; }
+.tcp-row svg { color: var(--text-3); }
+.tc-page { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; min-height: 0; }
+.tcp-head { flex: none; display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px 0 8px; }
+.tcp-back { display: flex; align-items: center; gap: 2px; min-height: 44px; padding: 0 8px 0 4px; border: 0; background: none; color: var(--accent-ink); font: 600 var(--fs-14)/1 var(--font-ui); cursor: pointer; }
+.tcp-title { flex: 1; text-align: center; margin-right: 56px; font: 600 var(--fs-16)/1.2 var(--font-ui); }
+.tcp-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px 16px; }
+.tc-page .chart-sec { margin-top: 0; border-top: 0; }
+.tc-page .chart-sec > summary { display: none; }
+.tcp-n:empty { display: none; }

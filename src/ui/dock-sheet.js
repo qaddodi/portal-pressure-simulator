@@ -234,7 +234,7 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
     const cs = readStyle(el);
     // The body fills the sheet, so its own height says nothing: measure down to its last child.
     let sum = 0;
-    for (let i = 0; i < el.children.length; i++) { const c = el.children[i]; sum += c.classList.contains('sheet-plate') ? 0 : c.matches(fit) ? sheetInner(c) : readMetric(c, 'offsetHeight'); }
+    for (let i = 0; i < el.children.length; i++) { const c = el.children[i]; sum += c.classList.contains('sheet-plate') || c.classList.contains('tc-page') ? 0 : c.matches(fit) ? sheetInner(c) : readMetric(c, 'offsetHeight'); }
     return sum + parseFloat(cs.paddingBottom) + parseFloat(cs.paddingTop);
   };
   // (A phone turned upright or sideways changes the stops, three sideways and two over the thumb dock: Half stays Half and the top stays the top.)
@@ -244,6 +244,8 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
     remap();
     const S = stops(), r = room();
     size = Math.min(size, S.length - 1);
+    // (A page open in the sheet (Treat's Changes on a phone, treat-page.js) is a Full sheet while it stands: its list has the whole room.)
+    if (el.hasAttribute('data-page') && size === half()) return r ? `${Math.round(S[S.length - 1] * r)}px` : `${Math.round(S[S.length - 1] * 100)}%`;
     const need = size === half() && !grow ? natural() : Infinity;   // (the Tests card keeps its one height: it never shrinks to its content)
     const R = r || readMetric(app, 'clientHeight'), halfPx = S[half()] * R, fullPx = S[S.length - 1] * R;
     // alloc-rare: the sheet's height as a CSS value, made when a gesture starts or ends or the sheet opens, not while it moves

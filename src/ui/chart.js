@@ -97,6 +97,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       const about = active.filter((a) => baseLabels.has(a.label)), mine = active.filter((a) => !baseLabels.has(a.label));
       // (Updated in place: a new change rises in, an undone one folds away, the rest stay put: P18.)
       const keyed = (el, k) => { el.dataset.row = k; return el; };
+      list.dataset.n = String(mine.length);   // (how many: Treat's Changes row on a phone shows it, treat-page.js)
       reconcile(list, [
         ...(about.length ? [keyed(h('div', { class: 'chg-sub' }, 'About this patient'), 'sub:about'), ...about.map((a) => keyed(row(a, false), `about:${a.label}`)), keyed(h('div', { class: 'chg-sub' }, 'Your changes'), 'sub:mine')] : []),
         ...mine.map((a) => keyed(row(a, true), `mine:${a.label}`))]);

@@ -43,6 +43,7 @@ import { controlOwnsKey } from './key-owner.js';
 import { onTheme, onThemeBusy, themeSettled, settledSurfaces } from './theme-epoch.js';
 import { cssVar, $, $$, h, icon, afterExit, fmt, fmtFlow, toast, TOASTS, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, menuSection, menuPush, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, switchIn, onSurfaceOpened, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile, fadeShown } from './util.js';
 import { enterWhenReady } from './widget-ready.js';
+import { changesPage } from './treat-page.js';
 import { warmGlWords } from './gl-words.js';
 import { initMenuGlass, whyGlass } from './menu-glass.js';
 import { glideOnResize } from './plate-glide.js';
@@ -2188,7 +2189,10 @@ function openTreat() {
   };
   sync.push(paintCount);
   const [tabs, pane, fit] = chart.treatBody(sync, () => {});
-  const body = h('div', { class: 'tc-body' }, pane, chart.treatChanges(sync));
+  // (A phone: Changes is a page of its own, one row in the body that slides it in, treat-page.js; wider screens keep it as the section it is.)
+  const chg = chart.treatChanges(sync), cpage = isPhone() ? changesPage(el, chg) : null;
+  if (cpage) { sync.push(cpage.sync); cpage.sync(); }
+  const body = h('div', { class: 'tc-body' }, pane, cpage ? cpage.row : chg);
   const grab = el.querySelector('.sheet-grab'), plate = el.querySelector(':scope > .sheet-plate');   // (the plate stays: put in once at setup, sheetParts; dropped, the sheet had no paper and the bar and pill showed through it)
   el.replaceChildren(...[plate, grab, h('div', { class: 'tc-head card-head' }, h('h2', { class: 'card-title' }, h('span', {}, 'Treat')), count,
     h('button', { class: 'ib card-close', 'aria-label': 'Close Treat', title: 'Close (Esc)', onclick: () => closeTreat({ focus: true }) }, icon('close'))), tabs, body].filter(Boolean));
