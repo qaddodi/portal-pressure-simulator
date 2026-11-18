@@ -2,9 +2,9 @@
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { isOccluded } from '../engine/topology.js';
 import { stentOpen } from '../engine/stent-ease.js';
-import { firstPiece } from './part-names.js';
+import { firstPiece, piecesOf } from './part-names.js';
 import { SPLEEN_CENTER, SPLEEN_PSE_BADGE } from './anatomy.js';
-import { CLOT_EDGE, clotLayers, clotRadius, clotShift, clotSide, clotSpan, hashSeed } from './clot-shape.js';
+import { CLOT_EDGE, clotLayers, clotRadius, clotShift, clotSide, clotStretch, hashSeed } from './clot-shape.js';
 import { bandRing } from './band-ring.js';
 import { pressureColor } from './colormap.js';
 import { heldBin } from './idle-keys.js';
@@ -300,10 +300,10 @@ export function createClamps(st, live) {
     for (const [id, v] of Object.entries(clots ? p.thrombus : {})) {
       if (hideDx || !(v > 0) || !E[id] || !E[id].vis) continue;
       // W is a little inside the drawn lumen, so the clot's soft edge never spills onto the vessel wall.
-      const g = geo[id], lit = g.lit, W = E[id].width * 0.9;
-      const seed = hashSeed(id), side = clotSide(seed), { u0, u1 } = clotSpan(v);
-      const i0 = Math.round(u0 * (N_SAMPLES - 1)), i1 = Math.round(u1 * (N_SAMPLES - 1));
-      const pts = g.cur.slice(i0, i1 + 1), ln = lit.slice(i0, i1 + 1), n = pts.length;
+      // (A vein cut in pieces where a shunt joins it has one clot, over the whole vein's length: piecesOf, clotStretch.)
+      const ids = piecesOf(id), W = (ids.reduce((a, q) => a + (E[q]?.width || E[id].width), 0) / ids.length) * 0.9;
+      const seed = hashSeed(id), side = clotSide(seed);
+      const { pts, lit: ln } = clotStretch(ids.map((q) => ({ pts: geo[q].cur, lit: geo[q].lit })), v), n = pts.length;
       if (n < 3) continue;
       const rOf = (f) => clotRadius(v, W, f, seed);
       const mid = pts.map((q, i) => { const sh = clotShift(W, rOf(i / (n - 1)), side); return [q[0] + ln[i][0] * sh, q[1] + ln[i][1] * sh]; });
