@@ -2,7 +2,7 @@
 // to keep to themselves, and four checks from Mohammad's standing rules, so a script in headless Chromium and the Check button on the device in
 // his hand give the same verdict:
 //
-//   scroll    a card whose content runs past its box (its last lines are hidden from the room)
+//   scroll    a card whose content runs past its box (its last lines are hidden from view)
 //   clipped   a text element wider than a box that clips (a cut or ellipsised word)
 //   off       text partly outside the screen (and not inside something that scrolls on purpose)
 //   enlarged  a card already enlarged when nothing asked for it
@@ -43,7 +43,7 @@ export const KIND_WORDS = {
   styled: 'the card showed before it was whole',
   blank: 'empty glass above or below the words',
   cut: 'a line runs past the card',
-  tall: 'the card scrolls though its words fit the room',
+  tall: 'the card scrolls though its words fit the space',
 };
 /** The four kinds that are new (the checks from the standing rules); scripts can leave them out with --old-rules. */
 export const NEW_KINDS = ['small', 'ratio', 'sideways', 'styled'];
@@ -271,7 +271,7 @@ export function judgeStructureCard(m, opts = {}) {
   const out = [];
   if (m.gapTop > BLANK_MAX || m.gapBot > BLANK_MAX) out.push(P('blank', `${m.gapTop}px above, ${m.gapBot}px below (card ${m.h}px)`));
   if (m.cut > 1) out.push(P('cut', `a line runs ${m.cut}px past the card`));
-  if (!m.atMax && (m.scroll || m.ovf !== 'hidden')) out.push(P('tall', `scrolls (ac-scroll ${m.scroll}, overflow ${m.ovf}) though it fits the room`));
+  if (!m.atMax && (m.scroll || m.ovf !== 'hidden')) out.push(P('tall', `scrolls (ac-scroll ${m.scroll}, overflow ${m.ovf}) though it fits the space`));
   if (!opts.oldRules) {
     for (const t of m.small || []) out.push(P('small', t));
     for (const t of m.sideways || []) out.push(P('sideways', t));
