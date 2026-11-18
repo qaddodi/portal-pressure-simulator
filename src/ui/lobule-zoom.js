@@ -48,7 +48,8 @@ import { F_RING } from './veins-mesh-glsl.js';
 import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE } from './veins-gl.js';
 import { PERIOD, originFractionsInto, ORIGIN_N, DRIFT_PERIOD, DRIFT_RATE } from './blood.js';
 import { createSinusoidView } from './sinusoid-view.js';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs, calmFlowGapFor, restGapFor, calmFlowRule, noteCalmRule, frameCount, renderScale, onRenderScale, figOpt, framePart, easeNow, inMotion, settling } from './frame.js';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs, calmFlowGapFor, restGapFor, calmFlowRule, noteCalmRule, frameCount, renderScale, onRenderScale, figOpt, framePart, easeNow, inMotion, settling, mayTask, cancelMay } from './frame.js';
+import { cardMoveLeft } from './card-motion.js';
 import { figureDensity } from './pixel-budget.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
 import { FADE_MS, fadeAlpha } from './res-fade.js';
@@ -1112,7 +1113,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     resCoverEnd();
     free(tissue); free(tissueG); free(fx); free(glCv); rimDrawn = false; fxGLOff();
     if (tisHostFor) tissueGL?.release?.();   // (hosted: the tissue's own picture in the vessels' context)
-    clearTimeout(spareT); spareT = 0; free(spareCv); spare = null;
+    clearTimeout(spareT); spareT = 0; free(spareCv); spare = null; dropPend();
     gl?.trim?.();   // (the vessels' framebuffer: the shaders and the uploaded network are kept)
     if (shared) { gl?.target; fieldGL?.release?.(); }   // (hosted: the lobule's and the field's textures back to a texel; the shaders stay, ready for the next dive)
     // Out of the lobule for a while: what the visit kept (the world bitmap, the field's tiles) goes too, whatever the budget says; the idle preparation
@@ -1137,7 +1138,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function keptRelease(timed = false) {   // (timed: after a while out of the lobule; the idle preparation does not draw it again until the next visit asks)
     keptH = null;
     if (fade > 0 || !geo) return;
-    free(worldCv); free(worldOld); worldKey = ''; if (!timed) prepKey = ''; xfT0 = 0; surNow = null; surOld = null; surT0 = 0;
+    dropPend(); free(worldCv); free(worldOld); worldKey = ''; if (!timed) prepKey = ''; xfT0 = 0; surNow = null; surOld = null; surT0 = 0;
     for (const tiles of tileSets.values()) for (const q of tiles) { if (q.cv) free(q.cv); q.cv = null; freeCopies(q); }
     tileSets.clear();
     fieldGL?.sweep(); tissueGL?.sweep();
@@ -1149,7 +1150,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!geo) return;
     const dpr = Math.min(2, devicePixelRatio || 1), k = kFit || V.k;
     const sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * k)) * 2) / 2), worldCap(geo, dpr)), n = Math.ceil(2.6 * geo.R * sc);
-    if (worldCv.width > n) { free(worldCv); worldKey = ''; prepKey = ''; }
+    if (worldCv.width > n) { dropPend(); free(worldCv); worldKey = ''; prepKey = ''; }
     free(worldOld); xfT0 = 0; surNow = null; surOld = null; surT0 = 0;
     // The field: the newest state's tiles only, and none above the largest the dive or the framed lobule draws.
     const keys = [...tileSets.keys()], top = Math.max(geo.R * k * Math.min(1, devicePixelRatio || 1) * 0.8, geo.R * k * dpr) * 0.55;
@@ -2232,6 +2233,42 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // settled, the bitmap for twice its zoom (and the surround's tiles for it) are painted ahead, between frames (spareMake): a pinch
   // or a glide in then takes them over as it gets there, sharp all the way, with nothing painted mid-gesture and no picture shown
   // softer than its zoom wants.
+  // A new tissue state's bitmap, painted in slices between frames (17 Nov 2026, the tester, a lobule pick that changed the tissue: the new bitmap recorded,
+  // then painted on the GPU inside one frame, texUpload 743 ms on his Mac). The old picture stays on screen while it is made, and the crossfade the page always had
+  // starts when it is whole. One at a time: a state that moves on while it is made is not waited for, the next is begun when this one lands, so a glide of the
+  // pressures never leaves the old picture standing. pend: { cv, tg, G, ws, wk, sc }.
+  const PEND_TAG = 'lz-tissue-paint';
+  let pend = null, pendMs = 4;
+  const pendPrep = () => pend.tg.prepare(pend.cv, pend.cv.ver || 0, pendMs);
+  function dropPend() {
+    cancelMay(PEND_TAG);
+    if (!pend) return;
+    const { cv, tg } = pend;
+    pend = null;
+    free(cv);
+    if (tg && !tg.lost) tg.sweep();
+  }
+  function pendRun(left) {
+    const p = pend;
+    if (!p) return false;
+    if (!p.tg || p.tg.lost || geo !== p.G || !p.cv.width) { dropPend(); wake(); return false; }
+    // (Not while a card or sheet moves: the pieces of a lobule wait for its landing, card-motion.js.)
+    if (cardMoveLeft() > 0 || settling()) { mayTask(PEND_TAG, pendRun, { notBefore: performance.now() + 60 }); return false; }
+    pendMs = Math.min(6, Math.max(2, left));
+    if (!framePart('lz.tissueSlice', pendPrep)) return true;
+    pendLand();
+    return false;
+  }
+  function pendLand() {
+    const p = pend, now = performance.now(), G = p.G;
+    pend = null;
+    // (As a bitmap painted at once would land: the picture it replaces fades out under it, unless one is already fading in.)
+    if (p.ws !== worldState && !unseen() && !(liveShare >= 1) && worldGeo === G && worldCv.width && !(xfT0 && xfNow(now) - xfT0 < XF_MS)) { free(worldOld); worldOld = worldCv; worldOldSc = worldSc; xfT0 = xfNow(now); }
+    else free(worldCv);
+    worldCv = p.cv; worldKey = p.wk; worldState = p.ws; worldSc = p.sc; worldGeo = G; worldDraws++;
+    p.tg.sweep();   // (the picture it replaced: its texture given back)
+    wake();
+  }
   let spareCv = noPicture(), spare = null, spareT = 0, texVer = 0;
   const spareSoon = () => { if (!spareT) spareT = setTimeout(spareMake, 400); };
   function spareMake() {
@@ -2509,7 +2546,18 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const tw = canvasPx(W, dpr), th = canvasPx(H, dpr);
     const bg = stageBgCss(cs);
     const { R } = G;
-    if (wk !== worldKey && gpu) {
+    // (A new state, with a picture already shown for the last one: its bitmap is made in slices between frames (pendRun) and the old one stays until it is whole.
+    // Not while the dive builds its copy or scales the picture, nor when none is shown yet: those are painted at once, as the dive and the first frame wait for them.)
+    const later = gpu && wk !== worldKey && !!worldState && ws !== worldState && worldGeo === G && worldCv.width > 0 && !wideBuild && !diveScaled && !diveRim && !unseen();
+    if (later) {
+      if (pend && pend.G !== G) dropPend();
+      if (!pend) {
+        if (gpuProbe.on) gpuProbe.note(COUNTED.tissueWhy + 'state changed', Math.ceil(2.6 * R * sc) ** 2 * 4 / 1024);
+        pend = { cv: paintWorld(sc, m, G, dark, cs), tg, G, ws, wk, sc };   // alloc-rare: one record a new tissue state, not a frame's
+        mayTask(PEND_TAG, pendRun);
+      }
+    } else if (wk !== worldKey && gpu) {
+      if (pend) dropPend();   // (a picture wanted now: the one being made for an older state is not kept)
       // The tissue's state changed (not just the scale it is drawn at): the old picture stays under the new one as it fades in.
       // (Not while the shader has the whole picture: the bitmap is painted again in place.)
       // (A change while one is fading in replaces the incoming picture and lets the fade run on, so a state that keeps moving, as the

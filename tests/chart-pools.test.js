@@ -34,11 +34,11 @@ const elem = () => ({ width: 1, height: 1, style: {}, setAttribute() {}, remove(
 globalThis.document = { createElement: elem };
 globalThis.MutationObserver = class { observe() {} disconnect() {} }; globalThis.ResizeObserver = class { observe() {} disconnect() {} }; globalThis.IntersectionObserver = class { observe() {} disconnect() {} }; globalThis.matchMedia = () => ({ matches: false, addEventListener() {}, addListener() {} }); globalThis.devicePixelRatio = 2; globalThis.innerWidth = 800; globalThis.innerHeight = 600; globalThis.addEventListener = () => {}; globalThis.removeEventListener = () => {}; globalThis.window = globalThis; globalThis.requestAnimationFrame = () => 0; globalThis.Element = class {}; globalThis.HTMLElement = class {}; globalThis.HTMLCanvasElement = class {};
 globalThis.location = { search: '' };
-const { createTraceGL, sharedStats, capOf } = await import('../src/ui/trace-gl.js');
+const { createTraceGL, sharedStats, capOf, poolFloor } = await import('../src/ui/trace-gl.js');
 await new Promise((r) => setImmediate(r)); runTimers();
 
 const host = () => ({ style: {}, after() {} });
-const draw = (c, w, h) => { const ctx = c.ctx2d(w, h, w * 2, h * 2); if (ctx) { c.line([0, w], [0, h], 2, '#fff', 1); c.end(); } return !!ctx; };
+const draw = (c, w, h, k = 2) => { const ctx = c.ctx2d(w, h, w * k, h * k); if (ctx) { c.line([0, w], [0, h], 2, '#fff', 1); c.end(); } return !!ctx; };
 
 test('capacity steps', () => {
   assert.equal(capOf(1), 256); assert.equal(capOf(256), 256); assert.equal(capOf(257), 512);
@@ -164,4 +164,27 @@ test('card-size pictures of every size a card makes never resize the shared buff
   }
   assert.equal(sharedStats.resizes - r0, 0, `resizes over 40 picks: ${sharedStats.resizes - r0}`);
   for (const c of cs) c.dispose();
+});
+
+test("the shared buffer's floor is this screen's card pictures: a phone's three-pixel cards need no growth after the first pick (the tester, 390 px: 9 resizes cold, 2 warmed, one frame 602 ms)", () => {
+  assert.deepEqual(poolFloor(390, 844, 3), [1536, 1536], 'a phone: 1170 px wide cards, 1266 tall at most');
+  assert.deepEqual(poolFloor(1440, 900, 2), [1536, 1024], 'a laptop: cards are capped at 620 x 460 css px');
+  assert.deepEqual(poolFloor(0, 0, 1), [1024, 768], 'no window: the least floor');
+  assert.deepEqual(poolFloor(320, 480, 1), [1024, 768], 'never below the least floor');
+  const was = [globalThis.innerWidth, globalThis.innerHeight, globalThis.devicePixelRatio];
+  globalThis.innerWidth = 390; globalThis.innerHeight = 844; globalThis.devicePixelRatio = 3;
+  try {
+    const cs = [createTraceGL(host()), createTraceGL(host()), createTraceGL(host())];
+    clock += 5000;
+    const sizes = [[330, 120], [358, 200], [150, 90], [340, 400], [60, 40], [300, 360]];   // (css px, 3 device px each: up to 1074 x 1200)
+    for (let i = 0; i < 6; i++) { clock += 16; draw(cs[0], ...sizes[0], 3); }
+    const r0 = sharedStats.resizes;
+    for (let pick = 0; pick < 40; pick++) {
+      clock += 2500;
+      const [w, h] = sizes[(pick * 5) % sizes.length];
+      for (let f = 0; f < 4; f++) { clock += 16; draw(cs[pick % cs.length], w, h, 3); }
+    }
+    assert.equal(sharedStats.resizes - r0, 0, `resizes over 40 picks on a phone: ${sharedStats.resizes - r0}`);
+    for (const c of cs) c.dispose();
+  } finally { [globalThis.innerWidth, globalThis.innerHeight, globalThis.devicePixelRatio] = was; if (was[0] === undefined) { delete globalThis.innerWidth; delete globalThis.innerHeight; delete globalThis.devicePixelRatio; } }
 });

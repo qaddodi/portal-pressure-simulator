@@ -70,6 +70,21 @@ const MIN_BUF_W = 1024, MIN_BUF_H = 768;
 // (And it grows in steps of 512, not 256: a phone's card pictures are 1000 to 1300 device px wide at three pixels to the CSS px, and each 256 between made another resize; the tester, 390 px: 1 to 7 resizes after the first pick.)
 const POOL_STEP = 512;
 const poolCap = (n) => Math.ceil(Math.max(1, n) / POOL_STEP) * POOL_STEP;
+// (And the floor is the card pictures of THIS screen, not a fixed 1024 x 768: a card is as wide as the screen up to 620 css px and as tall as half of it up to 460, at the screen's own
+// pixel ratio. 17 Nov 2026, the tester, a 390 px phone (three device px to the CSS px, so a card's picture is 1170 px wide): the buffer still grew twice after the first pick, 9 resizes cold and
+// 2 warmed, and one frame waited 602 ms for the GPU. Read from the window, never from the pictures that happen to be drawn: a screen's floor is whole before its first chart.)
+export function poolFloor(innerW, innerH, dpr) {
+  if (!(innerW > 0) || !(innerH > 0)) return [MIN_BUF_W, MIN_BUF_H];
+  const k = Math.max(1, dpr || 1);
+  return [Math.max(MIN_BUF_W, poolCap(Math.min(innerW, 620) * k)), Math.max(MIN_BUF_H, poolCap(Math.min(innerH * 0.5, 460) * k))];
+}
+const floorNow = { w: MIN_BUF_W, h: MIN_BUF_H, key: '' };
+function screenFloor() {
+  const w = globalThis.innerWidth, h = globalThis.innerHeight, d = globalThis.devicePixelRatio;
+  const key = w + 'x' + h + '@' + d;   // alloc-rare: three reads and a short string a chart's frame, never a layout
+  if (key !== floorNow.key) { floorNow.key = key; [floorNow.w, floorNow.h] = poolFloor(w, h, d); }
+  return floorNow;
+}
 export const capOf = (n) => Math.ceil(Math.max(1, n) / CAP_STEP) * CAP_STEP;
 function makePool() {
   const pool = { dead: true, users: 0 };   // alloc-rare: a drawing pool (a GL context) is made once, a timer ahead of the first chart that needs it
@@ -861,9 +876,12 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
         // than 2 MP beyond its own area draws in a buffer of its own size instead: a hand-over never moves megapixels it does not need. Charts
         // of card sizes keep sharing one steady buffer (U2), as their window is never that much larger than any of them.)
         const ownW = capOf(Wd), ownH = capOf(Hd);
-        let fitW = poolCap(Math.max(MIN_BUF_W, shared.lastW, shared.winW, Wd)), fitH = poolCap(Math.max(MIN_BUF_H, shared.lastH, shared.winH, Hd));
+        // (What the window asks for beyond the floor is what the waste rule weighs: the floor is the screen's card pictures, held whatever the chart in hand.)
+        const askW = poolCap(Math.max(shared.lastW, shared.winW, Wd)), askH = poolCap(Math.max(shared.lastH, shared.winH, Hd));
+        const floor = screenFloor();
+        let fitW = Math.max(floor.w, askW), fitH = Math.max(floor.h, askH);
         if (big) shared.bigAt = t;
-        if (big || fitW * fitH > ownW * ownH + WASTE_PX) { fitW = ownW; fitH = ownH; }
+        if (big || askW * askH > ownW * ownH + WASTE_PX) { fitW = ownW; fitH = ownH; }
         // (While a big layer draws frame after frame (a slide's Doppler card over a quarter of a small screen: its trace scrolls every frame),
         // a small chart between two of its frames draws in the buffer as it is, when it fits there and that costs at most WASTE_PX beyond its
         // own: cut back to the window's size and grown again for every small picture, the buffer was made again 14 times a second beside 34

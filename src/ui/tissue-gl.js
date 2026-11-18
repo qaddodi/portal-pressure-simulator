@@ -188,6 +188,7 @@ export function createTissueGL(canvas, opts = {}) {   // alloc-rare: the tissue 
   }
   // A canvas's texture, sent again only when the canvas was painted again (ver, the caller's count of its paints) or resized.
   // Tiles repeat; the lobule's bitmap is premultiplied (as the 2D canvas lays it) and stops at its edges.
+  const SLICE_TILE = 512;   // (the pieces a sliced picture is cut in: a slice's budget is met on one of these, a quarter of a full tile)
   const texs = new Map(), SCRATCH = 7, LIVE_UNIT = 8, copier = createTileCopier(gl);   // alloc-rare: made once with the tissue
   // A canvas's texture record, written in place (a new one only the first time that canvas is sent).
   function setTex(cv, t, tex, ver, bad) {
@@ -231,6 +232,29 @@ export function createTissueGL(canvas, opts = {}) {   // alloc-rare: the tissue 
     if (!sent) { setTex(cv, t, t.tex, ver, true); return null; }
     setTex(cv, t, t.tex, ver, false);
     return t.tex;
+  }
+  // A picture painted in slices (17 Nov 2026, the tester: a lobule pick that changed the tissue's state painted the new bitmap inside one frame, 743 ms
+  // of texUpload): the job paint-gl.js begins for it, kept here until it is whole, and its texture then recorded as texFor would have.
+  const jobs = new Map();   // alloc-rare: made once with the tissue; a job is kept only while its picture is painted
+  function prepareFor(cv, ver, ms) {
+    const t = texs.get(cv);
+    if (t && t.w === cv.width && t.h === cv.height && t.ver === ver) return true;
+    if (!isGpuPicture(cv)) return true;   // (a canvas is sent in one call; texFor does it when it is drawn)
+    const P = paintGL(gl);
+    let j = jobs.get(cv);
+    if (j && j.ver !== ver) { P.abandon(j.job); jobs.delete(cv); j = null; }
+    if (!j) {
+      const job = P.beginJob(cv.rec, { tile: SLICE_TILE });
+      if (!job) return true;   // (cannot be painted in slices: texFor tries it whole, and marks it bad if it cannot)
+      j = { job, ver }; jobs.set(cv, j);   // alloc-rare: one record a picture painted in slices
+    }
+    gl.activeTexture(gl.TEXTURE0 + SCRATCH);
+    if (!P.stepJob(j.job, ms)) return false;
+    jobs.delete(cv);
+    if (j.job.failed || !j.job.out) return true;
+    if (t) gl.deleteTexture(t.tex);
+    setTex(cv, t, j.job.out, ver, false);
+    return true;
   }
   // The lobule's shapes (lobule-live.js buildLive) as float textures, sent once per shape. NEAREST and texelFetch: no filtering.
   function liveFor(shape, data) {
@@ -377,9 +401,18 @@ export function createTissueGL(canvas, opts = {}) {   // alloc-rare: the tissue 
     liveReady() { startLive(); return !!liveP && !this.lost; },
     /** Sends a canvas to the GPU now (painted ahead, so no frame of a gesture waits for it). */
     upload(cv, ver = 0, tile = false) { if (!this.lost && cv?.width) { texFor(cv, ver, tile); hostDone(); } },
+    /** Paints a recorded picture for up to `ms` (at least one tile of SLICE_TILE px), a slice of it at a time: true when its texture is ready (nothing more
+     *  is sent when it is drawn), false when more slices are to come. A canvas, or a picture that cannot be sliced, is ready at once (drawn as before). */
+    prepare(cv, ver = 0, ms = 4) {
+      if (this.lost || !cv?.width) return true;
+      const done = prepareFor(cv, ver, ms);
+      hostDone();
+      return done;
+    },
     /** Gives back every texture whose canvas was given back (width 0) or is no longer wanted (keep(cv) false). */
     sweep(keep = () => true) {
       for (const [cv, t] of texs) if (!cv.width || !keep(cv)) { if (!lost) gl.deleteTexture(t.tex); texs.delete(cv); }
+      for (const [cv, j] of jobs) if (!cv.width || !keep(cv)) { if (!lost) paintGL(gl).abandon(j.job); jobs.delete(cv); }   // (a picture given back before it was whole)
       copier.sweep();
       if (!canvas.width) { dropKept(); if (hostT && !lost) { freeTarget(hostT); hostT = null; tgt.width = tgt.height = 0; pictured = false; picVer++; } }   // (the canvas itself given back: the picture kept for it goes too)
       hostDone();
