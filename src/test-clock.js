@@ -139,7 +139,7 @@ export function createTestClock(g = globalThis, opts = {}) {
     if (saved.timeStamp) Object.defineProperty(g.Event.prototype, 'timeStamp', saved.timeStamp);
     saved.timeStamp = null;
   }
-  // Animations the browser runs on its own clock (el.animate, CSS transitions): finished from here when their time on this clock is up, so a
+  // Animations the browser runs on its own clock (el.animate, CSS transitions): set to their time on this clock every 16 ms and finished when it is up, so a
   // `finished` promise or an `onfinish` the page waits on arrives in a pane the browser is not drawing. Looked at every 16 ms of app time.
   const seen = new WeakMap();
   function syncAnimations() {
@@ -153,7 +153,12 @@ export function createTestClock(g = globalThis, opts = {}) {
       const end = Number(a.effect?.getComputedTiming?.().endTime);
       if (!(end > 0) || end === Infinity) continue;
       const cur = rec.c0 + (t - rec.v0) * rt;
-      if (rt > 0 ? cur >= end : cur <= 0) { try { a.finish(); } catch { /* (an animation that cannot finish) */ } }
+      if (rt > 0 ? cur >= end : cur <= 0) { try { a.finish(); } catch { /* (an animation that cannot finish) */ } continue; }
+      // (Taken there on the way, not only at its end: a pane the browser is not drawing does not run the animation's clock, so a fade the page
+      // left to the browser stood at its first frame until its end and then jumped (a Compare bar at 0 for 280 ms and then 1, a sheet's close at 1 for 130 ms and then 0),
+      // which a play-test read as a pop. Where the browser does run it, its time and this one agree and nothing is written.)
+      const at = Number(a.currentTime);
+      if (Number.isFinite(at) && Math.abs(at - cur) > 2) { try { a.currentTime = cur; } catch { /* (one that will not be set) */ } }
     }
   }
 

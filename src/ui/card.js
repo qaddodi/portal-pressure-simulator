@@ -19,7 +19,7 @@
 import { store, updateParams } from './store.js';
 import { h, svgIcon, paintRange, isPhoneLayout, countTo, swapText, afterExit, markGone, switchIn, releaseWords } from './util.js';
 import { sheetParts, dragSheet, glideSheet, stopSheet, setSheetOffset, sheetOffset } from './sheet-move.js';
-import { releaseSpeed, isFlick, carryCurve, SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js';
+import { releaseSpeed, isFlick, carryCurve, SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, D_FLIP, D_SMALL, EASE_IN } from './ease.js';
 import { cardFor, normalizeSel } from './actions.js';
 import { createCardDetails } from './card-details.js';
 import { frameFor } from './frame.js';
@@ -85,8 +85,8 @@ const P_SLIDER = { class: 'ac-c ac-slider' };
 const P_TOGGLE = { class: 'ac-c ac-toggle', role: 'switch', 'aria-checked': 'false', 'aria-label': '' };
 // Animation keyframes and timings that never change (WAAPI reads them when animate() is called). A switch to another structure of the
 // same size crossfades the words only, 6 px up, while the card stays still (B).
-const WORDS_OUT = [{ opacity: 1, translate: '0 0' }, { opacity: 0, translate: '0 -6px' }], WORDS_OUT_OPT = { duration: D_FLIP, easing: EASE_IN, fill: 'forwards' };
-const WORDS_IN = [{ opacity: 0, translate: '0 6px' }, { opacity: 1, translate: '0 0' }], WORDS_IN_OPT = { duration: D_SMALL, delay: D_FLIP / 2, easing: EASE_ARRIVE, fill: 'backwards' };
+const WORDS_OUT = [{ opacity: 1, translate: '0 0' }, { opacity: 0, translate: '0 -6px' }];
+const WORDS_IN = [{ opacity: 0, translate: '0 6px' }, { opacity: 1, translate: '0 0' }];
 // A pick while the card is open crosses the old words over the new ones on one clock, one for one: what the old words give up the new ones take, so the two opacities always make 1 (linear, together,
 // D_FLIP). Out on its own curve and a delayed start, the old words were half gone before the new ones began and the words dipped to half for 100 ms on every pick (the tester, 17 Nov 2026).
 const SWAP_OUT_OPT = { duration: D_FLIP, easing: 'linear', fill: 'forwards' }, SWAP_IN_OPT = { duration: D_FLIP, easing: 'linear', fill: 'backwards' };
@@ -331,9 +331,9 @@ export function createCard({ view, stage, ctx, onWhy }) {
     el.append(d.el);
     d.update(store.get().frame);
     const still = reduceMotionMQ.matches;
-    d.el.animate(still ? FADE_IN : SIDE_DET_IN, WORDS_IN_OPT);
+    d.el.animate(still ? FADE_IN : SIDE_DET_IN, SWAP_IN_OPT);
     if (face) {
-      const a = face.animate(still ? FADE_OUT : SIDE_FACE_OUT, WORDS_OUT_OPT);
+      const a = face.animate(still ? FADE_OUT : SIDE_FACE_OUT, SWAP_OUT_OPT);
       // alloc-rare: one slide per tap; the face is hidden for good when it has gone (its words keep updating under the details)
       const done = () => { detDone = null; if (face.isConnected && detOpen) { classSoon(face, 'ac-under', true); propSoon(face, 'inert', true); } runSoon(() => a.cancel()); };   // (the class lands first, in the same task: the face is never seen again between the two)
       detDone = done;
@@ -348,8 +348,8 @@ export function createCard({ view, stage, ctx, onWhy }) {
     const d = det, face = el.querySelector(':scope > .ac-body'), still = reduceMotionMQ.matches;
     detOpen = false;
     propSoon(d.el, 'inert', true);
-    if (face) { classNow(face, 'ac-under', false); propSoon(face, 'inert', false); face.animate(still ? FADE_IN : SIDE_FACE_IN, WORDS_IN_OPT); face.querySelector('.ac-name')?.focus({ preventScroll: true }); }
-    const a = d.el.animate(still ? FADE_OUT : SIDE_DET_OUT, WORDS_OUT_OPT);
+    if (face) { classNow(face, 'ac-under', false); propSoon(face, 'inert', false); face.animate(still ? FADE_IN : SIDE_FACE_IN, SWAP_IN_OPT); face.querySelector('.ac-name')?.focus({ preventScroll: true }); }
+    const a = d.el.animate(still ? FADE_OUT : SIDE_DET_OUT, SWAP_OUT_OPT);
     // alloc-rare: one slide per tap
     const done = () => { detDone = null; if (det === d) dropDetails(); };
     detDone = done;

@@ -151,3 +151,31 @@ test('a gate holds the loop, and releasing it lets it go on', async () => {
   c.dispose();
   assert.equal(ran, true);
 });
+
+test('an animation the browser does not run (a pane it is not drawing) is taken along by app time, not held at its start until its end', () => {
+  const log = [];
+  const an = { playState: 'running', timeline: 'T', playbackRate: 1, currentTime: 0, effect: { getComputedTiming: () => ({ endTime: 240 }) }, finish() { log.push('finish'); this.currentTime = 240; this.playState = 'finished'; } };
+  const doc = { timeline: 'T', getAnimations: () => [an] };
+  const g = { ...fakePage().g, document: doc };
+  const c = createTestClock(g, { realNow: () => 0 });
+  c.install();
+  c.advance(112);
+  assert.ok(an.currentTime > 60 && an.currentTime < 112, `part of the way at 112 ms, not held at 0 (${an.currentTime})`);
+  assert.deepEqual(log, [], 'not finished before its time');
+  c.advance(200);
+  assert.deepEqual(log, ['finish'], 'finished when its time on the clock is up');
+  c.dispose();
+});
+
+test('an animation the browser does run, in step with the clock, is left alone', () => {
+  const sets = [];
+  let c = null;
+  const an = { playState: 'running', timeline: 'T', playbackRate: 1, get currentTime() { return c.now(); }, set currentTime(v) { sets.push(v); }, effect: { getComputedTiming: () => ({ endTime: 1000 }) }, finish() {} };
+  const doc = { timeline: 'T', getAnimations: () => [an] };
+  const g = { ...fakePage().g, document: doc };
+  c = createTestClock(g, { realNow: () => 0 });
+  c.install();
+  c.advance(160);
+  assert.deepEqual(sets, [], 'the browser kept the time, nothing was written');
+  c.dispose();
+});
