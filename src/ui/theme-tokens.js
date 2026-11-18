@@ -140,13 +140,13 @@ export const TOKENS = {
     'fx-ink': 'rgba(22, 24, 29, .88)',
     'stent-metal': '#667285', 'suture-thread': '#E8742A', 'suture-edge': '#3a1d0a', 'stent-marker': '#545D6C', 'stent-alpha': '.5', 'stent-glint': '.24', 'stent-rail-w': '1.15', 'stent-strut-w': '.8',
     // ── BEGIN device materials (visual-style D1): one table per look, read by the catheter shader (stage-cath.js, eus-scope.js: through toRGB), the tamponade marks (app.css) and the clots ──
-    // poly: the catheter's shaft (a blue-grey body that shows on paper) and its dark hairline; scope*: the EUS echoendoscope (insertion tube, rigid tip, transducer face, port) and its hairline
+    // poly: the catheter's shaft (a light silver-white body, neutral not blue, so it stands out against the blue veins and shows on paper by its dark hairline) and that hairline; scope*: the EUS echoendoscope (insertion tube, rigid tip, transducer face, port) and its hairline
     // (dark on the light looks, light on the dark ones); latex: compliant balloons (HVPG wedge, BRTO / BATO occlusion, tamponade; -a: the tamponade fill); nylon: the TIPS dilation balloon; steel: needles, wire;
     // platinum: marker bands and coils; glue: the cyanoacrylate cast (EUS coils and glue); ptfe: the covered stent's cover (D4)
-    'dev-poly': '#9AA9BC', 'dev-poly-edge': '#2A303B',
+    'dev-poly': '#E2E4E7', 'dev-poly-edge': '#2A303B',
     'dev-scope': '#2B2E33', 'dev-scope-tip': '#5C5E66', 'dev-scope-face': '#C7C9CC', 'dev-scope-edge': '#0B0D12', 'dev-port': '#0D0D0F',
     'dev-latex': '#DDB262', 'dev-latex-edge': '#8F6A33', 'dev-latex-a': '.45', 'dev-nylon': '#C9D9EE',
-    'dev-steel': '#7C8696', 'dev-platinum': '#8E949E', 'dev-glue': '#3B4E6B', 'dev-ptfe': '#D9DEE5', 'dev-tips-mesh': '#2A3650', 'dev-graft': '#F8F7F4', 'dev-stent-wire': '#7A5416', 'dev-stent-glint': '#F3DDA0', 'dev-stent-gold': '#B07A1C',
+    'dev-steel': '#9096A0', 'dev-platinum': '#8E949E', 'dev-glue': '#3B4E6B', 'dev-ptfe': '#D9DEE5', 'dev-tips-mesh': '#2A3650', 'dev-graft': '#F8F7F4', 'dev-stent-wire': '#7A5416', 'dev-stent-glint': '#F3DDA0', 'dev-stent-gold': '#B07A1C',
     // ── END device materials ──
     // chart series (validated categorical order, light)
     's1': '#2a78d6', 's2': '#eb6834', 's3': '#1baf7a', 's4': '#eda100', 's5': '#e87ba4', 's6': '#008300', 's7': '#4a3aa7', 's8': '#e34948',
