@@ -31,6 +31,7 @@ import { hvpgSev, ppgSev } from '../engine/pressure-cuts.js';
 import { reduceMotionMQ } from './motion.js';
 import { handOver } from './hand-over.js';
 import { glideCard, GLIDE_EVENT } from './card-glide.js';
+import { cardMoveFor } from './card-motion.js';
 const nextFrame = frameFor('card');
 
 // A reading's printed number ("12.5", "−3.0"), with its decimals, or null for one that isn't a plain number: `out` ({ n, d }, a kept
@@ -188,7 +189,7 @@ export function createCard({ view, stage, ctx, onWhy }) {
     if (from) { p.style.setProperty('--edge-o', String(from.o)); p.style.setProperty('--edge-x', `${from.x}px`); p.style.setProperty('--edge-y', `${from.y}px`); }
     else { p.style.removeProperty('--edge-o'); p.style.removeProperty('--edge-x'); p.style.removeProperty('--edge-y'); }
   };
-  const opening = () => { switchIn(el); el.classList.add('ac-in'); clearTimeout(inTimer); inTimer = setTimeout(endIn, D_SMALL + 60); };
+  const opening = () => { cardMoveFor(D_SMALL + 120); switchIn(el); el.classList.add('ac-in'); clearTimeout(inTimer); inTimer = setTimeout(endIn, D_SMALL + 60); };
   const sizes = { h: 0 };
   let tallest = 0;   // (the tallest a lobule part's card has stood since it was picked: its least height)
   // (A change of height its content asks to glide, card-glide.js: the height it had when asked, glided from when the observer sees the new one.)
@@ -283,7 +284,7 @@ export function createCard({ view, stage, ctx, onWhy }) {
     if (el.dataset.swiped) { delete el.dataset.swiped; el.hidden = true; setSheetOffset(el, 0); }   // (pulled away: already out of sight behind the tab row)
     if (!el.hidden && !el.classList.contains('ac-leaving')) {
       // (It fades back toward the edge it came from: the left on a Mac, the foot on a phone. With Reduce Motion it only fades: app.css.)
-      el.classList.add('ac-leaving');
+      el.classList.add('ac-leaving'); cardMoveFor(D_FLIP * 4 / 3 + 120);
       if (isDocked()) markGone(D_SMALL, el);   // (a phone's card sinks like a sheet: whatever opens next crosses over with it, as it does with a sheet)
       closeTimer = afterExit(el, 'ac-leaving', afterLeave);
     }
@@ -599,6 +600,7 @@ export function createCard({ view, stage, ctx, onWhy }) {
     el.dataset.size = size; el.dataset.shape = shape;
     if (!same) { tallest = 0; el.style.minHeight = ''; }   // (a new pick starts its own height)
     const swap = wasOpen && !same && !!el.animate && !!old;
+    if (swap) cardMoveFor(D_FLIP + 120);
     // (The height it has now is the one the glide starts from, asked before the change is made; the observer sees the new one and glides there. A card still coming in
     // has no height of its own to glide from, and Reduce Motion has no glide: the height changes under the fade.)
     if (swap && resized && !el.classList.contains('ac-in') && !reduceMotionMQ?.matches) glideFrom = sizes.h;

@@ -1623,14 +1623,14 @@ function leave(el) {
   // (With Reduce Motion it fades where it stands: app.css turns the leaving keyframes into fades.)
   // (A leave already playing starts again from its first frame: its own animations are set back to the start, no reflow to restart it.)
   if (el.classList.contains('card-leaving')) { const as = readAnims(el); if (as) for (const a of as) if (a.animationName) a.currentTime = 0; }
-  el.classList.add('card-leaving');
+  el.classList.add('card-leaving'); cardMoveFor(D_SMALL + 160);
   markGone(D_SMALL, el);
   // (Each card has its own step, made on its first leave and kept: adding the same listener again is a no-op, and it takes itself off as before.)
   const done = el._leaveDone ||= (e) => { if (e && e.target !== el) return; el.classList.remove('card-leaving'); el.removeEventListener('animationend', el._leaveDone); };   // alloc-rare: one per card, made on its first leave
   el.addEventListener('animationend', done);
   setTimeout(done, 400);
 }
-const arrive = (el) => { el.classList.remove('card-leaving'); switchIn(el); };
+const arrive = (el) => { el.classList.remove('card-leaving'); cardMoveFor(D_SMALL + 160); switchIn(el); };
 // One at a time (8 Nov 2026, Mohammad: "menus hate to be on top of each other"). A menu's frost is drawn in the figure's canvas, under every
 // page element, so the words and pictures of a card lying under a menu show straight through it. So a card coming in puts the open menus
 // away, and a menu coming in sends away each card its box lies over (all of them when it is a sheet), except the card it was opened from.
@@ -2055,6 +2055,7 @@ import { labelWritten, themeChanged, labelsBusy } from './label-theme.js';
 import { patientLabel } from './readouts-text.js';
 import { keysOn, setKeysOn, keyHeldBack } from './keys-pref.js';
 import { tableRoles } from './table-roles.js';
+import { cardMoveFor } from './card-motion.js';
 // ── The thumb dock (15 Oct) ─────────────────────────
 // A phone, or a tablet held upright, in Patients: the top keeps only the patient (left) and the Colored-by key
 // (right), and Treat, Tests, History, Layers and Settings sit in a tab row at the foot of the dock, under the play bar,

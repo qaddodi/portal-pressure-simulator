@@ -38,6 +38,7 @@ import { caught } from './caught.js';
 import { handOver } from './hand-over.js';
 import { reduceMotionMQ, afterMs } from './motion.js';
 import { fibroReading } from './clock.js';
+import { cardMoveFor } from './card-motion.js';
 const nextFrame = frameFor('dock');
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).
@@ -1001,7 +1002,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   }
   /** Tests left the screen by any road (the tab bar, a panel switch, Esc: main.js setPanelTab) and not through close(): every pane is told it is out of sight, so the Tests view's stent editor gives the vessel card its chips back (F11). */
   function away() { cancelStage(); for (const p of panes) p.shown?.(false); }
-  function ensure() { updateSize(); layout(); workspace.classList.remove('entering'); void readMetric(workspace, 'offsetWidth'); workspace.classList.add('entering'); }
+  function ensure() { cardMoveFor(D_SMALL + 160); updateSize(); layout(); workspace.classList.remove('entering'); void readMetric(workspace, 'offsetWidth'); workspace.classList.add('entering'); }
   function toggleDock() {
     if (isVisible()) close();
     else { onOpen(); setState('open'); ensure(); }

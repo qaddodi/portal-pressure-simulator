@@ -13,4 +13,7 @@ export default [
   { file: 'src/ui/card.js', need: [/\} else if \(lo && old && el\.animate\) \{/, `${W} a pick while the card is still going out takes it from where it is: the old words go on fading from the opacity they had, never in one frame`] },
   { file: 'src/ui/main.js', need: [/els\.filter\(\(el\) => \(!el\.hidden \|\| el\.classList\.contains\('card-leaving'\)\) && el\.classList\.contains\('has-plate'\)\)/, `${W} a sheet that is closing keeps its glass in the list until its leave has played, so the paper goes out with the words`] },
   { file: 'styles/app-11-deck-visuals.css', need: [/\.pz-data\.col \.sc > \.sc-stage \{ width: calc\(min\(100%, 520px\) \* var\(--pz-fit, 1\)\); \}/, `${W} the stent card's pictures in a talk's stacked data card obey the card's fit, so the fit can shorten them and the Velocity | Pressure switch and the staircase do not run out of the card`] },
+  { file: 'src/ui/stage-view.js', need: [/const moving = cardMoveLeft\(\);\s+if \(!pre\.tasked && moving > 0 && \(pre\.need \|\| pre\.g\) && preIdle\(\)\)/, `${W} the labels of the other view are solved ahead only once a card has landed, never inside its entrance's frames (a 100 ms slice there stalled the TIPS card)`] },
+  { file: 'src/ui/card.js', need: [/const opening = \(\) => \{ cardMoveFor\(D_SMALL \+ 120\);/, `${W} a card's entrance says how long it runs`] },
+  { file: 'src/ui/main.js', need: [/el\.classList\.add\('card-leaving'\); cardMoveFor\(D_SMALL \+ 160\);/, `${W} a sheet's exit says how long it runs`] },
 ];

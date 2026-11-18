@@ -8,6 +8,7 @@ import { clamp, lerp } from './util.js';
 import { fadeMs, reducedMs } from './motion.js';
 import { VIEW_CHANGE_MS, viewXfLeftMs, viewXfMix, viewXfRetarget } from './view-xf.js';
 import { createGlideLabels } from './glide-labels.js';
+import { cardMoveLeft } from './card-motion.js';
 
 export function createView(st, live) {
   const { CIRC_C, EV, VB_CIRC_R, applyVT, circTurn, circWhole, defaultVT, driftEnd, edgeVisible, endWidth, geo, handRideEnd, morphPtInto, labelJobDrop, labelJobStep, labelKeyNow, labelSig, labelSliceRun, labelTail, layoutLabels, layoutLabelsGen, refreshCTM, rotEase, sameView, sitesPaint, stageBox, updateLabels, vbBox, vesselAt, visAt, worldToLocalInto } = st;
@@ -268,12 +269,16 @@ export function createView(st, live) {
   const preNowKey = () => (pre.d ? preKey(preFraming(pre.tgt)) : '');
   function preAsk() {
     if (pre.slots && !pre.g && !pre.need && preIdle() && preNowKey() !== pre.cur) pre.need = true; const now = performance.now(), left = live.F && !live.glSuppress ? preGate(cutSig(labelSig(live.F)), now) : 0;   // (the kept slots stand until the new ones are whole; the gate told at every ask, not from a tail at another stage)
+    // (A card or sheet coming or going: the solve ahead is for the rest after it, so it begins when the card has landed, never inside its entrance's frames.)
+    const moving = cardMoveLeft();
+    if (!pre.tasked && moving > 0 && (pre.need || pre.g) && preIdle()) { pre.tasked = true; mayTask('label presolve', preRetry, { notBefore: now + moving + 40 }); return; }
     if (pre.tasked || !(pre.need || pre.g) || !preIdle()) return; if (!pre.g && left > 0) { pre.tasked = true; mayTask('label presolve', preRetry, { notBefore: now + left }); return; }   // (asked again once it has held)
     pre.tasked = true;
     mayTask('label presolve', preStep, live.JOB_NOW);   // (a slice a frame while the figure rests, not when a frame happens to be spare)
   }
   function preStep() {
     pre.tasked = false;
+    { const moving = cardMoveLeft(); if (moving > 0 && preKeep()) { pre.tasked = true; mayTask('label presolve', preRetry, { notBefore: performance.now() + moving + 40 }); return false; } }   // (a card began to move mid-way: the slice waits for it)
     if (!preKeep()) preAbort(); else if (live.labelJob) return false; else if (!preSlice(3)) { pre.tasked = true; mayTask('label presolve', preStep, live.JOB_NOW); }
     return false;
   }
