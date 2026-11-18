@@ -17,6 +17,7 @@
     "src/ui/main.js → ./offgpu-overlay.js": "?offgpu only, at boot",
     "src/ui/presenter.js → ./test-decks/demo-all-new-visuals.js": "the preview copy only, when the presenter module is read in",
     "src/ui/presenter.js → ./gallery/deck.js": "the preview copy only, with the Testing deck above (the gallery deck: every card kind, one slide each)",
+    "src/ui/main.js → ./screen/index.js": "only when pps.screen() is called (a console, the bug packet, a test): the screen report, text and JSON; no person reaches it from a tap and nothing at boot reads it",
     "src/ui/main.js → ./gallery/page.js": "?gallery on the preview copy only (the card gallery and debug page), at boot; no person reaches it from a tap and the live site never reads it",
     "src/ui/main.js → ./gallery/device-frame.js": "?gallery=frame on the preview copy only (the device frame's outer page, which does not start the app), at boot",
     "src/ui/gallery/page.js → ../decks.js": "a tap on a specimen's Tools list (the real slides that use it); the presenter has read the decks in long before",
