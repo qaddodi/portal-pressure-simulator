@@ -191,7 +191,6 @@ export function createCard({ view, stage, ctx, onWhy }) {
   };
   const opening = () => { cardMoveFor(D_SMALL + 120); switchIn(el); el.classList.add('ac-in'); clearTimeout(inTimer); inTimer = setTimeout(endIn, D_SMALL + 60); };
   const sizes = { h: 0 };
-  let tallest = 0;   // (the tallest a lobule part's card has stood since it was picked: its least height)
   // (A change of height its content asks to glide, card-glide.js: the height it had when asked, glided from when the observer sees the new one.)
   let glideFrom = 0, glides = [];
   el.addEventListener(GLIDE_EVENT, () => { if (!el.classList.contains('ac-in') && !reduceMotionMQ?.matches) glideFrom = sizes.h; });
@@ -199,12 +198,11 @@ export function createCard({ view, stage, ctx, onWhy }) {
     const was = sizes.h;
     sizes.h = readMetric(el, 'offsetHeight'); el.style.setProperty('--sheet-size', sizes.h + 'px');
     if (glideFrom > 0) { const h0 = glideFrom; glideFrom = 0; if (was === h0) glides = glideCard(el, h0, sizes.h, { foot: el.classList.contains('docked'), prior: glides }); }
-    // A lobule part's card is as tall as its tallest words so far (Mohammad, 17 Nov 2026: no blank panel under short words, and no jumping as the live words change): it grows
-    // to a taller wording with the card glide, and never shrinks while it is the same card (a new pick starts again).
+    // A lobule part's card is as tall as its words (18 Nov 2026, Mohammad, the iPhone: a hepatocyte card with 140 px of empty glass above the title, a cut row, a blank bottom third and a body that scrolled):
+    // it grows and shrinks with them, the glide carrying either, and is never held at a height it once stood at (a ratchet of the tallest it had been, min-height, stood the card at a height a
+    // moment of the swap had made, taller than any words it held).
     else if (el.dataset.size === 'x' && !el.hidden) {
-      if (was > 0 && sizes.h > was + 1 && !el.classList.contains('ac-in') && !reduceMotionMQ?.matches) glides = glideCard(el, was, sizes.h, { foot: el.classList.contains('docked'), prior: glides });
-      if (sizes.h > tallest) tallest = sizes.h;
-      else if (sizes.h < tallest - 0.5) el.style.minHeight = `${tallest}px`;
+      if (was > 0 && Math.abs(sizes.h - was) > 1 && !el.classList.contains('ac-in') && !reduceMotionMQ?.matches) glides = glideCard(el, was, sizes.h, { foot: el.classList.contains('docked'), prior: glides });
     }
     reveal();
   }).observe(el);
@@ -259,6 +257,18 @@ export function createCard({ view, stage, ctx, onWhy }) {
     document.documentElement.classList.toggle('vessel-card', on);
     dispatchEvent(new Event('pps:vessel-card'));
   }
+  // Where the words of a card's body end, from its top (px): its in-flow children's lower edges and the body's own padding. Not scrollHeight: a control's GPU picture (the slider's, .wgl) is an
+  // absolutely placed canvas bleeding 14 px past its row, and scrollHeight counts it, so a card that held every word whole read as taller than its room and let its body be dragged (18 Nov 2026,
+  // Mohammad, the iPhone: "it scrolls when it shouldn't"). Read between frames (a rest pass), through layout-snap.
+  function wordsEnd(body) {
+    const b = readBox(body), st = readMetric(body, 'scrollTop');
+    let end = 0;
+    for (const c of body.children) {
+      const r = readBox(c);
+      if (r.height > 0 && !c.classList.contains('wgl')) end = Math.max(end, r.bottom - b.top + st);
+    }
+    return end + (parseFloat(readStyle(body).paddingBottom) || 0);
+  }
   function revealNow() {
     const open = model && !el.hidden && isDocked();   // (the phone's sheet: its cover lifts the zoom pill and the clock)
     const covered = open ? coverNow() : 0;
@@ -266,7 +276,7 @@ export function createCard({ view, stage, ctx, onWhy }) {
     stripState(open && !el.classList.contains('ac-leaving'));
     // A phone's card grows with its words up to the room there is (app-03-layouts.css); past that its body scrolls, and takes the vertical touch for it.
     // (While the details are open the face under them is not what is touched: the details' own scroller is the one measured, so tall details take the vertical touch too.)
-    const body = open ? el.querySelector(detOpen ? ':scope > .ac-details > .ad-scroll' : ':scope > .ac-body') : null, tall = !!body && readMetric(body, 'scrollHeight') > readMetric(body, 'clientHeight') + 1;
+    const body = open ? el.querySelector(detOpen ? ':scope > .ac-details > .ad-scroll' : ':scope > .ac-body') : null, tall = !!body && wordsEnd(body) > readMetric(body, 'clientHeight') + 1;
     if (tall !== cardTall) { cardTall = tall; el.classList.toggle('ac-scroll', tall); }
     // (Every screen: the view pans for this card as for the others, then the selected vessel is brought into the room all the open cards leave.)
     const shown = !!model && !el.hidden && !el.classList.contains('ac-leaving');
@@ -598,7 +608,7 @@ export function createCard({ view, stage, ctx, onWhy }) {
     const shape = cardShape(m, st.params);
     const resized = wasOpen && (el.dataset.size !== size || el.dataset.shape !== shape);
     el.dataset.size = size; el.dataset.shape = shape;
-    if (!same) { tallest = 0; el.style.minHeight = ''; }   // (a new pick starts its own height)
+    if (!same) el.style.minHeight = '';   // (a card never keeps a height of the last one's)
     const swap = wasOpen && !same && !!el.animate && !!old;
     if (swap) cardMoveFor(D_FLIP + 120);
     // (The height it has now is the one the glide starts from, asked before the change is made; the observer sees the new one and glides there. A card still coming in

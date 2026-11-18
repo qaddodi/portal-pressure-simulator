@@ -279,11 +279,13 @@ html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentat
 /* A phone: the card above the view switch, the screen's width less 12 px each side (B). */
 .action-card.docked {
   left: calc(env(safe-area-inset-left) + 12px) !important; right: calc(env(safe-area-inset-right) + 12px); top: auto !important; bottom: calc(env(safe-area-inset-bottom) + 6px);
-  width: auto; height: auto; min-height: min(224px, var(--ac-max)); max-height: var(--ac-max);
+  width: auto; height: auto; min-height: 0; max-height: var(--ac-max);
   --ac-max: calc(100% - env(safe-area-inset-bottom) - 6px - var(--top-safe, 56px) - 56px);
 }
-.action-card.docked[data-size=l] { min-height: min(300px, var(--ac-max)); }
-/* (the lobule part's card on a phone is as tall as its tallest words, like the shelf's: card.js) */
+/* (the lobule part's card on a phone is exactly as tall as its words, no less and no more (18 Nov 2026, Mohammad, the iPhone: a card 224 px at the least stood 80 px empty under short words, and a held
+   height of the tallest it had been stood it taller still): no card has a least height of its kind's: a 224 px floor stood the vessel and organ cards 33 px empty under their words too; card.js) */
+/* (A phone's card scrolls only when its words truly are taller than the room: card.js sets ac-scroll then. Otherwise a pixel or two past its edge (a slider's thumb, a glide's frame) let the body be dragged.) */
+.action-card.docked:not(.ac-scroll) > .ac-body { overflow-y: hidden; }
 /* (17 Nov 2026, F46: a stent card whose editor is folded, because the Tests view's own editor is on screen, is a slim strip, as tall as what it holds: its size's least height stood empty under the folded line.) */
 .action-card.docked:has(.stent-editor[data-fold="true"]) { min-height: 0; }
 /* (17 Nov 2026, the TIPS card was cut off behind the view switch on an iPhone: its two new rows, Waist length and Ends, made it taller than its size's 300 px, and a card showed

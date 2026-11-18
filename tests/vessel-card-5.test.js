@@ -76,7 +76,7 @@ test('one fixed size for each kind of card: two controls fit the small card, thr
   assert.equal(size({ type: 'organ', id: 'heart' }), 'l');
   assert.equal(size({ type: 'lobule', part: 'sin' }), 'x');
   assert.match(css, /\.action-card \{\n {2}position: absolute;[^}]*left: calc\(env\(safe-area-inset-left, 0px\) \+ 14px\); top: calc\(var\(--top-safe, 56px\) \+ 8px\); width: 276px; height: auto; max-height: 500px;/, 'the Mac shelf: 276 wide under the case pill, as tall as its words (16 Nov 2026)');
-  assert.match(css, /\.action-card\.docked \{\n[^}]*width: auto; height: auto; min-height: min\(224px, var\(--ac-max\)\);/, 'the iPhone card: 224 tall at least, as tall as its words beyond that (17 Nov 2026: the TIPS card was cut off at a fixed 300)');
+  assert.match(css, /\.action-card\.docked \{\n[^}]*width: auto; height: auto; min-height: 0;/, 'the iPhone card: exactly as tall as its words (18 Nov 2026: no 224 floor; 17 Nov: the TIPS card was cut off at a fixed 300)');
   assert.match(css, /\.app\.thumb:not\(\.dock-open\) \.action-card\.docked \{\n {4}bottom: calc\(var\(--nb-occ, calc\(var\(--vdock-h\) \+ 14px\)\) \+ 50px\);/, 'above the view switch');
   // (17 Nov 2026: a card grows with its words; only the body scrolls, and only past the room there is: tests/card-fits-screen.test.js)
   assert.ok(!/\.action-card[^{>]*\{[^}]*overflow-y: auto/.test(css), 'the card itself never scrolls: only its body, past the room');

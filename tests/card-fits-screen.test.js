@@ -11,14 +11,14 @@ const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 const css = read('styles/app-03-layouts.css'), thumb = read('styles/app-10-thumb-dock.css'), card = read('src/ui/card.js');
 const rule = (src, sel) => { const m = src.match(new RegExp(`^${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{([^}]*)\\}`, 'm')); return m ? m[1] : null; };
 
-test('the phone\'s docked card has no fixed height: its size is the least it is, and the room is the most', () => {
+test('the phone\'s docked card has no fixed height and no least one: it is as tall as its words, and the room is the most (18 Nov 2026: a 224 px floor stood short words in an empty card)', () => {
   const docked = css.match(/^\.action-card\.docked \{([^}]*)\}/m)[1];
   assert.match(docked, /height: auto;/);
-  assert.match(docked, /min-height: min\(224px, var\(--ac-max\)\)/);
+  assert.match(docked, /min-height: 0;/);
   assert.match(docked, /max-height: var\(--ac-max\)/);
   assert.doesNotMatch(docked, /[^-]height: \d+px/, 'no fixed height');
   for (const k of ['l', 'x']) assert.doesNotMatch(rule(css, `.action-card.docked[data-size=${k}]`) || '', /[^-]height: \d+px/, `size ${k} is a least, not a height`);
-  assert.match(rule(css, '.action-card.docked[data-size=l]'), /min-height: min\(300px, var\(--ac-max\)\)/);
+  for (const k of ['l', 's', 'x']) assert.doesNotMatch(rule(css, `.action-card.docked[data-size=${k}]`) || '', /min-height: (?!0)/, `size ${k} has no least height`);
 });
 
 test('the room is what is left between the case pill and the card\'s own foot, in each place the card stands', () => {
@@ -43,7 +43,7 @@ test('a card too tall for its room takes the vertical touch for scrolling, one t
   assert.match(css, /\.action-card\.docked :is\(\.ac-body, \.ac-ghost(?:, \.ac-details)?\) \{[^}]*touch-action: none;/, 'a card that fits keeps touch-action: none');
   assert.match(css, /\.action-card\.docked\.ac-scroll > \.ac-details \{ touch-action: pan-y; \}/, 'the details face too: tall details scroll by touch (ac-scroll follows the face that shows)');
   // card.js: the flag follows the body's own scroll height, read through layout-snap between frames (revealNow), and changes only when it flips
-  assert.match(card, /readMetric\(body, 'scrollHeight'\) > readMetric\(body, 'clientHeight'\) \+ 1/);
+  assert.match(card, /wordsEnd\(body\) > readMetric\(body, 'clientHeight'\) \+ 1/);
   assert.match(card, /if \(tall !== cardTall\) \{ cardTall = tall; el\.classList\.toggle\('ac-scroll', tall\); \}/);
   const frameCalls = card.split('\n').filter((l) => /scrollHeight/.test(l) && !/readMetric/.test(l) && !/^\s*\/\//.test(l));
   assert.deepEqual(frameCalls, [], 'no direct layout read in card.js');
