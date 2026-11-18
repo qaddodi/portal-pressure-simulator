@@ -245,8 +245,13 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
     const S = stops(), r = room();
     size = Math.min(size, S.length - 1);
     const need = size === half() && !grow ? natural() : Infinity;   // (the Tests card keeps its one height: it never shrinks to its content)
+    const R = r || readMetric(app, 'clientHeight'), halfPx = S[half()] * R, fullPx = S[S.length - 1] * R;
     // alloc-rare: the sheet's height as a CSS value, made when a gesture starts or ends or the sheet opens, not while it moves
-    return need < S[half()] * (r || readMetric(app, 'clientHeight')) ? `${Math.ceil(need)}px` : r ? `${Math.round(S[size] * r)}px` : `${Math.round(S[size] * 100)}%`;
+    if (need < halfPx) return `${Math.ceil(need)}px`;
+    // (18 Nov 2026, the tester, 390 x 844, Treat's Procedures and Fluids: the sheet stood at Half, 405 px, with 726 px of words and free room above it, so it scrolled and cut its rows. A sheet whose words
+    // are taller than Half is as tall as they are, up to its Full, and scrolls only past that: Half is the least a sheet is, not the most.)
+    if (need !== Infinity && size === half()) return `${Math.ceil(Math.min(need, fullPx))}px`;
+    return r ? `${Math.round(S[size] * r)}px` : `${Math.round(S[size] * 100)}%`;
   };
   const pxOf = (v) => (/px$/.test(v) ? parseFloat(v) : (parseFloat(v) / 100) * readMetric(app, 'clientHeight'));
   // Commits the sheet at rest: its own height, the content in place (the same picture: what was drawn lay - off tall now is).
