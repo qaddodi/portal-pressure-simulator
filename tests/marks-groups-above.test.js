@@ -30,3 +30,17 @@ test('a mark carries the opacity of the groups above it; a group not displayed, 
   assert.equal(byColour(0, 0, 255).length, 0, 'a clipped group draws none');
   assert.ok(document.getElementById('r1').hasAttribute('data-gl') && !document.getElementById('r2').hasAttribute('data-gl'));
 });
+
+test('markMatrix with the build\'s memo gives the product the plain walk gives, for nested groups with transforms', async () => {
+  // (the page of the test above: one boot a process)
+  const host = document.createElement('div');
+  host.innerHTML = '<svg id="mmRoot" xmlns="http://www.w3.org/2000/svg"><g id="mmOver"><g transform="translate(10 20)"><g transform="scale(2)"><rect id="m1" width="4" height="4"/></g><g><rect id="m2" width="4" height="4" transform="rotate(30)"/></g></g><rect id="m3" width="4" height="4"/></g></svg>';
+  document.body.appendChild(host);
+  const { markMatrix } = await import('../src/ui/stage-marks.js');
+  const over = document.getElementById('mmOver'), memo = new Map();
+  for (const id of ['m1', 'm2', 'm3', 'm1']) {
+    const el = document.getElementById(id), a = markMatrix(el, over, getComputedStyle(el)), b = markMatrix(el, over, getComputedStyle(el), memo);
+    assert.deepEqual(b, a, id);
+  }
+  assert.ok(memo.size >= 3, 'the groups above are kept');
+});

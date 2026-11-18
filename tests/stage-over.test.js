@@ -286,6 +286,8 @@ test('the overlays\' root svg takes the camera\'s frames (transform, origin, wil
   const rec = (target, old) => ({ type: 'attributes', attributeName: 'style', oldValue: old, target });
   assert.equal(needsReread(rec(root('transform: matrix(1.2,0,0,1.2,3,4); will-change: transform;'), 'transform: matrix(1.1,0,0,1.1,3,4);')), false);
   assert.equal(needsReread(rec(root('transform-origin: 0 0; transition: none;'), '')), false);
+  assert.equal(needsReread(rec(root('clip-path: polygon(0 0, 10px 0, 10px 10px); transform: none;'), 'clip-path: polygon(0 0, 20px 0, 20px 20px);')), false, 'the glass\'s cut under a card (glass-cut.js): no group reads it');
+  assert.equal(needsReread(rec(grp('clip-path: inset(1px);'), 'clip-path: inset(2px);')), true, 'a group\'s own clip is its reading');
   assert.equal(needsReread(rec(root('visibility: hidden;'), '')), true, 'its visibility is inherited by every group');
   assert.equal(needsReread(rec(grp('transform: matrix(1.2,0,0,1.2,3,4);'), 'transform: matrix(1.1,0,0,1.1,3,4);')), true, 'a group\'s own style is its reading');
 });

@@ -9,16 +9,29 @@ import { transformOf } from './svg-gl.js';
  * A transform the browser's computed style does not give (a browser that leaves an SVG transform attribute out of it: Safari showed the TIPS stent's front marker at the
  * figure's origin, a thin bar stuck to the figure, 11 Nov 2026) is read from the attribute. null: no transform on the way. `cs`: the element's computed style, read by the caller.
  */
-export function markMatrix(el, stop, cs) {
-  let M = null;
-  for (let e = el; e && e !== stop; e = e.parentNode) {
-    const c = e === el && cs ? cs : getComputedStyle(e), t = c.transform;
+export function markMatrix(el, stop, cs, memo = null) {
+  // (`memo`: a Map a build keeps for its shapes, the product of the transforms above each group worked out once: a mark read the whole chain, a style read for each group, 18 Nov 2026.)
+  const own = (e, c) => {
+    const t = c.transform;
     let q = null;
     if (t && t !== 'none') q = t.match(/-?[\d.]+(?:e-?\d+)?/g).map(Number);
     else if (e.getAttribute?.('transform')) q = transformOf(e.getAttribute('transform'));
-    if (q) M = M ? [q[0] * M[0] + q[2] * M[1], q[1] * M[0] + q[3] * M[1], q[0] * M[2] + q[2] * M[3], q[1] * M[2] + q[3] * M[3], q[0] * M[4] + q[2] * M[5] + q[4], q[1] * M[4] + q[3] * M[5] + q[5]] : q;
+    return q;
+  };
+  const mul = (q, M) => (q ? (M ? [q[0] * M[0] + q[2] * M[1], q[1] * M[0] + q[3] * M[1], q[0] * M[2] + q[2] * M[3], q[1] * M[2] + q[3] * M[3], q[0] * M[4] + q[2] * M[5] + q[4], q[1] * M[4] + q[3] * M[5] + q[5]] : q) : M);
+  const above = (e) => {
+    if (!e || e === stop) return null;
+    if (memo?.has(e)) return memo.get(e);
+    const M = mul(above(e.parentNode), own(e, getComputedStyle(e)));
+    memo?.set(e, M);
+    return M;
+  };
+  if (!memo) {
+    let M = null;
+    for (let e = el; e && e !== stop; e = e.parentNode) M = mul(own(e, e === el && cs ? cs : getComputedStyle(e)), M);
+    return M;
   }
-  return M;
+  return mul(above(el.parentNode), own(el, cs || getComputedStyle(el)));
 }
 
 export function createMarks(st) {
@@ -154,7 +167,7 @@ export function createMarks(st) {
   // open ends with square or round caps), a disc as triangles.
   const mkV = [], mkDrawPool = [[], []], mkDrawLists = [[], []], mkDiscRing = { xy: [], closed: true };
   // The product of the opacities of the groups from `e` up to the overlays' root (not it), or -1 when any is not displayed, or is clipped or masked: kept for a build (mkAbove).
-  const mkAbove = new Map();
+  const mkAbove = new Map(), mkMats = new Map();
   function groupsAbove(e) {
     if (!e || e === gOver) return 1;
     let v = mkAbove.get(e);
@@ -231,22 +244,23 @@ export function createMarks(st) {
     // only the marks' visibility, which nothing here reads, so the reads are the same; the attributes end as before.)
     const drawn = mkDrawn;
     drawn.clear();
-    mkAbove.clear();
-    const timing = gpuProbe.on;
-    let tRead = 0;
+    mkAbove.clear(); mkMats.clear();
+    const timing = gpuProbe.on, tBuild = timing ? performance.now() : 0;
+    let tRead = 0, nShapes = 0;
     for (const key in ov) {
       const g = ov[key];
       for (const el of g.querySelectorAll('path, circle, ellipse, rect')) {
         // (Nothing inside a <defs>, <clipPath> or <mask> is a mark: the stent's clip is a plain path with no class, so the painter drew it as a solid black rectangle at the
         // origin of the figure, stuck to it, 11 Nov 2026, Mohammad's TIPS shots.)
         if (el.closest('defs, clipPath, mask, pattern, marker')) continue;
+        nShapes++;
         const t0 = timing ? performance.now() : 0;
         const cs = getComputedStyle(el);
         let op = Number(cs.opacity), ok = cs.display !== 'none' && cs.strokeDasharray === 'none';
         // (The groups above, their opacities multiplied and any of them hidden, clipped or masked: worked out once for each group and kept for the build (an overlay's marks share
         // a few groups, and each mark walked them all with a style read of its own: the deck start's 'outlines: marks' ran 25 to 29 ms, 18 Nov 2026).)
         if (ok) { const up = groupsAbove(el.parentNode); if (up < 0) ok = false; else op *= up; }
-        const M = markMatrix(el, gOver, cs);
+        const M = markMatrix(el, gOver, cs, mkMats);
         if (timing) tRead += performance.now() - t0;
         if (!(ok && shapeRings(el))) continue;
         const nR = mkRingN;
@@ -291,8 +305,8 @@ export function createMarks(st) {
     }
     for (const g of Object.values(ov)) for (const el of g.querySelectorAll('path, circle, ellipse, rect')) { if (drawn.has(el)) { if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', ''); } else if (el.hasAttribute('data-gl')) el.removeAttribute('data-gl'); }
     drawn.clear();   // (the shapes are not held on to once their attributes are written)
-    mkAbove.clear();
-    if (timing) gpuProbe.gauge('vessel marks: styles read (ms)', Math.round(tRead * 10) / 10);
+    mkAbove.clear(); mkMats.clear();
+    if (timing) gpuProbe.gauge('vessel marks: last build', `${nShapes} shapes, styles ${tRead.toFixed(1)} ms, whole ${(performance.now() - tBuild).toFixed(1)} ms`);
     mk.verts = new Float32Array(mkV); mk.draws = mkDraws; mk.dirty = true;
   }
   return { marksStale, marksSync, mk };

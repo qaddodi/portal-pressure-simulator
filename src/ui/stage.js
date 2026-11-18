@@ -24,7 +24,7 @@ import { cssColor8 } from './css-color.js';
 import { readFail, mulTo, elMat } from './organ-paint.js';
 import { dropLive } from './live-style.js';
 import { sceneBatch } from './scene-store.js';
-import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL, OVER_CARD_RE } from './stage-over.js';
+import { overUnits, overRun, needsReread, netChanges, styleDiff, OVER_CLASS, OVER_ALL, OVER_CARD_RE } from './stage-over.js';
 import { elBoxInto } from './shape-gl.js';
 import { HOVER_LINK } from './hover-link.js';
 import { createExplain } from './label-explain.js';
@@ -2568,7 +2568,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const r of netChanges(rs)) {
         // (How long an element's transitions run changes only with its classes, its style rules or the page's look, not with a value written to it: kept across the frames of a move, below.)
         if (r.attributeName === 'class' || r.type !== 'attributes' || (r.attributeName === 'style' && /transition/.test(`${r.oldValue}${r.target.getAttribute('style')}`))) overTrans = new WeakMap();
-        if (needsReread(r)) { overDirty = true; overDrop(r.target); if (gpuProbe.on) overWhyAdd(`${r.type === 'attributes' ? r.attributeName : r.type} on ${overName(r.target)}`); continue; }
+        if (needsReread(r)) { overDirty = true; overDrop(r.target); if (gpuProbe.on) overWhyAdd(`${r.type === 'attributes' ? (r.attributeName === 'style' ? `style (${styleDiff(r.oldValue, r.target.getAttribute('style'))})` : r.attributeName) : r.type} on ${overName(r.target)}`); continue; }
         // (A value the painter reads at each paint, eased by the page's CSS: the browser shows the ease, so the group waits in the SVG.
         // An outline's d is not eased by any of the overlays' styles.)
         // (2 Nov 2026: its transitions are read in the next frame's read phase (overReadNow), not here, in the observer's microtask

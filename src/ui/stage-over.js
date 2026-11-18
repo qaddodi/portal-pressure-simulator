@@ -75,7 +75,9 @@ const PAINT_READ = new Set(['opacity', 'fill-opacity', 'stroke-opacity']);
 // scale as an attribute), so a zoom that wrote them dropped those groups' readings on every frame, and each was read again (the picking and zooming judder,
 // 18 Nov 2026). tests/stage-over.test.js reads the stylesheets for any other reader.
 export const CAMERA_SIZES = new Set(['--clamp-sw', '--clamp-fs', '--halo-k']);
-const ROOT_FREE = new Set(['transform', 'transform-origin', 'will-change', 'transition']);
+// (clip-path too, 18 Nov 2026: the glass's cut (glass-cut.js) writes the root's clip-path whenever a card's shape changes, each step of a sheet's refit; the cut shapes what the SVG copy shows, and a clip-path is
+// not inherited: no group's reading holds it (the painter reads each group's own clip and those inside it). A Treat sheet refit read every group again, 18 to 30 ms in 11 of 12 frames.)
+const ROOT_FREE = new Set(['transform', 'transform-origin', 'will-change', 'transition', 'clip-path']);
 export function styleKey(text, root = false) {
   const out = [];
   for (const d of String(text || '').split(';')) {
@@ -88,6 +90,13 @@ export function styleKey(text, root = false) {
   return out.sort().join(';');
 }
 
+/** The names of the declarations that differ between two inline styles (for the ?perf readout's reason), at most four. */
+export function styleDiff(a, b) {
+  const m = (t) => { const o = new Map(); for (const d of String(t || '').split(';')) { const i = d.indexOf(':'); if (i > 0) o.set(d.slice(0, i).trim().toLowerCase(), d.slice(i + 1).trim()); } return o; };
+  const A = m(a), B = m(b), out = [];
+  for (const k of new Set([...A.keys(), ...B.keys()])) if (A.get(k) !== B.get(k)) out.push(k);
+  return out.slice(0, 4).join(', ') || 'none';
+}
 /**
  * A batch of mutation records with what came to nothing left out: per element and attribute, the first record (it holds the value
  * before the batch), kept only when the value now differs from it (an attribute written again with its value, or taken off and put
