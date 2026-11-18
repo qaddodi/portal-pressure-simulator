@@ -13,7 +13,7 @@
 //     lines:  [{ role, look, x1, y1, x2, y2, stroke, op }],
 //     rects:  [{ role, look, x, y, w, h, fill, op, tone? }],
 //     dots:   [{ role, look, x, y, r, fill, op, v? }],
-//     legend: { entries: [words], where: 'html' | 'chart' | 'none' } }
+//     legend: { entries: [words], where: 'html' | 'chart' | 'none', zones: bool } }   (zones: the legend is a zones' key, the words each zone is named by)
 // Positions are the drawing's own units (its viewBox's, a CSS pixel for the charts that draw at the element's own pixels), with every group's transform and
 // every glide's present place applied. Only pieces the picture would draw are listed (shown, a strength over 0.2%).
 //
@@ -24,11 +24,19 @@
 //   data-v on a dot: "key:number,key:number", the readings it was placed from (number-rules.js)
 // io = { box(el) → { width, height } | null, style(el) → { display } } (layout-snap.js reads, or plain DOM reads in a headless layout run); without it a chart has no
 // size and a legend is told shown unless it is [hidden] or its own style says display: none.
-import { lookOfPiece, wordsOf, geoOf, transformOf, moveAt } from '../svg-gl.js';
 import { roleOf } from './chart-roles.js';
+
+// The painter's own functions (svg-gl.js: lookOfPiece, wordsOf, geoOf, transformOf, moveAt), handed in with setPainter by screen/chart-deps.js: svg-gl.js reads the
+// page's globals as it loads, so this file (and the report builder that registers it) stays loadable in a node test with no page. Until it is set, readCharts says nothing.
+let P = null;
+/** Hands the reader the painter's functions. */
+export const setPainter = (painter) => { P = painter; };
+const lookOfPiece = (el) => P.lookOfPiece(el), wordsOf = (el) => P.wordsOf(el), geoOf = (el, k) => P.geoOf(el, k), transformOf = (s) => P.transformOf(s), moveAt = (el) => P.moveAt(el);
 
 /** Where a legend (a key under or beside a plot) is written in the page: the first of these in a chart's card. */
 export const LEGEND_SELECTOR = '.pze-key, .pft-key, .pzc-key, .pzk-key, .sv-legend, .legend-inline, .keys, .keys-g, .ir-keys, .fr-key, .pze-ckey';
+/** The legends that name a chart's zones (the planes' keys); the others key a hatch, a line or a swatch and say nothing about zone words. */
+export const ZONE_KEY_SELECTOR = '.pze-key, .pze-ckey';
 const CARD_ROOT = '.pz-data, .pz-text, .pz-panel, .action-card, .dock-pane, #dock, .pz-vis, .pz-visual';
 
 const r1 = (v) => Math.round(v * 10) / 10;
@@ -107,9 +115,9 @@ function legendOf(box, texts, io) {
   for (let i = 0; i < 6 && card.parentElement; i++) { card = card.parentElement; if (card.matches?.(CARD_ROOT)) break; }
   const keys = [...card.querySelectorAll(LEGEND_SELECTOR)].filter((k) => !k.contains(box) && !box.contains(k) && shown(k, io));
   const entries = keys.flatMap(legendEntries);
-  if (entries.length) return { entries, where: 'html' };
+  if (entries.length) return { entries, where: 'html', zones: keys.some((k) => k.matches(ZONE_KEY_SELECTOR)) };
   const own = texts.filter((t) => t.role === 'legend').map((t) => t.text);
-  return own.length ? { entries: own, where: 'chart' } : { entries: [], where: 'none' };
+  return own.length ? { entries: own, where: 'chart', zones: false } : { entries: [], where: 'none', zones: false };
 }
 
 /** One drawing: its model root `svg` standing in `box` (the chart's picture box). */
@@ -162,13 +170,14 @@ export function readChart(svg, box, io = null, index = 0) {
     aria: box?.getAttribute?.('aria-label') || svg.getAttribute('aria-label') || box?.querySelector?.('canvas')?.getAttribute('aria-label') || box?.parentElement?.getAttribute?.('aria-label') || '',
     viewBox: vb.length === 4 && vb.every(Number.isFinite) ? vb : null, size: b && b.width > 0 ? [r1(b.width), r1(b.height)] : null,
     fit: svg.getAttribute('data-fit') === 'on', axes: svg.getAttribute('data-axes') === 'on', keys,
-    texts, lines, rects, dots, legend: box ? legendOf(box, texts, io) : { entries: [], where: 'none' },
+    texts, lines, rects, dots, legend: box ? legendOf(box, texts, io) : { entries: [], where: 'none', zones: false },
   };
 }
 
 /** Every chart on the page (or under `root`): one for each drawing in each picture box. */
 export function readCharts(root = document, io = null) {
   const charts = [];
+  if (!P) return { charts };
   const counts = new Map();
   for (const box of root.querySelectorAll('.svg-gl-box')) {
     for (const svg of box.children) {

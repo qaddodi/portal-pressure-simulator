@@ -955,7 +955,7 @@ export function planePlot(plane, { card = false } = {}) {
     drawn = key;
     // (Marks the screen report reads, selfcheck/chart-reader.js: the keys of the axes, and whether they are cut to the points plotted.)
     svg.setAttribute('data-xk', pl.x.key); svg.setAttribute('data-yk', pl.y.key);
-    if (pl.fit && !card) svg.setAttribute('data-fit', 'on'); else svg.removeAttribute('data-fit');
+    svg.setAttribute('data-fit', pl.fit && !card ? 'on' : 'off');
     // (A scatter, a plane with no zones, draws axes of its own on a panel: hasAxes.)
     const axed = !card && hasAxes(pl), fr = axed ? axesFrame(pl, W, H, fs) : frame(W, H), { X, Y } = scaler(pl, fr);
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);

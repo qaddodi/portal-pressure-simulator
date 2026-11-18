@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { zoneNamesWithLegend, axesFitData, judgeCharts } from '../src/ui/selfcheck/chart-rules.js';
 import { pressureColour, pressureWords, leadNumber, NAMED_CUTS } from '../src/ui/selfcheck/pressure-rules.js';
-import { numbersAgree } from '../src/ui/selfcheck/number-rules.js';
+import { numbersAgree, wantNumbers } from '../src/ui/selfcheck/number-rules.js';
 import { roleOf, ownerOf } from '../src/ui/selfcheck/chart-roles.js';
 import { HVPG_CUTS, PPG_CUTS } from '../src/engine/pressure-cuts.js';
 
@@ -20,7 +20,7 @@ test('a look key has a role, and an unlisted one is other', () => {
 });
 
 // ── chart-zone-names-with-legend ──
-const KEY = { where: 'html', entries: ['Both normal', 'PPG only', 'HVPG only', 'Both raised'] };
+const KEY = { where: 'html', zones: true, entries: ['Both normal', 'PPG only', 'HVPG only', 'Both raised'] };
 test('zone names on a plot whose legend names its zones: one finding for each', () => {
   const f = zoneNamesWithLegend(chart({ legend: KEY, texts: [text('Both raised', { role: 'zone-name' }), text('PPG only', { role: 'other', look: 'x.y' }), text('12', { role: 'tick', look: 'plane.t' })] }));
   assert.deepEqual(f.map((x) => x.what), ['Zone name "Both raised"', 'Zone name "PPG only"']);
@@ -30,6 +30,10 @@ test('zone names on a plot whose legend names its zones: one finding for each', 
 test('a plot with no legend keeps its zone names, and a legend with no zone words on the plot is clean', () => {
   assert.deepEqual(zoneNamesWithLegend(chart({ texts: [text('CSPH', { role: 'zone-name' })] })), []);
   assert.deepEqual(zoneNamesWithLegend(chart({ legend: KEY, texts: [text('HVPG (WHVP − FHVP), mmHg', { role: 'axis-name' }), text('10', { role: 'tick' })] })), []);
+  // (a key that is no zones' key, the hatch's, says nothing about the zone words on the plot; one that names the same words still does)
+  const hatch = { where: 'html', zones: false, entries: ['Hatched: can skip EGD'] };
+  assert.deepEqual(zoneNamesWithLegend(chart({ legend: hatch, texts: [text('CSPH', { role: 'zone-name' })] })), []);
+  assert.equal(zoneNamesWithLegend(chart({ legend: { ...hatch, entries: ['CSPH'] }, texts: [text('CSPH', { role: 'zone-name' })] })).length, 1);
   // (the words a chart's own key draws are its legend, not zone names)
   assert.deepEqual(zoneNamesWithLegend(chart({ legend: { where: 'chart', entries: ['Both raised'] }, texts: [text('Both raised', { role: 'legend', look: 'time.key.text' })] })), []);
 });
@@ -96,12 +100,21 @@ test('every place a reading is written is the model\'s number as the tile table 
   const fp = { hvpg: 14.23, ppg: 9.04 };
   const shown = [{ where: 'tile', key: 'hvpg', text: '14.2' }, { where: 'header', key: 'ppg', text: '9.0' }, { where: 'words', key: 'hvpg', text: '14.2 mmHg' }, { where: 'words', key: 'hvpg', text: '14 mmHg' },
     { where: 'chart', key: 'hvpg', text: '14.2' }, { where: 'chart', key: 'ppg', text: '9', placed: true }];
-  assert.deepEqual(numbersAgree(shown, fp, FMT), []);
+  assert.deepEqual(numbersAgree(wantNumbers(shown, fp, FMT)), []);
 });
 test('a number that is not the model\'s fires, wherever it is written, and says which place and file', () => {
   const fp = { hvpg: 14.23, ppg: 9.04 };
-  const f = numbersAgree([{ where: 'tile', key: 'hvpg', text: '14.3', owner: 'a.js' }, { where: 'words', key: 'ppg', text: '12 mmHg', owner: 'b.js' }, { where: 'chart', key: 'ppg', text: '8.0', placed: true, chart: 'plane#0', owner: 'c.js' }, { where: 'tile', key: 'nope', text: '1' }], fp, FMT);
+  const f = numbersAgree(wantNumbers([{ where: 'tile', key: 'hvpg', text: '14.3', owner: 'a.js' }, { where: 'words', key: 'ppg', text: '12 mmHg', owner: 'b.js' }, { where: 'chart', key: 'ppg', text: '8.0', placed: true, chart: 'plane#0', owner: 'c.js' }, { where: 'tile', key: 'nope', text: '1' }], fp, FMT));
   assert.equal(f.length, 3);
   assert.deepEqual(f.map((x) => x.owner), ['a.js', 'b.js', 'c.js']);
   assert.match(f[0].why, /14\.2/);
+});
+test('with no fingerprint, the places of one reading still agree with its tile: a header, a words pill (whole too) and a chart mark', () => {
+  const ok = [{ where: 'tile', key: 'hvpg', text: '14.2' }, { where: 'header', key: 'hvpg', text: '14.2' }, { where: 'words', key: 'hvpg', text: '14.2 mmHg' }, { where: 'words', key: 'hvpg', text: '14 mmHg' }, { where: 'chart', key: 'hvpg', text: '14.2', placed: true }];
+  assert.deepEqual(numbersAgree(ok), []);
+  const bad = numbersAgree([{ where: 'tile', key: 'hvpg', text: '14.2' }, { where: 'header', key: 'hvpg', text: '14.3', owner: 'h.js' }, { where: 'words', key: 'hvpg', text: '11 mmHg', owner: 'w.js' }, { where: 'chart', key: 'hvpg', text: '9.0', placed: true, chart: 'plane#0', owner: 'c.js' }]);
+  assert.deepEqual(bad.map((x) => x.owner), ['h.js', 'w.js', 'c.js']);
+  assert.match(bad[0].why, /tile reads "14\.2"/);
+  // (a reading with no tile on the screen has nothing to be judged against)
+  assert.deepEqual(numbersAgree([{ where: 'words', key: 'ppg', text: '9 mmHg' }, { where: 'chart', key: 'ppg', text: '3', placed: true }]), []);
 });

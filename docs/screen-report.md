@@ -45,3 +45,29 @@ registerRule({ id: 'label-under-card', owner: 'src/ui/label-gl.js', why: 'Labels
 
 Readers: `page` (device size, look, view, patient, deck and slide, open card, build), `cards` (each card: kind, title, box, opacity, stage, each line with its size in px, numbers; the fit readers' raw readings), `health` (volatile: GPU memory, contexts, counted errors, fps).
 Rules: `fit-<kind>` for every kind of `gallery/fit-rules.js` except `zoomed` (it needs a second reading with the card enlarged): the judges there are the only judges, the rules run them over `report.cards.fit` and `report.cards.structure`.
+
+## Charts and number checks (step 2b)
+
+Reader `charts` (order 40, `src/ui/screen/read-charts.js`; armed by `src/ui/screen/chart-deps.js`, which `screen/index.js` imports; a node rig that has booted the page imports it too).
+Part: `{ charts: [chart], numbers: [shown] }`.
+
+- **A chart** (`src/ui/selfcheck/chart-reader.js`, read from the svg-gl models before the GPU draws them): its host, viewBox, axis keys, whether its axes are cut to its points, the words
+  (role, text, place, size, strength), cut-off and axis lines, zone and frame rectangles, dots (a point, or the slide's case), and its legend (a key in the page beside it, or one drawn in it).
+  Places are the drawing's units with each group's transform and each glide's present place applied (the painter's `transformOf` and `moveAt`); looks are the painter's own (`lookOfPiece`).
+  A piece's **role** comes from the key it takes its look by (`data-look`), table in `src/ui/selfcheck/chart-roles.js`; a key not listed is `other`.
+- **Marks a chart builder may put on its pieces** for the rules: `data-fit="on"` on the drawing (its axes are cut to the points plotted), `data-xk` / `data-yk` (the model keys of its axes),
+  `data-k` on a text (it prints the model's number for that key), `data-v="key:number,key:number"` on a dot or its group (the readings it was placed from). The HVPG/PPG plane writes all of them;
+  a live-value pill in the slide's words (`{hvpg}`) writes `data-k`.
+- **A shown number** (`src/ui/selfcheck/number-rules.js`): each tile (`.pz-tiles[data-keys]`), each header reading (`.pz-hi`, by its name), each live-value pill and each chart mark that says
+  which reading it prints, with its text, its rating (`data-rate`) and the file that owns it. With `env.fp` (the model's fingerprint for the screen: a slide rig or a sweep knows it) each also carries
+  `want`, what the page's own formatters print for the model's reading.
+- Rules (`src/ui/selfcheck/rules-charts.js`; the judges are pure, in `chart-rules.js`, `number-rules.js`, `pressure-rules.js`):
+  - `chart-zone-names-with-legend`: a chart whose legend names its zones writes none on its plot.
+  - `chart-axes-fit-data`: a chart marked `data-fit="on"` leaves at most 45% of an axis empty past its last point unless a cut-off line stands in the room, and draws no point outside its frame.
+    A chart that cuts its axes to its points marks itself so; one with declared axes (the CSPH plane, the card's planes) is not judged.
+  - `number-agree`: every place a reading is written reads what its tile reads (header the same text, a pill the same number or the whole one, a chart mark the same number), and, with a fingerprint,
+    what the tile table prints for the model.
+  - `pressure-colour`: a pressure wears the rating the cut-offs of `src/engine/pressure-cuts.js` give the number as shown (HVPG amber over 5, red 10; PPG amber 6, red 12; portal vein over 10 and 15).
+  - `pressure-words`: words that name a cut-off of the HVPG or PPG name one of the app's (HVPG 5, 10, 12, 20; PPG 6, 12).
+- Not yet read: figure labels (the labels thread's records), numbers drawn only by a chart that carries no `data-k` (add the mark where a chart prints a model reading). A chart family
+  with its own look keys adds them to `chart-roles.js` (`ROLE_OF_LOOK`, `OWNER_OF_GROUP`).

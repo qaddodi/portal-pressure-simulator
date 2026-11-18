@@ -2,7 +2,7 @@
 // { rule, what, where, why, owner } (the shape of the plan's example) or []. Pure: no page, no imports but chart-roles.js, so node tests feed them records.
 // Each is a standing rule of the owner's and ships with a case that must fire and one that must not (tests/selfcheck-chart-rules.test.js).
 //
-//   chart-zone-names-with-legend  A chart that has a legend (a key under or beside it) writes no zone names on the plot (17 Nov 2026: "no need to mention both
+//   chart-zone-names-with-legend  A chart that has a legend of its zones (a key under or beside it, legend.zones) writes no zone names on the plot (17 Nov 2026: "no need to mention both
 //                                 raised, PPG only etc. on the chart itself, you have a legend already").
 //   chart-axes-fit-data           A chart that cuts its axes to the points plotted (its drawing says data-fit="on") leaves no more than 45% of an axis empty past
 //                                 its last point, unless a cut-off line stands in that room, and draws no point outside its frame (18 Nov 2026, b52b29d1:
@@ -19,7 +19,7 @@ export function zoneNamesWithLegend(chart) {
   const out = [];
   for (const t of chart.texts) {
     if (t.role === 'legend') continue;
-    if (t.role === 'zone-name' || (names.has(norm(t.text)) && t.role !== 'tick')) {
+    if ((t.role === 'zone-name' && chart.legend.zones) || (names.has(norm(t.text)) && t.role !== 'tick')) {
       out.push(find('chart-zone-names-with-legend', chart, `Zone name "${t.text}"`, `on the plot of ${chart.id} at ${t.x}, ${t.y}`,
         `The chart's legend already names its zones (${chart.legend.entries.length} entries), so the plot carries no zone words`, ownerOf(t.look)));
     }

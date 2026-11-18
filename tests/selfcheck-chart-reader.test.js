@@ -5,14 +5,15 @@ import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { boot, run } from './gallery-node.js';
 
-let win, PLANES, planePlot, readCharts, judgeCharts, readShownNumbers, numbersAgree, pressureColour, bigTiles, tileVal, tileOf, tileShown, valueText, fingerprintOf, computeMetrics, Engine, HVPG_CUTS, PPG_CUTS;
+let win, PLANES, planePlot, readCharts, judgeCharts, readShownNumbers, wantNumbers, numbersAgree, pressureColour, bigTiles, tileVal, tileOf, tileShown, valueText, fingerprintOf, computeMetrics, Engine, HVPG_CUTS, PPG_CUTS;
 before(async () => {
   ({ win } = await boot());
   for (const [k, v] of [['clientWidth', 420], ['clientHeight', 260]]) Object.defineProperty(win.Element.prototype, k, { get() { return v; }, configurable: true });
   ({ PLANES, planePlot } = await import('../src/ui/visual-plane.js'));
+  await import('../src/ui/screen/chart-deps.js');   // (arms the reader: the painter's functions, the page's formatters)
   ({ readCharts } = await import('../src/ui/selfcheck/chart-reader.js'));
   ({ judgeCharts } = await import('../src/ui/selfcheck/chart-rules.js'));
-  ({ readShownNumbers, numbersAgree } = await import('../src/ui/selfcheck/number-rules.js'));
+  ({ readShownNumbers, wantNumbers, numbersAgree } = await import('../src/ui/selfcheck/number-rules.js'));
   ({ pressureColour } = await import('../src/ui/selfcheck/pressure-rules.js'));
   ({ bigTiles, tileVal } = await import('../src/ui/presenter-cards.js'));
   ({ tileOf, tileShown } = await import('../src/ui/table-marks.js'));
@@ -63,9 +64,9 @@ test('the data card\'s plane: the case dot carries the readings it was placed fr
   const shown = readShownNumbers(document, { charts: { charts: [c] } });
   assert.deepEqual(shown.map((s) => s.key).sort(), ['hvpg', 'ppg']);
   const fmt = { tile: (k, f) => tileVal(k, f[k], f), word: (k, f) => [valueText(k, f, false), valueText(k, f, true)], value: (k, f) => tileShown(k, f[k]) };
-  assert.deepEqual(numbersAgree(shown, fp, fmt), []);
+  assert.deepEqual(numbersAgree(wantNumbers(shown, fp, fmt)), []);
   // a different patient's model: the same dot now disagrees, and the finding names the chart and its file
-  const other = numbersAgree(shown, { ...fp, hvpg: fp.hvpg + 3 }, fmt);
+  const other = numbersAgree(wantNumbers(shown, { ...fp, hvpg: fp.hvpg + 3 }, fmt));
   assert.equal(other.length, 1);
   assert.match(other[0].what, /HVPG/);
   assert.equal(other[0].owner, 'src/ui/visual-plane.js');
@@ -85,7 +86,7 @@ test('the readout tiles: each tile\'s number and rating are read by key, and a w
   assert.deepEqual(shown.filter((s) => s.where === 'tile').map((s) => s.key), ['hvpg', 'ppg']);
   assert.deepEqual(shown.filter((s) => s.where === 'header').map((s) => s.key), ['hvpg', 'ppg']);
   const fmt = { tile: (k, f) => tileVal(k, f[k], f), word: () => [], value: (k, f) => tileShown(k, f[k]) };
-  assert.deepEqual(numbersAgree(shown, fp, fmt), [], 'the tiles and the header read the fingerprint');
+  assert.deepEqual(numbersAgree(wantNumbers(shown, fp, fmt)), [], 'the tiles and the header read the fingerprint');
   assert.deepEqual(pressureColour(shown), [], 'the ratings the tiles wear are the cut-offs\'');
   // break one tile's rating by hand: the rule names it
   root.querySelector('.pz-tile').setAttribute('data-rate', fp.hvpg > HVPG_CUTS.red ? 'ok' : 'hi');
@@ -119,8 +120,8 @@ test('a plane drawn in the data card with its key under it: the legend is read, 
   assert.deepEqual(Object.fromEntries(Object.entries(out).map(([k, v]) => [k, v.findings])), { 'hvpg-ppg': [], csph: [], 'flow-ppg': [] }, JSON.stringify(out));
 });
 
-test('runChartChecks: tiles, a words pill and the plane\'s dot against one fingerprint; a wrong one is found with its file', async () => {
-  const { runChartChecks } = await import('../src/ui/selfcheck/chart-checks.js');
+test('pps.screen\'s charts part: tiles, a words pill and the plane\'s dot against one fingerprint; a wrong one is found with its rule, file and place', async () => {
+  const { buildScreen } = await import('../src/ui/screen/build.js');
   const { rich } = await import('../src/ui/presenter-words.js');
   const fp = fpOf('cirr-decomp');
   const root = document.createElement('div');
@@ -132,13 +133,23 @@ test('runChartChecks: tiles, a words pill and the plane\'s dot against one finge
   tiles.paintTiles(fp, ['hvpg', 'ppg'], [], null, 0, false, false);
   plot.set([], fp);
   await run(8);
-  const ok = await runChartChecks({ root, fp, words: { '.pz-text': ['HVPG ≥10 mmHg is CSPH'] } });
-  assert.deepEqual(ok.findings, [], JSON.stringify(ok.findings));
-  assert.deepEqual([...new Set(ok.shown.map((s) => s.where))].sort(), ['chart', 'header', 'tile', 'words']);
-  // the page says a different HVPG than the model: every place that wrote it is named
-  const bad = await runChartChecks({ root, fp: { ...fp, hvpg: fp.hvpg + 2.5 }, words: { '.pz-text': ['PPG ≥ 9 mmHg is raised'] } });
-  const places = bad.findings.filter((f) => f.rule === 'number-agree').map((f) => f.where).sort();
-  assert.deepEqual(places, ['chart planecard#0', 'header', 'tile', 'words'], JSON.stringify(bad.findings));
-  assert.ok(bad.findings.some((f) => f.rule === 'pressure-words' && /PPG ≥ 9/.test(f.what)));
+  const build = (env = {}) => buildScreen({ pps: { store: { get: () => ({}) } }, doc: document, win, rules: ['chart-zone-names-with-legend', 'chart-axes-fit-data', 'number-agree', 'pressure-colour', 'pressure-words'], ...env });
+  for (const withFp of [false, true]) {
+    const ok = build(withFp ? { fp } : {});
+    assert.deepEqual(ok.findings, [], JSON.stringify(ok.findings));
+    assert.deepEqual([...new Set(ok.charts.numbers.map((s) => s.where))].sort(), ['chart', 'header', 'tile', 'words']);
+    assert.equal(ok.charts.numbers.every((s) => !!s.want), withFp, 'the model\'s wording is attached when a fingerprint is given');
+  }
+  // the model says another HVPG than the page: every place that wrote it is named
+  const bad = build({ fp: { ...fp, hvpg: fp.hvpg + 2.5 } });
+  assert.deepEqual(bad.findings.filter((f) => f.rule === 'number-agree').map((f) => f.where).sort(), ['chart planecard#0', 'header', 'tile', 'words'], JSON.stringify(bad.findings));
+  assert.ok(bad.findings.every((f) => f.owner && f.why));
+  // the page itself disagrees with itself (no fingerprint at all): the header reads another number than its tile
+  root.querySelector('.pz-hi b').textContent = '99.9';
+  const own = build();
+  assert.deepEqual(own.findings.map((f) => `${f.rule}: ${f.what}`), ['number-agree: HVPG reads "99.9" in the header']);
+  // the text form says what the charts hold
+  const { screenText } = await import('../src/ui/screen/text.js');
+  assert.match(screenText(build()), /Chart planecard#0.*hvpg across and ppg up.*legend|no legend/);
   root.remove();
 });
