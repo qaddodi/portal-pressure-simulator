@@ -95,9 +95,9 @@
    of the rating colours, clear green, amber and red as the tiles' scale bars (deep tints in the dark themes, where a thin amber
    over navy reads as olive), their words 4.5:1 or more on them; a deck's own box is a dashed outline; the case in the card is a
    ring that eases. */
-.pze-planewrap { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: clamp(16px, 3vw, 48px); align-items: center; width: 100%; }
+.pze-planewrap { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: clamp(16px, 3vw, 48px); align-items: center; align-content: center; align-self: center; width: 100%; }   /* (align-content and align-self: the plot and its key are one block, centred in the card's free room: left to stretch, the grid shared the spare height between its rows and opened a gap above the key, 18 Nov 2026) */
 .pz.stack .pze-planewrap { grid-template-columns: minmax(0, 1fr); gap: 12px; }
-.pze-planewrap.pze-nokey { grid-template-columns: minmax(0, 1fr); }   /* (a plane whose zones name themselves: the plot takes the key's width too) */
+.pze-planewrap.pze-nokey { grid-template-columns: minmax(0, 1fr); row-gap: 10px; }   /* (a plane whose zones name themselves: the plot takes the key's width too) */
 .pze-planewrap.pze-nokey > .pze-key { display: none; }
 .pz.stack .pze-planewrap.pze-nokey > .pze-key { display: block; }   /* (an iPhone's plot is too narrow for every zone's words: the key stays under it) */
 .pze-plot { position: relative; width: 100%; height: calc(44 * var(--pzh)); min-height: 240px; font-size: var(--s-cap); }   /* (a summary's plot is an illustration: lower than the 52 it was, so its card stands smaller on every side, Mohammad 29 Oct) */

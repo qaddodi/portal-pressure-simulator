@@ -250,14 +250,17 @@ export function createGlide(st, live) {
     freeAsk = null;
   }
   function riseTo(box, kMax, clear, subject = null) { live.riseBox = box ? { box, kMax, clear, subject } : null; live.riseExp = performance.now() + 4000; }
+  /** The way out of the lobule lands on a view the caller measures itself (fn: asked for when the rise begins, answers a view or null: the fit). */
+  function riseToVT(fn) { live.riseBox = fn ? { vt: fn } : null; live.riseExp = performance.now() + 4000; }
   function riseVT() {
     const r = live.riseBox; live.riseBox = null; live.handed = false;
     if (!r || performance.now() > live.riseExp) return null;
+    if (r.vt) return r.vt() || null;
     const box = typeof r.box === 'function' ? r.box() : r.box;
     return box ? boxVT(box, r.kMax, r.clear, r.subject) : null;
   }
   function vtFor(wx, wy, k) { const [cx, cy] = vbCenter(); return { k, x: cx - wx * k, y: cy - wy * k }; }
   /** A new slide change begins (Next, Back, a jump): the last slide's move lets go of the camera, and the next counts its start from now (slide-cam.js). */
   const railEnd = () => { live.camLock?.pressed(); };
-  return { animateVT, frameBox, railEnd, riseTo, riseVT, vtFor, zoomToBox };
+  return { animateVT, frameBox, railEnd, riseTo, riseToVT, riseVT, vtFor, zoomToBox };
 }

@@ -8,9 +8,9 @@ import { readFileSync } from 'node:fs';
 import { EXT } from '../src/ui/slide-ext.js';
 import { DECKS } from '../src/ui/decks.js';
 import { adopted } from './deck-adopted.js';
-import { holds, rangeOf, planeOf, zoneOf, zoneRect, PLANES, fitWords, placeNames, est, frame, scaler, lineBoxes, crosses } from '../src/ui/visual-plane.js';
+import { fitAxis, fitPlane, holds, rangeOf, planeOf, zoneOf, zoneRect, PLANES, fitWords, placeNames, est, frame, scaler, lineBoxes, crosses } from '../src/ui/visual-plane.js';
 import { wavePath, waveVessel } from '../src/ui/col-wave.js';
-import { runSteps } from './deck-states.js';
+import { runSteps, deckStates } from './deck-states.js';
 import { createCore } from '../src/worker-core.js';
 import { appCss } from './split-src.js';
 
@@ -135,4 +135,37 @@ test('package E\'s styles stay inside its own block', () => {
   assert.ok(a > 0 && b > a);
   const outside = css.slice(0, a) + css.slice(b);
   assert.ok(!/\.pze-/.test(outside), 'no .pze- rule outside the block');
+});
+
+// 18 Nov 2026, Mohammad (HVPG and PPG together separate five patients): "we're extending it far more than we need on the x direction", the chart "not
+// centered correctly", and the axis named "PPG (PV − IVC)". A summary plane with fit: true cuts both axes to its points; the plot and its legend are one block.
+test('a summary plane fits its axes to its points, with room, never past the declared range', async () => {
+  assert.deepEqual(fitAxis({ key: 'hvpg', min: 0, max: 20 }, [0, 3, 11], [5, 10]), { key: 'hvpg', min: 0, max: 14 }, 'a point at 11: a quarter more, to the next 2');
+  assert.equal(fitAxis({ key: 'hvpg', min: 0, max: 20 }, [1, 2], [5, 10]).max, 14, 'the 10 line keeps 30% beyond it for its name and number');
+  assert.equal(fitAxis({ key: 'ppg', min: 0, max: 28 }, [26.8], [6, 12]).max, 28, 'the declared max is the ceiling');
+  const a = { key: 'x', min: 0, max: 20 };
+  assert.equal(fitAxis(a, [], [5]), a, 'no readings: the axis as declared');
+  assert.equal(fitAxis(a, [NaN], []), a);
+  const hp = planeOf('hvpg-ppg');
+  assert.equal(hp.fit, true, 'the HVPG against PPG plane fits its points');
+  assert.equal(fitPlane(hp, []), hp, 'no points: the declared plane, so nothing jumps when they arrive');
+  assert.equal(planeOf('csph').fit, undefined, 'the stiffness plane keeps the guideline graph\'s own ranges');
+  // The deck's own five patients, run through the model.
+  const deck = DECKS.find((d) => d.id === 'hvpg'), states = await deckStates(deck), at = (id) => states[deck.slides.findIndex((s) => s.id === id)];
+  const rows = [at('hvpg'), at('presin'), at('ppg'), at('heart'), (await runSteps([{ preset: 'healthy' }]))[0]];
+  assert.ok(rows.every(Boolean), 'the five patients of the slide');
+  const fitted = fitPlane(hp, rows.map((f) => ({ f })));
+  const top = (k) => Math.max(...rows.map((f) => f[k]));
+  assert.ok(fitted.x.max < hp.x.max && fitted.x.max >= top('hvpg'), `HVPG axis ${fitted.x.max} stops short of ${hp.x.max} and holds every point (highest ${top('hvpg').toFixed(1)})`);
+  assert.ok(fitted.y.max < hp.y.max && fitted.y.max >= top('ppg'), `PPG axis ${fitted.y.max} stops short of ${hp.y.max} and holds every point (highest ${top('ppg').toFixed(1)})`);
+  assert.ok(fitted.x.max <= 16, 'the right half of the plot is not empty');
+  // A ring's start counts too: a patient that began further out than where they ended.
+  assert.ok(fitPlane(hp, [{ f: { hvpg: 3, ppg: 5 }, from: { hvpg: 15, ppg: 22 } }]).x.max >= 15);
+});
+test('every name for the PPG reads "PPG (PV − IVC)", and the plot and its key are one centred block', () => {
+  assert.equal(planeOf('flow-ppg').y.name, 'PPG (PV − IVC), mmHg');
+  assert.equal(planeOf('hvpg-ppg').y.name, 'PPG (PV − IVC), mmHg');
+  const css = appCss();
+  const rule = css.match(/\.pze-planewrap \{[^}]*\}/)?.[0] || '';
+  assert.ok(/align-content: center/.test(rule) && /align-self: center/.test(rule), 'the plot and its legend sit together, centred, not spread over the card');
 });
