@@ -51,5 +51,5 @@ test('a layout for another reason, long after a cut run, begins at the shortest 
 test('the levels are short first and at most a few hundred ms in all, where one frame once took 0.6 to 2.3 s', () => {
   assert.ok(SEARCH_LEVELS_MS[0] <= 16);
   assert.ok(SEARCH_LEVELS_MS.every((v, i, a) => i === 0 || v > a[i - 1]));
-  assert.ok(Math.max(...SEARCH_LEVELS_MS) <= 250);
+  assert.ok(Math.max(...SEARCH_LEVELS_MS) <= 34, 'no run holds a frame longer than two frames (a 160 ms last level was a stall after every lobule pick: the tester, 17 Nov 2026)');
 });

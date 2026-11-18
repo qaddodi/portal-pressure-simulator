@@ -67,6 +67,9 @@ const SHRINK_MS = 1000;   // (the shared buffer is cut back to the largest chart
 // stepping the buffer up and down, and each resize of the pool's canvas cost 55 to 435 ms here (a resize of an OffscreenCanvas with a context waits on the GPU), more as more cards held a picture of the size.
 // A pool that never goes under what a card's pictures need resizes only for a chart larger than that.)
 const MIN_BUF_W = 1024, MIN_BUF_H = 768;
+// (And it grows in steps of 512, not 256: a phone's card pictures are 1000 to 1300 device px wide at three pixels to the CSS px, and each 256 between made another resize; the tester, 390 px: 1 to 7 resizes after the first pick.)
+const POOL_STEP = 512;
+const poolCap = (n) => Math.ceil(Math.max(1, n) / POOL_STEP) * POOL_STEP;
 export const capOf = (n) => Math.ceil(Math.max(1, n) / CAP_STEP) * CAP_STEP;
 function makePool() {
   const pool = { dead: true, users: 0 };   // alloc-rare: a drawing pool (a GL context) is made once, a timer ahead of the first chart that needs it
@@ -858,7 +861,7 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
         // than 2 MP beyond its own area draws in a buffer of its own size instead: a hand-over never moves megapixels it does not need. Charts
         // of card sizes keep sharing one steady buffer (U2), as their window is never that much larger than any of them.)
         const ownW = capOf(Wd), ownH = capOf(Hd);
-        let fitW = capOf(Math.max(MIN_BUF_W, shared.lastW, shared.winW, Wd)), fitH = capOf(Math.max(MIN_BUF_H, shared.lastH, shared.winH, Hd));
+        let fitW = poolCap(Math.max(MIN_BUF_W, shared.lastW, shared.winW, Wd)), fitH = poolCap(Math.max(MIN_BUF_H, shared.lastH, shared.winH, Hd));
         if (big) shared.bigAt = t;
         if (big || fitW * fitH > ownW * ownH + WASTE_PX) { fitW = ownW; fitH = ownH; }
         // (While a big layer draws frame after frame (a slide's Doppler card over a quarter of a small screen: its trace scrolls every frame),

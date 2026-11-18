@@ -9,7 +9,9 @@
 //   begin()  a search starts: its level (0 for a new search, the next level when the last run was cut and asked again) and its deadline
 //   over()   whether the deadline has passed; remembered, so end() knows the run was cut
 //   end()    the search is over: true when it was cut and a longer run is still to come (the caller lays the labels out again)
-export const SEARCH_LEVELS_MS = [10, 40, 160];
+// (The longest run is two frames' worth: 17 Nov 2026, the tester, a lobule pick: the label layout's search ran its last level, 160 ms, in one frame, once or more after every pick, 161 to 231 ms frames at 1 to 2 s.
+// The best layout so far is laid at each cut, and a clash that survives the last level stays: one frame of 33 ms is a hitch the eye does not take, 160 ms is a stall.)
+export const SEARCH_LEVELS_MS = [8, 16, 32];
 /** The longest a run asked again may follow the one it continues (ms): a layout for another reason, later, begins at the shortest level. */
 const AGAIN_WITHIN_MS = 600;
 

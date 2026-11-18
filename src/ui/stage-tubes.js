@@ -19,6 +19,7 @@ import { lossShares, siteU } from './stent-waist.js';
 import { lumOf } from './luma.js';
 import { D_SURFACE } from './ease.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
+import { cardMoveLeft } from './card-motion.js';
 import { cavGrow } from './cavernoma-strand.js';
 import { fluidSpringFor } from './organ-ease.js';
 import { booting, holdCover, sinceInput } from './quiet.js';
@@ -88,11 +89,21 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   // pan or pinch waiting until it lifts (Mohammad, 21 Oct: "hitch as soon as I stop panning", finger still down).)
   // (The function waiting is handed on as the timer's own argument, so no closure is made to carry it.)
   const IDLE_ASK = { timeout: 600 }, lobuleNoop = () => {};
-  function prepIdleGo(fn) { if (sinceInput() < 700 || settling()) stageScope.timer(prepIdleGo, 400, fn); else if (window.requestIdleCallback) requestIdleCallback(fn, IDLE_ASK); else stageScope.timer(fn, 50); }
+  // (A rush: the pointer rests on the Lobule button or a finger is down on it (warmLobule): the quiet it waits for is a tenth of a second and not 0.7, for a few seconds, so the pieces are made while
+  // the reader's hand travels to the press and the build does not wait for it. A card or sheet coming or going still holds every piece, card-motion.js.)
+  let prepRush = 0;
+  const prepQuiet = () => (performance.now() < prepRush ? 100 : 700);
+  function prepIdleGo(fn) { if (sinceInput() < prepQuiet() || settling() || cardMoveLeft() > 0) stageScope.timer(prepIdleGo, prepRush > performance.now() ? 120 : 400, fn); else if (window.requestIdleCallback) requestIdleCallback(fn, IDLE_ASK); else stageScope.timer(fn, 50); }
   const prepIdle = (fn) => { stageScope.timer(prepIdleGo, 0, fn); };
   const prepLoad = () => lobuleReady().then(prepLobule, prepLoadLost);
   const prepLoadLost = (err) => console.warn('The lobule view did not load.', err);
   const prepCalm = () => live.morphTarget === 0 && live.morph < 0.02 && !live.lobuleOn && !live.diveWait && live.diveT === 0 && !live.vtGliding;
+  /** The lobule made ready ahead of the press (the pointer rests on its button, or a finger is down on it): its code, its pieces and a first frame, run a piece at a time as the page is quiet. */
+  function warmLobule() {
+    if (live.lobuleOn) return;
+    prepRush = performance.now() + 4000; prepAt = 0;
+    prepLobule();
+  }
   let prepQ = null;
   function prepRun() {
     const q = prepQ;
@@ -838,5 +849,5 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     // (Kept as the function the radii are read through; it reads the numbers above, which this call has just set.)
     if (!x.rOf) x.rOf = (u) => tubeRadius(x, u);   // alloc-once: the vessel's first draw
   }
-  return { W_TAU, edgeQ, endWidth, holdHome, keep, riseFitRead, stepOrgans, stepWidths, tubeFill, update, widthMoving };
+  return { W_TAU, edgeQ, endWidth, holdHome, keep, riseFitRead, stepOrgans, stepWidths, tubeFill, update, warmLobule, widthMoving };
 }
