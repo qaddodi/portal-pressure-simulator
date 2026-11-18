@@ -2,5 +2,6 @@
 // One line per module, in this file only, so threads adding a part touch one line each. Imported by page.js, never by the live app.
 //
 import './fit-rules-panel.js';   // the Check button (shared fit rules)
+import './sweep-panel.js';   // the Sweep button (every or the affected specimens, one report)
 // import './benches/index.js';     // the debug benches
 export {};

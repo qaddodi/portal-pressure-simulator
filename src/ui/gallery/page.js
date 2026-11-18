@@ -106,7 +106,7 @@ export async function startGallery({ pps = window.pps, root = document } = {}) {
   const ctx = {
     pps, catalog: { CATALOG, byId, SECTIONS, sid },
     specimen: () => open, look: () => look,
-    setLook: (id) => setLook(id), toast, say: toast, copy,
+    setLook: (id) => setLook(id), go: (id, o) => go(id, o), toast, say: toast, copy,
     onSpecimen: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
   };
   const listeners = new Set();
