@@ -23,17 +23,17 @@ const DECK_ID = 'test-gallery';
 const LOOK_NAMES = { light: 'Light', soft: 'Soft', dark: 'Dark', navy: 'Navy', black: 'Black' };
 
 const CSS = `
-.gl { --gl-bg: rgba(250, 249, 247, .96); --gl-ink: #1b1b1d; --gl-ink2: #5b5a57; --gl-line: rgba(0,0,0,.16); --gl-on: #1b1b1d; --gl-onink: #fff; --gl-red: #c8282e;
+.gl { --gl-bg: rgba(250, 249, 247, .96); --gl-ink: #1b1b1d; --gl-ink2: #5b5a57; --gl-line: rgba(0,0,0,.16); --gl-on: #1b1b1d; --gl-onink: #fff; --gl-red: #c8282e; /* colour-exempt: the debug page's own chrome */
   font: 500 13px/1.35 var(--font-ui, system-ui, -apple-system, 'Segoe UI', sans-serif); color: var(--gl-ink); }
-:root[data-theme="dark"] .gl, :root[data-theme="soft"] .gl.gl-soft { --gl-bg: rgba(28, 28, 32, .96); --gl-ink: #efefef; --gl-ink2: #a8a8ad; --gl-line: rgba(255,255,255,.2); --gl-on: #efefef; --gl-onink: #17171a; --gl-red: #ff6b70; }
+:root[data-theme="dark"] .gl, :root[data-theme="soft"] .gl.gl-soft { --gl-bg: rgba(28, 28, 32, .96); --gl-ink: #efefef; --gl-ink2: #a8a8ad; --gl-line: rgba(255,255,255,.2); --gl-on: #efefef; --gl-onink: #17171a; --gl-red: #ff6b70; } /* colour-exempt: the debug page's own chrome */
 .gl * { box-sizing: border-box; }
 .gl button { font: inherit; font-weight: 600; color: inherit; min-height: 34px; padding: 0 12px; border-radius: 9px; border: 1px solid var(--gl-line); background: transparent; cursor: pointer; }
 .gl button[aria-pressed="true"], .gl button[aria-current="true"] { background: var(--gl-on); color: var(--gl-onink); border-color: var(--gl-on); }
 .gl button:focus-visible, .gl input:focus-visible { outline: 2px solid var(--gl-red); outline-offset: 2px; }
-.gl-bar { position: fixed; left: 8px; top: 8px; right: 8px; z-index: var(--z-diag, 300); display: flex; align-items: center; gap: 6px; padding: 6px; border-radius: 13px; background: var(--gl-bg); border: 1px solid var(--gl-line); box-shadow: 0 6px 24px -8px rgba(0,0,0,.35); max-width: 760px; }
+.gl-bar { position: fixed; left: 8px; top: 8px; right: 8px; z-index: var(--z-diag, 300); display: flex; align-items: center; gap: 6px; padding: 6px; border-radius: 13px; background: var(--gl-bg); border: 1px solid var(--gl-line); box-shadow: 0 6px 24px -8px rgba(0,0,0,.35); max-width: 760px; } /* colour-exempt: the debug page's own chrome */
 .gl-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 4px; }
 .gl-name small { display: block; color: var(--gl-ink2); font-weight: 500; font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
-.gl-sheet { position: fixed; z-index: var(--z-diag, 300); background: var(--gl-bg); border: 1px solid var(--gl-line); box-shadow: 0 12px 40px -12px rgba(0,0,0,.45); border-radius: 14px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.gl-sheet { position: fixed; z-index: var(--z-diag, 300); background: var(--gl-bg); border: 1px solid var(--gl-line); box-shadow: 0 12px 40px -12px rgba(0,0,0,.45); border-radius: 14px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; } /* colour-exempt: the debug page's own chrome */
 .gl-rail { left: 8px; top: 62px; bottom: 8px; width: min(340px, calc(100vw - 16px)); }
 .gl-tools { right: 8px; top: 62px; bottom: 8px; width: min(380px, calc(100vw - 16px)); }
 .gl-sheet[hidden] { display: none; }
@@ -49,14 +49,14 @@ const CSS = `
 .gl-sec { padding: 8px 4px; border-bottom: 1px solid var(--gl-line); }
 .gl-sec h3 { margin: 0 0 6px; font-size: 12px; font-weight: 650; color: var(--gl-ink2); letter-spacing: .04em; text-transform: uppercase; }
 .gl-row { display: flex; flex-wrap: wrap; gap: 6px; }
-.gl-pre { margin: 0; padding: 8px; border-radius: 9px; background: rgba(128,128,128,.12); max-height: 30vh; overflow: auto; font: 500 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.gl-pre { margin: 0; padding: 8px; border-radius: 9px; background: rgba(128,128,128,.12); max-height: 30vh; overflow: auto; font: 500 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; } /* colour-exempt: the debug page's own chrome */
 .gl-links a { display: block; padding: 3px 0; color: inherit; overflow-wrap: anywhere; }
 .gl-bench { position: fixed; inset: 62px 8px 8px 8px; z-index: var(--z-diag, 300); background: var(--gl-bg); border: 1px solid var(--gl-line); border-radius: 14px; display: flex; flex-direction: column; overflow: hidden; }
 .gl-bench[hidden] { display: none; }
 .gl-bench-host { flex: 1; min-height: 0; overflow: auto; padding: 10px; }
 .gl-shoot { position: fixed; left: 8px; top: 8px; z-index: var(--z-diag, 300); padding: 4px 8px; border-radius: 8px; background: var(--gl-bg); border: 1px solid var(--gl-line); font: 600 12px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; max-width: calc(100vw - 16px); overflow-wrap: anywhere; }
 .gl-light { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; background: var(--gl-red); }
-.gl-light.on { background: #2f9e57; }
+.gl-light.on { background: #2f9e57; } /* colour-exempt: the debug page's own chrome */
 .gl-shooting .gl-bar, .gl-shooting .gl-sheet, .gl-shooting .gl-bench { display: none !important; }
 `;
 
