@@ -69,12 +69,18 @@ export function needsReread(rec) {
 // An inline style as what a reading depends on: each declaration, the three opacities the painter reads at each paint (liveOf) by name alone
 // (whether the element sets one or not decides where the painter takes it from, the page's computed value or its own).
 const PAINT_READ = new Set(['opacity', 'fill-opacity', 'stroke-opacity']);
+// The three sizes on screen the camera writes to the clamps' and halos' groups on every step of a zoom (stage-camera.js applyClampFs). Their only readers are
+// the clamp and guide labels' text (never painted by the GPU: a group holding one is not read at all) and the SVG halos' css scale (the GPU's halos carry the
+// scale as an attribute), so a zoom that wrote them dropped those groups' readings on every frame, and each was read again (the picking and zooming judder,
+// 18 Nov 2026). tests/stage-over.test.js reads the stylesheets for any other reader.
+export const CAMERA_SIZES = new Set(['--clamp-sw', '--clamp-fs', '--halo-k']);
 export function styleKey(text) {
   const out = [];
   for (const d of String(text || '').split(';')) {
     const i = d.indexOf(':');
     if (i < 0) continue;
     const name = d.slice(0, i).trim().toLowerCase();
+    if (CAMERA_SIZES.has(name)) continue;
     if (name) out.push(PAINT_READ.has(name) ? name : `${name}:${d.slice(i + 1).trim()}`);
   }
   return out.sort().join(';');

@@ -69,7 +69,8 @@ test('a frame of the camera or of a change between the views asks for no new rea
   assert.equal(st('', 'opacity: 0.5;'), true, 'an opacity set where there was none: the painter takes it from another place now');
   assert.equal(st('opacity: 0.5;', ''), true, 'and one taken off');
   assert.equal(st('opacity: 1; fill: red;', 'opacity: 0.5; fill: blue;'), true, 'anything else in the style is read again');
-  assert.equal(st('--halo-k: 1.150;', '--halo-k: 1.149;'), true, 'a custom property a style rule reads');
+  assert.equal(st('--shade: 1.150;', '--shade: 1.149;'), true, 'a custom property a style rule reads');
+  assert.equal(st('--halo-k: 1.150;', '--halo-k: 1.149;'), false, 'except the camera\'s three sizes on screen, which no painted group reads (the test below)');
   assert.equal(styleKey('Opacity : 1 ;stroke-width:2px;;'), 'opacity;stroke-width:2px');
 });
 
@@ -237,4 +238,20 @@ test('the stage: off unless asked for; the painted groups\' SVG hidden by an emp
   // (Read each frame before the figure decides to sleep, and laid again alone, after the frame's draw, when only they changed: perf A3.)
   assert.match(st, /syncOver\(\);\n(?:\s+\/\/ [^\n]*\n)+\s+const overAt = OVER_ON && (?:live\.)?veins\?\.top \? (?:live\.)?veins\.top\.presents : -1;\n\s+const rowsWait/);
   assert.match(st, /function overAlone\(at\) \{ if \(at >= 0 && (?:live\.)?veins\?\.overlay\?\.stale && !(?:live\.)?veins\.lost && (?:live\.)?veins\.top\.presents === at\) (?:live\.)?veins\.present\(\); \}/);
+});
+
+test('the camera\'s three sizes on screen (a zoom writes them every step) drop no group\'s reading, and nothing the painter reads uses them', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const el = (style) => ({ getAttribute: (a) => (a === 'style' ? style : null) });
+  assert.equal(needsReread({ type: 'attributes', attributeName: 'style', oldValue: '--clamp-sw: 14.67px; --clamp-fs: 25.15px;', target: el('--clamp-sw: 14.38px; --clamp-fs: 24.65px;') }), false);
+  assert.equal(needsReread({ type: 'attributes', attributeName: 'style', oldValue: '--halo-k: 2.096;', target: el('--halo-k: 2.054;') }), false);
+  assert.equal(needsReread({ type: 'attributes', attributeName: 'style', oldValue: '--halo-k: 2.096;', target: el('--halo-k: 2.054; stroke-width: 3px') }), true, 'another declaration is still a change');
+  // Their readers in the stylesheets: text (never painted by the overlays) and the SVG halos' css scale; a new reader needs this list, and the rule above, looked at.
+  const dir = new URL('../styles/', import.meta.url), found = [];
+  for (const f of readdirSync(dir).filter((n) => n.endsWith('.css'))) {
+    for (const m of readFileSync(new URL(f, dir), 'utf8').matchAll(/([^{}]+)\{[^{}]*var\(--(clamp-sw|clamp-fs|halo-k)\b[^{}]*\}/g)) found.push(m[1].trim().replace(/\s+/g, ' ').replace(/^\/\*.*?\*\/\s*/, ''));
+  }
+  const ok = [/^\.clamp-label, \.clamp-label-out$/, /^\.guide-label$/, /^\.halo-in$/];
+  for (const sel of found) assert.ok(ok.some((r) => r.test(sel)), `a reader of the camera's sizes the overlays do not know: ${sel}`);
+  assert.ok(found.length >= 3, `found ${found.length}`);
 });
