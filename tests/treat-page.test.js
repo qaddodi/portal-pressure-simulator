@@ -61,11 +61,11 @@ function open(hold = false) {
   p.row.click();
   k.page = k.card.querySelector(':scope > .tc-page');
   k.p = p;
-  if (!k.hold) k.land();   // (the sheet has landed at Full: the page slides in)
+  if (!k.hold) k.land();   // (the sheet has landed: the page rides with it again)
   return k;
 }
 
-test('opening: the page holds the Changes section, open, over the tabs and the body, which are put out of reach; the sheet is asked to refit once and the page waits for it to land, then slides in', () => {
+test('opening: the page holds the Changes section, open, over the tabs and the body, which are put out of reach; it slides in at once, free of the sheet\'s ride until the sheet has landed', () => {
   const { card, tabs, body, sec } = sheet();
   const p = changesPage(card, sec); p.sync();
   Object.defineProperty(card, 'offsetWidth', { value: 390 });
@@ -78,45 +78,42 @@ test('opening: the page holds the Changes section, open, over the tabs and the b
   assert.ok(card.hasAttribute('data-page'), 'the sheet knows a page stands');
   assert.equal(tabs.inert && body.inert, true, 'the tabs and the body are out of reach under it');
   assert.equal(refits, 1);
+  assert.ok(page.hasAttribute('data-sheet-free'), 'the sheet\'s ride leaves it where it stands: it moves only sideways while the sheet grows (the tester: from the lower right, then a second of waiting)');
   assert.equal(xOf(page), 390, 'it stands off to the right, written at once (no frame shows it anywhere else)');
-  for (let i = 0; i < 10; i++) tick();
-  assert.equal(xOf(page), 390, 'and stays there while the sheet is still on the move: a sheet that rises while the page slides carries it up, and it came in from the lower right');
-  landed();
   tick(); tick();
   const mid = xOf(page);
-  assert.ok(mid < 390 && mid > 0, `it slides in, in the frames, once the sheet has landed (${mid})`);
+  assert.ok(mid < 390 && mid > 0, `it slides in at once, in the frames (${mid})`);
   assert.ok(xOf(tabs) < 0 && xOf(tabs) === xOf(body), 'the tabs and the body slide back together');
   settle();
   assert.equal(xOf(page), 0, 'it ends exactly home');
   assert.equal(parseFloat(tabs.style.opacity), 0, 'and have faded out');
+  assert.ok(page.hasAttribute('data-sheet-free'), 'still free until the sheet says it has landed');
+  landed();
+  assert.equal(page.hasAttribute('data-sheet-free'), false, 'then it rides with the sheet again (a pull down takes the page with the card)');
   p.row.click();
   assert.equal(card.querySelectorAll('.tc-page').length, 1, 'a second tap makes no second page');
 });
 
-test('a sheet that never lands does not hold the page for ever: it slides in after a moment', () => {
+test('a sheet that never lands does not keep the page free for ever', () => {
   const k = open(true);
-  for (let i = 0; i < 30; i++) tick();   // (240 ms)
-  assert.equal(xOf(k.page), 390);
+  for (let i = 0; i < 40; i++) tick();   // (320 ms)
+  assert.ok(k.page.hasAttribute('data-sheet-free'));
   for (let i = 0; i < 60; i++) tick();   // (past 600 ms)
-  assert.ok(xOf(k.page) < 390, 'it has begun');
-  settle();
-  assert.equal(xOf(k.page), 0);
+  assert.equal(k.page.hasAttribute('data-sheet-free'), false);
 });
 
-test('going back: what it covered is interactive at once, the page slides out and only then is the sheet asked to refit and the page taken away', () => {
+test('going back: what it covered is interactive at once, the sheet is asked to refit at once and the page slides out as it settles, and is taken away', () => {
   const { card, tabs, body, sec, page } = open();
   settle();
   let refits = 0; card.addEventListener('sheet-refit', () => refits++);
   card.querySelector('.tcp-back').click();
   assert.equal(tabs.inert || body.inert, false);
-  assert.equal(card.hasAttribute('data-page'), true, 'the sheet stays Full while the page slides out (it never moves with the page)');
-  assert.equal(refits, 0);
+  assert.equal(card.hasAttribute('data-page'), false, 'the sheet goes back to its tab\'s height as the page goes');
+  assert.equal(refits, 1);
+  assert.ok(page.hasAttribute('data-sheet-free'), 'the page stands free of the sheet\'s ride while it goes');
   tick(); tick();
   assert.ok(xOf(page) > 0 && xOf(page) < 390, 'the page slides out in the frames');
-  assert.equal(refits, 0);
   settle();
-  assert.equal(card.hasAttribute('data-page'), false, 'then the sheet goes back to its tab\'s height');
-  assert.equal(refits, 1);
   assert.equal(card.querySelector('.tc-page'), null, 'and the page is taken away');
   assert.equal(tabs.style.transform + tabs.style.opacity + body.style.transform + body.style.opacity, '', 'what it covered is left as it was, nothing inline');
   assert.ok(sec.open, 'the section is whole and open, ready for the page to hold it again');
@@ -207,29 +204,37 @@ test('the page only ever slides sideways: its translate (the sheet\'s own vertic
   for (let i = 0; i < 40; i++) { tick(8); look(); }
 });
 
-test('while the sheet refits (glideSheet moves every child of it, the page too, by translate), the page keeps its sideways slide and is left at its place when the refit lands', () => {
-  const { card, page, tabs } = open();
-  glideSheet(card, 120);   // (the refit the page\'s own opening asks for, a sheet 120 px lower as it begins)
-  for (let i = 0; i < 6; i++) tick(8);
-  assert.ok(page.style.translate.includes('px'), 'the page rides the sheet vertically, as its other parts do');
-  assert.ok(/translateX\(/.test(page.style.transform) && xOf(page) < 390, 'and slides sideways at the same time');
+test('while the sheet refits (glideSheet rides every child of it by translate), the free page keeps its place, is cut at the sheet\'s own top, and slides on sideways', () => {
+  const { card, page, tabs } = open(true);
+  glideSheet(card, 120);   // (a sheet that sinks 120 px)
+  tick(); tick();
+  assert.equal(page.style.translate, '', 'the page is not carried by the ride');
+  assert.ok(tabs.style.translate.includes('px'), 'what it covers is');
+  assert.match(page.style.clipPath, /^inset\([\d.]+px 0 0 0\)$/, 'and the page is cut where the sheet\'s top is: never shown above it');
+  const cut0 = parseFloat(/inset\(([\d.]+)px/.exec(page.style.clipPath)[1]);
+  tick(); tick(); tick();
+  const cut1 = parseFloat(/inset\(([\d.]+)px/.exec(page.style.clipPath || 'inset(0px')?.[1] || '0');
+  assert.ok(cut1 > cut0, `the cut follows the sheet down (${cut0} -> ${cut1})`);
+  assert.ok(xOf(page) < 390, 'the page slides sideways at the same time');
   settle();
-  assert.equal(xOf(page), 0, 'the slide lands exactly home');
-  assert.equal(parseFloat(tabs.style.opacity), 0);
-  assert.equal(page.style.translate, '0px 120px', 'the sheet\'s own ride ends where the sheet is, the slide untouched by it');
+  assert.match(page.style.clipPath, /inset\(120/, 'the cut ends at the sheet\'s own top (120 px down)');
+  assert.equal(xOf(page), 0);
+  assert.equal(page.style.translate, '');
 });
 
-test('the page has its backing from the first frame, whole while it covers the words fading under it, gone as it lands', () => {
+test('the page has its backing from the first frame, fully opaque the whole time it moves, faded away only once it has landed, and back again when a finger takes it', () => {
   const { page } = open();
   const plate = page.querySelector(':scope > .pp-plate');
   assert.ok(plate, 'a backing in the page');
   assert.equal(page.firstElementChild, plate, 'under the page\'s own words');
-  assert.equal(parseFloat(plate.style.opacity), 1, 'whole on the first frame, before the page has moved');
-  tick(); tick(); tick();
-  assert.ok(xOf(page) > 40, 'the page is partway over what it covers');
-  assert.equal(parseFloat(plate.style.opacity), 1, 'and the backing is whole');
+  const seen = [];
+  for (let i = 0; i < 40; i++) { seen.push(parseFloat(plate.style.opacity)); tick(); if (xOf(page) === 0) break; }
+  assert.ok(seen.length > 5 && seen.every((o) => o === 1), `whole while it moves: ${seen.join(' ')}`);
   settle();
   assert.equal(parseFloat(plate.style.opacity), 0, 'once home the glass shows through it again');
+  touch(page, 'pointerdown', 40, 300); touch(page, 'pointermove', 60, 300); touch(page, 'pointermove', 90, 300);
+  for (let i = 0; i < 12; i++) tick();
+  assert.equal(parseFloat(plate.style.opacity), 1, 'a finger on the page brings it back');
 });
 
 test('the sheet is Full while a page stands and goes back to its tab\'s height after it (the phone at 390 x 844: room 654)', () => {

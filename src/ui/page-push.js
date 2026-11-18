@@ -6,8 +6,8 @@
 // It moves by `transform`, never `translate`: a sheet's own glides (sheet-move.js glideSheet: every child of the sheet rides its refit) and its entrance (app-10 sheet-rise: every child) write
 // `translate` on the page and on what it covers too, and one property written by two movers is a fight (18 Nov 2026, the tester at 390 px: Changes rose from 528 px below the sheet, not from the right).
 // A sideways drag only: a vertical one scrolls the page's list (touch-action: pan-y), a slider keeps its own.
-import { glideCall, glideStop } from './script-glide.js';
-import { easeArrive, carried, settleSlope, releaseSpeed, isFlick, D_SMALL, CARRY_MAX, SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE } from './ease.js';
+import { glideCall, glideStop, glideOpacity } from './script-glide.js';
+import { easeArrive, carried, settleSlope, releaseSpeed, isFlick, D_SMALL, D_FLIP, CARRY_MAX, SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE } from './ease.js';
 import { reduceMotionMQ } from './motion.js';
 
 export const PAGE_AWAY = 0.3;   // (how far, as a share of the page's width, what it covers slides back as the page comes in)
@@ -16,20 +16,22 @@ const LINEAR = (u) => u;
 /**
  * page: the page, already in the sheet; away: what it covers (put out of reach by the caller); width: how wide the page is (read once, in the tap, by the caller).
  * onPop(): the back has begun (the caller makes what it covers interactive, the sheet refits); onGone(): the page is home away (the caller takes it out).
- * wait: the page stays off to the right until start() (its sheet is still moving). Returns { pop(v), at(), start() }: pop goes back (v: the finger's speed along +x, px per ms; 0 for a tap), at() is how far the page stands from home (0 open .. width gone).
+ * Returns { pop(v), at() }: pop goes back (v: the finger's speed along +x, px per ms; 0 for a tap), at() is how far the page stands from home (0 open .. width gone).
  */
-export function pushPage(page, away, width, { onPop, onGone, plate = false, wait = false } = {}) {
+export function pushPage(page, away, width, { onPop, onGone, plate = false } = {}) {
   const W = Math.max(1, width), still = reduceMotionMQ.matches;
   let x = W, popped = false, s = null;
-  // (A page of its own text over words that are still fading would show both: a backing, the sheet's solid paper, that is whole while the page covers them and fades with them, from the first frame.)
+  // (A page of its own text over words that are still fading would show both: a backing, the sheet's own paper, fully opaque from the first frame while the page moves, and faded away (a short
+  // fade, in the frames) only once the page has landed home, so the glass shows through it again. A finger that takes the page, or a back that sends it away, brings it in first.)
   const back = plate && !still ? document.createElement('i') : null;
-  if (back) { back.className = 'pp-plate'; back.setAttribute('aria-hidden', 'true'); page.prepend(back); }
+  if (back) { back.className = 'pp-plate'; back.setAttribute('aria-hidden', 'true'); back.style.opacity = '1'; page.prepend(back); }
+  let backAt = 1;
+  const backTo = (o, ms) => { if (!back || backAt === o) return; backAt = o; glideOpacity(back, o ? 0 : 1, o, ms, easeArrive); };
   const apply = (px) => {
     x = px;
     const open = 1 - px / W;   // 0 closed .. 1 open
     if (still) page.style.opacity = open.toFixed(3);
     else page.style.transform = `translateX(${px.toFixed(2)}px)`;
-    if (back) back.style.opacity = Math.min(1, 2.5 * (px / W)).toFixed(3);
     for (const a of away) {
       if (!still) a.style.transform = `translateX(${(-PAGE_AWAY * W * open).toFixed(2)}px)`;
       a.style.opacity = (1 - open).toFixed(3);
@@ -40,15 +42,15 @@ export function pushPage(page, away, width, { onPop, onGone, plate = false, wait
     const from = x, dist = to - from;
     const ms = Math.round(D_SMALL * (0.5 + 0.5 * Math.min(1, Math.abs(dist) / W)));
     const c = still ? 0 : settleSlope(v, dist, ms, CARRY_MAX);
-    glideCall(page, ms, LINEAR, (u) => apply(from + dist * (c > 0 ? carried(easeArrive(u), u, c) : easeArrive(u))), done);
+    glideCall(page, ms, LINEAR, (u) => apply(from + dist * (c > 0 ? carried(easeArrive(u), u, c) : easeArrive(u))), () => { if (to === 0) backTo(0, D_FLIP); done?.(); });
   }
   apply(W);
-  let started = !wait;   // (wait: stands off to the right until start() is called, the caller's sheet being still on the move)
-  if (started) run(0, 0);
+  run(0, 0);
   function pop(v = 0) {
     if (popped) return;
-    popped = true; started = true;
+    popped = true;
     s = null;
+    backTo(1, D_FLIP / 2);
     onPop?.();
     run(W, v, () => {
       page.style.transform = ''; page.style.opacity = '';
@@ -60,7 +62,7 @@ export function pushPage(page, away, width, { onPop, onGone, plate = false, wait
   page.style.touchAction = 'pan-y';
   page.addEventListener('pointerdown', (e) => {
     s = null;
-    if (popped || !started || e.pointerType === 'mouse' || !e.isPrimary || e.target.closest?.('input[type="range"], textarea, [contenteditable]')) return;
+    if (popped || e.pointerType === 'mouse' || !e.isPrimary || e.target.closest?.('input[type="range"], textarea, [contenteditable]')) return;
     s = { id: e.pointerId, x: e.clientX, y: e.clientY, on: false, trail: [], t: 0, dx: 0 };   // alloc-rare: one record a touch
   }, { passive: true });
   page.addEventListener('pointermove', (e) => {
@@ -70,6 +72,7 @@ export function pushPage(page, away, width, { onPop, onGone, plate = false, wait
       if (Math.hypot(dx, dy) < 8) return;
       if (!(dx > 0 && dx > Math.abs(dy) * 1.2)) { s = null; return; }   // (a scroll, or a drag the other way: not this page's)
       glideStop(page);   // (caught while it is still coming in: the finger takes it from where it stands)
+      backTo(1, D_FLIP / 2);
       s.on = true; s.x = e.clientX - x; s.t = performance.now();
       page.setPointerCapture?.(e.pointerId);
     }
@@ -91,5 +94,5 @@ export function pushPage(page, away, width, { onPop, onGone, plate = false, wait
   page.addEventListener('pointerup', end);
   page.addEventListener('pointercancel', end);
   page.addEventListener('lostpointercapture', end);
-  return { pop, at: () => x, start() { if (started || popped) return; started = true; run(0, 0); } };
+  return { pop, at: () => x };
 }
