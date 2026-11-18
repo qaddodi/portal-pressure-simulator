@@ -15,7 +15,7 @@ import { LIGHT } from './light.js';
 import { lookChanged, newLookSig } from './look-sig.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { alongCurve, oxRampOf, oxygenAlong } from './pressure-along.js';
-import { sinceInput } from './quiet.js';
+import { sinceInput, handDown } from './quiet.js';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js';
 const VARIX_FADE_TO = 0.88;   // how much of the esophageal varices fades while the EUS-PPG scope is in front of them (a faint ghost of them stays)
 import { createSweepClient } from './sweep-client.js';
@@ -92,7 +92,7 @@ export function createVessels(st, live) {
     let part = null;
     const next = () => {
       if (gen !== et.gen || !live.veins || live.veins.lost) return;
-      if ((settling() || sinceInput() < 700) && snaps.length < 2 * ENV_AT.length) { stageScope.timer(next, 200); return; }
+      if (handDown() || ((settling() || sinceInput() < 700) && snaps.length < 2 * ENV_AT.length)) { stageScope.timer(next, 200); return; }
       if (snaps.length < 2 * ENV_AT.length) {
         const m = snaps.length >> 1, [w, sp] = ENV_AT[m];
         if (!part) { const items = envItemsAt(w, sp); part = { items, o: joinsKept(items), J2: null }; stageScope.timer(next, 0); return; }

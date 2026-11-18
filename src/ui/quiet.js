@@ -20,6 +20,8 @@ export function createQuiet(target = globalThis, now = () => performance.now()) 
   }
   const since = () => now() - inputAt;
   const leftAlone = (ms) => !(pressed.size && since() < 5000) && since() >= ms;
+  /** A finger or button is down and the hand has moved in the last 5 s: a drag (a slider, a pan) is in the hand. */
+  const handDown = () => pressed.size > 0 && since() < 5000;
   /** Calls fn once the page has been left alone for `ms`; checked every `poll` ms. Returns a cancel. */
   function whenQuiet(fn, ms = 700, poll = 400) {
     let t = 0, dead = false;
@@ -27,7 +29,7 @@ export function createQuiet(target = globalThis, now = () => performance.now()) 
     t = setTimeout(go, 0);
     return () => { dead = true; clearTimeout(t); };   // alloc-rare: the cancel of that one request, never per frame
   }
-  return { since, leftAlone, whenQuiet };
+  return { since, leftAlone, whenQuiet, handDown };
 }
 
 /** True while the loading cover is up (index.html sets data-boot="hold" before anything else runs). */
@@ -44,4 +46,5 @@ const shared = createQuiet();
 /** Milliseconds since the last input. */
 export const sinceInput = shared.since;
 export const leftAlone = shared.leftAlone;
+export const handDown = shared.handDown;
 export const whenQuiet = shared.whenQuiet;
