@@ -48,7 +48,7 @@ export function readFigure(src) {
 }
 
 /** The part as sentences. */
-export function figureText(p, { detail = 'summary' } = {}) {
+export function figureLines(p, { detail = 'summary' } = {}) {
   const arts = p.vessels.filter((v) => v.artery).length, rev = p.vessels.filter((v) => v.reversed), sel = p.vessels.filter((v) => v.selected);
   const out = [`Figure: ${p.count} vessels shown (${arts} arteries), ${p.lens} lens, ${Math.round(p.morph * 100)}% of the way from Anatomy to Circuit.`];
   if (sel.length) out.push(`Selected: ${sel.map((v) => v.name).join(', ')}.`);
@@ -59,5 +59,7 @@ export function figureText(p, { detail = 'summary' } = {}) {
   if (st.length) out.push(`Stent drawn in: ${st.map((v) => `${v.name} ${v.width} px wide`).join(', ')}.`);
   if (p.glows.length) out.push(`Glowing: ${p.glows.map((g) => g.id).join(', ')}.`);
   if (detail === 'full') for (const v of p.vessels) out.push(`${v.name} (${v.id}): ${v.width} px wide, ${v.colour ? v.colour.join(' to ') : 'no colour pair'}, ${v.means || p.lens}${v.opacity < 1 ? `, ${Math.round(v.opacity * 100)}% opaque` : ''}.`);
-  return out.join('\n');
+  return out;
 }
+/** The same as one block of text. */
+export const figureText = (p, o) => figureLines(p, o).join('\n');

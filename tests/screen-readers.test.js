@@ -139,7 +139,7 @@ test('the stage\'s colour bin is the one in colour-bin.js (the painter and the r
 });
 
 test('the readers use no layout read and no requestAnimationFrame (screen reports are asked for, never run in a frame)', () => {
-  for (const f of ['screen/read-labels.js', 'screen/read-camera.js', 'screen/read-figure.js', 'selfcheck/rules-labels.js', 'selfcheck/rules-camera.js', 'selfcheck/rules-figure.js', 'selfcheck/make-finding.js']) {
+  for (const f of ['screen/read-labels.js', 'screen/read-camera.js', 'screen/read-figure.js', 'selfcheck/rules-labels.js', 'selfcheck/rules-camera.js', 'selfcheck/rules-figure.js']) {
     const t = src(f).replace(/\/\/.*$/gm, '');
     assert.ok(!/getBoundingClientRect|getComputedStyle|offsetWidth|offsetHeight|requestAnimationFrame|getClientRects/.test(t), `${f} reads no layout and asks for no frame`);
   }

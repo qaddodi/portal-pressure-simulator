@@ -2,13 +2,9 @@
 // Each `*Source(pps)` returns the plain object its reader (read-figure.js, read-labels.js, read-camera.js) takes; each `read*(pps)` is both steps.
 // Layout is read only for the stage's box and the cards' boxes, through layout-snap.js, and only when the report is asked for (a tap or a call), never in a frame.
 import { viewKey, store } from '../store.js';
-import { readBox, readMetric, readRects, readStyle, readCTM, stageBox } from '../layout-snap.js';
+import { stageBox } from '../layout-snap.js';
 import { readBoxes } from '../gallery/readers.js';
-import { readCamera } from './read-camera.js';
-import { readFigure } from './read-figure.js';
-import { readLabels } from './read-labels.js';
 
-const io = { box: readBox, rects: readRects, style: readStyle, metric: readMetric, ctm: readCTM };
 const safe = (f, dflt = null) => { try { return f(); } catch { return dflt; } };
 
 /** The stage's box in client px, { left, top, width, height }, or null before the figure is up. */
@@ -24,6 +20,16 @@ export function cardsInStage(boxes, corner) {
   return out;
 }
 
+/**
+ * The open cards' boxes in client px, by selector, as the report's cards part read them (ctx.parts.cards, read before the labels), else read now through
+ * the report's own io (the gallery's readBoxes). A card that is leaving or not yet in (opacity under half) is not one a label must keep clear of.
+ */
+export function cardBoxesOf(ctx) {
+  const cards = ctx.parts?.cards?.cards;
+  if (cards) return Object.fromEntries(cards.filter((c) => c.box && c.opacity >= 0.5).map((c) => [c.sel, c.box]));
+  return ctx.doc?.querySelector ? readBoxes(ctx.io, ctx.env).boxes : {};
+}
+
 export function labelSource(pps, { boxes } = {}) {
   const st = pps.stage, r = stageRect() || { left: 0, top: 0, width: 0, height: 0 };
   const laid = safe(() => st.labelLaid().items, []);
@@ -34,7 +40,7 @@ export function labelSource(pps, { boxes } = {}) {
   for (const g of document.querySelectorAll('#labels g.lb[data-key]')) classes[g.dataset.key] = [...g.classList];
   return {
     stage: { w: r.width, h: r.height }, laid, drawn, classes,
-    cards: cardsInStage((boxes || readBoxes(io).boxes), r), carry: safe(() => st.labelCarry()), marks: snap?.marks?.length || 0,
+    cards: cardsInStage(boxes || {}, r), carry: safe(() => st.labelCarry()), marks: snap?.marks?.length || 0,
   };
 }
 
@@ -55,6 +61,3 @@ export function figureSource(pps) {
   return { ...f, view: viewKey(store.get()), glows: safe(() => st.steadyGlows(), []) };
 }
 
-export const readLabelsNow = (pps, o) => readLabels(labelSource(pps, o));
-export const readCameraNow = (pps) => readCamera(cameraSource(pps));
-export const readFigureNow = (pps) => readFigure(figureSource(pps));

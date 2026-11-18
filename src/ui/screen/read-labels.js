@@ -78,7 +78,7 @@ export function readLabels(src) {
 
 const pct = (v) => `${Math.round(v * 100)}%`;
 /** The part as sentences, one line per label that is worth a line; detail 'full' lists every label. */
-export function labelsText(p, { detail = 'summary' } = {}) {
+export function labelsLines(p, { detail = 'summary' } = {}) {
   const out = [`Labels: ${p.count} on the figure (${p.shown} shown, ${p.dim} dim, ${p.fading} fading, ${p.hidden} hidden)${p.settled === false ? ', still moving' : ''}.`];
   for (const r of p.items) {
     const odd = r.under.length || r.off || r.overlaps.length || r.detached || r.clipped || r.state === 'fading';
@@ -93,5 +93,7 @@ export function labelsText(p, { detail = 'summary' } = {}) {
     if (r.clipped) s += ', clipped by its canvas';
     out.push(`${s}.`);
   }
-  return out.join('\n');
+  return out;
 }
+/** The same as one block of text. */
+export const labelsText = (p, o) => labelsLines(p, o).join('\n');

@@ -2,3 +2,4 @@
 import './read-page.js';
 import './read-cards.js';
 import './read-health.js';
+import './register-2a.js';

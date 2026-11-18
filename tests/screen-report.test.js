@@ -1,4 +1,5 @@
 // pps.screen() (src/ui/screen/): the reader registry, the builder, the page, cards and health parts, the text and stable forms, and the fit rules run over a report.
+import './screen-dom.js';   // (first: the figure reader's painters (colormap.js, util.js) watch the page at import, so the page's globals must be there)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { registerReader, readerList, readerIds, readerClashes } from '../src/ui/screen/registry.js';

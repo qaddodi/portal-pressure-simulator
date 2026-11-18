@@ -51,7 +51,7 @@ const viewRow = (v) => ({ k: r3(v.k), x: r1(v.x), y: r1(v.y) });
 export const sameLanding = (a, b, vb) => nearView(a, b, vb);
 
 /** The part as sentences. */
-export function cameraText(p, { detail = 'summary' } = {}) {
+export function cameraLines(p, { detail = 'summary' } = {}) {
   const v = p.state ? `k ${p.state.k}, centre ${p.state.x},${p.state.y}` : 'unknown';
   const out = [`Camera: ${p.view || 'view unknown'}, ${v}${p.world ? `, framing ${p.world.w} units wide around ${p.world.cx},${p.world.cy}` : ''}.`];
   const mv = p.moving;
@@ -62,5 +62,7 @@ export function cameraText(p, { detail = 'summary' } = {}) {
   const last = p.traces.at(-1);
   if (last) out.push(`Last slide move: ${last.ms} ms, ${last.frames} frames, ${last.end}${last.fails.length ? `, FAILED: ${last.fails.join('; ')}` : ', passes the judge'}.`);
   if (detail === 'full') for (const t of p.traces.slice(0, -1)) out.push(`Earlier slide move at ${t.at}: ${t.ms} ms, ${t.end}${t.fails.length ? `, FAILED: ${t.fails.join('; ')}` : ''}.`);
-  return out.join('\n');
+  return out;
 }
+/** The same as one block of text. */
+export const cameraText = (p, o) => cameraLines(p, o).join('\n');
