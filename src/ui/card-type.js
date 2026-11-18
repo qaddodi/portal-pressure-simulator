@@ -12,6 +12,11 @@ export const AB_COMPACT = 13 / 14, AB_FLOOR = 12 / 14;
 // tight: the title's one further step, for a pair still too tall for its data card at Compact (presenter.js layout, squeeze); the words stay at
 // Compact. The CAUSES line goes after it (Mohammad, 23 Oct).
 export const WIDE = { title: 0.8, words: 0.88, tight: 0.62 };
+/** A title stays clearly a title (17 Nov 2026, the tester: at 1440 x 780 the title of slide 20 fell to 22.4 px over 18 px words, 1.24 times, and read as a bold first line). */
+export const TITLE_RATIO = 1.4;
+/** The least the title may step down to (--pz-tk) on a laptop: TITLE_RATIO times the words (px, both at tk 1), never under the card-type steps' last (WIDE.tight), never over 1 (a title already
+ *  closer to the words than that is not made smaller, nor larger). */
+export const titleFloorK = (titlePx, bodyPx) => (titlePx > 0 && bodyPx > 0 ? Math.min(1, Math.max(WIDE.tight, TITLE_RATIO * bodyPx / titlePx)) : WIDE.tight);
 
 // A phone held sideways (a screen 500 px tall or less) whose pair of cards is still too tall at Compact: the words' card (title, words) steps down
 // further, one step at a time, never under 12 px on the screen (presenter.js layout). The data card is what the slide teaches there, so it

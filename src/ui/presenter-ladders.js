@@ -1,7 +1,7 @@
 // One of the six ladders zoomed; layout and fit
 // (moved out of presenter.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { throwLanded, throwing } from './card-throw.js';
-import { SIDEWAYS_MAX_H, WIDE, figFloorOf, pairRise, phonePlan, sidewaysWords } from './card-type.js';
+import { SIDEWAYS_MAX_H, WIDE, figFloorOf, pairRise, phonePlan, sidewaysWords, titleFloorK } from './card-type.js';
 import { createInsetHold } from './inset-hold.js';
 import { readBox, readMetric, readStyle } from './layout-snap.js';
 import { reduceMotionMQ as reduce } from './motion.js';
@@ -254,6 +254,22 @@ export function createLadders(st, live) {
       live.ui.text.style.maxHeight = `${Math.max(0, (H - top - padT - pad0 - vm) / k).toFixed(1)}px`;
     }
     fitCards(live.ui.text);
+    // (The words' card taller than its own room, a long body in a short window: the title steps down, to the floor that keeps it a title, before the words are zoomed (17 Nov 2026, the tester: the
+    // teaching body fell from 18 to 15.5 px on hvpg 13 to 15, shunts 15 and 16, ascites 8 and varices 10 and 11 at 1440 x 780). The words keep their size wherever the title can give the room.)
+    let tk0 = 1;
+    if (cardOn && !p && !low) {
+      const ts0 = live.ui.text.style, fit0 = () => parseFloat(ts0.getPropertyValue('--pz-fit')) || 1;
+      if (fit0() < 0.999) {
+        const hEl = live.ui.text.querySelector('.pz-h'), bEl = live.ui.text.querySelector('.pz-line, p');
+        const f = titleFloorK(hEl ? parseFloat(readStyle(hEl).fontSize) : 0, bEl ? parseFloat(readStyle(bEl).fontSize) : 0), a = Math.max(WIDE.title, f);
+        // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
+        for (const tk of f < a ? [a, f] : [a]) {
+          tk0 = tk; ts0.setProperty('--pz-tk', String(tk));
+          fitDone.delete(live.ui.text); fitCards(live.ui.text);
+          if (fit0() >= 0.999) break;
+        }
+      }
+    }
     let t = r(live.ui.text);
     if (cardOn && low && t && lowKey(t, r(live.ui.data), padT, pad0, vm, wr, H, k)) { fitDone.delete(live.ui.text); fitCards(live.ui.text); t = r(live.ui.text); }
     const sl = readMetric(live.ui.shade, 'offsetLeft') * k, sm = Math.min(sl, Math.max(sl - insetL() * k, 8 * k)), pad = cardOn && t ? t.left - wr.left - sl : 0, dd = live.ui.data, ts = live.ui.text.style;
@@ -303,7 +319,13 @@ export function createLadders(st, live) {
       const sw = H <= SIDEWAYS_MAX_H * k;
       // (17 Nov 2026, the TIPS deck's data card clipped at its foot on a Mac, slides 8 and 20: the instrument's pictures and the 12 px floor of its words left it nothing to give, and the words'
       // card kept all the room. The title is what gives way first, to the card-type.js steps (WIDE.title, then WIDE.tight), the words never: --pz-bk stays 1. The instrument is then not squeezed.)
-      const steps = () => put(1, 1) || put(WIDE.title, 1) || put(WIDE.tight, 1);
+      // (The title stops at TITLE_RATIO times the words, card-type.js titleFloorK: a title that reads as a bold first line is not a title. The pair then rises into its top margin, below, and the data card's own fit does the rest.)
+      const steps = () => {
+        if (put(tk0, 1)) return true;
+        const hEl = live.ui.text.querySelector('.pz-h'), bEl = live.ui.text.querySelector('.pz-line, p');
+        const f = titleFloorK(hEl ? parseFloat(readStyle(hEl).fontSize) / tk0 : 0, bEl ? parseFloat(readStyle(bEl).fontSize) : 0), a = Math.max(WIDE.title, f);   // (the title as it is at tk 1: put(tk0, 1) left it at tk0)
+        return (a < tk0 && put(a, 1)) || (f < a && f < tk0 && put(f, 1));
+      };
       const step = () => (sw ? put(WIDE.title, WIDE.words) : steps());
       const title = () => (sw ? put(1, 1) || put(WIDE.title, WIDE.words) : steps());
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
@@ -373,7 +395,9 @@ export function createLadders(st, live) {
       }
       // (A phone on its side where the pair is still a few px too tall at the words' last step: the pair rises into its top margin (never closer than 4 px
       // to the top) rather than the data card's chart being cut off by its cap, 16 Nov 2026, play-test. A cut-off chart is a bug; a thinner margin is not.)
-      if (below && H <= SIDEWAYS_MAX_H * k && !wideSheet(dd)) rise = pairRise(top0 + t.height + 2 * pad + gap + ch - foot, top0, 4 * k);
+      // (The pair's steps took the title further down than the words' fit was made for: the words are fitted again to the card as it now is, and are zoomed no more than it needs.)
+      if (!p && (parseFloat(ts.getPropertyValue('--pz-fit')) || 1) < 0.999 && (parseFloat(ts.getPropertyValue('--pz-tk')) || 1) < tk0 - 1e-6) { fitDone.delete(live.ui.text); fitCards(live.ui.text); t = r(live.ui.text); }
+      if (below && !wideSheet(dd)) rise = pairRise(top0 + t.height + 2 * pad + gap + ch - foot, top0, 4 * k);   // (every screen: the title's floor leaves the pair a few px too tall at times; it rises into its top margin, never closer than 4 px to the top)
       if (dk < 1) dd.style.setProperty('--pz-dk', dk); else dd.style.removeProperty('--pz-dk');
       live.foldHeld = dd.classList.contains('pz-folds') ? foldKey : null;
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame

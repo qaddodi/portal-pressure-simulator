@@ -690,6 +690,12 @@ export function createZoom(st, live) {
     // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     else { el.style.setProperty('--ft-room', `${h.toFixed(2)}px`); el.style.setProperty('--ft-card', `${(h + chrome).toFixed(2)}px`); }
   }
+  // The least the data card's fit may be (17 Nov 2026, the tester: its labels fell to 10.3 px at 1440 x 780): its smallest lettering as it reaches the screen at a fit of 1 shrinks no further than 12 px; a card
+  // whose lettering is not above 12 px at a fit of 1 keeps the old floor, half.
+  function dataFloor(el) {
+    const L = minText(el);
+    return L > 12 ? Math.max(0.5, Math.ceil(12 / L * 1000) / 1000) : 0.5;
+  }
   function fitCards(...els) {
     let refit = false;
     for (const el of els) {
@@ -783,7 +789,7 @@ export function createZoom(st, live) {
       // the compact layout's rule, before it may go past that as a last resort rather than scroll: it never scrolls.)
       const tableFloor = !small && !lowFloor && !shortFloor && el === live.ui.panel && !live.ui.root.classList.contains('stack') && el.querySelector(':scope > .pz-table') ? textFloor(el) : 0;
       const ln = small || el === live.ui.text ? el.querySelector('.pz-line, p') : null, lb = ln ? parseFloat(readStyle(ln).fontSize) : 0;
-      const floor = lb > 12 ? Math.ceil(12 / lb * 1000) / 1000 : (el === live.ui.text ? 1 : 0.5);   // (the words on every device stop at 12 px on the screen, at the deck size)
+      const floor = lb > 12 ? Math.ceil(12 / lb * 1000) / 1000 : (el === live.ui.text ? 1 : dataFloor(el));   // (the words on every device stop at 12 px on the screen, at the deck size; the data card's lettering too, below)
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const mins = [lowFloor || floor];
       if (shortFloor > mins[0]) mins.unshift(shortFloor);   // (the compact layout's 12 px first; past it only as a last resort)

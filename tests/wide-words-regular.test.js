@@ -14,7 +14,7 @@ test('off a phone on its side every step of the stacked layout puts the words at
   assert.ok(a > 0 && b > a);
   assert.match(wide, /const sw = H <= SIDEWAYS_MAX_H \* k;/);
   // (17 Nov 2026, later: the title may step down before the data card is squeezed, to WIDE.title then WIDE.tight, the words (--pz-bk) never: Mohammad, the TIPS deck's data card clipped.)
-  assert.match(wide, /const steps = \(\) => put\(1, 1\) \|\| put\(WIDE\.title, 1\) \|\| put\(WIDE\.tight, 1\);/);
+  assert.match(wide, /const steps = \(\) => \{\s+if \(put\(tk0, 1\)\) return true;[\s\S]*?titleFloorK\([\s\S]*?put\(f, 1\)\);\s+\};/);   // (the words' bk is always 1 here)
   assert.match(wide, /const step = \(\) => \(sw \? put\(WIDE\.title, WIDE\.words\) : steps\(\)\);/);
   assert.match(wide, /const title = \(\) => \(sw \? put\(1, 1\) \|\| put\(WIDE\.title, WIDE\.words\) : steps\(\)\);/);
   // Every call that sets Compact is behind the sideways test: the title/ladder/squeeze steps go through step() or title() and the final fallback too.
