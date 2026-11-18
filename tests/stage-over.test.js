@@ -278,3 +278,12 @@ test('the classes of an open card or sheet change no overlay look: no rule on th
   }
   assert.deepEqual(bad, [], 'a rule on a card or sheet being open that reaches something other than the cards and the chrome: take its class off OVER_CARD_CLASSES (stage-over.js)');
 });
+
+test('the overlays\' root svg takes the camera\'s frames (transform, origin, will-change, transition) without a new reading; a group does not', () => {
+  const root = (now) => ({ localName: 'svg', ownerSVGElement: null, getAttribute: () => now }), grp = (now) => ({ localName: 'g', ownerSVGElement: {}, getAttribute: () => now });
+  const rec = (target, old) => ({ type: 'attributes', attributeName: 'style', oldValue: old, target });
+  assert.equal(needsReread(rec(root('transform: matrix(1.2,0,0,1.2,3,4); will-change: transform;'), 'transform: matrix(1.1,0,0,1.1,3,4);')), false);
+  assert.equal(needsReread(rec(root('transform-origin: 0 0; transition: none;'), '')), false);
+  assert.equal(needsReread(rec(root('visibility: hidden;'), '')), true, 'its visibility is inherited by every group');
+  assert.equal(needsReread(rec(grp('transform: matrix(1.2,0,0,1.2,3,4);'), 'transform: matrix(1.1,0,0,1.1,3,4);')), true, 'a group\'s own style is its reading');
+});

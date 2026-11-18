@@ -164,7 +164,7 @@ export function createMorph(st, live) {
   // made in the frame after the first binning (the first picture), not 400 ms after it; later ones settle for 400 ms (a burst of
   // binnings is one check).
   const PREP_KIND = ['prepare 0 (points)', 'prepare 1 (joins)', 'prepare 2 (patches)', 'prepare 3 (webs)', 'prepare 4 (rows)'];
-  const TRACK_TAG = 'view-switch pieces', CHECK_TAG = 'view-switch check', COIL_TAG = 'view-switch coil check', SLICE_MS = 8, SETTLE_MS = 400, COIL_WAIT_MS = 3000;
+  const TRACK_TAG = 'view-switch pieces', CHECK_TAG = 'view-switch check', COIL_TAG = 'view-switch coil check', SLICE_MS = 4, SETTLE_MS = 400, COIL_WAIT_MS = 3000;
   const SHOWN_HOLD_MS = 3000, shownGate = settleGate(SHOWN_HOLD_MS);   // (the shown vessels changing all the while, a time-lapse: frame.js settleGate)
   function morphTrackSoon() {
     if (!MORPH_GPU || mayWaiting(CHECK_TAG)) return;
@@ -400,12 +400,17 @@ export function createMorph(st, live) {
     const snaps = pc.snaps ||= [];
     const t = ts[snaps.length];
     let w = pc.work, kind;
-    if (!w) { pc.work = { items: itemsAt(t, pc.anat), own: itemsAt(t, pc.anat, false), o: null, all: null, q: 1, J2: [] }; return 'items'; }
+    if (!w) { pc.work = { items: itemsAt(t, pc.anat), own: null, o: null, all: null, q: 1, J2: [] }; return 'items'; }
+    if (!w.own) { w.own = itemsAt(t, pc.anat, false); return 'items own'; }
     // (The joins of the side's own vessels too: a vessel binned for the other side changes the joins it takes part in.)
     if (!w.o) { w.o = joinsAhead(w.own, t); return 'joins own'; }
     if (!w.all) { w.all = joinsAhead(w.items, t); kind = 'joins all'; }
     // (The joins at moments between too: one can be there for less than a step, as two ends pass each other.)
-    else if (snaps.length && w.q < MORPH_JSUB) { const u = lerp(snaps[snaps.length - 1].t, t, w.q / MORPH_JSUB); w.J2.push(...joinsAhead(itemsAt(u, pc.anat, false), u).J); w.q++; kind = 'joins between'; }
+    // (A moment between is two units, its vessels' courses and then their joins: together one ran 72.8 ms, 18 Nov 2026.)
+    else if (snaps.length && w.q < MORPH_JSUB) {
+      if (!w.mid) { const u = lerp(snaps[snaps.length - 1].t, t, w.q / MORPH_JSUB); w.mid = { u, items: itemsAt(u, pc.anat, false) }; return 'items between'; }
+      w.J2.push(...joinsAhead(w.mid.items, w.mid.u).J); w.mid = null; w.q++; kind = 'joins between';
+    }
     if (!(w.all && (!snaps.length || w.q >= MORPH_JSUB))) return kind;
     pc.work = null;
     const { items, own, o } = w;

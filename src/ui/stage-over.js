@@ -58,7 +58,8 @@ export function needsReread(rec) {
   // at the play-tester's Mac and iPhone, 18 Nov 2026, in view changes, presets, deck slides, zoom and pan.)
   if (a === 'viewBox') return rec.target?.ownerSVGElement != null;   // (a nested svg's own view box is a group's frame: read again)
   // (An inline style whose only change is an opacity the painter reads at each paint, the calipers' fade: the same as the attributes above.)
-  if (a === 'style' && rec.oldValue != null) return styleKey(rec.oldValue) !== styleKey(rec.target.getAttribute('style'));
+  // (The overlays' root svg: a zoom's, a dive's and a card's camera frames write its transform, its origin, its will-change and its transition; none is part of any group's reading, which holds the group's own frame.)
+  if (a === 'style' && rec.oldValue != null) { const root = rec.target?.localName === 'svg' && rec.target.ownerSVGElement == null; return styleKey(rec.oldValue, root) !== styleKey(rec.target.getAttribute('style'), root); }
   if (a === 'class') {
     const strip = (v) => String(v || '').split(/\s+/).filter((c) => c && c !== OVER_CLASS && c !== OVER_ALL).sort().join(' ');
     return strip(rec.oldValue) !== strip(rec.target.getAttribute('class'));
@@ -74,13 +75,14 @@ const PAINT_READ = new Set(['opacity', 'fill-opacity', 'stroke-opacity']);
 // scale as an attribute), so a zoom that wrote them dropped those groups' readings on every frame, and each was read again (the picking and zooming judder,
 // 18 Nov 2026). tests/stage-over.test.js reads the stylesheets for any other reader.
 export const CAMERA_SIZES = new Set(['--clamp-sw', '--clamp-fs', '--halo-k']);
-export function styleKey(text) {
+const ROOT_FREE = new Set(['transform', 'transform-origin', 'will-change', 'transition']);
+export function styleKey(text, root = false) {
   const out = [];
   for (const d of String(text || '').split(';')) {
     const i = d.indexOf(':');
     if (i < 0) continue;
     const name = d.slice(0, i).trim().toLowerCase();
-    if (CAMERA_SIZES.has(name)) continue;
+    if (CAMERA_SIZES.has(name) || (root && ROOT_FREE.has(name))) continue;
     if (name) out.push(PAINT_READ.has(name) ? name : `${name}:${d.slice(i + 1).trim()}`);
   }
   return out.sort().join(';');
