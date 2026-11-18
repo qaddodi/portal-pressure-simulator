@@ -1080,9 +1080,9 @@ export function createVessels(st, live) {
       if (live.veins.drawRows(T, live.vLook, live.bloodLook(), pending, fullComposite)) { rowsShown(); return true; }
     }
     if (key !== live.veinsDrawKey) {
-      settleRes();   // (the view moved: Figure resolution looks again once it settles)
-      if (figOpt('adapt')) noteMoveFrame();
-      if (live.plateOn()) live.schedulePlateView();
+      framePart('draw: resolution', settleRes);   // (the view moved: Figure resolution looks again once it settles)
+      if (figOpt('adapt')) framePart('draw: adapt', noteMoveFrame);
+      if (live.plateOn()) framePart('draw: plate view', live.schedulePlateView);
     }
     // (Moved with only some vessels' attributes changed, those vessels are named: a drag while the model plays still
     // moves the drawn layer, and draws their cells again, rather than drawing it all.)

@@ -368,12 +368,12 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     if (hid.at) { followHidden(f); dtW = (nowW - Math.max(live.wAt, hid.pAt)) / 1000; live.fxAt = Math.max(hid.since, hid.pAt); live.plateStale = true; hid.at = 0; hid.p = null; hid.pAt = 0; }
     const kW = -Math.expm1(-dtW / 0.25);
     live.wAt = nowW; live.widthEasing = false; live.coilEasing = false; live.organsEasing = false;
-    if (stepBands(f, dtW)) live.widthEasing = true;
+    if (stepBands(f, dtW)) { live.widthEasing = true; if (gpuProbe.on) gpuProbe.gauge('widths easing by', 'bands'); }
     glAtUpdate = wrap.classList.contains('gl-on');
     const st = store.get();
     lossF = f;
     const pRaw = f.viewParams || st.params, p = lesions.view(pRaw, dtW, reduceMotion.matches);
-    if (lesions.differs(pRaw)) live.widthEasing = true;
+    if (lesions.differs(pRaw)) { live.widthEasing = true; if (gpuProbe.on) gpuProbe.gauge('widths easing by', 'lesions'); }
     const t = easeInOut(live.morph);
     const ref = live.REF();
     // The circuit shown small (a phone, the whole map): every lane grows by the same factor, so the
@@ -407,12 +407,12 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
       const w = coiled ? 1.5 + 3.5 * sf : 0;
       // Eased toward its target (a change of over 0.6 starts it), so the vessel coils gradually.
       if (g.wigT == null || Math.abs(w - g.wigT) > 0.6) g.wigT = w;
-      if (g.wig !== g.wigT) { const d = g.wigT - g.wig; g.wig = Math.abs(d) < 0.03 ? g.wigT : g.wig + d * kW; coiling.push(x); if (g.wig !== g.wigT) live.widthEasing = live.coilEasing = true; }
+      if (g.wig !== g.wigT) { const d = g.wigT - g.wig; g.wig = Math.abs(d) < 0.03 ? g.wigT : g.wig + d * kW; coiling.push(x); if (g.wig !== g.wigT) { live.widthEasing = live.coilEasing = true; if (gpuProbe.on) gpuProbe.gauge('widths easing by', `coil ${x.e.id} ${g.wig.toFixed(2)} to ${g.wigT.toFixed(2)}`); } }
       // The varices' strands fan out less as their varix shrinks, eased the same way (a closed shunt keeps its full spread).
       if (x.strands && LOOK_SITE[x.e.id]) {
         const sprT = isOccluded(p, x.e.id) ? 1 : varixSpreadK(varixS[LOOK_SITE[x.e.id]]), spr = g.spr ?? 1;
         g.sprT = sprT;   // (binTube: while the spread eases, the strands are binned against where they began, as a coil is)
-        if (spr !== sprT) { const d = sprT - spr; g.spr = Math.abs(d) < 0.005 ? sprT : spr + d * kW; if (!coiling.includes(x)) coiling.push(x); if (g.spr !== sprT) live.widthEasing = live.coilEasing = true; }
+        if (spr !== sprT) { const d = sprT - spr; g.spr = Math.abs(d) < 0.005 ? sprT : spr + d * kW; if (!coiling.includes(x)) coiling.push(x); if (g.spr !== sprT) { live.widthEasing = live.coilEasing = true; if (gpuProbe.on) gpuProbe.gauge('widths easing by', `spread ${x.e.id} ${g.spr.toFixed(3)} to ${sprT.toFixed(3)}`); } }
       }
     }
     gpuProbe.time(null, 'update: geometry', updateGeometry, false, coiling);
@@ -454,7 +454,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
         const q = edgeQ();
         if (Math.abs(w - x.width) < q && Math.abs(w - x.w1) < q) x.width = x.w1 = w;
       }
-      if (widthMoving(x)) live.widthEasing = true;
+      if (widthMoving(x)) { live.widthEasing = true; if (gpuProbe.on) gpuProbe.gauge('widths easing by', `${x.e.id} ${x.width.toFixed(3)} (${x.w1.toFixed(3)}) to ${x.wT.toFixed(3)}`); }
       w = x.width;
       x.wMode = mode;
       // The liver's own small vessels (portal venules, central veins) are the liver to the pointer in the anatomy:

@@ -2693,6 +2693,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     return out;
   }
   // Lays the layer out as layoutFor gave it, its window where the figure is now and no wrap.
+  const compositeWhole = (self, look, blood) => self.composite(look, blood, true);
   const SH = { m: null, look: null, dx: 0, dy: 0 }, shiftNow = () => shiftLayer(SH.m, SH.look, SH.dx, SH.dy), piecesNow = () => eachPiece(la[0], la[1], fboW, fboH);
   function layOut(L) {
     ensureFBO(L[0], L[1]);
@@ -4180,7 +4181,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * transform [a, b, c, d, e, f]; `look`: the theme's inks and the per-tier opacity and group.
      */
     draw(m, look, blood, rows = null) {
-      flushRadii();
+      part('veins: radii upload', flushRadii);
       counts.draw++;
       // (The Tube is the only vessel renderer: until its programs are finished and its targets made nothing is drawn, and nothing is kept as drawn.)
       if (!tubeReady()) return;
@@ -4249,7 +4250,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       setBase(m); keepLook(); tubesNew = false; clearMarks(); drawnNow();
       fboOK = true;
       gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
-      this.composite(look, blood, true);
+      part('veins: composite', compositeWhole, this, look, blood);
     },
     /**
      * Redraws only the cells that list the vessel rows given (their attributes changed: a colour, a fade), then the
