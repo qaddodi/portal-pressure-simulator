@@ -455,6 +455,20 @@ export function glWords(el, { unitClass = '', after = false, host = el, onLand =
 
 /** The box of an element's own words (its text nodes'), where a range over its contents would take in a readout's GPU picture too,
  *  which reaches past its words. Measured between frames only. */
+/** Draws one readout's words in a box out of sight and gives it back (main.js warmUp, once the page is idle after load). The first readout of a session makes the glyph measure, the words' context and its
+ *  atlas, programs and buffers: 9 to 20 ms in the pane and over 200 ms on a slow GPU in the first frame after the first tap on a vessel (the tester, 17 Nov 2026, 390 px). Made here, the tap finds them made. */
+export function warmGlWords() {
+  if (typeof document === 'undefined' || !document.body || document.querySelector('.glw-warm')) return;
+  const box = document.createElement('div');
+  box.className = 'glw-warm'; box.setAttribute('aria-hidden', 'true');
+  box.style.cssText = 'position:fixed;left:0;top:0;width:160px;height:40px;opacity:0;z-index:-1;pointer-events:none;font:600 20px/1.1 var(--font-ui)';   // (on the screen, clear and under everything: the words are drawn only for a box the page could show)
+  const b = document.createElement('b');
+  b.textContent = '88.8'; box.append(b);
+  document.body.append(box);
+  const w = glWords(b);
+  w.set('88.8', 'mmHg'); w.settle();
+  setTimeout(() => { w.dispose(); box.remove(); }, 1500);   // motion-scale: not a move (a wait before the warm readout is given back)
+}
 export function wordsRect(el, rng = document.createRange()) {
   let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
   const w = document.createTreeWalker(el, 4);   // (NodeFilter.SHOW_TEXT)

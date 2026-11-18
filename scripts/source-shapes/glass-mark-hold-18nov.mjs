@@ -18,4 +18,6 @@ export default [
   { file: 'src/ui/card-throw.js', need: [/else enterWhenReady\(el, \(\) => start\(el, 'in', \{ x: 0, o: 1 \}, RAIL_MS, d\), undefined, false\);/, /else enterWhenReady\(el, \(\) => start\(el, 'back', \{ x: 0, o: 1 \}, ms, delay\), undefined, false\);/, `${W} a deck card comes in when its widgets are drawn, held at its start meanwhile`] },
   { file: 'src/ui/card.js', need: [/enterWhenReady\(d\.el, begin\);/, `${W} a card's details come in, with the face going out, when their widgets are drawn`] },
   { file: 'src/ui/card.js', need: [/if \(!warmed && !el\.hidden\) \{ warmed = true; warmSliders\(el\); \}/, /const up = framesSeen >= 2 && prepFilled && !widgetsPending\(el\)/, `${W} a card being built has its sliders' pictures made and drawn at once (not three frames later) and waits two frames for its fits (the stent picture's height) before it is shown`] },
+  { file: 'src/ui/gl-words.js', need: [/export function warmGlWords\(\) \{/, /const w = glWords\(b\);\s+w\.set\('88\.8', 'mmHg'\); w\.settle\(\);/, `${W} the first readout picture is made at idle, not in the first tap on a vessel`] },
+  { file: 'src/ui/main.js', need: [/const warmUp = \[\(\) => warmGlWords\(\),/, `${W} the idle warm-up queue starts with the words`] },
 ];

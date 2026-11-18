@@ -43,6 +43,7 @@ import { controlOwnsKey } from './key-owner.js';
 import { onTheme, onThemeBusy, themeSettled, settledSurfaces } from './theme-epoch.js';
 import { cssVar, $, $$, h, icon, afterExit, fmt, fmtFlow, toast, TOASTS, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, menuSection, menuPush, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, switchIn, onSurfaceOpened, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile, fadeShown } from './util.js';
 import { enterWhenReady } from './widget-ready.js';
+import { warmGlWords } from './gl-words.js';
 import { initMenuGlass, whyGlass } from './menu-glass.js';
 import { glideOnResize } from './plate-glide.js';
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet, dragSheet } from './sheet-move.js';
@@ -535,7 +536,7 @@ async function main() {
   // The surfaces most sessions never open are fetched and read in once the page is idle, one at a time, each only after the page has been
   // left alone for a moment (quiet.js): a module's read-in is tens of ms of script on a phone, and a timer alone put it in a pan or pinch.
   const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
-  const warmUp = [() => paletteL.warm(), () => presenterL.warm(), () => dock.load()];   // (dock.load reads in the Doppler, FibroScan and Trials panes too)
+  const warmUp = [() => warmGlWords(), () => paletteL.warm(), () => presenterL.warm(), () => dock.load()];   // (warmGlWords: the first number picture is made now, not in the first tap on a vessel)   // (dock.load reads in the Doppler, FibroScan and Trials panes too)
   warmUp.push(() => fromReadingsL.warm());   // (the patient menu's From readings: its module is there by the time its row is tapped)
   const warmNext = () => { const step = warmUp.shift(); if (step) whenQuiet(() => idle(() => { step(); warmNext(); })); };
   setTimeout(warmNext, 3000);
