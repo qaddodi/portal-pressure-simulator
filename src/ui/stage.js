@@ -3425,17 +3425,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** From the sinusoid view out to the anatomy in one glide: the zoom out of the sinusoid eases in only, and the rise out of the lobule begins in the frame it lands, carrying
      *  straight on from it (Mohammad, 16 Nov 2026: "sinusoid to anatomy should be one glide if possible"; it was three steps with a stop at each). When the lobule is not at its
      *  fit (panned or zoomed before the sinusoid), the old steps remain: back to the fit first, then the rise. */
-    async exitSinusoid() {
+    async exitSinusoid(view = 'anatomy') {   // (view: 'circuit' for a Circuit slide: the way out of the lobule then goes on to the Circuit, presenter toAnatomy)
       const me = ++sinMoveGen;
-      if (!store.get().sinusoid || !lz?.sinusoidOpen()) { setViewKey('anatomy'); return; }
-      if (lz.atFitNow() && lz.chainOut(() => { if (me === sinMoveGen && store.get().lobule && !store.get().sinusoid) setViewKey('anatomy'); })) { setViewKey('lobule'); return; }
+      if (!store.get().sinusoid || !lz?.sinusoidOpen()) { setViewKey(view); return; }
+      if (lz.atFitNow() && lz.chainOut(() => { if (me === sinMoveGen && store.get().lobule && !store.get().sinusoid) setViewKey(view); })) { setViewKey('lobule'); return; }
       setViewKey('lobule');
       const t0 = performance.now(), wait = (ms) => new Promise((r) => stageScope.timer(r, ms));
       while ((lz.sinBusy() || lz.sinusoidOpen()) && performance.now() - t0 < 4000) await wait(60);
       if (me !== sinMoveGen || store.get().sinusoid) return;   // (a dive began meanwhile, or the sinusoid was asked for again: leave the lobule where it is)
       if (lz.focusOn('fit', { ms: 900 })) await wait(900);
       if (me !== sinMoveGen || store.get().sinusoid) return;
-      if (store.get().lobule) setViewKey('anatomy');
+      if (store.get().lobule) setViewKey(view);
     },
     /** The Sinusoid button: zoom into the sinusoid from the lobule. While the dive into the lobule is still landing the ask is kept in the
      *  lobule (it carries on at the landing) and the store is not written, so the view says sinusoid once, not true, false, true. askSinusoid(false)

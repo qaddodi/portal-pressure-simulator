@@ -92,7 +92,7 @@ test('out of the lobule into a Circuit slide is one move: the Circuit begins as 
   // the slide's own camera does it (cards in first, then the rise and the change together), not the transition's sequential rise to the whole anatomy
   assert.match(pres, /const inView = inAnatomy \|\| \(!ct && !!cam && !LOBULE_CAM\.test\(cam\) && s\.view === 'circuit'\);/);
   assert.match(pres, /\(!inView \|\| si !== shownState \|\| liveOff\)/);
-  assert.match(pres, /const viaRise = v === 'circuit' && ms > 0 && store\.get\(\)\.lobule && !store\.get\(\)\.sinusoid;/);
+  assert.match(pres, /const viaRise = v === 'circuit' && ms > 0 && store\.get\(\)\.lobule;/);
   assert.match(pres, /if \(to === 'circuit'\) \{ stage\.circuitEarly\?\.\(true\); setViewKey\('circuit'\); await until\(\(\) => cut\(\) \|\| stage\.morphTargetNow\?\.\(\) === 1, 6000\); return; \}/);
   // the framing is asked of the running change (a retarget), never a glide after it: switching stays true, the view key is only written when it differs
   assert.match(pres, /const switching = viaRise \|\| store\.get\(\)\.view !== v;\s*\n\s*if \(store\.get\(\)\.view !== v\) setViewKey/);
@@ -101,4 +101,13 @@ test('out of the lobule into a Circuit slide is one move: the Circuit begins as 
   assert.match(stage, /diveT > \(diveOut && circEarly \? RISE_CIRC_T : 0\)/);
   assert.match(stage, /if \(circWait && !on && circEarly && e <= RISE_CIRC_T\) nextFrame\(circGo\)/);
   assert.match(stage, /circEarly = false;\s*\/\/ \(asked for once/);
+});
+
+test('out of the sinusoid into a Circuit slide is the same move: the way out carries on to the Circuit, not to the anatomy first', () => {
+  const pres = presenterSource(), stage = stageSource();
+  assert.match(pres, /if \(to === 'circuit'\) stage\.circuitEarly\?\.\(true\);\s*\n\s*stage\.exitSinusoid\(to\);/);
+  assert.match(pres, /stage\.morphTargetNow\?\.\(\) === 1\), 9000\); return; \}/);
+  const fn = stage.slice(stage.indexOf("async exitSinusoid(view = 'anatomy')"), stage.indexOf('/** The Sinusoid button'));
+  assert.equal((fn.match(/setViewKey\(view\)/g) || []).length, 3, 'every end of the way out asks for the view the slide wants');
+  assert.ok(!/setViewKey\('anatomy'\)/.test(fn), 'none of them stops at the anatomy');
 });

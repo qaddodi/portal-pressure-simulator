@@ -445,8 +445,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       stage.lobuleHold?.(true);
       if (stage.riseReady && !booting) { await until(() => cut() || stage.riseReady(), RISE_READY_MS); if (cut()) return; }
       if (next && !reduce.matches && !booting) riseOn(next);
-      stage.exitSinusoid();
+      if (to === 'circuit') stage.circuitEarly?.(true);
+      stage.exitSinusoid(to);
       await waitCut(60, cut);
+      if (to === 'circuit') { await until(() => cut() || (!store.get().lobule && !store.get().sinusoid && stage.morphTargetNow?.() === 1), 9000); return; }
       await until(() => cut() || (!store.get().lobule && !store.get().sinusoid && stage.lobuleSettled()), 9000);
       if (!cut()) await waitCut(80, cut);
       return;
@@ -513,7 +515,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       await until(() => { const n = cardSig(); if (n !== sig) { sig = n; since = performance.now(); } return cut() || performance.now() - since > 250; }, Math.max(0, 1800 - (performance.now() - t0)));
     }
     if (cut()) return;
-    const viaRise = v === 'circuit' && ms > 0 && store.get().lobule && !store.get().sinusoid;   // (out of the lobule into the Circuit slide: one move, see toAnatomy)
+    const viaRise = v === 'circuit' && ms > 0 && store.get().lobule;   // (out of the lobule or the sinusoid into the Circuit slide: one move, see toAnatomy)
     await toAnatomy(v === 'anatomic' ? riseFor(cam, s) : null, cut, viaRise ? 'circuit' : 'anatomy');
     if (cut()) return;
     // (A switch of view sets off here and the slide's framing is asked of it at once, below: it becomes the change's new end (stage-view.js viewXfRetargetTo),

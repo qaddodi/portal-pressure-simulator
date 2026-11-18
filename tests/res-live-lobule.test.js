@@ -67,7 +67,7 @@ test('sinusoid-view.js: the change waits for the open view and is mixed on the G
   assert.ok(swap.indexOf("gpuKey = '';") < swap.indexOf('draw(0, false);') && swap.indexOf('draw(0, false);') < swap.indexOf('gpu.keep?.()'), 'drawn again, then kept, in one frame');
   assert.ok(!/drawImage|getContext|visibility|mixInto|SV_MIX/.test(swap), 'no 2D canvas, the canvas stays shown');
   assert.ok(!/svmix|SV_MIX|mixInto/.test(sv));
-  assert.match(sv, /const sameAsLast = go === 0 && !dive && !svFade && pictureSame\(u, n\);/, 'drawn every frame while the mix runs');
+  assert.match(sv, /const sameAsLast = go === 0 && !dive && !svFade && !washBusy && pictureSame\(u, n\);/, 'drawn every frame while the mix or the wash runs');
   assert.match(sv, /gpuKey = go === 0 && !dive && !svFade;\n\s*if \(svFade\) svFadeStep\(\);/, 'the mix remade right after the canvas is drawn');
   assert.match(sv, /if \(u >= 1 \|\| dive\) \{ svFadeEnd\(\); return; \}/);
   assert.match(sv, /gpu\.mix\(fadeAlpha\(u\)\);/);
