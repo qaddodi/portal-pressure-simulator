@@ -1,5 +1,7 @@
 // The bug packet from the command line (plan screen-report-recs section 3; the agent guide is docs/bug-packet.md).
 //
+//   node scripts/packet.mjs make <state link> [--note "..."] [--env node|headless] [--out file]
+//                                                             make a packet from an address (what a person would have copied), to see what the report says of a state
 //   node scripts/packet.mjs show <packet.txt | ->            read a pasted packet: its findings, its state, what it lacks, whether it arrived whole
 //   node scripts/packet.mjs link <packet.txt | -> [--base U] the state link (open it in a browser to see what the person saw)
 //   node scripts/packet.mjs replay <packet.txt | -> [--env node|headless] [--device iphone|mac|...] [--dir .|dist] [--out result.json]
@@ -13,8 +15,8 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parsePacket, packetText } from '../src/ui/packet/packet.js';
-import { stateLink } from '../src/ui/packet/state.js';
+import { parsePacket, packetText, buildPacket } from '../src/ui/packet/packet.js';
+import { stateLink, readStateLink } from '../src/ui/packet/state.js';
 import { resultLines, comparePackets, replayPacket } from '../src/ui/packet/replay.js';
 import { makeFixture } from '../src/ui/packet/test-from-packet.js';
 
@@ -38,6 +40,24 @@ function readAny(f) {
 const needPacket = (f) => { const x = readAny(f); if (!x.packet) die('This is a replay result, not a packet.'); return x.packet; }
 
 async function main() {
+  if (cmd === 'make') {
+    const link = file(0);
+    if (!link) die('usage: node scripts/packet.mjs make <state link>');
+    const state = readStateLink(link);
+    if (!state.share) die('That address carries no #s= state (a packet link ends in #s=...).');
+    const { makeEnv } = await import(opt('env', 'node') === 'headless' ? './packet-headless.mjs' : './packet-node.mjs');
+    const env = await makeEnv({ packet: { state }, device: opt('device', ''), dir: opt('dir', '.') });
+    try {
+      await env.apply(state); await env.settle();
+      const { findings, ...screen } = (await env.screen()) || {};
+      await import('../src/ui/screen/build.js');   // (registers the readers the text form walks)
+      const { screenText } = await import('../src/ui/screen/text.js');
+      const p = buildPacket({ state, link: stateLink(state, new URL(link).origin + new URL(link).pathname), screen: findings ? screen : null, screenText: findings ? screenText({ ...screen, findings }) : '', findings: findings || null, device: {}, build: {} }, { note: opt('note', '') });
+      const text = packetText(p);
+      if (opt('out', '')) { writeFileSync(resolve(opt('out')), text); say(`Saved ${opt('out')}`); } else say(text);
+    } finally { await env.close?.(); }
+    return 0;
+  }
   if (cmd === 'show') {
     const p = needPacket(file(0));
     say(packetText(p).split('-----BEGIN PACKET JSON-----')[0].trimEnd());

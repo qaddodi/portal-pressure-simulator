@@ -250,6 +250,7 @@ export async function mainRig() {
     ctx: { action: noop, showPane: noop, probe: noop, startShunt: noop, canShunt: () => false, select: noop, zoomLobule: noop, askSinusoid: noop, paneApi: noop, openIr: noop, injectDye: noop, releaseDye: noop, dyeInjecting: () => false, canDye: () => true } });
   const feed = async (f) => { for (let k = 0; k < 3; k++) { store.setFrame(f); dock.update(f, true); card.update(f); await runFrames(1); } };
   return {
+    patient, card, dock,   // (the bug packet's Node replay, scripts/packet-node.mjs, puts a state on this rig)
     /** A Tests-card pane for a patient: its words. */
     async pane(e) {
       const f = await patient(e.preset, e.params);

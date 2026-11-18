@@ -1,14 +1,15 @@
 // The state link of a bug packet (plan screen-report-recs section 3): a plain app address that puts the app back where it was when a person pressed
 // "What's wrong here?". It is the app's own share link (`#s=`: patient, what was changed from it, view, selection, camera) with what that link never
-// carried added: the talk and slide (`?script=&slide=`, the app's own deep link), and the rest of the screen's state in `?pkt=` (the look, the colour
-// lens, label level, layers, the Lobule or Sinusoid view, the open instruments, the model running or not, the screen's size).
+// carried added: the talk and slide (`?script=&slide=`, the app's own deep link), and the rest of the screen's state as an `x` part of the share payload itself
+// (the look, the colour lens, label level, layers, the Lobule or Sinusoid view, the open instruments, the model running or not, the screen's size). The app's own
+// reader (share-link.js cleanShare) leaves `x` out, so the link opens in any build; packet/trigger.js applies it on the preview copy. No new address switch.
 //
 // Pure of the page except `captureState` (reads window.pps) and `applyExtras` (calls it). Nothing here runs per frame.
 //
 //   captureState(pps, { doc })         what the app is showing now, as a state object
 //   stateLink(state, base)             the address for it
 //   readStateLink(href)                the state back from an address (what a replay opens)
-//   applyExtras(x, pps, { doc })       puts the `pkt` part on a booted page (the share link and the talk are the app's own load paths)
+//   applyExtras(x, pps, { doc })       puts the `x` part on a booted page (the share link and the talk are the app's own load paths)
 //   changedFrom(base, now)             the settings that differ from the patient's own, as { 'a.b.c': [was, now] } (for the readable text)
 
 import { parseShare, cleanShare, encodeShare } from '../share-link.js';
@@ -42,7 +43,7 @@ export function changedFrom(base, now, path = '', out = {}) {
   return out;
 }
 
-/** Keeps only what the app can apply from the `pkt` part of an address (it is read from a URL anyone can edit): known look, label level, plain flags, instrument ids. */
+/** Keeps only what the app can apply from the `x` part of an address's share payload (it is read from a URL anyone can edit): known look, label level, plain flags, instrument ids. */
 export function cleanExtras(x) {
   if (!isObj(x)) return {};
   const o = {};
@@ -88,16 +89,15 @@ export function captureState(pps, { doc = globalThis.document, win = globalThis 
   return state;
 }
 
-const PKT_KEYS = ['script', 'slide', 'pkt', 'back', 'r', 'gallery', 'sweep'];
-/** The address for a state: the page's own path, `?script=&slide=&pkt=&back=1`, `#s=`. `back=1` makes the app open it quietly (no case card, no "shared scenario" toast). */
+const PKT_KEYS = ['script', 'slide', 'back', 'r', 'gallery', 'sweep'];
+/** The address for a state: the page's own path, `?script=&slide=&back=1`, `#s=` (the share payload, with `x`). `back=1` makes the app open it quietly (no case card, no "shared scenario" toast). */
 export function stateLink(state, base) {
   const u = new URL(base);
   for (const k of PKT_KEYS) u.searchParams.delete(k);
   if (state.script) { u.searchParams.set('script', state.script); u.searchParams.set('slide', String(state.slide || 1)); }
   const x = cleanExtras(state.x);
-  if (Object.keys(x).length) u.searchParams.set('pkt', encodeShare(x));
   u.searchParams.set('back', '1');
-  u.hash = state.share ? `#s=${encodeShare(state.share)}` : '';
+  u.hash = state.share ? `#s=${encodeShare(Object.keys(x).length ? { ...state.share, x } : state.share)}` : '';
   return u.href;
 }
 
@@ -105,9 +105,9 @@ export function stateLink(state, base) {
 export function readStateLink(href, presetIds = null) {
   const u = new URL(href);
   const m = u.hash.match(/#s=([\w-]+)/);
-  const share = m ? cleanShare(parseShare(m[1]), presetIds) : null;
-  const pk = u.searchParams.get('pkt');
-  const x = pk ? cleanExtras(parseShare(pk)) : {};
+  const raw = m ? parseShare(m[1]) : null;
+  const share = raw ? cleanShare(raw, presetIds) : null;
+  const x = cleanExtras(raw?.x);
   const out = { v: STATE_V, share: share || null, x };
   const script = u.searchParams.get('script');
   if (script && /^[\w-]{1,60}$/.test(script)) { out.script = script; out.slide = Math.max(1, parseInt(u.searchParams.get('slide'), 10) || 1); }
@@ -141,11 +141,10 @@ export async function applyExtras(x, pps, { doc = globalThis.document, sleep = w
   return skipped;
 }
 
-/** Applies an address's own `pkt` part once the app has booted; the page calls it on the preview copy only (main.js, packet/trigger.js). Returns what it skipped, or null when there was none to apply. */
-export async function applyFromAddress(pps, { search = globalThis.location?.search, doc } = {}) {
-  const pk = new URLSearchParams(search || '').get('pkt');
-  if (!pk) return null;
-  const x = cleanExtras(parseShare(pk));
+/** Applies the `x` part of an address's share payload once the app has booted; the page calls it on the preview copy only (main.js, packet/trigger.js). Returns what it skipped, or null when there was none to apply. */
+export async function applyFromAddress(pps, { hash = globalThis.location?.hash, doc } = {}) {
+  const m = String(hash || '').match(/#s=([\w-]+)/);
+  const x = cleanExtras(m ? parseShare(m[1])?.x : null);
   if (!Object.keys(x).length) return null;
   await new Promise((ok) => {
     if (pps.store.get().booted) { ok(); return; }

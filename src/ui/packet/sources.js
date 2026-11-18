@@ -31,18 +31,28 @@ export function healthInfo(pps) {
   return h;
 }
 
+/** The recorder's frames as the series rules take them (oldest first): a list, or the recorder's object with its frames or samples. */
+export const framesOf = (h) => (Array.isArray(h) ? h : h?.frames || h?.samples || null);
+
 /**
- * The packet for the screen as it is now. `rules(report, history)` (default: pps.selfcheck.run when the build has one) judges the report; without it the
- * packet carries the recorder's own findings only. note: what the person wrote.
+ * The packet for the screen as it is now: the screen report with its findings (pps.screen runs the state rules; with the recorder's history it runs the series rules too),
+ * the recorder's last 10 s when `?watch` is on, the state link, the device. note: what the person wrote. Without a part, the packet says it lacks it (packet.js `missing`).
  */
-export async function packetNow(pps, { note = '', win = window, doc = document, rules } = {}) {
+export async function packetNow(pps, { note = '', win = window, doc = document } = {}) {
   const state = captureState(pps, { doc, win });
   const link = stateLink(state, baseOf(win.location));
   let screen = null, screenText = '', history = null, findings = null, watchFindings = [];
-  try { if (typeof pps.screen === 'function') { screen = await pps.screen(); screenText = typeof pps.screen.text === 'function' ? pps.screen.text(screen) : ''; } } catch (e) { screenText = `(the screen report failed: ${e?.message || e})`; }
   try { if (typeof pps.watch?.history === 'function') history = await pps.watch.history({ seconds: 10 }); } catch { /* (the recorder is off) */ }
   try { if (typeof pps.watch?.findings === 'function') watchFindings = (await pps.watch.findings()) || []; } catch { /* (the recorder is off) */ }
-  const judge = rules || pps.selfcheck?.run;
-  try { if (screen && typeof judge === 'function') findings = (await judge(screen, { history })) || []; } catch (e) { watchFindings = [...watchFindings, { rule: 'selfcheck-failed', what: 'The rules could not run', where: String(e?.message || e), scope: 'state' }]; }
+  try {
+    if (typeof pps.screen === 'function') {
+      const frames = framesOf(history);
+      const full = await pps.screen(frames ? { history: frames } : {});
+      screenText = typeof pps.screen.text === 'function' ? await pps.screen.text(full) : '';
+      const { findings: f, ...rest } = full;
+      findings = f || [];
+      screen = rest;
+    }
+  } catch (e) { screenText = `(the screen report failed: ${e?.message || e})`; findings = [{ rule: 'screen-failed', what: 'The screen report could not be made', where: String(e?.message || e) }]; }
   return buildPacket({ state, link, screen, screenText, history, findings, watchFindings, device: deviceInfo(pps, { win, doc }), build: buildInfo(doc), health: healthInfo(pps) }, { note });
 }

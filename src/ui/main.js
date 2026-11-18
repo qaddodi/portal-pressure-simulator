@@ -473,7 +473,7 @@ async function main() {
   window.pps.lookNow = (id) => applyLookAttrs(document.documentElement, knownLook(id));   // (a look on the page's attributes with nothing saved: the gallery page's looks, which must not change the look this browser keeps for the live site)
   // ?gallery on the preview copy only: the card gallery and debug page (gallery/page.js). The live site never reads it.
   { const g = new URLSearchParams(location.search).get('gallery'); if (g !== null && g !== 'frame' && /\/preview\//.test(location.pathname)) import('./gallery/page.js').then(({ startGallery }) => startGallery({ pps: window.pps })).catch((e) => caught('main:gallery', e)); }
-  // The bug packet ("What's wrong here?": a key chord, a long press on the preview pill, pps.packet) and a state link's ?pkt part, on the preview copy and a local run only: the live site never reads them.
+  // The bug packet ("What's wrong here?": a key chord, a long press on the preview pill, pps.packet) and a state link's extras (the `x` of its #s= payload), on the preview copy and a local run only: the live site never reads them.
   if (/\/preview\//.test(location.pathname) || /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) import('./packet/trigger.js').then(({ installPacketTrigger }) => installPacketTrigger({ pps: window.pps })).catch((e) => caught('main:packet', e));
   const linked = await presenter.readLink();
   if (linked) mainMenu.open('scripts', { mark: typeof linked === 'string' ? linked : null });

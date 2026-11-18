@@ -5,7 +5,7 @@ import { fadeShown } from '../util.js';
 import { packetText, withNote } from './packet.js';
 
 const CSS = `
-.pkt { position: fixed; inset: auto 8px 8px 8px; z-index: var(--z-diag, 300); max-height: min(78vh, 640px); display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); color: var(--text); box-shadow: var(--shadow-3, 0 12px 40px -12px rgba(0, 0, 0, .45)); font: 500 13px/1.4 var(--font-ui, system-ui, sans-serif); }
+.pkt { position: fixed; inset: auto 8px 8px 8px; z-index: var(--z-diag, 300); max-height: min(78vh, 640px); display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); color: var(--text); box-shadow: var(--shadow-dialog); font: 500 13px/1.4 var(--font-ui, system-ui, sans-serif); }
 @media (min-width: 700px) { .pkt { inset: auto 16px 16px auto; width: 460px; } }
 .pkt[hidden] { display: none; }
 .pkt h2 { margin: 0; font-size: 15px; font-weight: 650; }
@@ -32,11 +32,12 @@ export function openPacketSheet({ build, doc = document, say = () => {} }) {
   doc.getElementById('pkt-css') || (() => { const st = doc.createElement('style'); st.id = 'pkt-css'; st.textContent = CSS; doc.head.append(st); })();
   doc.getElementById('pkt-sheet')?.remove();
   const el = (tag, cls, text) => { const e = doc.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-  const root = el('section', 'pkt'); root.id = 'pkt-sheet'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', "What's wrong here?"); root.hidden = true;
+  const root = el('section', 'pkt'); root.id = 'pkt-sheet'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', "What's wrong here?"); root.hidden = true; // off-screen: built before it is in the page; fadeShown shows it
   const status = el('div', 'pkt-status', 'Reading the screen…'); status.setAttribute('role', 'status');
-  const list = el('ol', 'pkt-list'); list.hidden = true;
+  const list = el('ol', 'pkt-list'); list.hidden = true; // off-screen: built before it is in the page
   const note = el('textarea'); note.placeholder = 'What did you see? (optional, a few words)'; note.setAttribute('aria-label', 'What did you see?');
-  const raw = el('textarea', 'pkt-raw'); raw.readOnly = true; raw.hidden = true; raw.setAttribute('aria-label', 'The packet, to copy by hand');
+  const raw = el('textarea', 'pkt-raw'); raw.readOnly = true; raw.hidden = true; // off-screen: built before it is in the page
+  raw.setAttribute('aria-label', 'The packet, to copy by hand');
   const copy = el('button', 'go', 'Copy packet'); copy.type = 'button'; copy.disabled = true;
   const close = el('button', '', 'Close'); close.type = 'button';
   const row = el('div', 'pkt-row'); row.append(copy, close);
@@ -50,7 +51,7 @@ export function openPacketSheet({ build, doc = document, say = () => {} }) {
   const current = () => withNote(packet, note.value);
   copy.onclick = async () => {
     const text = packetText(current());
-    try { await copyText(text); status.textContent = `Copied. Paste it into the thread (${text.length.toLocaleString('en-US')} characters).`; say('Packet copied.'); raw.hidden = true; } catch { raw.value = text; raw.hidden = false; raw.focus(); raw.select(); status.textContent = 'The browser would not copy. Select all in the box below and copy it by hand.'; }
+    try { await copyText(text); status.textContent = `Copied. Paste it into the thread (${text.length.toLocaleString('en-US')} characters).`; say('Packet copied.'); fadeShown(raw, false); } catch { raw.value = text; fadeShown(raw, true); raw.focus(); raw.select(); status.textContent = 'The browser would not copy. Select all in the box below and copy it by hand.'; }
   };
   Promise.resolve().then(() => build('')).then((p) => {
     if (closed) return;
@@ -58,7 +59,7 @@ export function openPacketSheet({ build, doc = document, say = () => {} }) {
     const n = p.findings.length;
     status.textContent = n ? `${n} finding${n === 1 ? '' : 's'}. ` + (p.missing.length ? `Not in the packet: ${p.missing.join('; ')}.` : '') : `No self-check named a problem. ${p.missing.length ? `Not in the packet: ${p.missing.join('; ')}. ` : ''}Write what you saw, so the agent can add the rule that would have.`;
     list.replaceChildren(...p.findings.map((f) => { const li = el('li'), b = el('b', '', `${f.rule}: `); li.append(b, `${f.what}${f.where ? `, ${f.where}` : ''}`); return li; }));
-    list.hidden = !n;
+    fadeShown(list, n > 0);
     copy.disabled = false;
   }, (e) => { status.textContent = `The packet could not be made: ${e?.message || e}`; });
   return { close: dispose, root };

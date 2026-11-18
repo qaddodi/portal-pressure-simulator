@@ -52,7 +52,7 @@ export async function runFixture(fx, env) {
   await env.settle();
   const report = await env.screen();
   if (!report) return { ok: false, failures: [`${env.name}: no screen report, so nothing was judged`], findings: [] };
-  const found = splitFindings((await env.rules(report)) || []).state;
+  const found = splitFindings((await (env.rules ? env.rules(report) : report.findings)) || []).state;
   const keys = new Set(found.map(findingKey));
   for (const h of fx.hold || []) if (keys.has(findingKey(h))) { const f = found.find((x) => findingKey(x) === findingKey(h)); failures.push(`${h.rule}: ${h.what}${f.where ? `, ${f.where}` : ''}${f.owner ? ` [${f.owner}]` : ''}: the bug of packet ${fx.from || fx.name} is back`); }
   for (const e of fx.expect || []) {

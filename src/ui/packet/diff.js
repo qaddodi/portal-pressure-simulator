@@ -4,7 +4,7 @@
 import { findingKey, isMotion } from './packet.js';
 
 /** Parts of a report that differ between runs of one state for reasons that are not the bug: the build, the device's memory and speed, time. */
-export const VOLATILE = ['health', 'page.commit', 'page.build', 'page.device', 'motion'];
+export const VOLATILE = ['findings', 'errors', 'health', 'page.commit', 'page.build', 'page.device', 'motion'];
 
 const isObj = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
 const nameOf = (v) => (isObj(v) ? v.id ?? v.name ?? v.key ?? v.text : undefined);

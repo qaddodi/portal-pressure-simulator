@@ -10,7 +10,7 @@
 //   apply(state)                     puts the state on the app; resolves { skipped: [names] } (what it could not apply)
 //   settle()                         resolves when nothing is arriving
 //   screen()                         the screen report (JSON) or null when this build has none
-//   rules(report)                    the rules' findings over a report, or null when this build has no rules registry
+//   rules(report)                    optional: the rules' findings over a report (default: report.findings, which pps.screen() and buildScreen() already carry)
 //   judgeHistory(history)            optional: the motion rules over a recorded history (the recorder thread's pure judge), or null
 //   commit                           optional: the build the env runs, to say whether it is the packet's own
 
@@ -30,7 +30,7 @@ export async function replayPacket(packet, env, { ignore = VOLATILE } = {}) {
   const report = await env.screen();
   if (!report) { res.verdict = 'no-screen'; res.notes.push(`${env.name} cannot report the screen (no pps.screen in this build or this place)`); }
   else res.screen = report;
-  const rules = report ? await env.rules(report) : null;
+  const rules = report ? await (env.rules ? env.rules(report) : report.findings ?? null) : null;
   if (report && !rules) res.notes.push('this build has no rules registry: the report was taken, nothing was judged');
   res.now.state = splitFindings(rules || []).state;
   if (packet.history && env.judgeHistory) {
