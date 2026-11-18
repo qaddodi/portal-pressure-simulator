@@ -59,6 +59,14 @@ links the shader strings of `scripts/glsl-compile-list.mjs` in headless Chromium
 (never the app), draws nothing, takes no picture and measures nothing, and runs in no workflow. The Tube renderer's threads run it on their own programs
 before a push (`docs/tube-renderer.md`); every other headless run stays off.
 
+## Questions about the model's numbers (use the terminal model command)
+
+Ask the model, not a browser. `npm run model -- --preset <id> [--carvedilol|--tips 8|--set path=value ...] [--days N] [--compare] [--json]`
+prints the engine's numbers (HVPG, PPG, portal flow, ascites, varices, stiffness, MAP/HR...) for a patient, a treatment and some days;
+`--deck <id> --slide <n>` prints what a slide shows; `--list` lists presets and decks. It is the same engine and step chain as the
+app, takes about a second, and needs no browser (so it is allowed under the no-headless rule). Use it for "what does the model say",
+for checking a clinical claim, and for the number a test or a slide should expect. Options and output: `docs/model-cli.md`.
+
 ## Per-frame work (the GPU is the only per-frame painter)
 
 - No per-frame work on the main thread outside the scheduler: ask for a frame with `frameFor(tag)` from `src/ui/frame.js`,
