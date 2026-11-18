@@ -20,6 +20,7 @@ import { readStyle, readLocalCTM } from './layout-snap.js';
 import { sceneBegin, sceneStyle } from './scene-store.js';
 import { getLive } from './live-style.js';
 import { WARM_MS } from './warm-views.js';
+import { PAINTER_TARGETS } from './plate-room.js';
 import { STOPS, STOPS_CMAP, STOP_LOOK } from './stop-tokens.js';
 import { listMatrix } from './transform-read.js';
 const RK = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };   // (a transform list's matrix, read at once: transform-read.js, never consolidate())
@@ -1413,6 +1414,18 @@ export function createOrganPaint(gl, shape) {
     },
     /** The bytes held by the layers a live frame does not need: the mask layer and every nested depth (made when a masked or nested group first needs them). */
     deepBytes: deepBytesNow,
+    /** The bytes a painting w × h would add to the targets the painter holds (the scratch, the layer pairs and the stencil, at the full set of seven: a picture's groups nest that deep), 0 when they already
+     *  hold what it needs. Asked before a large picture is made (stage-plate.js, plate-room.js); the same size rule as size(). */
+    growBytes(w, h) {
+      let nw = AW, nh = AH;
+      if (!(w <= AW && h <= AH)) {
+        const gw = Math.max(AW, w), gh = Math.max(AH, h);
+        if (gw * gh <= targetRoom(BW, BH)) { nw = gw; nh = gh; } else { nw = Math.max(w, BW); nh = Math.max(h, BH); }
+      }
+      let held = 0;
+      if (AW) { held = AW * AH; if (scratch.on) held += AW * AH * 4; for (let d = 0; d < depths.length; d++) for (let j = 0; j < 2; j++) if (depths[d][j].on) held += AW * AH * 4; }
+      return Math.max(0, nw * nh * (4 * PAINTER_TARGETS + 1) - held);
+    },
     /** Gives those layers back (not while a picture's job is painting with them); a group that needs one again makes it at its first clear. */
     trimDeep() { return trimDeepNow(); },
     trim() { this.dropKept(); clearTimeout(deepT); deepT = 0; if (!AW) return; W = H = AW = AH = BW = BH = 0; trimOne(scratch); for (let d = 0; d < depths.length; d++) { trimOne(depths[d][0]); trimOne(depths[d][1]); } gl.bindRenderbuffer(gl.RENDERBUFFER, stencil); gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, 1, 1); },

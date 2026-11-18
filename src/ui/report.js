@@ -8,9 +8,10 @@
 //   alive    sessionStorage 'pps.alive' is set at boot and cleared on pagehide. A boot that finds it still set means the last page of this tab
 //            ended without unloading, which on iOS is the memory kill: 'pps.reloads' (localStorage) goes up and the ring says so.
 import { caught } from './caught.js';
-import { overBudget, contextCount, deviceClass } from './gpu-budget.js';
+import { overBudget, contextCount, deviceClass, memoryMB, peakMB, ENVELOPES } from './gpu-budget.js';
+import { onFrameEnd } from './frame.js';
 
-const RING_KEY = 'pps.ring', ALIVE_KEY = 'pps.alive', RELOADS_KEY = 'pps.reloads', MAX = 20;
+const RING_KEY = 'pps.ring', ALIVE_KEY = 'pps.alive', RELOADS_KEY = 'pps.reloads', LAST_KEY = 'pps.last', MAX = 20;
 let ring = [], where = () => '', t0 = 0, lost = 0, errors = 0, wasKilled = false;
 
 const store = (kind) => { try { return kind === 'local' ? localStorage : sessionStorage; } catch { return null; } };   // (blocked storage: the report is then in memory only)
@@ -39,7 +40,25 @@ export function startReport(getWhere) {
     wasKilled = true;
     write('local', RELOADS_KEY, String((+read('local', RELOADS_KEY) || 0) + 1));
     note('reload', 'the last page of this tab ended without unloading (a memory kill on iOS)');
+    // (Where it was and how much the page held when its last moment was written: the slide or view, the registry's estimate now and its highest, against the envelope.)
+    try {
+      const l = JSON.parse(read('session', LAST_KEY) || 'null');
+      if (l && typeof l.where === 'string') note('last-seen', `${l.where}, GPU estimate ${l.mb} MB (highest ${l.peak}) of ${l.env}, ${l.s} s after it opened`);
+    } catch { /* a note that cannot be read is left out */ }
   }
+  // (The page's last moment, written when where it is or how much it holds changes by 10 MB, looked at twice a second while frames run: a memory kill gives no warning,
+  // so this is all the next page can say of it. 18 Nov 2026, the iPhone's tab killed on a deck's slide change with nothing recorded of where.)
+  let lastKey = '', lastAt = 0;
+  onFrameEnd((f) => {
+    if (f.now - lastAt < 500) return;
+    lastAt = f.now;
+    let w = '';
+    try { w = where() || ''; } catch { /* a view name is a nicety */ }
+    const mb = Math.round(memoryMB()), key = `${w}|${Math.round(mb / 10)}`;
+    if (key === lastKey) return;
+    lastKey = key;
+    write('session', LAST_KEY, JSON.stringify({ where: String(w).slice(0, 80), mb, peak: Math.round(peakMB()), env: `${ENVELOPES[deviceClass()].mb} MB (${deviceClass()})`, s: Math.round((f.now - t0) / 1000) }));
+  });
   write('session', ALIVE_KEY, '1');
   addEventListener('error', (e) => { errors++; caught('window:error', e.error || e.message); note('error', `${e.message || ''} ${e.filename ? e.filename.split('/').pop() : ''}:${e.lineno || 0}`); });
   addEventListener('unhandledrejection', (e) => { errors++; caught('window:rejection', e.reason); note('rejection', e.reason?.message ?? e.reason); });

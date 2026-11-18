@@ -4123,6 +4123,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       /** A layer's picture painted on the GPU from its organs' shapes (organs-gl bake): a job stepped a frame at a time, then staged. */
       bake: (slot, name, groups, rect, scale, at = 0) => stack.bake(slot, name, groups, rect, scale, at),
       dropKept: () => stack.dropKept(),
+      /** The bytes a picture w × h device px would add to the painter's targets (plate-room.js). */
+      growBytes: (w, h) => stack.painter?.growBytes?.(w, h) ?? 0,
       stats: () => stack.stats(),
       liveLayers: () => stack.liveLayers(),
       commit(slot, names) {

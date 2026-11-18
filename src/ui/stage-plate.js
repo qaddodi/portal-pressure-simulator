@@ -9,6 +9,8 @@ import { darkMQ } from './look.js';
 import { organDimMatrix } from './organ-dim.js';
 import { greyOf, paintRef, parseColor } from './organ-grey.js';
 import { readFail, readGroup as readGroupNow, readGroupRefs, targetRoom } from './organ-paint.js';
+import { freeBytes, room as room$ } from './gpu-budget.js';
+import { fitPlateView, plateBytes } from './plate-room.js';
 import { cropToGrid } from './organs-gl.js';
 import { paintBox } from './plate-copy.js';
 import { leftAlone } from './quiet.js';
@@ -478,6 +480,7 @@ export function createPlate(st, live) {
     stageScope.clear(live.plateSettle);
     live.plateSettle = stageScope.timer(settled, 280);
   }
+  const PLATE_CEILING = 1;   // (the share of the memory envelope a view's picture may fill: gpu-budget.js freeBytes, room)
   async function settled() {
     // (Not with a finger or button still down, nor within 0.28 s of the last input: it is begun once the figure is let go.)
     if (!leftAlone(280)) { live.plateSettle = stageScope.timer(settled, 120); return; }
@@ -496,21 +499,39 @@ export function createPlate(st, live) {
     // reaches a seventh, each pan's uncovered strip drawn from the copy.)
     const vw = (bx - ax) * need, vh = (by - ay) * need;
     const reach = liveOn() ? Math.max(0.15, Math.min(0.5, (Math.sqrt(4.2e6 / Math.max(1, vw * vh)) - 1) / 2, (4094 / Math.max(1, vw, vh) - 1) / 2)) : 0.15;
-    const mx = (bx - ax) * reach, my = (by - ay) * reach;
-    let x0 = Math.max(PLATE_RECT[0], ax - mx), y0 = Math.max(PLATE_RECT[1], ay - my);
-    let x1 = Math.min(PLATE_RECT[0] + PLATE_RECT[2], bx + mx), y1 = Math.min(PLATE_RECT[1] + PLATE_RECT[3], by + my);
-    if (x1 <= x0 || y1 <= y0) return;
     // (4094: the rect grows by up to a pixel each way below, and a texture side stays within 4096.) Painted on the GPU, the
     // picture is painted through the painter's targets, which hold its width and the canvas's height, or the other way round:
     // its sides are kept so those stay within the room the canvas gives them (organ-paint targetRoom). A view taller than the
     // screen and one wider made them 4096 square on an iPad at 2×, and Safari ended the page (Mohammad, 25 Oct).
     const roomW = live.picNow ? live.picNow[0] : vCanvas.width, roomH = live.picNow ? live.picNow[1] : vCanvas.height;   // (the picture's pixels: under Sharper upscaling the canvas is larger)
     const room = targetRoom(roomW, roomH);
-    const scale = Math.min(need, 4094 / (x1 - x0), 4094 / (y1 - y0), Math.sqrt(4.2e6 / ((x1 - x0) * (y1 - y0))),
-      room / (Math.max(1, roomH) * (x1 - x0)), room / (Math.max(1, roomW) * (y1 - y0)));
-    // On the scale's pixel grid (grown outward to whole pixels): two views at one scale sit whole pixels apart, so the next pan
-    // can take the pixels they share (rasterPlate).
-    x0 = Math.floor(x0 * scale) / scale; y0 = Math.floor(y0 * scale) / scale; x1 = Math.ceil(x1 * scale) / scale; y1 = Math.ceil(y1 * scale) / scale;
+    // The picture's rect and scale for a margin `rch` (a share of the view past each side) and k of the scale the pixel caps allow, null where the view is off the plate.
+    const cut = (rch, k) => {
+      const mx = (bx - ax) * rch, my = (by - ay) * rch;
+      let x0 = Math.max(PLATE_RECT[0], ax - mx), y0 = Math.max(PLATE_RECT[1], ay - my);
+      let x1 = Math.min(PLATE_RECT[0] + PLATE_RECT[2], bx + mx), y1 = Math.min(PLATE_RECT[1] + PLATE_RECT[3], by + my);
+      if (x1 <= x0 || y1 <= y0) return null;
+      const scale = k * Math.min(need, 4094 / (x1 - x0), 4094 / (y1 - y0), Math.sqrt(4.2e6 / ((x1 - x0) * (y1 - y0))),
+        room / (Math.max(1, roomH) * (x1 - x0)), room / (Math.max(1, roomW) * (y1 - y0)));
+      // On the scale's pixel grid (grown outward to whole pixels): two views at one scale sit whole pixels apart, so the next pan
+      // can take the pixels they share (rasterPlate).
+      x0 = Math.floor(x0 * scale) / scale; y0 = Math.floor(y0 * scale) / scale; x1 = Math.ceil(x1 * scale) / scale; y1 = Math.ceil(y1 * scale) / scale;
+      return { x0, y0, x1, y1, scale };
+    };
+    // (18 Nov 2026, the iPhone's tab killed on the HVPG deck's slide 5 to 6: the picture is sized by what the page can still hold, plate-room.js: the widest margin that
+    // fits, a narrower one, a smaller scale, or none and the whole plate's picture stays. Where there is room (a laptop, a tablet) this is the picture as it always was.)
+    const bytesAt = (rch, k) => {
+      const c = cut(rch, k);
+      if (!c) return Infinity;
+      const pw = Math.ceil((c.x1 - c.x0) * c.scale), ph = Math.ceil((c.y1 - c.y0) * c.scale);
+      return plateBytes(pw * ph, live.veins.organs?.growBytes?.(pw, ph) ?? 0);
+    };
+    const fit = fitPlateView({ need, reachMax: reach, reachMin: Math.min(reach, 0.15), minScale: PLATE_BASE * 1.2, bytesAt, free: (b, evict) => (evict ? room$(b, PLATE_CEILING) : freeBytes(PLATE_CEILING)) });
+    if (gpuProbe.on) gpuProbe.gauge('plate view fit', fit ? `reach ${fit.reach.toFixed(2)}, ${Math.round(fit.k * 100)} % of the scale, ${(bytesAt(fit.reach, fit.k) / 1e6).toFixed(0)} MB` : `none fits (${(freeBytes(PLATE_CEILING) / 1e6).toFixed(0)} MB free): the whole plate's picture stays`);
+    if (!fit) return;   // (the picture shown stays as it is)
+    const cutNow = cut(fit.reach, fit.k);
+    if (!cutNow) return;
+    const { x0, y0, x1, y1, scale } = cutNow;
     const key = `${live.plateKey}|${x0.toFixed(0)},${y0.toFixed(0)},${x1.toFixed(0)},${y1.toFixed(0)}|${scale.toFixed(2)}`;
     if (key === live.plateViewKey) return;
     // The picture of the view kept while it still covers what is on screen (not the margin around it) at the resolution wanted:
