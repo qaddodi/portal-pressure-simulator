@@ -2630,13 +2630,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     overAsk = 0;
     const need = overNeed;
     overNeed = false;
-    if (overChecked() || need) { overReadNow(); askAnimate(); }
+    // (Named for ?perf, 18 Nov 2026: the Treat sheet's refit showed this read at 20 to 47 ms a frame with nothing under it: the written elements' transitions, or the groups read.)
+    const eased = framePart('stage-read: over checked', overChecked);
+    if (eased || need) { framePart('stage-read: over groups', overReadNow); askAnimate(); }
   }
   // (The written elements' transitions, read in the read phase: true when one of them eases, so the groups are read again.)
   function overChecked() {
     if (!overCheck.size) return false;
     const t = performance.now();
     let eased = false;
+    if (gpuProbe.on) { let names = ''; let n = 0; for (const el of overCheck) { if (n++ < 3) names += `${names ? ', ' : ''}${overName(el)}`; } gpuProbe.gauge('overlay writes checked', `${n}: ${names}`); }
     for (const el of overCheck) { if (!el.isConnected) continue; const ms = transMs(el); if (ms > 0) { overEasing.set(el, t + ms + 50); eased = true; } }
     overCheck.clear();
     return eased;
