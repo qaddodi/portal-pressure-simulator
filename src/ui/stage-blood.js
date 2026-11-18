@@ -474,7 +474,9 @@ export function createBlood(st, live) {
       // (At idle rest the junctions' blends hold where the blood stopped: rewritten as they stand, no step taken, and a blend that was
       // still on its way does not keep the figure awake. It goes on from there when the motion comes back.)
       if (restStill()) { const was = live.bloodEasing; chainRows(0, 0, 0, dt); live.bloodEasing = was || lvEasing; }
-      else chainRows(reduceMotion.matches ? 1 : -Math.expm1(-dt / 0.25), reduceMotion.matches ? 1 : -Math.expm1(-dt / 1), reduceMotion.matches ? 1 : -Math.expm1(-dt / HEAD_EASE), reduceMotion.matches ? 1e9 : dt);
+      // (Paused, the parcels' links ease in about a second, not nine: the blood stands still, so what is left of the eases is only a pattern settling into place, and a paused figure
+      // that draws for nine seconds after the Pause (Cirrhosis picked, then paused: 21 to 25 pictures a second at 16 s) looks unfinished and costs the battery. 18 Nov 2026.)
+      else chainRows(reduceMotion.matches ? 1 : -Math.expm1(-dt / (moving ? 0.25 : 0.08)), reduceMotion.matches ? 1 : -Math.expm1(-dt / (moving ? 1 : 0.12)), reduceMotion.matches ? 1 : -Math.expm1(-dt / HEAD_EASE), reduceMotion.matches ? 1e9 : dt);
     }
     live.veins.setHeadRuns?.(headRuns);   // (every step: the heads' level eases at rest too; veins-gl sends only what changed)
     const retired = retireRows(flowData, flowWas, flowNow, FLOW_TEXELS * 4);
