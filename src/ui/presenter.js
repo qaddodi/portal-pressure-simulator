@@ -2229,6 +2229,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       await calmFrames({ smooth, alive: () => !!ui });   // (cover-lift.js: the cover's fade is on the clock too: it lifts on smooth frames, as the cards' fades do)
     }
     clearTimeout(coverT); booting = false;
+    // (The cards fade in with the veil leaving, on card-throw.js's clock, in the task that shows them: they came in under the cover unseen, whole, and showed at once as it lifted. 17 Nov 2026, the
+    // tester: the first panel and the title at opacity 0 and then 1 in one step. Hidden until here so no words show through the loader's own; written at 0 before they show, so none is seen whole first.)
+    if (ui && !now && !reduce.matches) for (const el of [ui.shade, ui.text, ui.data, ui.panel]) if (el && !el.hidden && (el === ui.shade ? !ui.text.hidden && ui.text.childElementCount : el.childElementCount) && !throwing(el) && !el.classList.contains('pz-leave') && !el.classList.contains('pz-hide')) throwFade(el, 0, D_SMALL);   // alloc-rare: boot cover: once per load (the glass with its words)
     document.documentElement.classList.remove('pz-covered');   // (the cards show as the cover fades off them: it is 90 % opaque, so they come up with it, whole, never popping)
     const c = cover; cover = null;
     if (!c) return;

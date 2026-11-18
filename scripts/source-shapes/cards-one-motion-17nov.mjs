@@ -19,4 +19,5 @@ export default [
   { file: 'src/ui/card-throw.js', need: [/cardMoveFor\(ms \+ delay \+ 120\);/, `${W} a deck card's throw says how long it runs, so the presolve waits for it`] },
   { file: 'src/ui/card-throw.js', need: [/r\.v \+= Math\.min\(Math\.max\(0, now - r\.last\), STALL_MAX\); r\.last = now;/, `${W} a long frame holds a card's move where it stood: the move's clock goes on by at most STALL_MAX a frame`] },
   { file: 'src/ui/stage-morph.js', need: [/inMotion\(\) \|\| cardMoveLeft\(\) > 0/, `${W} the view switch's pieces are not built inside a card's entrance or exit`] },
+  { file: 'src/ui/presenter.js', need: [/throwFade\(el, 0, D_SMALL\);   \/\/ alloc-rare: boot cover: once per load/, `${W} the first slide's cards fade in with the cover leaving, on the throw clock, not all at once as the cover lifts`] },
 ];
