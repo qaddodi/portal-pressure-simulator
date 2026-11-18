@@ -1,6 +1,6 @@
 // The change between the views on the GPU: the morph pieces, their binning ahead in a worker, and the frames of the change.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { cancelMay, inMotion, settling, mayTask, mayWaiting, settleGate } from './frame.js';
+import { cancelMay, settling, cameraMoving, mayTask, mayWaiting, settleGate } from './frame.js';
 import { cardMoveLeft } from './card-motion.js';
 import { sinceInput, handDown } from './quiet.js';
 import { lerp } from './util.js';
@@ -316,7 +316,7 @@ export function createMorph(st, live) {
     // change between the views under way is built for, not held.)
     // (The anatomy's and the circuit's pieces are for a switch between those two views: not built while the lobule is opening or open, where one slice of them ran 679 ms inside its entrance, 17 Nov 2026.)
     if (live.lobuleOn || live.diveWait || live.diveT > 0) { mayTask(TRACK_TAG, morphTrackStep, { notBefore: performance.now() + 250 }); return false; }
-    if (live.morph === live.morphTarget && (inMotion() || cardMoveLeft() > 0 || handDown() || (sinceInput() < 700 && bd.held < 12))) {   // (a drag in the hand holds it for as long as it lasts, 18 Nov 2026, the tester at 390 px: pieces ran 63 and 99 ms mid-way through a slider's drag, past twelve looks)
+    if (live.morph === live.morphTarget && (settling() || cameraMoving() || live.vtGliding || cardMoveLeft() > 0 || handDown() || (sinceInput() < 700 && bd.held < 12))) {   // (a drag in the hand holds it for as long as it lasts, 18 Nov 2026, the tester at 390 px: pieces ran 63 and 99 ms mid-way through a slider's drag, past twelve looks; and a slide change (beginChange) and the camera's glide: pieces ran 117 ms in a deck jump and 218 ms in a swipe, the same day)
       // (a card coming or going holds it too: it is built for after, card-motion.js)
       bd.held++;
       mayTask(TRACK_TAG, morphTrackStep, { notBefore: performance.now() + 120 });

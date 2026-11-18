@@ -249,3 +249,22 @@ test('a piece is prepared in steps, one unit each, and every piece is prepared o
   assert.equal(m.mt.stats.last.bad, 0);
   cancelMay('view-switch pieces');
 });
+
+test('no slice of the pieces runs while a slide change or the camera\'s glide goes on (the tester: pieces ran 117 ms in a deck jump and 218 ms in a swipe)', async () => {
+  const { beginChange } = await import('../src/ui/frame.js');
+  const { m, live } = boot({ joins: 0, set: 0, prep: 90, steps: 3 });
+  m.morphTrackSoon();
+  await frames(60);
+  const before = m.mt.build ? m.mt.build.slices : -1;
+  const end = beginChange();
+  await frames(1500);
+  assert.equal(m.mt.build ? m.mt.build.slices : -1, before, 'a slide change holds the build');
+  end();
+  live.vtGliding = true;
+  await frames(1500);
+  assert.equal(m.mt.build ? m.mt.build.slices : -1, before, 'the camera\'s glide holds it too');
+  live.vtGliding = false;
+  await frames(6000);
+  assert.equal(ready(m), 6, 'and it goes on, whole, once both are over');
+  cancelMay('view-switch pieces');
+});
