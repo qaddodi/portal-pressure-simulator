@@ -36,6 +36,8 @@
     "src/ui/gallery/benches/index.js → ./looks-table.js": "the card gallery page only (?gallery on the preview copy): read in when its bench is opened from the page's rail; the live app never loads the gallery",
     "src/ui/gallery/benches/index.js → ./words-dump.js": "the card gallery page only (?gallery on the preview copy): read in when its bench is opened from the page's rail; the live app never loads the gallery",
     "src/ui/gallery/benches/index.js → ./model-table.js": "the card gallery page only (?gallery on the preview copy): read in when its bench is opened from the page's rail; the live app never loads the gallery",
-    "src/ui/gallery/benches/index.js → ./glyph-atlas.js": "the card gallery page only (?gallery on the preview copy): read in when its bench is opened from the page's rail; the live app never loads the gallery"
+    "src/ui/gallery/benches/index.js → ./glyph-atlas.js": "the card gallery page only (?gallery on the preview copy): read in when its bench is opened from the page's rail; the live app never loads the gallery",
+    "src/ui/gallery/benches/glyph-atlas.js → ../../glyph-data.js": "the card gallery page only (?gallery on the preview copy): read in when its bench opens, on a tap in the debug page; the live app never loads the gallery",
+    "src/ui/gallery/benches/memory-loop.js → ../../report.js": "the card gallery page only (?gallery on the preview copy): read in when its bench opens, on a tap in the debug page; the live app never loads the gallery"
   }
 }

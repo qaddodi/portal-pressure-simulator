@@ -159,10 +159,10 @@ export default {
       flagBox.replaceChildren(flagged.length
         ? table(['Deck', 'Slide', 'Field', 'Rule', 'Words'], flagged.slice(0, st.flagShown).map((r) => [r.deckTitle, `${r.n || ''} ${r.slide}`.trim(), r.path, r.flags.map((f) => `${f.rule}: "${f.match}" (${f.fix})`).join('\n'), r.text]))
         : h('p', { class: 'gb-ok' }, 'No wording rule is broken in these strings.'));
-      flagMore.hidden = flagged.length <= st.flagShown;
+      flagMore.hidden = flagged.length <= st.flagShown;   // off-screen: a control of the debug page, not a card
       const shown = rows.slice(0, st.shown);
       pre.textContent = formatDump(shown, { group: st.group }) || 'Nothing matches.';
-      more.hidden = rows.length <= st.shown;
+      more.hidden = rows.length <= st.shown;   // off-screen: a control of the debug page, not a card
       dumpHead.textContent = `The words (${shown.length} of ${rows.length} shown; Copy gives all ${rows.length})`;
       copyFlags.disabled = !flagged.length;
       copyAll.disabled = !rows.length;

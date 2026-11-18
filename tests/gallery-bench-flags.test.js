@@ -107,7 +107,7 @@ test('the flags the app reads are all listed, and each has a meaning', () => {
       for (const m of line.matchAll(/\[\?&\]\(?(?:\?:)?([a-z]+(?:\|[a-z]+)*)/g)) for (const w of m[1].split('|')) found.add(w);
     }
   }
-  const NOT_DIAGNOSTIC = new Set(['presenter']);   // (?presenter-view: the presenter's second window, not a diagnostic)
+  const NOT_DIAGNOSTIC = new Set(['presenter', 'gallery']);   // (?presenter-view: the presenter's second window; ?gallery: the page these benches live in, kept by withFlag. Neither is a diagnostic)
   for (const w of found) assert.ok(ids.includes(w) || NOT_DIAGNOSTIC.has(w), `?${w} is read by the app but not listed in flags.js`);
 });
 

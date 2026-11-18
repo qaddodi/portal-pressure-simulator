@@ -94,7 +94,7 @@ export default {
     const nSel = h('select', { 'aria-label': 'Cycles' }, CYCLE_CHOICES.map((n) => h('option', { value: n, selected: n === DEFAULT_CYCLES }, `${n} cycles`)));
     const slideRow = h('div', { class: 'gb-row' }, h('span', { class: 'gb-note' }, 'Deck'), deckSel, h('span', { class: 'gb-note' }, 'slide'), fromIn, h('span', { class: 'gb-note' }, 'to'), toIn);
     const viewRow = h('div', { class: 'gb-row', hidden: true }, h('span', { class: 'gb-note' }, 'Views'), viewSel);
-    const showKind = () => { const v = kindSel.value === 'views'; viewRow.hidden = !v; slideRow.hidden = v; };
+    const showKind = () => { const v = kindSel.value === 'views'; viewRow.hidden = !v; slideRow.hidden = v; };   // off-screen: a control of the debug page, not a card
     kindSel.addEventListener('change', showKind);
 
     // ── the table ──
