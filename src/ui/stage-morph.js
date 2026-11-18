@@ -286,7 +286,7 @@ export function createMorph(st, live) {
     // ('prepare 2 (patches)': a prepare step by its own name in the readout, estimated as 'prepare' as ever: the Compare stop's readout showed 'prepare' as one 270 ms unit, 18 Nov 2026.)
     const est = kind.startsWith('prepare') ? 'prepare' : kind;
     unitEst[est] = unitEst[est] == null ? ms : Math.max(unitEst[est] * 0.8, ms);
-    for (const k of est === kind ? [kind] : [kind, est]) {   // (the steps' own names beside the whole's)
+    for (const k of est === kind ? [kind] : [est, kind]) {   // (the steps' own names beside the whole's)
       const u = mt.stats.units[k] || (mt.stats.units[k] = { n: 0, ms: 0, max: 0 });   // alloc-rare: once per kind of unit (and a prepare step)
       u.n++; u.ms += ms; if (ms > u.max) u.max = ms;
     }

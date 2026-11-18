@@ -2702,8 +2702,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // callouts, cards) for the NEXT frame (frame.js: a callback asked for while the frame runs waits), while this pass draws the vessels at
     // the new view: the figure's names and their lines trailed it by a frame, "they don't stick" (Mohammad, 2 Nov 2026, the TIPS animation).
     // Still waiting here, it runs first, so the labels, the lines and the vessels are all drawn for the same view in this frame.
-    if (viewRaf) { cancelFrame(viewRaf); syncView(); }
-    cathLabelsNow();
+    if (viewRaf) { cancelFrame(viewRaf); framePart('stage: sync view', syncView); }
+    framePart('stage: catheter labels', cathLabelsNow);
     // The blood moves by elapsed time, so speeds and transitions are the same at any frame rate.
     // (Render-cost plan 1: the page hidden, the home screen or the presenter's black screen over the stage, seen.js: nothing is drawn.)
     if (stageCovered()) { lastT = flowGate = now; trimVeins(); sleep(); return; }
@@ -2779,6 +2779,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // none. It was laid here first, ahead of the draw, so a frame of both laid the picture twice.)
     const overAt = OVER_ON && veins?.top ? veins.top.presents : -1;
     const rowsWait = veinsRows.size > 0 && !!veins && !veins.lost && !!vLook && !!F;
+    // (?perf: a still figure that is drawn anyway says which of the sleep's conditions held it awake, 'figure drawn though still: <condition>', counted.)
+    if (gpuProbe.on && still) {
+      const why = [['veinsDirty', veinsDirty], ['rows waiting', rowsWait], ['glow sync', glowSync], ['outlines dirty', glLines && olDirty], ['marks stale', glLines && marksStale()], ['outlines fading', glLines && olFading()], ['map easing', mapEasing()], ['clamp fading', clampFading()], ['marks moving', markA.moving()], ['widths easing', widthEasing], ['blood easing', bloodEasing], ['plate easing', plateEasing()], ['spray fading', sprayFading()], ['organs fading', !!veins?.organs?.fading], ['lens', !!lensFrom], ['colours easing', colEasing], ['ascites', ascShown !== ascTarget], ['morph', morph !== morphTarget], ['turn', rotU !== rotTarget], ['no still key drawn', !keyDrawn.on], ['still key differs', keyDrawn.on && !sameStill(keyNow, keyDrawn)], ['model frame changed', !fSame], ['camera matrix object changed', CTM !== lastDrawCTM], ['reveal', anyReveal()]].find((c) => c[1]);
+      if (why) gpuProbe.note(`figure drawn though still: ${why[0]}`);
+    }
     if (still && !veinsDirty && !rowsWait && !glowSync && !(glLines && olDirty) && (!glLines || !marksStale()) && !(glLines && olFading()) && !mapEasing() && !clampFading() && !markA.moving() && !widthEasing && !bloodEasing && !plateEasing() && !sprayFading() && !veins?.organs?.fading && !lensFrom && !colEasing && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && keyDrawn.on && sameStill(keyNow, keyDrawn) && fSame && CTM === lastDrawCTM && !anyReveal()) { overAlone(overAt); sleep(); return; }
     framePart('stage: plate ease', stepPlateEase);
     framePart('stage: map', stepMap, dt);
@@ -2787,14 +2792,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       morph = viewClock.tick(now);
       // (The camera is on the change's clock: its framing is the share of the way the figure has come.)
       if (viewXf && !viewXf.same) { const u = viewXfCamU(viewXf, viewXfP()); const sb = stageBox(); writeVT(u >= 1 ? { ...viewXf.to } : viewXfCameraInto(viewXf, u, viewBoxAt(easeInOut(morph), rotEase(rotU), VB_ANAT, VB_CIRC, VB_CIRC_R, xfBoxNow), viewBoxAt(morphTarget, rotEase(rotU), VB_ANAT, VB_CIRC, VB_CIRC_R, xfBoxEnd), sb.sw, sb.sh, { k: 1, x: 0, y: 0 })); viewVersion++; }   // (the camera moved: a view move, never paced like the model's motion)
-      if (F) update(F); else updateGeometry(true);
-      if (viewXf) viewXfStep();
-    } else if (widthEasing && F && !stepOrgans() && !stepWidths()) update(F);   // a width still easing to its target: one step a frame (stepWidths: the widths alone, when nothing else changed)
+      if (F) framePart('stage: update (view change)', update, F); else updateGeometry(true);
+      if (viewXf) framePart('stage: view change step', viewXfStep);
+    } else if (widthEasing && F && !stepOrgans() && !stepWidths()) framePart('stage: update (widths)', update, F);   // a width still easing to its target: one step a frame (stepWidths: the widths alone, when nothing else changed)
     if (rotU !== rotTarget) {
       turnClock.sync(rotU); turnClock.aim(rotTarget);
       rotU = turnClock.tick(now);
-      setViewBox(easeInOut(morph));
-      rotStep();   // (stage-fit.js: a held view keeps its spot; a whole one glides to the turned framing, rec 8)
+      framePart('stage: turn', rotStepNow);   // (stage-fit.js: a held view keeps its spot; a whole one glides to the turned framing, rec 8)
     }
     framePart('stage: reveals', stepReveals, now);
     framePart('stage: rest', stepRest, dt);
@@ -2814,7 +2818,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (fluidMoved || morph !== morphTarget || rotU !== rotTarget || widthEasing || bloodEasing || plateEasing() || veinsDirty || veinsRows.size > 0 || glowSync || sprayFading() || bolus.active || lensFrom || colEasing || !!veins?.organs?.fading) busyAt = now;
     if (morph !== morphTarget || rotU !== rotTarget || sprayFading() || bolus.active || lensFrom || plateEasing() || !!veins?.organs?.fading) restAt = now;   // (motion of the figure itself, not the model's own updates)
     if (framePart('stage: draw vessels', drawVeins, fluidMoved)) { busyAt = now; noteDraw('stage'); swYield?.drew(now); }
-    else if (veins && !veins.lost && vLook && F && veins.composite(vLook, bloodLook(), fluidMoved) !== false) { noteDraw('stage'); swYield?.drew(now); }
+    else if (veins && !veins.lost && vLook && F && framePart('stage: composite', compositeNow, vLook, bloodLook(), fluidMoved) !== false) { noteDraw('stage'); swYield?.drew(now); }
     framePart('stage: overlays present', overAlone, overAt);
     drawnView = viewVersion;
     if (still) copyKey(keyNow, keyDrawn); else keyDrawn.on = false;
@@ -2827,6 +2831,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   askAnimate();
   // The overlays changed and the frame's draw laid no picture (`at`: how many pictures had been laid when the frame began): laid alone.
   const pinDrawNow = () => labelGL.pinDraw();
+  const compositeNow = (a, b, c) => veins.composite(a, b, c);
+  const rotStepNow = () => { setViewBox(easeInOut(morph)); rotStep(); };
   function overAlone(at) { if (at >= 0 && veins?.overlay?.stale && !veins.lost && veins.top.presents === at) veins.present(); }
   // Nothing to draw: the loop stops asking for frames (so the screen can idle) until something changes, and looks
   // again once a second in case a change came by a path that does not wake it. (The store, the page's visibility, the

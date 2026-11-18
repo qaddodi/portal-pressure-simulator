@@ -8,6 +8,7 @@ import { bandRing, dashRings, normalShown } from './highlight-math.js';
 import { darkMQ } from './look.js';
 import { markFade } from './mark-fade.js';
 import { smooth01 } from './motion.js';
+import { framePart } from './frame.js';
 import { restPass } from './rest-pass.js';
 import { measurePath } from './shape-gl.js';
 import { store } from './store.js';
@@ -590,6 +591,41 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
     for (let k = 0; k < 6; k++) { const m = (lo + hi) / 2; wmPoint(i - 1, i, m); if (wmAtOk === wasOk) lo = m; else hi = m; }
     wmPoint(i - 1, i, wasOk ? lo : hi);
   }
+  // (One warm layer's strips, laid out into V: its own named part of the frame, as an outline's rebuild ran 666 ms in one of them, 18 Nov 2026.)
+  function warmBuild(o, V) {
+    const mt = gMatrix(organG[o.id]), rad = warmR(o.id) * (mt ? Math.hypot(mt.a, mt.b) : 1), reachMax = Math.min(63, WARM.reach, 0.8 * rad);   // (under the tube's half width, whatever the drawing)
+    const cm = o.id === 'colon' ? null : gMatrix(organG.colon);
+    wmV = V; wmRad = rad; wmReachMax = reachMax; wmInv = cm?.inverse() || null; wmGrid = o.id === 'colon' ? null : colonMask;
+    o.runs.length = 0;
+    const seen = warmVis(o.id);
+    for (let ri = 0; ri < o.rings.length; ri++) {
+      const r = o.rings[ri];
+      wmVis = seen[ri]; wmRing = r;
+      const n = r.length, tg = wmTg, R = wmR, cs = wmCs;
+      for (let i = 0; i < n; i++) {
+        const pa = r[Math.max(0, i - 1)], pb = r[Math.min(n - 1, i + 1)];
+        let tx = pb[0] - pa[0], ty = pb[1] - pa[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l; tg[2 * i] = tx; tg[2 * i + 1] = ty;
+        const i0 = Math.max(0, i - 2), i1 = Math.min(n - 1, i + 2), ax = r[i][0] - r[i0][0], ay = r[i][1] - r[i0][1], bx = r[i1][0] - r[i][0], by = r[i1][1] - r[i][1];
+        const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by), th = Math.atan2(ax * by - ay * bx, ax * bx + ay * by);
+        R[i] = Math.fround(la < 0.5 || lb < 0.5 || Math.abs(th) < 1e-3 ? 1e9 : (la + lb) / 2 / Math.abs(th));
+        cs[i] = th > 0 ? 1 : -1;   // (the side the bend turns toward)
+      }
+      for (let si = 0; si < 2; si++) {
+        wmSide = si ? 1 : -1;
+        wmRun.length = 0;
+        let prevOk = false;
+        for (let i = 0; i < n; i++) {
+          wmPoint(i, i, 0);
+          if (wmAtOk) {
+            if (i > 0 && !prevOk) { wmCut(i, false); wmPush(); wmPoint(i, i, 0); }
+            wmPush();
+          } else { if (prevOk) { wmCut(i, true); wmPush(); wmPoint(i, i, 0); } wmEnd(o); }
+          prevOk = wmAtOk;
+        }
+        wmEnd(o);
+      }
+    }
+  }
   function olStep(now) {
     const cdu = Math.min(1, (now - live.clampLast) / CLAMP_FADE);
     live.clampLast = now;
@@ -612,7 +648,7 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
     }
     live.markLast = now;
     if (stentMoved) { stentMoved = false; clampMoved = true; }
-    live.marksSync();
+    framePart('outlines: marks', live.marksSync);
     if (!glLines || (!live.olDirty && !live.olList.length && !live.mk.dirty && !clampMoved && !nd.dirty)) return false;
     const dt = now - live.olLast;
     live.olLast = now;
@@ -637,40 +673,7 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
       // outside the organ's outline (warmVis). Left off where the colon lies over the pile; on the inside of a tight bend the glow is
       // held short of the bend's centre (its reach follows the room there) and dropped where there is none, so it never folds back.
       if (o.kind === 'warm') {
-        if (V) {
-          const mt = gMatrix(organG[o.id]), rad = warmR(o.id) * (mt ? Math.hypot(mt.a, mt.b) : 1), reachMax = Math.min(63, WARM.reach, 0.8 * rad);   // (under the tube's half width, whatever the drawing)
-          const cm = o.id === 'colon' ? null : gMatrix(organG.colon);
-          wmV = V; wmRad = rad; wmReachMax = reachMax; wmInv = cm?.inverse() || null; wmGrid = o.id === 'colon' ? null : colonMask;
-          o.runs.length = 0;
-          const seen = warmVis(o.id);
-          for (let ri = 0; ri < o.rings.length; ri++) {
-            const r = o.rings[ri];
-            wmVis = seen[ri]; wmRing = r;
-            const n = r.length, tg = wmTg, R = wmR, cs = wmCs;
-            for (let i = 0; i < n; i++) {
-              const pa = r[Math.max(0, i - 1)], pb = r[Math.min(n - 1, i + 1)];
-              let tx = pb[0] - pa[0], ty = pb[1] - pa[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l; tg[2 * i] = tx; tg[2 * i + 1] = ty;
-              const i0 = Math.max(0, i - 2), i1 = Math.min(n - 1, i + 2), ax = r[i][0] - r[i0][0], ay = r[i][1] - r[i0][1], bx = r[i1][0] - r[i][0], by = r[i1][1] - r[i][1];
-              const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by), th = Math.atan2(ax * by - ay * bx, ax * bx + ay * by);
-              R[i] = Math.fround(la < 0.5 || lb < 0.5 || Math.abs(th) < 1e-3 ? 1e9 : (la + lb) / 2 / Math.abs(th));
-              cs[i] = th > 0 ? 1 : -1;   // (the side the bend turns toward)
-            }
-            for (let si = 0; si < 2; si++) {
-              wmSide = si ? 1 : -1;
-              wmRun.length = 0;
-              let prevOk = false;
-              for (let i = 0; i < n; i++) {
-                wmPoint(i, i, 0);
-                if (wmAtOk) {
-                  if (i > 0 && !prevOk) { wmCut(i, false); wmPush(); wmPoint(i, i, 0); }
-                  wmPush();
-                } else { if (prevOk) { wmCut(i, true); wmPush(); wmPoint(i, i, 0); } wmEnd(o); }
-                prevOk = wmAtOk;
-              }
-              wmEnd(o);
-            }
-          }
-        }
+        if (V) framePart(`outlines: warm layer ${o.id}`, warmBuild, o, V);
         for (let ci = 0; ci < o.runs.length; ci++) { const c = o.runs[ci]; olDraw(first, c, col, WARM.alpha * ease, true, true); first += c; }
         continue;
       }
