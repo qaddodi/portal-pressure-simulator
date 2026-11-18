@@ -8,6 +8,7 @@ import { newJoinStore } from './vein-joins.js';
 import { ENT_W } from './veins-bin.js';
 import { sweptRowBoxes } from './tube-cull.js';
 import { flatPath } from './veins-sweep.js';
+import { gpuProbe } from './gpu-probe.js';
 
 export function createMorph(st, live) {
   const { BLOOD_PAD, EV, GL_ROWS, N_SAMPLES, cavaAsOne, cbAt, edgeVisible, geo, itemRadii, reachOf, strandAt, veinJoins, veinJoinsStep: joinsStep, vesselAt, wrap } = st;
@@ -115,14 +116,18 @@ export function createMorph(st, live) {
   // first depends on the widths. Those a frame does not have are written as reaching nothing. (Made ahead, between frames, never in one.)
   // (In two parts a caller may run in separate slices (18 Nov 2026, the Compare stop's longest unit: 'joins own' at 94.3 ms): the joins within the limit, then the contacts the
   // pass meant and the run-on state they leave, which the vessels' smoothing reads at once, so these two stay together. Each scales the radii to the moment's widths on its own.)
-  function atWidths(items, t, fn) {
+  // (`kept`: the job's scaled radii, made once on the first slice and set in again by each later one: every slice of a job copied every vessel's radii again (a map over
+  // each item's glR), a few hundred small arrays per call and 179 calls in a Compare stop's 'joins all (reach)', whose longest unit ran 102 ms, 18 Nov 2026.)
+  function atWidths(items, t, fn, kept = null) {
     // alloc-rare: made ahead of the change, in a task between frames (the stretches' build), never in a frame
     const gs = live.glStraight, gd = live.glRadDirty, gst = live.glStore, nLent = lendRadii(items), saved = [];
     try {
       for (const it of items) {
         const o = it.obj, k = widthRatio(it.x, t);
         saved.push(o, o.glR, o.glMaxR);
-        o.glR = o.glR.map((r) => r * k); o.glMaxR *= k;
+        let sc = kept?.get(it);
+        if (!sc) { sc = { r: o.glR.map((r) => r * k), m: o.glMaxR * k }; kept?.set(it, sc); }   // alloc-rare: once per item of a job
+        o.glR = sc.r; o.glMaxR = sc.m;
       }
       try { return fn(); } finally {
         for (let i = 0; i < saved.length; i += 3) { saved[i].glR = saved[i + 1]; saved[i].glMaxR = saved[i + 2]; }
@@ -133,18 +138,19 @@ export function createMorph(st, live) {
   // 3 ms are used), then the joins themselves the same way, then the smoothing, the reach and the merge in one. Each slice scales the radii to the moment's widths on its own (atWidths).
   // The run-on state the smoothing reads is the pairs the joins left in their own store, set for it, so no other pass between the units can change it.
   const stepJoins = joinsStep || ((items, store, margin) => { veinJoins(items, store, margin); return true; });
-  const joinsJob = (items, t) => ({ items, t, wide: { st: newJoinStore(), done: false }, main: { st: newJoinStore(), done: false }, res: null });
+  const joinsJob = (items, t) => ({ items, t, kept: new Map(), wide: { st: newJoinStore(), done: false }, main: { st: newJoinStore(), done: false }, res: null });
   /** One unit of the job: 'reach', 'joins' or 'smooth' (the last leaves job.res = { J, smooth, reach }). */
   function joinsJobStep(job) {
-    const { items, t } = job;
-    if (!job.wide.done) { job.wide.done = atWidths(items, t, () => stepJoins(items, job.wide.st, MORPH_NEAR, performance.now() + 3)); return 'reach'; }
-    if (!job.main.done) { job.main.done = atWidths(items, t, () => stepJoins(items, job.main.st, 0, performance.now() + 3)); return 'joins'; }
+    const { items, t, kept } = job;
+    if (!job.wide.done) { job.wide.done = atWidths(items, t, () => stepJoins(items, job.wide.st, MORPH_NEAR, performance.now() + 3), kept); return 'reach'; }
+    if (!job.main.done) { job.main.done = atWidths(items, t, () => stepJoins(items, job.main.st, 0, performance.now() + 3), kept); return 'joins'; }
     job.res = atWidths(items, t, () => {
       const st = job.main.st, J = st.out.slice(), have = J.slice();
       for (const j of job.wide.st.out) if (!have.some((h) => h.key === j.key && (h.x - j.x) ** 2 + (h.y - j.y) ** 2 < 1600)) J.push(j);
       live.glStraight = st.straight; live.glStore = st;
       return { J, smooth: live.smoothRunOn(items, st), reach: new Map(items.map((it) => [it.row, reachOf(it)])) };
-    });
+    }, kept);
+    job.kept = null;   // (the scaled radii are not held on to once the job is done)
     return 'smooth';
   }
   const JOB_KIND = { reach: ' (reach)', joins: '', smooth: ' (smooth)' };
@@ -448,11 +454,14 @@ export function createMorph(st, live) {
   }
   // A stretch's courses, joins and reach from its moments (snaps), and its binning made in the worker: the change between the views
   // (morphTrackBuild) and a coil or a varix's spread easing at rest (envCheck). `more`: reach a vessel had elsewhere, kept.
+  const sendWorst = { tot: 0, at: 0 };
   function sweepPiece(pc, snaps, more) {
+    const ts0 = gpuProbe.on ? performance.now() : 0;
     pc.reach = new Map(snaps[0].items.map((it) => [it.row, Math.ceil(Math.max(live.vBinReach.get(it.row) || 0, more?.get(it.row) || 0, ...snaps.map((sn) => sn.reach.get(it.row) || 0)) * 1.25 / 2) * 2]));
     // (A course as the side's own vessels smooth it where it is one of them: the vessels only the other side shows change which ends run on.)
     pc.path = new Map(snaps[0].items.map((it) => [it.row, snaps.map((sn) => sn.own.get(it.row) || sn.smooth.get(it.row) || sn.items.find((o) => o.row === it.row).pts)]));
     pc.pathRows = Array.from(pc.path.keys());   // (the rows of the stretch, listed once for the frames that draw from it)
+    const ts1 = gpuProbe.on ? performance.now() : 0;
     // (The joins come and go as the vessels' ends move (veinJoins finds them by where the ends lie): every join of any moment, each
     // binned along its centres at the moments it is there; a frame lists the ones it has, the rest written as reaching nothing.)
     // (Joins of the same vessels at two places, a strand's two ends on its varix, are told apart by where they lie.)
@@ -469,10 +478,17 @@ export function createMorph(st, live) {
     pc.jof = U.map((u) => u.j);
     pc.jpath = U.map((u) => u.path);
     pc.jreach = U.map((u) => u.reach * 1.5 + 6);
+    const ts2 = gpuProbe.on ? performance.now() : 0;
     // (Each vessel's moments sent as one typed array, not nested pairs: the clone of those ran 44.4 ms of the Compare stop's 'send' unit on the main thread. veins-sweep.js tubesFromFlat.)
     const tubes = snaps[0].items.map((it) => { const r = pc.reach.get(it.row), path = pc.path.get(it.row); return { id: it.row, flat: flatPath(path), np: path.length, n: path[0].length, reach: r, core: r - 18 + BLOOD_PAD }; });
     const joins = U.map(({ j }, ji) => ({ path: pc.jpath[ji], reach: pc.jreach[ji] + MORPH_JSLACK - MORPH_SLACK, k: j.k, fillet: j.fillet, members: j.members, trunk: j.trunk, fork: j.fork }));
-    return live.sweepBin({ tubes, joins, opts: { rows: GL_ROWS, samples: N_SAMPLES, slack: MORPH_SLACK, tight: !!pc.tight } });
+    const ts3 = gpuProbe.on ? performance.now() : 0;
+    const sent = live.sweepBin({ tubes, joins, opts: { rows: GL_ROWS, samples: N_SAMPLES, slack: MORPH_SLACK, tight: !!pc.tight } });
+    if (gpuProbe.on) {   // (18 Nov 2026, the Compare stop: 'send' 96 ms in 7 runs: the worst of the last 20 s, by its four parts)
+      const t4 = performance.now(), tot = t4 - ts0;
+      if (tot >= sendWorst.tot || t4 - sendWorst.at > 20000) { sendWorst.tot = tot; sendWorst.at = t4; gpuProbe.gauge('view switch send: worst', `${tot.toFixed(1)} ms = courses ${(ts1 - ts0).toFixed(1)}, joins ${(ts2 - ts1).toFixed(1)}, arrays ${(ts3 - ts2).toFixed(1)}, post ${(t4 - ts3).toFixed(1)} (${tubes.length} vessels, ${joins.length} joins)`); }
+    }
+    return sent;
   }
   function setOf(pc, b) {
     // (R1b-13, 15 Nov 2026: the Tube leaves out the rows whose box lies outside its layer, in the change between the views too: each row's box over every moment of the stretch, grown by the slack.)

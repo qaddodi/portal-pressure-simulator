@@ -3,6 +3,7 @@
 import { gpuProbe } from './gpu-probe.js';
 import { darkMQ } from './look.js';
 import { transformOf } from './svg-gl.js';
+import { earClip } from './ear-clip.js';
 
 /**
  * The matrix [a b c d e f] that takes an element's own coordinates to the overlay's: the transforms of the element and of every group above it, outer first, up to `stop`.
@@ -129,39 +130,9 @@ export function createMarks(st) {
     out[0] = k[0] / 255; out[1] = k[1] / 255; out[2] = k[2] / 255; out[3] = a * (k.length > 3 ? k[3] : 1);
     return true;
   }
-  // Ear clipping: the triangles of a simple polygon (counter-clockwise or not), as indices of the points of P (flat, n points), in ecOut,
-  // three to a triangle; the winding's sign returned.
-  const ecIdx = [], ecOut = [];
-  let ecSgn = 1;
-  const ecCross = (P, a, b, c) => ((P[2 * b] - P[2 * a]) * (P[2 * c + 1] - P[2 * a + 1]) - (P[2 * b + 1] - P[2 * a + 1]) * (P[2 * c] - P[2 * a])) * ecSgn;
-  const ecInside = (P, p, a, b, c) => ecCross(P, a, b, p) >= 0 && ecCross(P, b, c, p) >= 0 && ecCross(P, c, a, p) >= 0;
-  function earcut(P, n) {
-    const idx = ecIdx, out = ecOut;
-    idx.length = 0; out.length = 0;
-    for (let i = 0; i < n; i++) idx.push(i);
-    let area = 0;
-    for (let i = 0; i < n; i++) { const j = (i + 1) % n; area += P[2 * i] * P[2 * j + 1] - P[2 * j] * P[2 * i + 1]; }
-    const sgn = area > 0 ? 1 : -1;
-    ecSgn = sgn;
-    let guard = n * n;
-    while (idx.length > 3 && guard-- > 0) {
-      let cut = false;
-      for (let i = 0; i < idx.length; i++) {
-        const ia = idx[(i + idx.length - 1) % idx.length], ib = idx[i], ic = idx[(i + 1) % idx.length];
-        if (ecCross(P, ia, ib, ic) <= 0) continue;
-        let blocked = false;
-        for (let q = 0; q < idx.length; q++) { const j = idx[q]; if (j !== ia && j !== ib && j !== ic && ecInside(P, j, ia, ib, ic)) { blocked = true; break; } }
-        if (blocked) continue;
-        out.push(ia, ib, ic);
-        for (let q = i; q < idx.length - 1; q++) idx[q] = idx[q + 1];
-        idx.length--;
-        cut = true; break;
-      }
-      if (!cut) break;
-    }
-    if (idx.length === 3) out.push(idx[0], idx[1], idx[2]);
-    return sgn;
-  }
+  // Ear clipping (ear-clip.js): the triangles of a simple polygon, as indices of the points of P (flat, n points), in ecOut, three to a triangle; the winding's sign returned.
+  const ecOut = [];
+  const earcut = (P, n) => earClip(P, n, ecOut);
   // The marks' build: the vertices written into one kept list (mkV), the draws into a kept pool (two, taken in turn: the list the GPU
   // was last given keeps the draws of the build before until olStep writes it afresh), a stroke as a strip of mitred joins (as SVG, limit 4;
   // open ends with square or round caps), a disc as triangles.

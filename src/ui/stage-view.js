@@ -7,6 +7,7 @@ import { store } from './store.js';
 import { clamp, lerp } from './util.js';
 import { fadeMs, reducedMs } from './motion.js';
 import { VIEW_CHANGE_MS, viewXfLeftMs, viewXfMix, viewXfRetarget } from './view-xf.js';
+import { gpuProbe } from './gpu-probe.js';
 import { createGlideLabels } from './glide-labels.js';
 import { cardMoveLeft } from './card-motion.js';
 
@@ -283,6 +284,7 @@ export function createView(st, live) {
     return false;
   }
   // (A slice of ms, at the other view's end state; true once landed. What the solve sets on the stage is put back: slots, turn, label scale, lines' index.)
+  const preWorst = { tot: 0, at: 0 };
   function preSlice(ms) {
     const tgt = live.morphTarget === 0 ? 1 : 0;
     // (A new solve's framing is read before the stage is put to its end: read inside, a framing moved since the last (a zoom) began it for the old one.)
@@ -290,12 +292,16 @@ export function createView(st, live) {
     if (!pre.g) { pre.d = preFraming(tgt); pre.tgt = tgt; pre.gFrame = preFrame(pre.d); pre.kept = { pts: [], vis: [], w: [], n: EV.length }; }
     const keepSol = live.labelSol, keepSpare = live.labelSolSpare, keepTurn = live.labelTurned, keepK = live.labelK, kn = live.lbkNum, ks = live.lbkStr, keepIdx = live.segIdx;
     let done = false;
+    const tp0 = gpuProbe.on ? performance.now() : 0;
+    let tp1 = 0, tp2 = 0;
     try {
       atTargetStage(pre.d, () => {
+        if (gpuProbe.on) tp1 = performance.now();
         live.segIdx = live.segIdxDry;   // (its own lines, built by its first slice that needs them, untouched by the live layouts' builds)
         if (!pre.g) { pre.need = false; pre.gKey = preKey(pre.d); live.labelSol = new Map(keepSol); pre.g = layoutLabelsGen(live.F, true, true); }   // (a copy: a turn between the views clears the slots it finds)
         else live.labelK = pre.k;   // (the target view's label scale, which its first slice set: the gaps between a reading's runs are measured with it)
         done = labelSliceRun(pre.g, ms).valueOf(); pre.k = live.labelK;
+        if (gpuProbe.on) tp2 = performance.now();
         if (done) { const m = new Map(); for (const [k, v] of live.labelSol) m.set(k, { ...v }); pre.slots = m; pre.key = pre.gKey; pre.slotsTgt = pre.tgt; pre.slotsD = { ...pre.d }; pre.cur = ''; }
       }, tgt, pre.kept);
     } catch (e) { pre.g = null; pre.d = null; pre.kept = null; throw e; }
@@ -303,6 +309,10 @@ export function createView(st, live) {
       live.labelSol = keepSol; live.labelSolSpare = keepSpare; live.labelTurned = keepTurn; live.labelK = keepK; live.lbkNum = kn; live.lbkStr = ks; live.segIdx = keepIdx;
     }
     if (done) { pre.g = null; pre.kept = null; pre.cur = preNowKey(); }
+    if (gpuProbe.on) {   // (18 Nov 2026, the Compare stop: slices of 15 to 142 ms for 6 s at rest, asked for 3: the worst slice of the last 5 s, in its three parts)
+      const t3 = performance.now(), tot = t3 - tp0;
+      if (tot >= preWorst.tot || t3 - preWorst.at > 5000) { preWorst.tot = tot; preWorst.at = t3; gpuProbe.gauge('label presolve: worst slice', `${tot.toFixed(1)} ms = set the stage ${(tp1 - tp0).toFixed(1)}, solve ${(tp2 - tp1).toFixed(1)} (asked ${ms}), put back ${(t3 - tp2).toFixed(1)}${done ? ', landed' : ''}`); }
+    }
     return done;
   }
   // (The node check's (tests/label-presolve-interleave.test.js): a whole run in slices of ms, between() after each that did not land.)

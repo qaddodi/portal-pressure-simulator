@@ -3702,6 +3702,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // (The Tube's lumen-layer builds are the ones a vessel picture draws with once they are ready: their first draw is a driver's
       // compile of the program's state, 450-580 ms inside the first Portal vein pick (tester, 18 Nov). Drawn here once, at a free moment, into
       // the 1 x 1 target, so that cost is not in a frame the viewer sees. The whole-picture and the cell builds, plain and full alike.)
+      // (The lumen target is made, one pixel, if no lumen pass has made it: the build's draw reads it as a texture of its own format, and a driver
+      // compiles for the textures a draw is given (18 Nov 2026: the first warm-up drew with the base texture in its place, and the first pick still paid 380-490 ms).)
+      if (k === 'tube3') { if (!lumTarget) lumTarget = createLumenTarget(gl); if (!lumTarget.fbo) { lumTarget.ensure(1, 1); gl.bindFramebuffer(gl.FRAMEBUFFER, w.fb); gl.drawBuffers(ATTACH_COLOR); } }
+      const t0 = gpuProbe.on ? performance.now() : 0;
       const list = k === 'plain' ? [[plain, compVAO], [plainCell, w.va]]
         : tube3 ? [[tube3.plain, compVAO], [tube3.plainCell, w.va], [tube3.comp, compVAO], [tube3.compCell, w.va]] : [];
       for (const [P, va] of list) {
@@ -3712,6 +3716,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       }
       gl.bindVertexArray(null);
       gl.drawBuffers(WARM_ATTACH);
+      if (gpuProbe.on) gpuProbe.gauge(k === 'tube3' ? 'tube 3 warm-up' : 'plain warm-up', `${list.length} builds drawn at ${(performance.now() / 1000).toFixed(1)} s, ${(performance.now() - t0).toFixed(1)} ms`);
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
   }
