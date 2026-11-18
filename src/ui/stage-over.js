@@ -102,3 +102,7 @@ export function netChanges(records) {
   for (const m of first.values()) for (const [a, r] of m) if (r.target.getAttribute(a) !== r.oldValue) out.push(r);
   return out;
 }
+
+/** The classes of an open card or sheet on the page or the app: nothing they select is part of the figure (see stage.js overKey). */
+export const OVER_CARD_CLASSES = ['vessel-card', 'dock-open', 'panel-open', 'menu-sheet-open'];
+export const OVER_CARD_RE = new RegExp(`(?:^|\\s)(?:${OVER_CARD_CLASSES.join('|')})(?=\\s|$)`, 'g');

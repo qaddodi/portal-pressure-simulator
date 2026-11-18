@@ -24,7 +24,7 @@ import { cssColor8 } from './css-color.js';
 import { readFail, mulTo, elMat } from './organ-paint.js';
 import { dropLive } from './live-style.js';
 import { sceneBatch } from './scene-store.js';
-import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js';
+import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL, OVER_CARD_RE } from './stage-over.js';
 import { elBoxInto } from './shape-gl.js';
 import { HOVER_LINK } from './hover-link.js';
 import { createExplain } from './label-explain.js';
@@ -2525,14 +2525,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (Asked on each paint: a version number, stepped when a part of the key differs from the last ask's: the app's classes without a
   // gesture's own, the page's, the stage's, the overlays' without OVER_ALL, the theme and palette, reduced motion. No joined string is
   // built; a class text is worked on only when its raw text has changed.)
+  // (The classes a card or a sheet being open puts on the page or the app (card-motion.js, the menus): their rules restyle the cards and the chrome, never the figure, so a pick's
+  // coming of them no more reads every overlay group again (one 46 to 63 ms frame at each card pick on the play-tester's phone, 18 Nov 2026).
+  // tests/stage-over.test.js reads the stylesheets for a rule on them that reaches the figure.)
+  const overClsFree = (c) => gestureFree(c).replace(OVER_CARD_RE, '');
+  let okDocRaw = null, okDocKey = '';
   let okAppRaw = null, okApp = '', okDoc = null, okWrap = null, okOverRaw = null, okOver = '', okTheme = null, okPal = null, okRM = null, okVer = 0;
   const overKey = () => {
     let changed = false;
     const a = appEl?.className || '', d = document.documentElement.className, w = wrapCls(), o = svgOver ? svgOver.getAttribute('class') || '' : '';
-    if (a !== okAppRaw) { okAppRaw = a; const f = gestureFree(a); if (f !== okApp) { okApp = f; changed = true; } }
+    if (a !== okAppRaw) { okAppRaw = a; const f = overClsFree(a); if (f !== okApp) { okApp = f; changed = true; } }
     if (o !== okOverRaw) { okOverRaw = o; const f = svgOver ? [...svgOver.classList].filter((c) => c !== OVER_ALL).join(' ') : ''; if (f !== okOver) { okOver = f; changed = true; } }
     const ds = document.documentElement.dataset, th = ds.theme, pal = ds.palette, rm = reduceMotion.matches;
-    if (d !== okDoc || w !== okWrap || th !== okTheme || pal !== okPal || rm !== okRM) { okDoc = d; okWrap = w; okTheme = th; okPal = pal; okRM = rm; changed = true; }
+    const dk = d !== okDocRaw ? (okDocRaw = d, okDocKey = overClsFree(d)) : okDocKey;
+    if (dk !== okDoc || w !== okWrap || th !== okTheme || pal !== okPal || rm !== okRM) { okDoc = dk; okWrap = w; okTheme = th; okPal = pal; okRM = rm; changed = true; }
     return changed ? ++okVer : okVer;
   };
   // (Set up once, at start-up where the overlays are on the GPU, or by renderPath if a restore makes them possible.)

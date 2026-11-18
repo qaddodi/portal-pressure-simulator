@@ -221,10 +221,10 @@ test('the stage: off unless asked for; the painted groups\' SVG hidden by an emp
   // (Read again when a class outside the overlays changes how they show: the app's, the page's, the stage's.)
   // (A version stepped when a part differs from the last ask's: the app's classes without a gesture's own, the page's, the stage's,
   // the overlays' without OVER_ALL, the theme and palette, reduced motion.)
-  assert.match(st, /if \(a !== okAppRaw\) \{ okAppRaw = a; const f = gestureFree\(a\); if \(f !== okApp\) \{ okApp = f; changed = true; \} \}/);
+  assert.match(st, /if \(a !== okAppRaw\) \{ okAppRaw = a; const f = overClsFree\(a\); if \(f !== okApp\) \{ okApp = f; changed = true; \} \}/);
   assert.match(st, /const a = appEl\?\.className \|\| '', d = document\.documentElement\.className, w = wrapCls\(\)/);
   assert.match(st, /\.filter\(\(c\) => c !== OVER_ALL\)\.join\(' '\)/);
-  assert.match(st, /if \(d !== okDoc \|\| w !== okWrap \|\| th !== okTheme \|\| pal !== okPal \|\| rm !== okRM\)/);
+  assert.match(st, /if \(dk !== okDoc \|\| w !== okWrap \|\| th !== okTheme \|\| pal !== okPal \|\| rm !== okRM\)/);
   assert.match(st, /if \(!(?:live\.)?veins\?\.overlay \|\| (?:live\.)?veins\.lost \|\| !wrap\.classList\.contains\('gl-on'\)\) \{ if \(overPainted\.length \|\| svgOver\?\.classList\.contains\(OVER_ALL\)\) overClear\(\); return; \}/);
   assert.match(st, /vCanvas\.addEventListener\('webglcontextlost', \(\) => \{\n\s+wrap\.classList\.remove\('gl-on'\);\n\s+overClear\(\);/);
   assert.match(st, /function overClear\(\) \{\n\s+for \(const u of overPainted\) u\.classList\.remove\(OVER_CLASS\);\n\s+overPainted = \[\];\n\s+svgOver\?\.classList\.remove\(OVER_ALL\);/);
@@ -254,4 +254,24 @@ test('the camera\'s three sizes on screen (a zoom writes them every step) drop n
   const ok = [/^\.clamp-label, \.clamp-label-out$/, /^\.guide-label$/, /^\.halo-in$/];
   for (const sel of found) assert.ok(ok.some((r) => r.test(sel)), `a reader of the camera's sizes the overlays do not know: ${sel}`);
   assert.ok(found.length >= 3, `found ${found.length}`);
+});
+
+test('the classes of an open card or sheet change no overlay look: no rule on them reaches the figure', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const { OVER_CARD_CLASSES, OVER_CARD_RE } = await import('../src/ui/stage-over.js');
+  assert.equal('app dock-open panel-open stage-view'.replace(OVER_CARD_RE, ''), 'app stage-view');
+  assert.equal('vessel-card'.replace(OVER_CARD_RE, ''), '');
+  assert.equal('app not-dock-open dock-opened'.replace(OVER_CARD_RE, ''), 'app not-dock-open dock-opened', 'whole class names only');
+  const dir = new URL('../styles/', import.meta.url), chrome = /\.(panel|panel-scrim|action-card|dock|vdock|instrument-workspace|stage-credit|treat-card|nb-views|readouts)\b|#dock\b|#treatCard\b/, bad = [];
+  for (const f of readdirSync(dir).filter((n) => n.endsWith('.css'))) {
+    const css = readFileSync(new URL(f, dir), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const m of css.matchAll(/([^{}]+)\{/g)) {
+      for (const part of m[1].split(',')) {
+        if (!OVER_CARD_CLASSES.some((c) => new RegExp(`\\.${c}\\b(?![-\\w])`).test(part))) continue;
+        // (what the rule sets: the part after the last class of a card or sheet state; it must be chrome, or the state's own :has() test of it)
+        if (!chrome.test(part)) bad.push(`${f}: ${part.trim().slice(0, 140)}`);
+      }
+    }
+  }
+  assert.deepEqual(bad, [], 'a rule on a card or sheet being open that reaches something other than the cards and the chrome: take its class off OVER_CARD_CLASSES (stage-over.js)');
 });
