@@ -20,3 +20,15 @@ export function cathLegs(mode, u, instant) {
 
 /** Whether a slide is arrived at by Next (the catheter's journey plays) rather than any other way. to: the slide, lastAt: the one shown before it (-1: none). */
 export const cathInstant = (to, lastAt) => to !== lastAt + 1;
+
+/**
+ * The first shot the camera takes on a catheter step: { leg, near, both } for stage.cathShot / cathFocus, the shot cathTo (presenter-lapse.js) opens with.
+ * The way out of the lobule lands on it in the one zoom (stage.riseToVT), not on the whole figure first: that was a zoom out to the fit and then a zoom in
+ * to the catheter (Mohammad, 18 Nov 2026, HVPG slide 5 to 6: "it zooms out to fit first then zooms in again").
+ * resume: the catheter is put back in place (cathKeep), instant: arrived at by Back or a jump, u: how far along the route the catheter is.
+ */
+export function cathFirstShot(mode, { resume = false, instant = false, u = 0 } = {}) {
+  if (resume) return { leg: 'tip', near: false, both: true };
+  const leg = cathLegs(mode, instant ? 1 : u, instant)[0];
+  return { leg, near: leg === 'route' && !instant && u < 0.999, both: leg === 'tip' };
+}
