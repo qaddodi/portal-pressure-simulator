@@ -71,3 +71,25 @@ Part: `{ charts: [chart], numbers: [shown] }`.
   - `pressure-words`: words that name a cut-off of the HVPG or PPG name one of the app's (HVPG 5, 10, 12, 20; PPG 6, 12).
 - Not yet read: figure labels (the labels thread's records), numbers drawn only by a chart that carries no `data-k` (add the mark where a chart prints a model reading). A chart family
   with its own look keys adds them to `chart-roles.js` (`ROLE_OF_LOOK`, `OWNER_OF_GROUP`).
+## Figure, labels and camera (step 2a)
+
+Readers (all in `src/ui/screen/`, registered by `register-2a.js`; the pure readers are `read-figure.js`, `read-labels.js`, `read-camera.js`, and `sources.js` is the only file that touches the stage):
+
+| Part | What it says | Painter function / record it takes |
+|---|---|---|
+| `camera` | view, camera (k, x, y), the world rectangle it frames, what is moving and how much is left, the last 12 moves the stage logged, and each recorded slide move with the judge's failures | `stage.cameraState`, `cameraTraces`, `cameraMoves`, `glideLeft`; `cam-arc.js viewGeom`; the judge is `slide-cam.js judgeSlideMove` (the one `pps.cameraGate` uses) |
+| `labels` | each label on the figure: words, box, anchor, leader, alpha and its state (shown, dim, fading, hidden), what it sits under (card, share), off the stage, over another label, detached from its point, clipped by the GPU canvas | `stage.labelLaid` (the layout), `stage.labelSnapshot` (what label-gl drew, its alpha), `stage.labelCarry` (settled or moving), the labels' state classes; overlap, containment and the leader threshold are `label-place.js` `hits`, `overlap`, `within`, `boxGap`, `needsLeader`; the dim is `LABEL_DIM` (= `--label-dim` in `styles/tokens.css`) |
+| `figure` | each vessel shown: name, width, the two end colours the GPU row takes, the model's pressure at its ends, whether the colour fits that pressure, flow reversed, selected, stent, opacity; the lens, the Anatomy/Circuit morph, glows | `stage.figureRows` (added for this: the vessel painter's own record, `stage-tubes.js renderTubes`), `colormap.js pressureColor` over `colour-bin.js qP` (the painter's 0.5 mmHg bin, now one definition `stage.js` and the reader share) |
+
+Rules registered (`src/ui/selfcheck/rules-labels.js`, `rules-camera.js`, `rules-figure.js`), each with a test that fires and one that must not (`tests/screen-rules.test.js`):
+`label-under-card`, `label-off-screen`, `label-overlap` (warn), `label-dim-at-rest`, `label-no-leader` (warn), `label-clipped-by-canvas` (warn);
+`camera-path`, `camera-late-start` (warn), `camera-second-move`, `camera-refused-write` (warn), `camera-two-moves-one-press`, `camera-stop-between` (warn);
+`figure-colour-stale`, `figure-vessel-no-colour`, `figure-vessel-width`, `figure-pressure-missing` (warn). A finding of a rule marked warn carries `sev: 'warn'`.
+
+Label rules judge only labels at rest (`labels.settled`): a label riding the camera or under a solve is on its way, and nothing is said of it.
+
+Tests: `tests/screen-readers.test.js` (each reader answers what its painter's function answers on the same inputs, imports it and defines no copy, uses no layout read), `tests/screen-rules.test.js`, `tests/screen-stage.test.js` (the real stage booted in node, through `buildScreen`: the three parts, two reads equal, no figure or camera finding on a settled Circuit).
+
+Not in the report (needs a shader or a frame series): organ paint, the colour a vessel's gradient takes between its two ends, label slides vs fades (the recorder's motion rules, step 2c).
+
+**Tests that import `build.js` (or `screen/plugins.js`) import `tests/screen-dom.js` first.** The figure reader takes its colours from `colormap.js`, which takes them from the page's `--ramp-pressure`; `util.js` and `menu-glass.js` watch the document at import, so the jsdom globals and the ramp must be there before the module graph loads. `screen-dom.js` is that page (light look's ramp, the few globals).

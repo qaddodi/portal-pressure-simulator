@@ -1,4 +1,5 @@
 // The self-check rules registry (src/ui/selfcheck/rules.js): registration, kinds, only/skip, findings with the rule's why and owner, a rule that throws.
+import './screen-dom.js';   // (first: the figure reader's painters (colormap.js, util.js) watch the page at import, so the page's globals must be there)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { registerRule, runRules, RULES, ruleIds, ruleList, clashes, rulesOwning, findingText } from '../src/ui/selfcheck/rules.js';
@@ -17,7 +18,7 @@ test('a rule needs a dashed id, an owner file, a why and a check; a taken id is 
   assert.equal(registerRule(good), false);
   assert.ok(clashes().includes('zt-label-under-card'));
   assert.ok(ruleIds().includes('zt-label-under-card'));
-  assert.deepEqual(rulesOwning('src/ui/label-gl.js').map((r) => r.id).filter((id) => id.startsWith('zt-')), ['zt-label-under-card']);
+  assert.deepEqual(rulesOwning('src/ui/label-gl.js').map((r) => r.id).filter((id) => id.startsWith('zt-')), ['zt-label-under-card']);   // (other threads' rules are owned by label-gl.js too)
   assert.ok(RULES.some((r) => r.id === 'zt-label-under-card'), 'RULES is live');
 });
 

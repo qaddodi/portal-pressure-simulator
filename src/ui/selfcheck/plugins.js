@@ -2,3 +2,6 @@
 import './rules-fit.js';
 import './rules-motion.js';
 import './rules-charts.js';
+import './rules-labels.js';
+import './rules-camera.js';
+import './rules-figure.js';

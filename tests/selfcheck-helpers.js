@@ -1,6 +1,7 @@
 // Helpers for the screen report and self-check tests (not a .test.js). A page whose layout is given in data attributes (data-box="l,t,r,b", data-<metric>,
 // inline style) and whose globals the readers see; a rule is judged on a report with fires() and quiet(). Every rule ships with a quiet() case (a case that must
 // not fire): a rule that fires wrongly wastes as much agent time as no rule.
+import './screen-dom.js';   // (the DOM globals the painter's modules read when they load: the 2a readers import them)
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
 import { buildScreen } from '../src/ui/screen/build.js';
