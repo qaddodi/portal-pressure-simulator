@@ -148,3 +148,20 @@ test('without a pool of its own the same alternation does resize (what the teste
   assert.ok(sharedStats.resizes - r0 >= 10, `one shared buffer: ${sharedStats.resizes - r0} resizes`);
   big.dispose(); small.dispose();
 });
+
+test('card-size pictures of every size a card makes never resize the shared buffer once it is at its floor, however the sizes come and go (the tester, a lobule pick: 13 to 21 resizes in 6.5 s)', () => {
+  const cs = [createTraceGL(host()), createTraceGL(host()), createTraceGL(host()), createTraceGL(host())];
+  clock += 5000;
+  const sizes = [[100, 40], [250, 100], [180, 160], [400, 150], [120, 90], [500, 190], [60, 60]];   // (css px; device px twice that: up to 1000 x 380)
+  // (warm-up: the buffer finds its size)
+  for (let i = 0; i < 20; i++) { clock += 16; for (const c of cs) { const [w, h] = sizes[(i * 3 + cs.indexOf(c)) % sizes.length]; draw(c, w, h); } }
+  const r0 = sharedStats.resizes;
+  // (many picks: a different picture each time, alone in its burst, with long quiet spells between, past SHRINK_MS: the buffer used to follow the one picture's size, up and down)
+  for (let pick = 0; pick < 40; pick++) {
+    clock += 2500;
+    const [w, h] = sizes[(pick * 3) % sizes.length], c = cs[pick % cs.length];
+    for (let f = 0; f < 6; f++) { clock += 16; draw(c, w, h); }
+  }
+  assert.equal(sharedStats.resizes - r0, 0, `resizes over 40 picks: ${sharedStats.resizes - r0}`);
+  for (const c of cs) c.dispose();
+});
