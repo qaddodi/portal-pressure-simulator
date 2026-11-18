@@ -568,18 +568,29 @@ export function createCard({ view, stage, ctx, onWhy }) {
     const keepDet = detOpen && same && !leaving;
     model = m; selRef = sel; live.length = 0; syncs.length = 0; actionable.length = 0; aboutNext = 0; dropPanels();
     const old = el.querySelector(':scope > .ac-body');
+    const oldH = wasOpen && !same && old ? readMetric(old, 'offsetHeight') : 0;   // (the words' own height, read before anything is changed: they keep it while they fade, below)
     el.querySelector(':scope > .ac-ghost')?.remove();
     releaseWords(keepDet ? old : el);   // (the readings of the content being replaced; the details' own stay)
     const body = build(m);
     // The shelf's card is as tall as its words (16 Nov 2026), so a pick of the same size can still be a different height. The shape of the rows says it (cardShape),
-    // worked out from the model with no read of the page. A switch to a card of another size or shape is the old card going out and the new one coming in: its height
-    // never glides (B, 13 Nov).
+    // worked out from the model with no read of the page. A pick while the card is open is always the same move, whatever its size or shape (17 Nov 2026, Mohammad:
+    // opening, closing and choosing still felt glitchy): the old words fade out where they stood, the new ones come in a beat later, and a different height is the card's
+    // own glide (card-glide.js). It used to be "the old card out and the new one in" for a card of another shape (B, 13 Nov): the box snapped to its new height, every old
+    // word went in one frame, and the card's glass and words fell to nothing and came back from the edge, which is a blink on every pick of a vessel whose name or rows
+    // differ in length. The card is one still box that changes height; it never leaves and comes again while it is open.
     const shape = cardShape(m, st.params);
     const resized = wasOpen && (el.dataset.size !== size || el.dataset.shape !== shape);
     el.dataset.size = size; el.dataset.shape = shape;
     if (!same) { tallest = 0; el.style.minHeight = ''; }   // (a new pick starts its own height)
-    const swap = wasOpen && !same && !resized && !!el.animate && !!old;
-    // Another pick with the details showing: they fade out as the new words come in (a card of another size is a new card: they are gone at once).
+    const swap = wasOpen && !same && !!el.animate && !!old;
+    // (The height it has now is the one the glide starts from, asked before the change is made; the observer sees the new one and glides there. A card still coming in
+    // has no height of its own to glide from, and Reduce Motion has no glide: the height changes under the fade.)
+    if (swap && resized && !el.classList.contains('ac-in') && !reduceMotionMQ?.matches) glideFrom = sizes.h;
+    // The old words keep their own height while they fade: as the ghost fills the card's box (the card's, which has the new height at once, or its minimum, a phone's)
+    // their foot rows would slide to the box's foot. From the new top, as the new words are, so the glide's ride (a phone's card grows or shrinks from its foot)
+    // carries both the same way.
+    if (swap && oldH > 0) { old.style.height = `${oldH}px`; old.style.bottom = 'auto'; }
+    // Another pick with the details showing: they fade out as the new words come in.
     if (det && !keepDet) {
       finishDet();
       const d = det;
@@ -610,7 +621,7 @@ export function createCard({ view, stage, ctx, onWhy }) {
     if (keepDet) { classNow(body, 'ac-under', true); body.inert = true; if (det) live.push(det.el); }   // (the rebuilt face goes under the details that are showing)
     // alloc-rare: the card is built when a selection (or the shunting flag) changes, once per pick
     el.setAttribute('aria-label', `${m.title}: actions`);
-    if (el.hidden || leaving || resized) opening();   // (opened afresh, or a new size: it comes in from its edge)
+    if (el.hidden || leaving || (resized && !swap)) opening();   // (opened afresh: it comes in from its edge. A pick while it is open never does: it is the swap above, with the glide)
     el.hidden = false;
     // Number keys trigger the verbs in order; show the number beside each.
     for (let i = 0; i < actionable.length && i < 9; i++) actionable[i].dataset.key = KEYS[i];
