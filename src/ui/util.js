@@ -10,6 +10,7 @@ import { moverOf } from './num-move.js';
 import { pullRelease, pullAt, pullStop } from './sheet-pull.js';
 import { SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, releaseSpeed, isFlick, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js';
 import { reduceMotionMQ, easeArrive, COUNT_MS } from './motion.js';
+import { pushPage } from './page-push.js';
 import { fmt, fmtG, clamp, lerp } from './num.js';
 import { leaveFromHere } from './menu-leave.js';
 import { rideStop, rideIn, rideOut, menuRide } from './sheet-ride.js';
@@ -1102,26 +1103,14 @@ export function menuPush(back, title, kids) {
   const backBtn = h('button', { class: 'menu-item menu-back', type: 'button' }, icon('chev-left'), back);
   const head = h('div', { class: 'sheet-head' }, backBtn, h('span', { class: 'sheet-t' }, title), h('button', { class: 'ib', type: 'button', 'aria-label': 'Close', onclick: () => closePopover() }, icon('close')));
   const page = h('div', { class: 'menu-page', role: 'group', 'aria-label': title, style: { top: `${top}px`, height: `${ch}px` } }, head, kids);
-  el.append(page); el.classList.add('pushed'); root.inert = true;
-  const still = reduceMotionMQ.matches, opt = { duration: D_SMALL, easing: EASE_ARRIVE, fill: 'both' };
-  page.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ transform: 'translateX(100%)' }, { transform: 'none' }], opt);
-  const away = root.animate(still ? [{ opacity: 1 }, { opacity: 0 }] : [{ transform: 'none', opacity: 1 }, { transform: 'translateX(-30%)', opacity: 0 }], opt);
-  const pop = () => {
-    if (!page.isConnected) return;
-    away.cancel();
-    const o = { duration: D_SMALL, easing: EASE_ARRIVE, fill: 'both' };
-    root.inert = false; el.classList.remove('pushed');
-    const home = root.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ transform: 'translateX(-30%)', opacity: 0 }, { transform: 'none', opacity: 1 }], o);
-    home.finished.then(() => home.cancel()).catch(() => {});
-    page.inert = true;
-    page.animate(still ? [{ opacity: 1 }, { opacity: 0 }] : [{ transform: 'none' }, { transform: 'translateX(100%)' }], o).finished.then(() => page.remove()).catch(() => page.remove());
-    backBtn.blur();
-  };
-  backBtn.addEventListener('click', pop);
-  // (A swipe right from the page's left part goes back, as a pushed page does on iOS.)
-  let sx = null;
-  page.addEventListener('touchstart', (e) => { const t = e.touches[0]; sx = e.touches.length === 1 ? [t.clientX, t.clientY] : null; }, { passive: true });
-  page.addEventListener('touchend', (e) => { const t = e.changedTouches[0]; if (sx && t.clientX - sx[0] > 70 && Math.abs(t.clientY - sx[1]) < 40) pop(); sx = null; }, { passive: true });
+  el.append(page); el.classList.add('pushed');
+  // (The slide, a swipe right that follows the finger and its let-go are page-push.js, in the cards' frames: the same mover as Treat's Changes page.)
+  root.inert = true;
+  const push = pushPage(page, [root], el.offsetWidth, {
+    onPop: () => { root.inert = false; el.classList.remove('pushed'); page.inert = true; backBtn.blur(); },
+    onGone: () => page.remove(),
+  });
+  backBtn.addEventListener('click', () => push.pop(0));
   if (m.anchor.matches?.(':focus-visible')) backBtn.focus(NO_SCROLL);
 }
 /** A phone's bottom sheet follows a vertical drag from anywhere on it and closes past a short pull (or a quick
