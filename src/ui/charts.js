@@ -19,6 +19,7 @@ import { glWords } from './gl-words.js';
 import { textSoon, dataSoon, attrSoon } from './class-soon.js';
 import { profileLabel } from './instrument-aria.js';
 import { hvpgSev, ppgSev, HVPG_WORDS, PPG_WORDS, NOT_SHOWN } from '../engine/pressure-cuts.js';
+import { capture } from './pointer-capture.js';
 const nextFrame = frameFor('charts');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -811,7 +812,7 @@ export function createProfile() {
     predict.values.set(g.stations[i], v);
     draw();
   }
-  cv.addEventListener('pointerdown', (ev) => { if (!predict?.on) return; readRect(); dragging = true; cv.setPointerCapture(ev.pointerId); predictAt(ev); });
+  cv.addEventListener('pointerdown', (ev) => { if (!predict?.on) return; readRect(); dragging = true; capture(cv, ev.pointerId); predictAt(ev); });
   cv.addEventListener('pointermove', (ev) => { if (dragging && predict?.on) predictAt(ev); });
   cv.addEventListener('pointerup', () => { dragging = false; if (predict?.on && predict.values.size >= Math.min(4, geometry().stations.length)) predict.onChange?.(predict.values.size); });
 

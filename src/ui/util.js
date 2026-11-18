@@ -32,6 +32,7 @@ import { tipDraw, tipUndrawn } from './tip-gl.js';
 import { darkMQ } from './look.js';
 import { NOT_SHOWN, INK_SHARE } from '../engine/pressure-cuts.js';
 import { labelWritten } from './label-theme.js';
+import { capture } from './pointer-capture.js';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
 // (Nodes and strings alone, the usual call, go straight through: the flattened copy is made only for a list that holds an array, null or false.)
@@ -1175,7 +1176,7 @@ export function swipeSheet(panel, onClose, enabled = null) {   // (enabled: a ca
       s.pull = moverOf(panel, s.thumb ? 'translate' : 'transform', 'y', true);   // (glass: the sheet's GPU glass reads the finger's number, num-move driven(); without it the glass held the pull's paused animation at its first clock and drew the frost where the sheet no longer was: 13 Nov 2026)   // (no cut of its own: the sheet layer cuts it on the dock's line, sheet-layer.js)   // (num-move.js: one paused animation, its clock the finger's distance)
       s.pull.set(0, here);
       pullStop(easing); easing = null;
-      panel.setPointerCapture?.(e.pointerId);
+      capture(panel, e.pointerId);
     }
     const raw = e.clientY - s.y;
     s.dy = raw >= 0 ? raw : raw * 0.25;   // (past its own height a pull up stretches with resistance, 0.25, as a card does past Full)

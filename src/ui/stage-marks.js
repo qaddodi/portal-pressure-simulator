@@ -246,7 +246,7 @@ export function createMarks(st) {
     drawn.clear();
     mkAbove.clear(); mkMats.clear();
     const timing = gpuProbe.on, tBuild = timing ? performance.now() : 0;
-    let tRead = 0, nShapes = 0;
+    let tRead = 0, tRings = 0, tTris = 0, nShapes = 0;
     for (const key in ov) {
       const g = ov[key];
       for (const el of g.querySelectorAll('path, circle, ellipse, rect')) {
@@ -262,7 +262,10 @@ export function createMarks(st) {
         if (ok) { const up = groupsAbove(el.parentNode); if (up < 0) ok = false; else op *= up; }
         const M = markMatrix(el, gOver, cs, mkMats);
         if (timing) tRead += performance.now() - t0;
-        if (!(ok && shapeRings(el))) continue;
+        const tR0 = timing ? performance.now() : 0, hasRings = ok && shapeRings(el);
+        if (timing) tRings += performance.now() - tR0;
+        if (!hasRings) continue;
+        const tT0 = timing ? performance.now() : 0;
         const nR = mkRingN;
         mkFade = el.classList.contains('clamp') || el.classList.contains('clamp-out') || el.classList.contains('clamp-span') || el.classList.contains('clamp-span-out') ? el.dataset.id : el.closest('[data-mk]')?.dataset.mk;
         if (M) for (let ri = 0; ri < nR; ri++) { const xy = mkRings[ri].xy; for (let i = 0; i < xy.length; i += 2) { const x = xy[i], y = xy[i + 1]; xy[i] = M[0] * x + M[2] * y + M[4]; xy[i + 1] = M[1] * x + M[3] * y + M[5]; } }
@@ -300,13 +303,16 @@ export function createMarks(st) {
             if (cap === 'round' && !r.closed && xy.length > 2) { mkDraw(mkSkP, mkDisc(xy[0], xy[1], h), true); mkDraw(mkSkP, mkDisc(xy[xy.length - 2], xy[xy.length - 1], h), true); }
           }
         }
+        if (timing) tTris += performance.now() - tT0;
         drawn.add(el);
       }
     }
+    const tA0 = timing ? performance.now() : 0;
     for (const g of Object.values(ov)) for (const el of g.querySelectorAll('path, circle, ellipse, rect')) { if (drawn.has(el)) { if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', ''); } else if (el.hasAttribute('data-gl')) el.removeAttribute('data-gl'); }
     drawn.clear();   // (the shapes are not held on to once their attributes are written)
+    const tAttr = timing ? performance.now() - tA0 : 0;
     mkAbove.clear(); mkMats.clear();
-    if (timing) gpuProbe.gauge('vessel marks: last build', `${nShapes} shapes, styles ${tRead.toFixed(1)} ms, whole ${(performance.now() - tBuild).toFixed(1)} ms`);
+    if (timing) gpuProbe.gauge('vessel marks: last build', `${nShapes} shapes, styles ${tRead.toFixed(1)} ms, outlines ${tRings.toFixed(1)} ms, triangles ${tTris.toFixed(1)} ms, attributes ${tAttr.toFixed(1)} ms, whole ${(performance.now() - tBuild).toFixed(1)} ms`);
     mk.verts = new Float32Array(mkV); mk.draws = mkDraws; mk.dirty = true;
   }
   return { marksStale, marksSync, mk };

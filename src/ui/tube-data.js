@@ -370,7 +370,7 @@ export function webInstancesStep(joinEntries, tubeData, pts, out, ends, until) {
   const data = out.data;
   let count = run.count, joins = run.joins, skipped = run.skipped;
   for (let e = run.e; e < nj; e++) {
-    if (until < Infinity && e > run.e && (e & 7) === 0 && performance.now() > until) { run.e = e; run.count = count; run.joins = joins; run.skipped = skipped; return false; }
+    if (until < Infinity && e > run.e && performance.now() > until) { run.e = e; run.count = count; run.joins = joins; run.skipped = skipped; return false; }
     const q = e * 8;
     if (!(joinEntries[q + 2] > 0)) continue;
     const key = joinEntries.slice(q, q + 8).join(',');   // alloc-rare: same as above

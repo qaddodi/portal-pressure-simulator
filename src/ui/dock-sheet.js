@@ -17,6 +17,7 @@ import { readBox, readMetric, readStyle } from './layout-snap.js';
 import { reduceMotionMQ } from './motion.js';
 import { sheetDockVars } from './dock-vars.js';
 import { growProgress, lerpAt, clipAt, r2, pullOffset } from './sheet-grow-math.js';
+import { capture } from './pointer-capture.js';
 
 const app = $('#app');
 const isPhone = isPhoneLayout;
@@ -351,7 +352,7 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
       stopSheet(el); el._sheetOff = start.off0;
       if (!start.phone) start.mv = moverOf(el, 'translate', 'xy', true);   // alloc-rare: once, at the pull's first move
       if (grow && start.full && start.phone) { hold(); growLaid(); }   // (from Full the pane is held at Full size: a pull down shrinks the chart with the finger)
-      el.setPointerCapture?.(e.pointerId);   // (only once it moves: captured at once, a tap's click would land on the sheet, not the grabber)
+      capture(el, e.pointerId);   // (only once it moves: captured at once, a tap's click would land on the sheet, not the grabber)
     }
     classSoon(el, 'dragging', true);
     start.dy = dy;

@@ -92,7 +92,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   // (A rush: the pointer rests on the Lobule button or a finger is down on it (warmLobule): the quiet it waits for is a tenth of a second and not 0.7, for a few seconds, so the pieces are made while
   // the reader's hand travels to the press and the build does not wait for it. A card or sheet coming or going still holds every piece, card-motion.js.)
   let prepRush = 0;
-  const prepQuiet = () => (performance.now() < prepRush ? 100 : 700);
+  const prepQuiet = () => (performance.now() < prepRush ? 100 : 1500);   // (1500, not 700, 18 Nov 2026: a piece is one task of 176 to 340 ms (lz.drawTile, lz.paintTissue) that cannot be cut, so a reader who stops for a moment and moves on again is less likely to meet it; a hand at the button asks for a rush)
   function prepIdleGo(fn) { if (handDown() || sinceInput() < prepQuiet() || settling() || cardMoveLeft() > 0) stageScope.timer(prepIdleGo, prepRush > performance.now() ? 120 : 400, fn); else if (window.requestIdleCallback) requestIdleCallback(fn, IDLE_ASK); else stageScope.timer(fn, 50); }
   const prepIdle = (fn) => { stageScope.timer(prepIdleGo, 0, fn); };
   const prepLoad = () => lobuleReady().then(prepLobule, prepLoadLost);

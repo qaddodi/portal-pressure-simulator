@@ -39,6 +39,7 @@ import { handOver } from './hand-over.js';
 import { reduceMotionMQ, afterMs } from './motion.js';
 import { fibroReading } from './clock.js';
 import { cardMoveFor } from './card-motion.js';
+import { capture } from './pointer-capture.js';
 const nextFrame = frameFor('dock');
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).
@@ -1028,7 +1029,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       : { left: `${c.left}px`, top: `${d.top + d.height / 2 - 1}px`, width: `${c.width}px`, height: '2px', transform: '' });
     clearTimeout(guideLayerT); guide.classList.add('dg-live', 'on'); classNow(guide, 'dg-live', true);
     workspace.classList.add('resizing');
-    divider.setPointerCapture(e.pointerId);
+    capture(divider, e.pointerId);
   });
   divider.addEventListener('pointermove', (e) => {
     if (!drag) return;

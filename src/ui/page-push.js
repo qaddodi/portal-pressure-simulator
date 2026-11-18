@@ -9,6 +9,7 @@
 import { glideCall, glideStop, glideOpacity } from './script-glide.js';
 import { easeArrive, carried, settleSlope, releaseSpeed, isFlick, D_SMALL, D_FLIP, CARRY_MAX, SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE } from './ease.js';
 import { reduceMotionMQ } from './motion.js';
+import { capture } from './pointer-capture.js';
 
 export const PAGE_AWAY = 0.3;   // (how far, as a share of the page's width, what it covers slides back as the page comes in)
 const LINEAR = (u) => u;
@@ -74,7 +75,7 @@ export function pushPage(page, away, width, { onPop, onGone, plate = false } = {
       glideStop(page);   // (caught while it is still coming in: the finger takes it from where it stands)
       backTo(1, D_FLIP / 2);
       s.on = true; s.x = e.clientX - x; s.t = performance.now();
-      page.setPointerCapture?.(e.pointerId);
+      capture(page, e.pointerId);
     }
     const raw = e.clientX - s.x;
     s.dx = raw > 0 ? Math.min(W, raw) : 0;   // (never further open than it stands)

@@ -17,6 +17,7 @@
 // into a string to be compared.
 
 import { widgetsPending, widgetState, enterWhenReady } from './widget-ready.js';
+import { capture } from './pointer-capture.js';
 import { warmSliders } from './slider-gl.js';
 import { store, updateParams } from './store.js';
 import { h, svgIcon, paintRange, isPhoneLayout, countTo, swapText, afterExit, markGone, switchIn, releaseWords } from './util.js';
@@ -778,7 +779,7 @@ export function createCard({ view, stage, ctx, onWhy }) {
     updateParams((pp) => { v.set(pp, on); return pp; }, { label: `${v.hist || v.label} ${on ? 'on' : 'off'}` });
   };
   const onBtnClick = (e) => { e.currentTarget._acV.run(); setTimeout(renderSoon, 30); };
-  const onDyePress = (e) => { if (e.button > 0) return; const b = e.currentTarget; b._acPressed = true; b.setPointerCapture?.(e.pointerId); b._acV.run(DYE_HOLD); };
+  const onDyePress = (e) => { if (e.button > 0) return; const b = e.currentTarget; b._acPressed = true; capture(b, e.pointerId); b._acV.run(DYE_HOLD); };
   const onDyeClick = (e) => { if (e.detail === 0) e.currentTarget._acV.run(DYE_ONCE); };   // keyboard
   const noMenu = (e) => e.preventDefault();
   // A slider: the thumb and its number follow the pointer at once; the model gets the newest value once per frame, the sliders that
