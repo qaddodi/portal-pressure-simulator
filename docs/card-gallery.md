@@ -34,3 +34,14 @@ preview copy).
   `window.ppsGalleryResult` and `<pre id="gallery-result">` (JSON), with `data-gallery-sweep="running|done|failed"` on the root.
   `sweep=affected` reads `gallery-affected.json` beside the page.
 - The settled test is sampled (100 ms) only while a call waits: the presenter and the camera announce no "done" event, so a quiet window is the signal.
+
+## The Node specimen runner (`tests/gallery-specimens.test.js`)
+
+Runs in `npm test` (so in Quick on every push), no browser. Each specimen of the catalog is opened on the page's own DOM (jsdom, `scripts/warm/` GL stand-in,
+a clock `tests/gallery-node.js` moves): a teaching-card slide as the presenter puts it up (instrument, tiles, words), a Tests-card pane in the real dock, a structure
+card (and its Details face) in the real card. Each must open with no throw, console error or caught error; its words (title, line, notes, card, tiles, aria-labels,
+as the page writes them) pass `scripts/clinical-wording.mjs` plus Baveno VIII only and "PPG (PV − IVC)"; a tile's and a header reading's number is the model's, as the
+tile table prints it; and a card that is opened and closed twice leaves the GPU holding what the first close left (a context a card gives up with `WEBGL_lose_context`
+counts as freed). A failing leak names where the kept context was made. A new instrument needs a `dispose` that gives its GL context back.
+Cannot judge: fit (jsdom has no layout), shaders (`scripts/glsl-compile.mjs`), looks, timing. The sheets (Treat, History, menus, palette, toasts) are not opened here.
+The first run works out each deck's states and each curve's sweep (about 100 s); they are kept in `node_modules/.cache/pps-deck-states`.
