@@ -25,6 +25,8 @@
 const OWNED = new WeakSet();
 /** How long (ms) an animation may wait for the glass's next frame before it is given back to the browser. */
 export const STALE_MS = 400;
+/** The longest (ms) an animation not yet started waits for the card's widgets (hold). */
+export const HOLD_MAX_MS = 500;
 
 /** Whether an animation is under way: running on the browser's clock, or held on the glass's (playState 'paused' then). Every check
  *  "is this card still moving" asks this, not playState === 'running', or a card fading on the glass's clock read as still. */
@@ -66,7 +68,7 @@ export function ownable(an, kf, o = NO_OPTS) {
  * `c`, when given with take(), is the glass's own record of that animation's clock (glass-motion.js clockOf): it is kept to the time set here
  * (`c.s` null, `c.c0` the time), so the glass reads the very time the page shows, and `c.own` says it is held.
  */
-export function createRevealClock({ now, foreign = NEVER }) {
+export function createRevealClock({ now, foreign = NEVER, hold = NEVER, expired = null }) {
   const own = new Map();   // (animation → { t0: the frame it started at, or null; c0: its time when taken; rate; end; ct: its time now; at: last frame driven; c })
   const keep = (r, ct) => { r.ct = ct; if (r.c) { r.c.s = null; r.c.c0 = ct; } };
   function free(an, r) {
@@ -85,7 +87,7 @@ export function createRevealClock({ now, foreign = NEVER }) {
       if (!(end > 0) || !Number.isFinite(rate) || rate === 0) return false;
       const c0 = Math.min(end, Math.max(0, Number(an.currentTime) || 0));
       try { an.pause(); an.currentTime = c0; } catch { return false; }
-      const r = { t0: null, c0, rate, end, ct: c0, at: now(), c };   // alloc-rare: once per animation taken (a card's fade), never per frame
+      const r = { t0: null, c0, rate, end, ct: c0, at: now(), c, tk: now() };   // alloc-rare: once per animation taken (a card's fade), never per frame
       own.set(an, r); OWNED.add(an);
       if (c) c.own = true;
       keep(r, c0);
@@ -106,6 +108,9 @@ export function createRevealClock({ now, foreign = NEVER }) {
         let cur;
         try { cur = Number(an.currentTime); } catch { cur = NaN; }
         if (Number.isFinite(cur) && Math.abs(cur - r.ct) > 0.5) { free(an, r); continue; }
+        // (A card whose widgets are not up yet is not started: its words wait with its frost, so no card shows the page's fallback look, for HOLD_MAX_MS at the most.)
+        if (r.t0 == null && t - r.tk < HOLD_MAX_MS && hold(an)) { r.at = t; continue; }
+        if (r.t0 == null && t - r.tk >= HOLD_MAX_MS && !r.held) { r.held = true; if (expired && hold(an)) expired(an); }
         if (r.t0 == null) r.t0 = t;
         r.at = t;
         let ct = r.c0 + (t - r.t0) * r.rate;

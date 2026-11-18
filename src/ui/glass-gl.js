@@ -14,6 +14,7 @@ import { glassCover, stackOf, stackCmp } from './glass-cover.js';
 import { hold } from './gpu-budget.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
 import { finalFrameFor, readFrameFor, framePhase, frameCount, cancelFrame, noteDraw, easeNow } from './frame.js';
+import { widgetState, widgetsPending } from './widget-ready.js';
 import { createRevealClock, ownable, STALE_MS } from './glass-clock.js';
 import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js';
 import { hiddenIn, Inline, inlineShift, inlineTranslate, inlineShiftNew, inlineShiftOk, inlineTranslateNew, inlineTranslateOk, Motion, compileKeyframes, motionAt, movesOnly, clockOf, clockAt } from './glass-motion.js';
@@ -620,7 +621,9 @@ export function createGlassGL(wrap, source, layers, { markHold = true, software 
   // is held off the browser's clock and set from the frame's time, once a frame, just before the glass is drawn from the same time. Mohammad,
   // 17 Nov 2026: the words of alerts, cards and the Tests card came in and went out ahead of their frost. ownEls: the elements whose animations
   // it takes (each drawn glass's chain up to its layer, and the elements its words lie in beside it), set with each read of the page.)
-  const reveal = createRevealClock({ now: easeNow, foreign: isDrivenAnimation });
+  // (A card's words wait for its widgets too (widget-ready.js): a card is never shown in the page's fallback look.)
+  const widgetsHeld = (an) => { let t; try { t = an.effect?.target; } catch { return false; } const card = t?.closest?.('[data-gl-wait],[data-gl]') || t; return widgetsPending(card); };
+  const reveal = createRevealClock({ now: easeNow, foreign: isDrivenAnimation, hold: widgetsHeld, expired: () => { widgetState.misses++; } });
   const ownEls = new Set();
   let revealFc = -1, revealT = 0;
   const revealSweep = () => { revealT = 0; if (reveal.sweep(STALE_MS)) revealT = setTimeout(revealSweep, STALE_MS); };
