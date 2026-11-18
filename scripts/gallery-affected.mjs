@@ -6,6 +6,7 @@
 //   npm run gallery:affected -- --base <ref>      against another ref
 //   npm run gallery:affected -- --files a.js,b.js the files named (no git)
 //   npm run gallery:affected -- --look navy --looks light,navy --json
+//   npm run gallery:affected -- --write dist/gallery-affected.json    also writes the ids as a JSON array (what `?gallery&sweep=affected` reads beside the page)
 //
 // How a file maps to specimens (nothing is run, nothing is opened in a browser):
 //   1. FAMILY_ENTRY names the module(s) that make each catalog family (the instrument of a tool kind, a Tests pane, the structure card ...).
@@ -17,7 +18,7 @@
 //   4. A change to a catalog file names its specimens exactly: the catalog before and after are compared entry by entry.
 // A file under src/ that no specimen uses (a deck, the engine's worker ...) is listed apart so the push message can say what to test by hand.
 // It errs toward naming too many specimens, never too few; a wrong map is fixed here, in the tables, and tests/gallery-affected.test.js pins them.
-import { readFileSync, readdirSync, statSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, statSync, mkdtempSync, rmSync } from 'node:fs';
 import { join, dirname, relative, resolve, sep } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -267,6 +268,8 @@ async function main() {
   const before = !filesArg && files.some((f) => CATALOG_FILES.includes(f)) ? await catalogAt(base) : null;
   const result = affected({ files, catalog: CATALOG, before: before || (files.some((f) => CATALOG_FILES.includes(f)) ? [] : null), graph: buildGraph() });
   if (argv.includes('--json')) { console.log(JSON.stringify({ base, files, ids: result.ids, families: result.families, unmapped: result.unmapped, sweep: result.ids.length ? sweepLink(result.ids, { looks }) : null }, null, 1)); return; }
+  const out = opt('write');
+  if (out) writeFileSync(out, `${JSON.stringify(result.ids)}\n`);
   console.log(render(result, CATALOG, { look, looks, changedCount: files.length, baseName: filesArg ? '' : base }));
 }
 

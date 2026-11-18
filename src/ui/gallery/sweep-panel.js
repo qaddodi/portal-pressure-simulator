@@ -6,12 +6,11 @@
 import { registerPanel } from './registry.js';
 import { LOOK_IDS } from './catalog.js';
 import { runSweep, savedSweep, forgetSweep, SWEEP_KEY } from './sweep.js';
-import { localApi, devicePps } from './sweep-api.js';
-import { readBox, readRects, readStyle, readMetric, readCTM } from '../layout-snap.js';
+import { devicePps } from './sweep-probes.js';
+import { readMetric } from '../layout-snap.js';
 import { fadeShown } from '../util.js';
 import { keepAwake } from '../wake-lock.js';
 
-const IO = { box: readBox, rects: readRects, style: readStyle, metric: readMetric, ctm: readCTM };
 const LOOK_NAMES = { light: 'Light', soft: 'Soft', dark: 'Dark', navy: 'Navy', black: 'Black' };
 const MAX_RESUMES = 6;
 
@@ -75,7 +74,7 @@ function mount(host, ctx) {
   box.append(scopeSel, looksRow, act, status, bar, pre);
   host.append(box);
 
-  const getApi = () => (pps?.gallery?.list && pps.gallery.open && pps.gallery.check ? pps.gallery : localApi(ctx, IO));
+  const getApi = () => ctx.api || pps?.gallery;   // (api.js: list, open, check ...; page.js makes it before the panels mount)
   const ids = linkIds(location.search);
   const fillScope = () => {
     const choices = scopeChoices(getApi().list({}), ids);
@@ -137,8 +136,8 @@ function mount(host, ctx) {
   stop.onclick = () => { stopFlag = true; status.textContent = 'Stopping after this specimen.'; };
   copy.onclick = async () => { ctx.toast?.((await ctx.copy?.(last?.text || '')) ? 'Sweep report copied.' : 'Copy failed: select the report and copy it.'); };
 
-  // The page asks pps.gallery.sweep(spec) for a sweep from the address (?gallery&sweep=...): it runs through this same runner, so its progress shows here too.
-  const register = () => { try { pps?.gallery?.registerSweep?.((spec, api) => run(spec, api || getApi())); } catch (e) { console.error('[gallery] sweep register', e); } };   // alloc-rare: once at mount
+  // The page starts a sweep from the address (?gallery&sweep=..., api.js startFromAddress) through pps.gallery.sweep(spec): it runs through this same runner, so its progress shows here too.
+  const register = () => { try { getApi()?.registerSweep?.((spec, api) => run(spec, api || getApi())); } catch (e) { console.error('[gallery] sweep register', e); } };   // alloc-rare: once at mount
   register();
 
   // A sweep left running by a reload (the browser ended the tab) goes on from the next specimen, a few times at most.

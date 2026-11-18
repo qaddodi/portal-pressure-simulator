@@ -144,6 +144,9 @@ A new card kind, instrument option, visual, readout tile, trial, flowchart, Test
 updates its specimen in `src/ui/gallery/catalog.js` (teaching cards, one slide each in the generated deck under Present > Testing) or
 `src/ui/gallery/catalog-main.js` (Tests panes, structure cards, sheets) in the same push. `tests/gallery-coverage.test.js` fails until it has one.
 A debug tool plugs in with `registerPanel` / `registerBench` (`src/ui/gallery/registry.js`) and one import line in `src/ui/gallery/plugins.js`.
+Every push message that touches the app says what to test: run `npm run gallery:affected` and paste its output (deep links to the specimens the change touches
+and one Sweep link; `Tools > Sweep` on a device runs the fit rules over them and copies one report). A new catalog family needs its modules in
+`scripts/gallery-affected.mjs` (`FAMILY_ENTRY`); its test fails until it has them.
 
 ## Tester guides
 

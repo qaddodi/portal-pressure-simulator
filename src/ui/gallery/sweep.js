@@ -3,11 +3,14 @@
 // promises: no DOM, no layout reads. The page's Sweep button (sweep-panel.js) hands in the gallery API (window.pps.gallery: list, open, check)
 // and the probes; a unit test hands in fakes. Nothing here runs per frame: one await per specimen.
 //
-// spec  { ids?: string[], family?, section?, kind?, looks?: string[], fresh?: boolean, timeoutMs? }
-//         ids: exactly these specimens (the "affected" list a push message links to); else the API's list filtered by family, section and kind.
+// spec  { all?, affected?, ids?: string[], family?, section?, kind?, looks?: string[], with?: ['check','words','boxes'], fresh?: boolean, timeoutMs? }
+//         ids: exactly these specimens (the "affected" list a push message links to; the API fills it for `affected`); else the API's list filtered by
+//         family, section and kind (`all` or nothing named: every specimen).
+//         with: also keep each specimen's words() and boxes() in its result (for a harness; never kept in the saved place).
 //         looks: each specimen is opened once per look (the current look when none is named).
 //         fresh: forget a sweep left behind by a reload and start from the first specimen.
-// api   { list(filter), open(id, { look, timeoutMs }) -> { ok, settled, ms, error? }, check() -> { problems, busy, slide, structure } }
+// api   window.pps.gallery (api.js): list(filter), open(id, { look, timeoutMs }) -> { ok, settled, ms, errors, error? }, check() -> { problems, busy, size },
+//         words(), boxes(). open() says ok:false, error 'did not settle in time' for a specimen that opened but kept moving: that is "not settled", not "did not open".
 // env   { storage, now, probes, onProgress, shouldStop, size }  (all optional)
 //         probes: { errors() -> number, gpuMB() -> number, peakMB() -> number, framesStart(), framesStop() -> { gaps, scripts } }
 //
@@ -19,6 +22,7 @@ export const SWEEP_KEY = 'pps.gallery.sweep';
 export const MAX_KILLS = 3;
 /** How long one specimen may take to land before the sweep calls it "not settled" and goes on (the API's own wait). */
 export const OPEN_TIMEOUT_MS = 20000;
+export const NOT_SETTLED = 'did not settle in time';
 const STALE_MS = 6 * 3600 * 1000;
 
 const jobKey = (id, look) => `${id}@${look || '-'}`;
@@ -31,7 +35,7 @@ export function resolveIds(spec, listed) {
     const ids = [...new Set(spec.ids)];
     return { ids: ids.filter((id) => known.has(id)), unknown: ids.filter((id) => !known.has(id)) };
   }
-  const rows = listed.filter((e) => (!spec.family || e.family === spec.family) && (!spec.section || e.section === spec.section) && (!spec.kind || e.kind === spec.kind));
+  const rows = listed.filter((e) => spec.all || (!spec.family || e.family === spec.family) && (!spec.section || e.section === spec.section) && (!spec.kind || e.kind === spec.kind));
   return { ids: rows.map((e) => e.id), unknown: [] };
 }
 
@@ -51,7 +55,7 @@ function readSaved(storage, sig, fresh, wall = Date.now()) {
     return s;
   } catch { return null; }
 }
-function save(storage, s) { try { storage?.setItem(SWEEP_KEY, JSON.stringify(s)); } catch { /* (storage full or refused: the sweep still runs, it just cannot resume) */ } }
+function save(storage, s) { try { storage?.setItem(SWEEP_KEY, JSON.stringify({ ...s, results: s.results.map(({ words, boxes, ...r }) => r) })); } catch { /* (storage full or refused: the sweep still runs, it just cannot resume) */ } }
 /** A sweep the storage holds that was running when the page went away (a reload or a tab kill), or null. */
 export function savedSweep(storage, wall = Date.now()) {
   try {
@@ -88,7 +92,6 @@ export async function runSweep(spec = {}, api, env = {}) {
   const persist = () => save(storage, state);
   persist();
   const stopped = () => !!env.shouldStop?.();
-  const errors0 = probes.errors?.() ?? 0;
   let stoppedEarly = false, tooMany = false;
 
   for (let i = 0; i < jobs.length; i++) {
@@ -101,16 +104,21 @@ export async function runSweep(spec = {}, api, env = {}) {
     state.open = key; state.at = now(); state.wall = env.wall?.() ?? Date.now(); persist();
     const r = { id, look, ok: false, settled: false, ms: 0, problems: [], busy: false, errors: 0, gpuMB: null, worstFrameMs: 0, longFrames: 0 };
     const e0 = probes.errors?.() ?? 0;
+    let apiErrors = null;
     try { probes.framesStart?.(); } catch { /* (frame recording is optional) */ }
     try {
       const o = await api.open(id, { look: look || undefined, timeoutMs: spec.timeoutMs || OPEN_TIMEOUT_MS });
-      r.ok = o?.ok !== false; r.settled = !!o?.settled; r.ms = Math.round(o?.ms || 0);
-      if (o?.error) r.error = String(o.error);
+      const timedOut = o?.error === NOT_SETTLED;
+      r.ok = o?.ok !== false || timedOut; r.settled = !!o?.settled; r.ms = Math.round(o?.ms || 0);
+      if (o?.error && !timedOut) r.error = String(o.error);
+      if (typeof o?.errors === 'number') apiErrors = o.errors;
       if (r.ok) {
         const c = await api.check();
         r.problems = (c?.problems || []).map((p) => ({ kind: p.kind, text: p.text, where: p.where }));
         r.busy = !!c?.busy;
         r.size = c?.size || null;
+        if (spec.with?.includes('words')) r.words = await api.words?.();
+        if (spec.with?.includes('boxes')) r.boxes = await api.boxes?.();
       }
     } catch (err) {
       r.ok = false; r.error = String(err?.message || err);
@@ -123,21 +131,21 @@ export async function runSweep(spec = {}, api, env = {}) {
         r.longFrames = (f.long || []).length;
       }
     } catch { /* (frame recording is optional) */ }
-    r.errors = Math.max(0, (probes.errors?.() ?? 0) - e0);
+    r.errors = Math.max(apiErrors ?? 0, (probes.errors?.() ?? 0) - e0);
     r.gpuMB = probes.gpuMB?.() ?? null;
     results.push(r); done.add(key);
     state.open = null; persist();
   }
 
   const report = buildReport({ spec, results, jobs, unknown, resumed, kills, stoppedEarly, tooMany, ms: Math.round(now() - t0), size: env.size?.() || null,
-    peakMB: probes.peakMB?.() ?? null, errors: Math.max(0, (probes.errors?.() ?? 0) - errors0), when: env.when || new Date().toLocaleString() });
+    peakMB: probes.peakMB?.() ?? null, when: env.when || new Date().toLocaleString() });
   state.state = stoppedEarly ? 'stopped' : 'done'; state.open = null; persist();
   env.onProgress?.({ at: jobs.length, total: jobs.length, finished: true, results, report });
   return report;
 }
 
 /** The report as data, with `text` (what the Copy button puts on the clipboard) and `summary`. */
-export function buildReport({ spec = {}, results, jobs = [], unknown = [], resumed = false, kills = 0, stoppedEarly = false, tooMany = false, ms = 0, size = null, peakMB = null, errors = 0, when = '' }) {
+export function buildReport({ spec = {}, results, jobs = [], unknown = [], resumed = false, kills = 0, stoppedEarly = false, tooMany = false, ms = 0, size = null, peakMB = null, when = '' }) {
   const withProblems = results.filter((r) => r.problems?.length);
   const failed = results.filter((r) => !r.ok && !r.lost);
   const lost = results.filter((r) => r.lost);
@@ -145,6 +153,7 @@ export function buildReport({ spec = {}, results, jobs = [], unknown = [], resum
   const busy = results.filter((r) => r.ok && r.busy && !r.problems?.length);
   const errored = results.filter((r) => r.errors > 0);
   const clean = results.filter((r) => r.ok && !r.lost && !r.problems?.length && !r.errors && r.settled);
+  const errors = results.reduce((n, r) => n + (r.errors || 0), 0);
   const problemCount = withProblems.reduce((n, r) => n + r.problems.length, 0);
   const slowest = results.filter((r) => r.worstFrameMs > 0).sort((a, b) => b.worstFrameMs - a.worstFrameMs)[0] || null;
   const slowOpens = results.slice().sort((a, b) => b.ms - a.ms).slice(0, 3).filter((r) => r.ms > 0);
@@ -158,7 +167,8 @@ export function buildReport({ spec = {}, results, jobs = [], unknown = [], resum
   if (spec.family) lines.push(`Family: ${spec.family}`);
   if (spec.section) lines.push(`Section: ${spec.section}`);
   lines.push('');
-  const verdict = !withProblems.length && !failed.length && !lost.length && !errored.length && !unsettled.length && !stoppedEarly && !tooMany;
+  if (!jobs.length) lines.push('Nothing to sweep: no specimen in the catalog matches this request.');
+  const verdict = jobs.length > 0 && !withProblems.length && !failed.length && !lost.length && !errored.length && !unsettled.length && !stoppedEarly && !tooMany;
   lines.push(verdict ? `Every card fits on all ${summary.opens} open${summary.opens === 1 ? '' : 's'}: no problems, no errors, every specimen settled.`
     : `${withProblems.length} with fit problems (${problemCount} problem${problemCount === 1 ? '' : 's'}), ${failed.length} did not open, ${lost.length} lost to a reload, ${unsettled.length} did not settle, ${errored.length} with errors counted.`);
   if (stoppedEarly) lines.push(`Stopped early: ${results.length} of ${jobs.length} opens done.`);

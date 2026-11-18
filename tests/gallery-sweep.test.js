@@ -12,8 +12,8 @@ globalThis.matchMedia ??= () => ({ matches: false, addEventListener() {}, addLis
 globalThis.ResizeObserver ??= class { observe() {} disconnect() {} };
 globalThis.requestAnimationFrame ||= (f) => setTimeout(() => f(performance.now()), 0);
 
-const { runSweep, resolveIds, planJobs, buildReport, savedSweep, forgetSweep, SWEEP_KEY, MAX_KILLS } = await import('../src/ui/gallery/sweep.js');
-const { localApi, devicePps } = await import('../src/ui/gallery/sweep-api.js');
+const { NOT_SETTLED, runSweep, resolveIds, planJobs, buildReport, savedSweep, forgetSweep, SWEEP_KEY, MAX_KILLS } = await import('../src/ui/gallery/sweep.js');
+const { devicePps } = await import('../src/ui/gallery/sweep-probes.js');
 const { linkIds, scopeChoices } = await import('../src/ui/gallery/sweep-panel.js');
 const { CATALOG } = await import('../src/ui/gallery/catalog.js');
 
@@ -33,7 +33,7 @@ const fakeApi = ({ problems = {}, fail = {}, unsettled = {}, seen = [], die = nu
       if (die === i) throw new Error('boom');
       id = i; look = o.look || null;
       if (fail[i]) return { id: i, ok: false, settled: false, ms: 5, error: fail[i] };
-      return { id: i, ok: true, settled: !unsettled[i], ms: 120 };
+      return unsettled[i] ? { id: i, ok: false, settled: false, ms: 120, errors: 0, error: NOT_SETTLED } : { id: i, ok: true, settled: true, ms: 120, errors: 0 };
     },
     check: () => ({ id, look, size: { w: 390, h: 844 }, problems: problems[id] || [], busy: false, slide: true, structure: false }),
   };
@@ -67,6 +67,44 @@ test('a sweep opens each specimen in each look, checks it, and reports problems,
   assert.match(r.text, /Did not open:\n {2}- trace\/c \[light\]: No opener/);
   assert.match(r.text, /Fit problems:\ndoppler\/b \[light\]\n {2}- \[slide\] small: a label is 10 px/);
   assert.match(r.text, /Did not settle in time/);
+});
+
+test('the spec forms the page address makes: all, a family word, nothing named, affected with its ids filled, and a request that names nothing', async () => {
+  assert.equal((await runSweep({ all: true }, fakeApi(), env())).summary.opens, 4);
+  assert.equal((await runSweep({ family: 'trace' }, fakeApi(), env())).summary.opens, 1);
+  assert.equal((await runSweep({ affected: true, ids: ['doppler/a'], looks: [] }, fakeApi(), env())).summary.opens, 1);
+  const none = await runSweep({ family: 'nope' }, fakeApi(), env());
+  assert.equal(none.summary.opens, 0);
+  assert.match(none.text, /Nothing to sweep: no specimen in the catalog matches this request\./);
+  assert.ok(!/Every card fits/.test(none.text));
+});
+
+test('a specimen the API calls ok:false with "did not settle in time" is checked and counted as not settled, not as failed to open', async () => {
+  const r = await runSweep({ ids: ['tests-hvpg/d'] }, fakeApi({ unsettled: { 'tests-hvpg/d': true }, problems: { 'tests-hvpg/d': [{ kind: 'cut', text: 'cut', where: 'card' }] } }), env());
+  assert.equal(r.summary.failed, 0);
+  assert.equal(r.summary.unsettled, 1);
+  assert.equal(r.results[0].problems.length, 1, 'the check still ran');
+  assert.ok(!r.results[0].error);
+});
+
+test('with: words and boxes keep each specimen\'s words and boxes in its result, but not in the saved place', async () => {
+  const storage = store();
+  const api = fakeApi(); api.words = () => ({ cards: { '.pz-text': ['hello'] } }); api.boxes = () => ({ boxes: { '.pz-text': [0, 0, 10, 10] } });
+  const r = await runSweep({ ids: ['doppler/a'], with: ['check', 'words', 'boxes'] }, api, env({ storage }));
+  assert.deepEqual(r.results[0].words, { cards: { '.pz-text': ['hello'] } });
+  assert.deepEqual(r.results[0].boxes.boxes['.pz-text'], [0, 0, 10, 10]);
+  assert.ok(!/hello/.test(storage.getItem(SWEEP_KEY)));
+  const none = await runSweep({ ids: ['doppler/a'] }, api, env());
+  assert.equal(none.results[0].words, undefined);
+});
+
+test('errors the API counted for a specimen (open().errors) are used when the sweep has no probe of its own', async () => {
+  const api = fakeApi(); const open = api.open;
+  api.open = async (i, o) => ({ ...(await open(i, o)), errors: i === 'doppler/b' ? 4 : 0 });
+  const r = await runSweep({ ids: ['doppler/a', 'doppler/b'] }, api, env());
+  assert.equal(r.results[1].errors, 4);
+  assert.equal(r.summary.errors, 4);
+  assert.match(r.text, /Errors counted while open[^]*doppler\/b: 4/);
 });
 
 test('a clean sweep says so and counts nothing as a problem', async () => {
@@ -195,36 +233,6 @@ test('the scope menu offers the link first, then everything, each section and ea
   assert.equal(scopeChoices(LIST).some((x) => x.value === 'ids'), false);
   assert.match(c[1].label, /Every specimen \(4\)/);
   assert.equal(scopeChoices(CATALOG).find((x) => x.value === 'all').spec && true, true);
-});
-
-test('the local API (used when pps.gallery is absent) lists, opens through the page and checks with the shared rules', async () => {
-  const calls = [];
-  let look = 'light';
-  const ctx = {
-    catalog: { CATALOG },
-    pps: { presenter: { busy: () => false }, stage: { viewChanging: () => false } },
-    look: () => look, setLook: (l) => { look = l; calls.push(`look:${l}`); },
-    go: async (id, o) => { calls.push(`go:${id}:${o?.quiet}`); },
-  };
-  const IO = { box: () => ({ left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 }), rects: () => [], style: () => ({}), metric: (el, k) => ({ innerWidth: 390, innerHeight: 844 }[k]), ctm: () => null };
-  const api = localApi(ctx, IO, { poll: 1 });
-  assert.equal(api.list({}).length, CATALOG.length);
-  assert.ok(api.list({ family: 'doppler' }).every((e) => e.family === 'doppler'));
-  const o = await api.open('doppler/pv-color', { look: 'navy' });
-  assert.equal(o.ok, true); assert.equal(o.settled, true);
-  assert.deepEqual(calls, ['look:navy', 'go:doppler/pv-color:true']);
-  const c = api.check();
-  assert.equal(c.id, 'doppler/pv-color'); assert.deepEqual(c.size, { w: 390, h: 844 }); assert.ok(Array.isArray(c.problems));
-});
-
-test('the local API reports a specimen that cannot open, and a page that never settles', async () => {
-  const ctx = { catalog: { CATALOG }, pps: { presenter: { busy: () => true } }, look: () => 'light', setLook() {}, go: async () => { throw new Error('no opener'); } };
-  const api = localApi(ctx, {}, { poll: 1 });
-  const bad = await api.open('doppler/pv-color', {});
-  assert.equal(bad.ok, false); assert.match(bad.error, /no opener/);
-  ctx.go = async () => {};
-  const slow = await api.open('doppler/pv-color', { timeoutMs: 20 });
-  assert.equal(slow.ok, true); assert.equal(slow.settled, false);
 });
 
 test('the device probes tolerate a page with none of them', () => {
