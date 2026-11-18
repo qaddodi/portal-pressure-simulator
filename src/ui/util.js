@@ -1609,6 +1609,14 @@ export function redrawSized(canvas) {
   try { d.redraw(); } catch (e) { setTimeout(() => { throw e; }); }
   return true;
 }
+/** Gives a canvas its box now, read here between frames, instead of waiting for the observer's first report: a card built to be opened has its widgets drawn before it is shown (card.js prepBegin, 18 Nov 2026, the
+ *  tester: "the card waits half a second"). The observer's own reports carry on from it. */
+export function primeCanvasSize(canvas) {
+  const b = canvas.getBoundingClientRect();
+  let r = boxes.get(canvas);
+  if (!r) { boxes.set(canvas, { width: 0, height: 0 }); boxObserver.observe(canvas); r = boxes.get(canvas); }   // alloc-rare: a canvas met for the first time
+  r.width = b.width; r.height = b.height;
+}
 export function canvasSize(canvas) {
   let r = boxes.get(canvas);
   if (!r) { boxes.set(canvas, { width: 0, height: 0 }); boxObserver.observe(canvas); r = boxes.get(canvas); }   // alloc-rare: a canvas met for the first time (an observer may report its box at once, so it is read back)

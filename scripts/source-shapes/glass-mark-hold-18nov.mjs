@@ -17,4 +17,5 @@ export default [
   { file: 'styles/app-03-layouts.css', need: [/\.prep-hold, \.prep-hold > \* \{ visibility: hidden !important; animation: none !important; \}/, `${W} the hold: laid out, not seen, nothing animating`] },
   { file: 'src/ui/card-throw.js', need: [/else enterWhenReady\(el, \(\) => start\(el, 'in', \{ x: 0, o: 1 \}, RAIL_MS, d\), undefined, false\);/, /else enterWhenReady\(el, \(\) => start\(el, 'back', \{ x: 0, o: 1 \}, ms, delay\), undefined, false\);/, `${W} a deck card comes in when its widgets are drawn, held at its start meanwhile`] },
   { file: 'src/ui/card.js', need: [/enterWhenReady\(d\.el, begin\);/, `${W} a card's details come in, with the face going out, when their widgets are drawn`] },
+  { file: 'src/ui/card.js', need: [/if \(!warmed && !el\.hidden\) \{ warmed = true; warmSliders\(el\); \}/, /const up = framesSeen >= 2 && !widgetsPending\(el\)/, `${W} a card being built has its sliders' pictures made and drawn at once (not three frames later) and waits two frames for its fits (the stent picture's height) before it is shown`] },
 ];

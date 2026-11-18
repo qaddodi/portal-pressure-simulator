@@ -17,6 +17,7 @@
 // into a string to be compared.
 
 import { widgetsPending, widgetState, enterWhenReady } from './widget-ready.js';
+import { warmSliders } from './slider-gl.js';
 import { store, updateParams } from './store.js';
 import { h, svgIcon, paintRange, isPhoneLayout, countTo, swapText, afterExit, markGone, switchIn, releaseWords } from './util.js';
 import { sheetParts, dragSheet, glideSheet, stopSheet, setSheetOffset, sheetOffset } from './sheet-move.js';
@@ -187,14 +188,18 @@ export function createCard({ view, stage, ctx, onWhy }) {
   let pinH = 0, releasing = false;
   // The card opens when its widgets are up (18 Nov 2026, Mohammad, the iPhone: "half-rendered: a default background, sliders not in their final render, then it switches to the real look"). Built hidden (ac-prep: its box is laid
   // out, so its pictures are drawn), then its plate, glass, paper and words all begin together, in the same frame, on the final render. At most PREP_MAX_MS; widget-ready.js says when waiting is pointless.
-  const PREP_MAX_MS = 450;   // motion-scale: not a move (the longest a card waits for its widgets before it opens)
+  const PREP_MAX_MS = 250;   // motion-scale: not a move (the longest a card waits for its widgets before it opens)
   let prepOn = false, prepT = 0, prepAt = 0;
   function prepEnd() { prepOn = false; clearTimeout(prepT); el.classList.remove('ac-prep'); }
   function prepBegin() {
     prepOn = true; prepAt = performance.now(); el.classList.add('ac-prep');
+    let framesSeen = 0, warmed = false;
+    // (Two frames of the page's own: its observers have reported and every fit that follows a width (the stent picture's height, tips-figure.js) has landed before the card is shown, so nothing in it changes size after it appears.)
+    nextFrame(() => nextFrame(() => { framesSeen = 2; }));
     const poll = () => {
       if (!prepOn) return;
-      const up = !widgetsPending(el) && document.fonts?.status !== 'loading', late = performance.now() - prepAt >= PREP_MAX_MS;
+      if (!warmed && !el.hidden) { warmed = true; warmSliders(el); }   // (laid out now: its sliders' pictures are made and drawn at once, not when their boxes are first seen)
+      const up = framesSeen >= 2 && !widgetsPending(el) && document.fonts?.status !== 'loading', late = performance.now() - prepAt >= PREP_MAX_MS;
       if (!up && !late) { prepT = setTimeout(poll, 24); return; }
       if (!up) widgetState.misses++;
       prepEnd(); opening(); backIn(null); reveal();
