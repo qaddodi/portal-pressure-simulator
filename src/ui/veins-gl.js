@@ -1828,6 +1828,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   else if (!started.tubeLean && who === 'stage') tube2Failed = ['stage 2 shaders'];
   // Stage 3's six (the lumen programs and the compositor's Tube builds): all or none, apart from stage 2's, so a failure leaves the Tube at stage 2.
   let tube3 = null, tube3Failed = null;
+  // (Run by prepare() at a free moment, once the programs are finished: see warm('tube3').)
+  const tube3Warm = { done: () => true, run: () => { if (tube3) warm('tube3'); } };
   const finishTube3 = () => { ({ P: tube3, failed: tube3Failed } = stage3Finish(gl, finishProgram, startsOf('tube3'))); };
   if (started.tubeLumen && !later.includes('tube3')) finishTube3();
   else if (!started.tubeLumen && who === 'stage') tube3Failed = ['stage 3 shaders'];
@@ -1857,6 +1859,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // without it takes it, auxTake). The overlays' stack program too, for their first set. The tasks of what is drawn over the figure in
   // this canvas (warmIn: the resolution fade's program, the glass's) are published in the same free moments.
   const aux = {}, freeTasks = [];
+  if (tube3) freeTasks.push(tube3Warm);   // (finished at once, with no later publishing)
   const AUX_FS = { lay: LAY_FS, up: UP_FS };
   const auxStart = (k) => { if (!SHADER_WARM || aux[k] || lost || (k === 'lay' ? layP : upP) !== null) return; try { aux[k] = startProgram(gl, REUSE_VS, AUX_FS[k]); } catch (e) { caught('veins-gl:1970', e); /* (compiled at its first use, as before) */ }
     // (Where the driver cannot say when it is done, it is finished now, where the switch is set, as the optional builds are: never in a frame.)
@@ -3694,9 +3697,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.bindFramebuffer(gl.FRAMEBUFFER, w.fb);
     gl.viewport(0, 0, 1, 1);
     gl.disable(gl.BLEND);
-    if (k === 'plain') {
+    if (k === 'plain' || k === 'tube3') {
       gl.drawBuffers(ATTACH_COLOR);
-      for (const [P, va] of [[plain, compVAO], [plainCell, w.va]]) {
+      // (The Tube's lumen-layer builds are the ones a vessel picture draws with once they are ready: their first draw is a driver's
+      // compile of the program's state, 450-580 ms inside the first Portal vein pick (tester, 18 Nov). Drawn here once, at a free moment, into
+      // the 1 x 1 target, so that cost is not in a frame the viewer sees. The whole-picture and the cell builds, plain and full alike.)
+      const list = k === 'plain' ? [[plain, compVAO], [plainCell, w.va]]
+        : tube3 ? [[tube3.plain, compVAO], [tube3.plainCell, w.va], [tube3.comp, compVAO], [tube3.compCell, w.va]] : [];
+      for (const [P, va] of list) {
         gl.useProgram(P.p);
         compBind(P.u, false, false, false, false);
         gl.bindVertexArray(va);
@@ -3731,7 +3739,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       else if (k === 'plain') { part('veins: finish plain', finishPlain); if (plainCell) part('veins: warm plain', warm, 'plain'); }
       else if (k === 'tube') { part('veins: finish tube', finishTube); if (tubePt) fboOK = false; else tubeGiveUp('the Tube vessel shaders failed'); }
       else if (k === 'tube2') { part('veins: finish tube 2', finishTube2); if (tube2) { fboOK = false; queuePrep(); } }
-      else if (k === 'tube3') { part('veins: finish tube 3', finishTube3); if (tube3) { fboOK = false; queuePrep(); } }
+      else if (k === 'tube3') { part('veins: finish tube 3', finishTube3); if (tube3) { fboOK = false; queuePrep(); freeTasks.push(tube3Warm); } }
     }
     if (!later.length) freeShaders();
   }

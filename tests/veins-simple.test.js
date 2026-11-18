@@ -185,6 +185,8 @@ test('the composite takes the plain build only when its dye, origin and bleed un
     }
     return [...new Set(out)];
   };
+  // (The first draw also runs the builds' one-off warm-up draws (1 x 1, full builds too); the picture's own draws are counted after it.)
+  g.draw([1, 0, 0, 1, 0, 0], look, { on: true });
   let n = f.calls.length;
   g.draw([1, 0, 0, 1, 0, 0], look, { on: true });
   assert.deepEqual(builds(n), ['plain']);
