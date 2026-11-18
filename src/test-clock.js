@@ -43,9 +43,10 @@ export function createTestClock(g = globalThis, opts = {}) {
   const hooks = { gate: null };   // gate(): false holds the loop for a moment (the engine's worker is behind: test-mode.js)
   const timers = new Map(), rafs = new Map();
   let current = null, on = false, driving = false, queued = false, waitT = 0, rate = Math.max(1, Number(opts.rate) || 5);
+  let speed = 1;   // (how fast app time runs against real time when it is not skipping ahead: 1 = real pace, below 1 = slow motion, 0 = held; the gallery's slow-motion bench)
   let offset = 0, credit = 0, lastReal = 0, frameAt = -Infinity, seq = BASE, ord = 0, frames = 0, nowBase = 0, dateBase = 0;
   let port = null;
-  const now = () => realNow() + offset;
+  const now = () => (speed === 1 ? realNow() + offset : realNow() * speed + offset);   // (app time = speed x real time + offset: a change of speed re-anchors offset, so time never jumps)
 
   // ---- timers ----
   function addTimer(cb, delay, args, every, internal) {
@@ -92,8 +93,9 @@ export function createTestClock(g = globalThis, opts = {}) {
     if (!driving) return;
     if (waitT) { nat.clearTimeout(waitT); waitT = 0; }
     const r = realNow();
-    credit = Math.min(CAP_MS, credit + (r - lastReal) * (rate - 1));
+    credit = speed < 1 ? 0 : Math.min(CAP_MS, credit + (r - lastReal) * (rate - 1));   // (slow motion never skips ahead)
     lastReal = r;
+    if (speed === 0) return;   // (held: nothing runs until the speed is set again or a frame is stepped by hand; setSpeed pokes the loop)
     if (hooks.gate && !hooks.gate()) { poke(); return; }
     const n = now(), E = Math.min(dueOf(false), frameDue());
     if (E === Infinity) return;   // (nothing asked for: the next setTimeout or frame request wakes the loop)
@@ -164,7 +166,7 @@ export function createTestClock(g = globalThis, opts = {}) {
 
   function install() {
     if (on) return;
-    on = true; offset = 0; nowBase = now(); dateBase = nat.dateNow();
+    on = true; speed = 1; offset = 0; nowBase = now(); dateBase = nat.dateNow();
     saved.perfNow = Object.getOwnPropertyDescriptor(perf, 'now');
     perf.now = () => now();
     g.setTimeout = (cb, d, ...a) => addTimer(cb, d, a, false);
@@ -218,8 +220,20 @@ export function createTestClock(g = globalThis, opts = {}) {
     /** A timer of the clock's own (the animation look, the engine's tick): it fires when due but never keeps the loop spinning. Returns a stop function. */
     every(fn, ms) { const id = addTimer(fn, ms, [], true, true); return () => timers.delete(id); },
     get rate() { return rate; }, set rate(v) { rate = Math.max(1, Number(v) || 1); },
+    /** Slow motion: app time runs at `s` times real time (0 holds it, 1 is real pace; above 1 is not a speed, use rate). Continuous: time never jumps. */
+    get speed() { return speed; },
+    setSpeed(s) {
+      const v = Math.min(1, Math.max(0, Number(s))), next = Number.isFinite(v) ? v : 1;
+      if (next === speed) return speed;
+      offset += realNow() * (speed - next); speed = next;
+      credit = 0; lastReal = realNow();
+      poke();
+      return speed;
+    },
+    /** Runs n frames of app time at once (60 a second), for frame stepping while held: every timer and frame due on the way runs. */
+    stepFrames(n = 1) { advanceTo(now() + STEP * Math.max(1, Math.floor(n))); },
     get on() { return on; }, get running() { return driving; }, get offset() { return offset; },
-    stats: () => ({ now: now(), offset, timers: timers.size, frames: rafs.size, framesRun: frames, rate, running: driving }),
+    stats: () => ({ now: now(), offset, timers: timers.size, frames: rafs.size, framesRun: frames, rate, speed, running: driving }),
     syncAnimations,
   };
 }
