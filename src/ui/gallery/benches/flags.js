@@ -11,6 +11,7 @@
 //   ?budget=1      motion-budget.js
 //   ?lap           main.js, lap.js, frame.js
 //   ?inputs        frame.js
+//   ?watch         main.js, watch/start.js
 //   ?testclock[=N] test-boot.js
 //   ?rest=off      frame.js            ?scene=dom, ?scenecheck   scene-store.js     ?swblur=1   blur-guard.js
 //   ?stageover=gpu stage.js            ?gpuorgans=force         gpu-probe.js        ?lumen=off, ?lumenscale=N   tube-stage2.js
@@ -28,6 +29,7 @@ export const FLAGS = Object.freeze([
   { id: 'budget', group: 'Measure', kind: 'fixed', fixed: '1', meaning: 'Counts the motion budget only, with no readout, for a run that reads pps.motionBudget.' },
   { id: 'lap', group: 'Measure', kind: 'bare', meaning: 'The device lap: a fixed route of about 90 seconds the page drives itself and writes up as one block of text to paste back.' },
   { id: 'inputs', group: 'Measure', kind: 'bare', meaning: 'Starts the input-to-paint tracker at load (tap, press or key to the first changed frame, last 200 inputs).' },
+  { id: 'watch', group: 'Measure', kind: 'bare', meaning: 'The motion recorder: a red dot records what moves and judges it by the motion rules; works on the preview copy or a local run (watch/start.js).' },
   { id: 'testclock', group: 'Measure', kind: 'bare-or-value', def: '1', valid: /^\d+(\.\d+)?$/, meaning: 'Starts the page on the test clock before any other module reads the time (the number is the rate; none means the default).' },
   { id: 'rest', group: 'Compare', kind: 'fixed', fixed: 'off', meaning: 'Turns the rest pacing off (frames at a lower rate when nothing moves), for comparing.' },
   { id: 'scene', group: 'Compare', kind: 'fixed', fixed: 'dom', meaning: 'Turns the page\'s own layout engine off, so every element is asked of the browser.' },
