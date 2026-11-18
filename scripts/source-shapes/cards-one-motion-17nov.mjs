@@ -18,4 +18,5 @@ export default [
   { file: 'src/ui/main.js', need: [/el\.classList\.add\('card-leaving'\); cardMoveFor\(D_SMALL \+ 160\);/, `${W} a sheet's exit says how long it runs`] },
   { file: 'src/ui/card-throw.js', need: [/cardMoveFor\(ms \+ delay \+ 120\);/, `${W} a deck card's throw says how long it runs, so the presolve waits for it`] },
   { file: 'src/ui/card-throw.js', need: [/r\.v \+= Math\.min\(Math\.max\(0, now - r\.last\), STALL_MAX\); r\.last = now;/, `${W} a long frame holds a card's move where it stood: the move's clock goes on by at most STALL_MAX a frame`] },
+  { file: 'src/ui/stage-morph.js', need: [/inMotion\(\) \|\| cardMoveLeft\(\) > 0/, `${W} the view switch's pieces are not built inside a card's entrance or exit`] },
 ];

@@ -1,6 +1,7 @@
 // The change between the views on the GPU: the morph pieces, their binning ahead in a worker, and the frames of the change.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { cancelMay, inMotion, settling, mayTask, mayWaiting, settleGate } from './frame.js';
+import { cardMoveLeft } from './card-motion.js';
 import { sinceInput } from './quiet.js';
 import { lerp } from './util.js';
 import { newJoinStore } from './vein-joins.js';
@@ -313,7 +314,7 @@ export function createMorph(st, live) {
     // (Not while the figure moves at rest, for a while: a moment is a pass over every vessel. A move holds it for as long as the move
     // lasts, however long: beginMotion ends one itself after MOTION_MAX_MS. Only the person's own input is capped, at twelve looks. A
     // change between the views under way is built for, not held.)
-    if (live.morph === live.morphTarget && (inMotion() || (sinceInput() < 700 && bd.held < 12))) {
+    if (live.morph === live.morphTarget && (inMotion() || cardMoveLeft() > 0 || (sinceInput() < 700 && bd.held < 12))) {   // (a card coming or going holds it too: it is built for after, card-motion.js)
       bd.held++;
       mayTask(TRACK_TAG, morphTrackStep, { notBefore: performance.now() + 120 });
       return false;
