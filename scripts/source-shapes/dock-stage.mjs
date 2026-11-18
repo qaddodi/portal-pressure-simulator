@@ -21,6 +21,6 @@ export default [
   { file: 'src/ui/dock.js', need: [/&& readMetric\(body, 'clientHeight'\) >= 600 : readMetric\(body, 'clientWidth'\) >= 1000/, 'the short side card never holds two tests'] },
   { file: 'styles/app-*.css', need: [/\.instrument-workspace \.dock-head\.tabbed \.card-close\.card-close \{ position: relative; transform: none;/, "the card's X is positioned (relative): static, the .ib hover fill (::before, absolute, inset 0) spread over the whole card and turned it flat gray on hover (12 Nov 2026)"] },
   { file: 'src/ui/dock-sheet.js', need: [/const TESTS_HALF_PX = 520;/, "a phone's Tests card rests at one fixed 520 px, the laptop card's counterpart"] },
-  { file: 'src/ui/dock-sheet.js', need: [/const need = size === half\(\) && !grow \? natural\(\) : Infinity;/, 'the Tests card never shrinks to its content'] },
+  { file: 'src/ui/dock-sheet.js', need: [/const need = !page && size === half\(\) && !grow \? natural\(\) : Infinity;/, 'the Tests card never shrinks to its content'] },
   { file: 'index.html', need: [/styles\/tests-card\.css/, 'the Tests card styles are linked'] },
 ];
