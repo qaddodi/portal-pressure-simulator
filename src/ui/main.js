@@ -42,6 +42,7 @@ import { dopplerVel } from './velNormal.js';
 import { controlOwnsKey } from './key-owner.js';
 import { onTheme, onThemeBusy, themeSettled, settledSurfaces } from './theme-epoch.js';
 import { cssVar, $, $$, h, icon, afterExit, fmt, fmtFlow, toast, TOASTS, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, menuSection, menuPush, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, switchIn, onSurfaceOpened, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile, fadeShown } from './util.js';
+import { enterWhenReady } from './widget-ready.js';
 import { initMenuGlass, whyGlass } from './menu-glass.js';
 import { glideOnResize } from './plate-glide.js';
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet, dragSheet } from './sheet-move.js';
@@ -1639,7 +1640,7 @@ function leave(el) {
   el.addEventListener('animationend', done);
   setTimeout(done, 400);
 }
-const arrive = (el) => { el.classList.remove('card-leaving'); cardMoveFor(D_SMALL + 160); switchIn(el); };
+const arrive = (el) => { el.classList.remove('card-leaving'); cardMoveFor(D_SMALL + 160); switchIn(el); enterWhenReady(el, NOOP); };   // (held until its widgets are drawn, widget-ready.js: its entrance is the CSS one, which begins when the hold comes off)
 // One at a time (8 Nov 2026, Mohammad: "menus hate to be on top of each other"). A menu's frost is drawn in the figure's canvas, under every
 // page element, so the words and pictures of a card lying under a menu show straight through it. So a card coming in puts the open menus
 // away, and a menu coming in sends away each card its box lies over (all of them when it is a sheet), except the card it was opened from.

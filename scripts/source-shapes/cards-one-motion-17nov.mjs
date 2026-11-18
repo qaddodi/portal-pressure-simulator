@@ -4,7 +4,7 @@
 const W = 'A card is one still box (17 Nov 2026):';
 export default [
   { file: 'src/ui/card.js', need: [/const swap = wasOpen && !same && !!el\.animate && !!old;/, `${W} a pick while the card is open is always the words' crossfade, whatever the new card's size or shape (it used to be the card going out and coming in again: a blink)`] },
-  { file: 'src/ui/card.js', need: [/if \(el\.hidden \|\| leaving \|\| \(resized && !swap\)\) \{ opening\(\); backIn\(leaving \? lo : null\); \}/, `${W} only a card that is not open comes in from its edge`] },
+  { file: 'src/ui/card.js', need: [/if \(el\.hidden && !leaving && !prepOn\) prepBegin\(\);\s+else if \(el\.hidden \|\| leaving \|\| \(resized && !swap\)\) \{ if \(!prepOn\) \{ opening\(\); backIn\(leaving \? lo : null\); \} \}/, `${W} only a card that is not open comes in from its edge`] },
   { file: 'src/ui/card.js', need: [/if \(swap && resized && !el\.classList\.contains\('ac-in'\) && !reduceMotionMQ\?\.matches\) glideFrom = sizes\.h;/, `${W} a pick that changes the height glides the card from the height it had`] },
   { file: 'src/ui/card.js', need: [/if \(swap && oldH > 0\) \{ old\.style\.height = `\$\{oldH\}px`; old\.style\.bottom = 'auto'; \}/, `${W} the old words fade at their own height, never stretched to the new box`] },
   { file: 'src/ui/dock.js', need: [/for \(const w of was\) if \(!w\.el\.classList\.contains\('active'\) && w\.el\.animate\) paneOut\(w\.el, w\.top, w\.box, w\.pair\);/, `${W} every pane a tab leaves, a pair included, fades out where it stood`] },
