@@ -44,6 +44,7 @@ const state = {
   hvpgMeasured: false,        // Explore: the HVPG catheter procedure has run for this patient (the live HVPG shows)
   showHvpg: (() => { try { localStorage.removeItem('pps.showHvpg'); } catch { /* storage unavailable */ } return true; })(),   // The HVPG always shows without measuring it (Settings switch removed 11 Nov 2026; an old saved choice is dropped)
   presenting: false,          // a Presenter script or the tour is running
+  sinusoidWash: false,        // a Presenter slide with `wash`: the sinusoid view washes the wedge's amber from the central vein along the vessel (sinusoid-wash.js)
   dopGate: 'mid',             // where along a stent the Doppler samples: proximal | mid | distal | site (its narrowing)
 };
 

@@ -52,6 +52,7 @@
 //   cath                     the HVPG catheter instead of a camera: 'route', 'free', 'wedge', 'result' or 'blocked'
 //   cathKeep                 true on a slide between two catheter slides (a dive into the lobule between the wedge and the HVPG): the catheter goes out under the move as on any slide, but the
 //                            slide after it brings it back in place, balloon up, and not down the whole route again (presenter-lapse.js cathOut, cathTo)
+//   wash                     true on a sinusoid slide that shows the wedged column: once the view has landed, the wedge's amber spreads from the central vein along the sinusoid (sinusoid-wash.js)
 //   monitor                  the catheter's pressure monitor (Measure › HVPG's tracing) under the slide's words: 'free', 'wedge' or 'result'
 //                            (the built-in talks put it in the data card instead: tool { kind: 'hvpg', catheter: true } on a slide with that cath)
 //   tick                     a few words for what happened at this slide's time point, over its line, at 45°, on a talk trace (else its title)

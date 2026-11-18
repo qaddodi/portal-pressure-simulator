@@ -40,7 +40,7 @@ export const HVPG = {
       ask: ['How do you confirm adequate wedging?', 'Inject a small amount of contrast: it stays in the vein with no washout, and the tracing loses its pulsatility.'],
     },
     {
-      id: 'wedge-sinusoid', cathKeep: true, cam: 'lobule:sinusoid', terms: { sinusoids: 'lobule:sinusoid' }, data: 'tiles', tiles: ['whvp', 'sin'], key: ['whvp'],
+      id: 'wedge-sinusoid', cathKeep: true, wash: true, cam: 'lobule:sinusoid', terms: { sinusoids: 'lobule:sinusoid' }, data: 'tiles', tiles: ['whvp', 'sin'], key: ['whvp'],
       kicker: 'Measuring portal pressure', site: 'sin', title: 'In cirrhosis, the wedged pressure approximates the sinusoidal pressure',
       line: 'The occluded hepatic vein holds a static column that ends in the sinusoids. In cirrhosis the sinusoids no longer intercommunicate, so the WHVP, {whvp}, approximates the sinusoidal pressure, {sin}.',
       notes: 'With the balloon inflated, flow in that hepatic vein stops and the blood upstream of the tip equilibrates with the pressure where it next meets flowing blood: the sinusoids. In cirrhosis the sinusoids no longer communicate freely with each other, so the column reflects the sinusoidal pressure, which is close to the portal pressure. That is why the WHVP, and so the HVPG, estimates the portal pressure in cirrhosis. Where the resistance lies before the sinusoids, the WHVP does not follow the portal pressure.',

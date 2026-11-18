@@ -121,6 +121,8 @@ uniform vec3 cBg, cShade, cLumen, cLymph, cCell, cUnder, cNuc, cCol, cBm, cBile,
 uniform float aBm;
 uniform vec4 uEnd;               // the end arrows: portal x, central x (µm), size (µm), alpha
 uniform vec2 uEndA;              // how much each end's name shows (0 to 1): its arrow fades with it
+uniform vec4 uWedge;              // the wedged column's wash (sinusoid-wash.js): alpha (0: none, as on every slide but one), how far it has come from the central end (0 to 1)
+uniform vec3 cWedge;             // its colour: the wedge's amber
 
 const float ENDO = ${UM.endo.toFixed(2)}, DISSE = ${UM.disse.toFixed(2)}, HEP = ${UM.hep.toFixed(1)}, LUM0 = ${UM.lum.toFixed(1)};
 const float SLOT = ${SLOT.toFixed(2)}, CELL = ${CELL.toFixed(1)};
@@ -218,9 +220,20 @@ vec3 endoInk(vec3 under, float d, float dN, float dJ, float det) {
   return mix(c, cEndoE, line(dJ, 0.09) * cov(d) * det);
 }
 
+// The wedged column's wash: 1 from the central vein's end of the sinusoid as far as the wash has come toward the portal venule's, soft at its front; 0 when off.
+float wedgeA(float x) {
+  float span = uEnd.x - uEnd.y;
+  if (uWedge.x <= 0.0 || abs(span) < 1.0) return 0.0;
+  float t = (x - uEnd.y) / span;
+  float f = uWedge.y * 1.08;
+  return uWedge.x * (1.0 - smoothstep(f - 0.08, f, t));
+}
+
 // ── The lumen, flat as the lobule's: pressure colour, a thin light line and a thin dark one, the streaks ──
 vec3 lumen(float x, float y, float hw, int lane0) {
-  vec3 c = cLumen;
+  float wz = wedgeA(x);
+  float live = 1.0 - 0.9 * wz;   // (the column is still: the flow's light and streaks die away in it)
+  vec3 c = mix(cLumen, cWedge, 0.85 * wz);
   // The flow's light (the shimmer, the sheen, the glints): white on a dark lumen, a deep shade of the lumen on a pale one, where white is
   // 1.2 to 1.9:1; eased by the lumen's lightness (the pressure colour moves), as the vessels' own light was (visual-style B5).
   float fPale = smoothstep(0.58, 0.66, dot(cLumen, vec3(0.299, 0.587, 0.114)));
@@ -238,18 +251,18 @@ vec3 lumen(float x, float y, float hw, int lane0) {
   float e = (xx - x0) / Ls;
   float yc = (lc + (h1(ki, id + 11) - 0.5) * 0.6 / NL) * hw;
   float rr = 1.0 - r * r;
-  c = mix(c, fInk, 0.07 * rr * rr * uShim / 0.5);
+  c = mix(c, fInk, 0.07 * rr * rr * uShim / 0.5 * live);
   float wy = min(max(0.35, 2.8 * uPx), 0.3 * hw / NL);
   // Light on a flowing liquid: a slow sheen drifts with the blood (two broad, warped waves), and each streak is a soft
   // glint, bright at its head and trailing off, that swells and fades as the sheen passes over it, so none blinks.
   float sx2 = x - uFlow * (0.55 + 0.45 * rr);
   float sh = 0.5 + 0.5 * sin(sx2 * 0.075 + 1.6 * sin(sx2 * 0.031 + y * 0.35) + y * 0.22);
   sh = sh * sh * (3.0 - 2.0 * sh);
-  c = mix(c, fInk, 0.11 * sh * rr * uShim / 0.5);
+  c = mix(c, fInk, 0.11 * sh * rr * uShim / 0.5 * live);
   float ed = uDir < 0.0 ? 1.0 - e : e;   // the head leads the flow
   float along = smoothstep(0.0, 0.85, ed) * (1.0 - smoothstep(0.86, 1.0, ed));
   float acr = exp(-pow((y - yc) / (wy * (0.6 + 0.6 * ed)), 2.0));
-  c = mix(c, fInk, along * acr * smoothstep(0.15, 0.35, hk) * uShim * 0.6 * (0.45 + 0.75 * sh));
+  c = mix(c, fInk, along * acr * smoothstep(0.15, 0.35, hk) * uShim * 0.6 * (0.45 + 0.75 * sh) * live);
   return c;
 }
 

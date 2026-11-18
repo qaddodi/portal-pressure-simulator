@@ -1121,6 +1121,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (!outNow) slideLayers(s);
     // The catheter leaves with its slides. (Only a new patient on the first slide or with reduced motion fades the figure, which takes
     // it; otherwise the patient eases in after (morphTo) and the figure never dims, so the catheter retracts and fades on its own.)
+    if (!!s.wash !== !!store.get().sinusoidWash) store.set1('sinusoidWash', !!s.wash && !s.visual);   // (the wedged column's wash in the sinusoid view: only a slide that says wash)
     tx?.phase('cath-out');
     // (Onto a slide with no catheter of its own, where the figure does not dim: the catheter's way out, 700 ms, runs under the slide's camera move,
     // which sets off with the press, and is waited for before the cards come in. 16 Nov 2026, his Mac: Carvedilol 5 to 4 started 3 s after the

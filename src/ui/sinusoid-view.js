@@ -45,6 +45,7 @@ import { restPass, restClass, restAttr } from './rest-pass.js';
 import { hitLabel, DIM_ALPHA } from './label-explain.js';
 import { readBox as boxOf } from './layout-snap.js';
 import { reduceMotionMQ } from './motion.js';
+import { washProgress } from './sinusoid-wash.js';
 import { darkMQ } from './look.js';
 import { boxGap, needsLeader } from './label-place.js';
 import { caught } from './caught.js';
@@ -533,7 +534,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
     cBile: null, cEndo: null, cEndoS: null, cEndoE: null, cEndoN: null, cHscQ: null, cHscA: null, cHscN: null, cKup: null, cKupN: null, cKupE: null,
     cRbc: null, cEndF: null, cEndE: null, cAlb: null, cAlbE: null, uShim: 0, uStreak: 0, uDark: 0,
     // (the camera and the reveal, written in place each frame)
-    uI0: rgb3(), uI1: rgb3(), uF0: rgb3(), uF1: rgb3(), uEnd: [0, 0, 0, 0], uRev: [0, 0, 0, 0], uDet: [0, 0], uEndA: null,
+    uI0: rgb3(), uI1: rgb3(), uF0: rgb3(), uF1: rgb3(), uEnd: [0, 0, 0, 0], uWedge: [0, 0, 0, 0], cWedge: null, uRev: [0, 0, 0, 0], uDet: [0, 0], uEndA: null,
   };
   const LY = { lo: null, mid: null, hi: null, bg: null };
   let palDark = null, palEpoch = -1;
@@ -566,6 +567,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
       U.cRbc = rgb(cssv('--sv-gl-rbc'));
       // The end arrows are inked as their labels: the text's colour inside the labels' halo.
       U.cEndF = rgb(cssv('--text')); U.cEndE = rgb(cssv('--label-halo'));
+      U.cWedge = rgb(cssv('--tr-wedge'));
       U.cAlb = rgb(cssv('--sv-gl-albumin')); U.cAlbE = rgb(cssv('--sv-gl-albumin-edge'));
       U.uShim = dark ? 0.3 : 0.5; U.uStreak = dark ? 0.3 : 0.85; U.uDark = dark ? 1 : 0;
       if (cssMiss) palEpoch = -1;   // (a value not read yet: made again once it is)
@@ -1204,6 +1206,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
     descValid = true;
     return true;
   }
+  let washAt = 0, washBusy = false;   // (when the wedged column's wash began, ms; 0 when it is not running: a wash still on its way keeps the view drawing)
   let lastKey = '', gpuKey = '', settled = false;   // settled: paused, nothing easing, the same picture as last frame
   // dt: the traffic's step (capped, so a long frame never jumps the cells along); ease: the time the eases step by, the
   // real time since the last frame (an exponential ease takes any step, so a slow frame settles as soon as a fast one would).
@@ -1252,6 +1255,12 @@ export function createSinusoidView({ host, before = null, share = null }) {
       u.uLum = UM.lum * S.lum; u.uPinch = S.pinch; u.uXs = geo.xs; u.uXk = geo.xk; u.uKy = halfW(geo.xk); u.uHscA = wallIn(geo.xs) + disseW(geo.xs) * 0.5 + 0.8;
       u.uCol = S.col; u.uBm = S.bm; u.uMv = S.mv; u.uAct = S.act; u.uPor = S.por; u.uFlow = flowX; u.uLym = lymX; u.uLyF = clamp(0.32 * S.filt ** 1.5, 0.06, 1.75); u.uDir = Math.sign(S.v || 1);
       set4(u.uEnd, END[0], END[1], END[2], 0.95); u.uEndA = endA;
+      // The wedged column's wash (sinusoid-wash.js): only while a slide asks for it (store.sinusoidWash) and the view has landed; it begins afresh each time the view lands.
+      const wantWash = shown > 0 && !dive && !!store.get().sinusoidWash && !model.hide;
+      if (!wantWash) washAt = 0; else if (!washAt) washAt = performance.now();
+      const wk = wantWash ? washProgress(performance.now() - washAt, reduce.matches) : 0;
+      set4(u.uWedge, wk > 0 ? 1 : 0, wk, 0, 0);
+      washBusy = wantWash && wk < 1;
       // The zoom from the lobule: one camera move. The lobule (magnified by the compositor) carries it most of the way;
       // the view, already drawn where the lobule's own sinusoid is, comes in over all of it at once as the zoom lands
       // (no strip that appears and then lengthens), and its detail (fenestrae, microvilli, cells, traffic) resolves last.
@@ -1266,7 +1275,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
       spriteDt = Math.max(0, dt) * go;
       const n = sprites();
       // Paused and settled (nothing eases, no zoom): the same picture as last frame, so the two full-screen passes are skipped.
-      const sameAsLast = go === 0 && !dive && !svFade && pictureSame(u, n);
+      const sameAsLast = go === 0 && !dive && !svFade && !washBusy && pictureSame(u, n);
       if (!sameAsLast) { gpu.draw(u, pts, n); noteDraw('sinusoid-view'); svYield?.drew(performance.now()); const dt0 = gpu.target; opW = dt0 ? dt0.w : 0; opH = dt0 ? dt0.h : 0; opAll = u.uAll === 1 && u.uFocus === 1; } else settled = true;
       gpuKey = go === 0 && !dive && !svFade;
       if (svFade) svFadeStep();

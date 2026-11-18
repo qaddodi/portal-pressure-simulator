@@ -323,7 +323,7 @@ export function createStart(st, live) {
     live.wrapRO?.disconnect();
     document.fonts?.removeEventListener('loadingdone', onFonts);
     live.fitRO?.disconnect(); live.clearRO?.disconnect(); live.fitKids = []; live.clearFor = null; clearTimeout(live.clearT); cancelRest(live.fitRaf); cancelRest(live.paneRaf);
-    store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, presentGrads: null, focus: null, stented: [], lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
+    store.set({ presenting: false, sinusoidWash: false, presentLabels: null, presentTerms: null, presentNames: false, presentGrads: null, focus: null, stented: [], lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
     figureHooks('clear');
     live.hushed = false; live.lastCam = null; clearTimeout(live.hushInT); app.classList.remove('pz-hush', 'pz-hush-in', 'pz-held'); live.heldNow = false; live.holdEase = false;
     cancelFrame(slip.raf); slip.d = null; slip.h0 = null; stage.followEnd?.();
