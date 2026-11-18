@@ -65,7 +65,7 @@ import { readMine } from './script-library.js';
 const PREVIEW = typeof location !== 'undefined' && /\/preview\//.test(location.pathname);
 // (Loaded only there: the live site's bundle carried the 53 KB deck for nothing. The menu reads TESTING when it opens, long after.)
 let TESTING = [];
-const testingLoad = PREVIEW ? import('./test-decks/demo-all-new-visuals.js').then(({ DEMO_ALL }) => { TESTING = [DEMO_ALL].map((d) => ({ id: 'test-' + d.id, title: d.title, summary: d.summary || '', deck: checkDeck(d), test: true })); }).catch(() => { /* the preview's test deck only */ }) : Promise.resolve();
+const testingLoad = PREVIEW ? import('./test-decks/demo-all-new-visuals.js').then(async ({ DEMO_ALL }) => { const gallery = await import('./gallery/deck.js').then((m) => m.galleryDeck(), () => null); TESTING = [DEMO_ALL, gallery].filter(Boolean).map((d) => ({ id: 'test-' + d.id, title: d.title, summary: d.summary || '', deck: checkDeck(d), test: true })); }).catch(() => { /* the preview's test deck only */ }) : Promise.resolve();
 // alloc-rare: one timer per awaited step of a procedure, seconds apart, not per frame
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const NEVER = () => false;   // (a wait nothing cuts: a caller with no change of its own to ask)

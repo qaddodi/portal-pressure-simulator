@@ -13,7 +13,8 @@
 //   ctx.specimen()          the open catalog entry ({ id, section, family, title, ... }) or null
 //   ctx.onSpecimen(fn)      fn(entry | null) on every change; returns an off() function
 //   ctx.look() / ctx.setLook(id)   the current look id ('light' | 'soft' | 'dark' | 'navy' | 'black') and a switch with no reload
-//   ctx.toast(text)         a short message on the page
+//   ctx.toast(text) / ctx.say(text)   a short message on the page (the same call)
+//   ctx.copy(text)          puts text on the clipboard; resolves true when it worked
 //   ctx.catalog             the catalog module's exports (CATALOG, byId, sections ...)
 //
 // A module registers itself when it is imported; plugins.js lists the modules the page imports (one line each). Each part is
