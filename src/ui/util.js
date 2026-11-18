@@ -196,7 +196,8 @@ function toastFit(wrap, t, msg, actions, sub = null) {
   }
   t._refit = () => restPass(() => toastFit(wrap, t, msg, actions, sub));
   t._wgl?.paint();
-  t.style.visibility = '';
+  // (Seen once its picture is up (.wgl-on), not a frame before: the first frame of a toast showed its page look, the words in the plain ink on the plain card, before the GPU's picture replaced them. 18 Nov 2026, widget-ready.js.)
+  enterWhenReady(t, () => { t.style.visibility = ''; });
 }
 // (Since 2 Nov 2026 the card is built and put on the page as a task between frames (rest-pass.js), never inside the frame that asked
 // for it: toast is reached from the tick, and the build wrote the page there. The returned close works at once: asked before the card
