@@ -75,3 +75,19 @@ test('a chart in Dark (no data-palette) takes Dark\'s tokens, not Navy\'s', asyn
     assert.equal(lookIdOf(makeCtx()), 'black');
   } finally { if (was === undefined) delete globalThis.document; else globalThis.document = was; }
 });
+
+// The catheter reads as a light silver-white shaft against the blue veins in every look (the light looks once drew it #9AA9BC, a blue-grey that
+// read as blue on a blue vein). Neutral = low chroma; light = bright enough that the shader's shading (x0.66..1.04) keeps it a pale metal.
+test('the catheter shaft and the other steel instruments are light neutral greys, never blue, in every look', () => {
+  const rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const chroma = (h) => { const c = rgb(h); return (Math.max(...c) - Math.min(...c)) / 255; };
+  const luma = (h) => { const [r, g, b] = rgb(h); return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255; };
+  for (const id of LOOK_IDS) {
+    const t = tokensOfLook(id);
+    assert.ok(chroma(t['dev-poly']) <= 0.04, `${id}: the catheter shaft ${t['dev-poly']} is a neutral silver, not tinted`);
+    assert.ok(luma(t['dev-poly']) >= 0.85, `${id}: the catheter shaft ${t['dev-poly']} is a light body`);
+    const [r, , b] = rgb(t['dev-poly']);
+    assert.ok(b - r <= 8, `${id}: the shaft is not bluer than it is red`);
+    for (const k of ['dev-steel', 'dev-platinum']) assert.ok(chroma(t[k]) <= 0.07, `${id}: ${k} ${t[k]} stays a neutral metal`);
+  }
+});
