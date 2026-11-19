@@ -187,7 +187,7 @@ export async function startGallery({ pps = window.pps, root = document } = {}) {
   const light = el('span', 'gl-light'), lightWords = el('span', '', 'Not settled');
   const settled = el('div'); settled.append(light, lightWords);
   const viewSec = el('div', 'gl-sec'); viewSec.append(el('h3', '', 'Look'), lookRow);
-  const actSec = el('div', 'gl-sec'), actRow = el('div', 'gl-row'); actRow.append(freezeBtn, shootBtn, linkBtn, btn('Settled?', () => checkSettled(true))); actSec.append(el('h3', '', 'Picture'), actRow, settled);
+  const actSec = el('div', 'gl-sec'), actRow = el('div', 'gl-row'); actRow.append(freezeBtn, shootBtn, linkBtn, btn('Settled?', () => checkSettled(true)), btn('Full check', () => { location.assign(`${location.pathname}?debug=check`); }, 'Full check: walk the app and report (about three minutes)')); actSec.append(el('h3', '', 'Picture'), actRow, settled);
   const infoSec = el('div', 'gl-sec'), infoPre = el('pre', 'gl-pre'), infoLinks = el('div', 'gl-links');
   infoSec.append(el('h3', '', 'This specimen'), infoPre, el('h3', '', 'Real slides that use it'), infoLinks);
   const panelSec = el('div', 'gl-sec'); panelSec.append(el('h3', '', 'Panels'));
@@ -200,7 +200,9 @@ export async function startGallery({ pps = window.pps, root = document } = {}) {
   const browse = btn('Browse', () => sheet(rail, rail.hidden));
   const prev = btn('‹', () => step(-1), 'Previous specimen'), next = btn('›', () => step(1), 'Next specimen');
   const toolsBtn = btn('Tools', () => sheet(tools, tools.hidden));
-  bar.append(browse, prev, next, name, toolsBtn);
+  // (Report: the one button that builds a packet of this screen and copies it, the same sheet as the long press on the PREVIEW pill. The bar has room for one more button on a phone, not two: Full check is in Tools.)
+  const reportBtn = btn('Report', () => { const pk = pps?.packet; if (pk?.open) pk.open(); else toast('The report is not loaded on this page (preview copy only).'); }, "What's wrong here? Copy a report of this screen");
+  bar.append(browse, prev, next, name, reportBtn, toolsBtn);
 
   // ── Benches ──
   function openBench(b) {

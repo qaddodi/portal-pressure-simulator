@@ -1,6 +1,6 @@
 # ?watch: the motion recorder and its red dot
 
-Step 2c of `/mnt/project-files/card-gallery-plan/screen-report-recs.md`. Preview copy (or a local run) only; off without `?watch`.
+Step 2c of `/mnt/project-files/card-gallery-plan/screen-report-recs.md`. Preview copy (or a local run) only; off without `?watch`; the debug page (`/preview/?debug`) starts it by default. Its pop rules (`card-pop`, `card-size-snap`, `glass-before-words`, `card-empty`, 19 Nov 2026) judge the drawn cards and whether they hold words; they have not yet been tuned on a real device.
 
 Open `/preview/?watch`. Use the app. When a motion rule fails, a small red dot with a count appears at the bottom left. Tap it for the findings
 (rule, what and where, why, the file that owns it). **Copy** puts the findings and the last 10 seconds of history on the clipboard.

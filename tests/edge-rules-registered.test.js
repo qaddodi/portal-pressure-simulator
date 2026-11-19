@@ -69,8 +69,8 @@ const walkJs = (d) => readdirSync(d).flatMap((n) => { const p = join(d, n); retu
 test('no runner imports a card judge: judgeCards, judgeStructureCard, judgeEdges and edgeProblems are called only by selfcheck/ and their own files (the allowance only shrinks)', () => {
   const root = new URL('../', import.meta.url).pathname;
   const JUDGES = /\b(judgeCards|judgeStructureCard|judgeEdges|edgeProblems|judgeZoom)\b/;
-  // scripts/card-fit.mjs is the owner's call (his 18 Nov Actions ban, step 11 of the migration); phone-card-fit.mjs goes with step 10.
-  const allowed = [/src\/ui\/selfcheck\//, /src\/ui\/gallery\/(fit|edge)-rules\.js$/, /scripts\/card-fit\.mjs$/, /scripts\/phone-card-fit\.mjs$/];
+  // scripts/card-fit.mjs is the owner's call (his 18 Nov Actions ban, step 11 of the migration); phone-card-fit.mjs is gone (step 10: its structure cards are gallery specimens).
+  const allowed = [/src\/ui\/selfcheck\//, /src\/ui\/gallery\/(fit|edge)-rules\.js$/, /scripts\/card-fit\.mjs$/];
   const bad = [];
   for (const f of [...walkJs(join(root, 'src')), ...walkJs(join(root, 'scripts'))]) {
     const rel = f.slice(root.length);

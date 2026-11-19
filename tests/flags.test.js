@@ -79,3 +79,28 @@ test('no file reads location.search but src/ui/flags.js (the allowance is 0: a n
   }
   assert.deepEqual(bad, [], `these read location.search themselves, so the same flag can mean different things in two files: ${bad.join(', ')}`);
 });
+
+test('?debug is the one name of the debug page: it opens the gallery, the Phone check and its long walk and the frame, and the old names still do', () => {
+  assert.equal(flagValue('gallery', at('?debug', 'preview')), '');
+  assert.equal(flagValue('gallery', at('?debug=gallery', 'preview')), '');
+  assert.equal(flagValue('gallery', at('?debug=frame', 'preview')), 'frame');
+  assert.equal(flagValue('check', at('?debug=check', 'local')), '');
+  assert.equal(flagValue('check', at('?debug=full', 'local')), 'full');
+  assert.equal(flagValue('check', at('?debug', 'local')), null, 'the page alone is not the walk');
+  assert.equal(flagValue('gallery', at('?debug=check', 'local')), null, 'the walk is not the page');
+  assert.equal(flagOn('gallery', at('?debug', 'local')), true);
+  assert.equal(flagValue('debug', at('?debug=check', 'local')), 'check');
+  // (the same gate as the old names: the live site never reads it)
+  for (const q of ['?debug', '?debug=check', '?debug=frame']) { assert.equal(flagValue('gallery', at(q, 'live')), null); assert.equal(flagValue('check', at(q, 'live')), null); }
+  assert.equal(flagValue('gallery', at('?gallery', 'preview')), '', 'the old spelling still works');
+  assert.equal(gateOf('debug'), 'local');
+  assert.ok(knownFlags().some((f) => f.id === 'debug'));
+});
+
+test('the debug page has the recorder on by default and a Report button on its bar', () => {
+  const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
+  assert.match(main, /flagOn\('watch'\) \|\| flagValue\('debug'\) !== null\) import\('\.\/watch\/start\.js'\)/);
+  const page = readFileSync(new URL('../src/ui/gallery/page.js', import.meta.url), 'utf8');
+  assert.match(page, /bar\.append\(browse, prev, next, name, reportBtn, toolsBtn\)/);
+  assert.match(page, /btn\('Full check'/);
+});

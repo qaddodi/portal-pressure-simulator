@@ -118,8 +118,8 @@ test('bootFrame draws one iframe at the device size, scaled to fit, and starts n
   f.dispose();
 });
 
-test('the two fit scripts judge through the shared rules and keep no judging of their own', () => {
-  for (const f of ['scripts/card-fit.mjs', 'scripts/phone-card-fit.mjs']) {
+test('the fit script judges through the shared rules and keeps no judging of its own', () => {
+  for (const f of ['scripts/card-fit.mjs']) {
     const s = readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
     assert.match(s, /from '\.\.\/src\/ui\/gallery\/fit-rules\.js'/, `${f} imports the shared rules`);
     assert.match(s, /from '\.\/fit-io\.mjs'/, `${f} runs the readers through fit-io`);
