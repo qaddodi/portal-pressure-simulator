@@ -41,16 +41,16 @@ export function pickJourneys(all, only = []) {
 const css = `
 html[data-phonecheck] .gl-bar { display: none !important; }
 .pc { position: fixed; z-index: var(--z-diag, 300); left: 8px; right: 8px; top: calc(env(safe-area-inset-top, 0px) + 8px); max-width: 560px; display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-radius: 13px;
-  background: var(--surface, #fff); color: var(--text, #111); border: 1px solid var(--border-strong, var(--border, #8886)); box-shadow: 0 8px 28px -10px rgba(0,0,0,.45); /* colour-exempt: the debug page's own chrome */
+  background: var(--surface); color: var(--text); border: 1px solid var(--border-strong, var(--border)); box-shadow: 0 8px 28px -10px rgba(0,0,0,.45); /* colour-exempt: the debug page's own chrome */
   font: 600 13px/1.35 var(--font-ui, system-ui, -apple-system, sans-serif); }
 .pc[hidden] { display: none; }
 .pc small { font-weight: 500; color: var(--text-2, inherit); overflow-wrap: anywhere; }
-.pc-bar { height: 5px; border-radius: 3px; background: var(--border, #8884); overflow: hidden; }
-.pc-bar i { display: block; height: 100%; background: var(--danger, #c33); transform-origin: left center; transform: scaleX(0); }
+.pc-bar { height: 5px; border-radius: 3px; background: var(--border); overflow: hidden; }
+.pc-bar i { display: block; height: 100%; background: var(--danger); transform-origin: left center; transform: scaleX(0); }
 .pc-row { display: flex; flex-wrap: wrap; gap: 6px; }
-.pc button { font: inherit; min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--border-strong, var(--border, #8886)); background: transparent; color: inherit; cursor: pointer; }
-.pc button.go { background: var(--danger, #c33); border-color: transparent; color: var(--text-inverse, #fff); }
-.pc pre { margin: 0; padding: 8px; border-radius: 9px; background: var(--surface-2, #8881); max-height: 62vh; overflow: auto; font: 500 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pc button { font: inherit; min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--border-strong, var(--border)); background: transparent; color: inherit; cursor: pointer; }
+.pc button.go { background: var(--danger); border-color: transparent; color: var(--text-inverse); }
+.pc pre { margin: 0; padding: 8px; border-radius: 9px; background: var(--surface-2); max-height: 62vh; overflow: auto; font: 500 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
 `;
 
 function safeStorage() { try { return window.sessionStorage; } catch { return null; } }
