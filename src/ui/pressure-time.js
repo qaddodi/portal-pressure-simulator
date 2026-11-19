@@ -27,6 +27,7 @@ import { VITALS } from './vital-read.js';
 import { restPass, cancelRest } from './rest-pass.js';
 import { shownOr } from './shown.js';
 import { dropFront, dropFrontNums } from './drop-front.js';
+import { pickTrace, picked, PEN_UP } from './trace-pick.js';
 const nextFrame = frameFor('pressure-time');
 
 // hide: the readout that can stay unmeasured (store.hiddenReadouts); day: the value on the
@@ -1393,14 +1394,14 @@ function line(ctx, s, color, width, plotW) {
   ctx.beginPath();
   if (ctx.onGPU === true) ctx.traceLine(s.x, s.mid, n, stride, AF[0], AF[1], AF[2], AF[3]);
   else {
+    const k = pickTrace(s.mid, n, stride), P = picked();   // (the lowest and highest of every run, so a crest never shimmers as the window slides: trace-pick.js)
     let started = false;
-    for (let i = 0; i < n; i += stride) {
-      const v = s.mid[i];
-      if (Number.isNaN(v)) { started = false; continue; }
-      const px = AF[0] + AF[1] * s.x[i], py = AF[2] + AF[3] * v;
+    for (let q = 0; q < k; q++) {
+      const i = P[q];
+      if (i === PEN_UP) { started = false; continue; }
+      const px = AF[0] + AF[1] * s.x[i], py = AF[2] + AF[3] * s.mid[i];
       if (!started) { ctx.moveTo(px, py); started = true; } else ctx.lineTo(px, py);
     }
-    if ((n - 1) % stride) ctx.lineTo(AF[0] + AF[1] * s.x[n - 1], AF[2] + AF[3] * s.mid[n - 1]);
   }
   ctx.stroke();
 }

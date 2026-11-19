@@ -21,6 +21,7 @@ import { canvasSize, fitCanvas, onCanvasSized, onCanvasResized, noteDrawer, redr
 import { sdfAtlas, displayCovers, DISPLAY_FROM } from './text-gl.js';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
 import { notePass, hold } from './gpu-budget.js';
 import { fontOf, measure } from './glyph-measure.js';
+import { pickTrace, picked, PEN_UP } from './trace-pick.js';
 import { fbComplete } from './gl-state.js';
 import { ucOf } from './uniform-cache.js';
 import { caught } from './caught.js';
@@ -1645,24 +1646,18 @@ export function createShim(G) {
       }
       LP[0] = x; LP[1] = y;
     },
-    /** A series as the line a chart draws for it (pressure-time.js): every stride-th sample, a NaN reading lifting the pen, and the last sample. */
+    /** A series as the line a chart draws for it (pressure-time.js): the lowest and the highest sample of every run of `stride` (trace-pick.js, so a crest is kept whatever the window's phase), the first and the last sample, a NaN reading lifting the pen. */
     traceLine(xs, ys, n, stride, ax, bx, ay, by) {
       if (n < 1) return;
       only = false;
-      needPts(pn + 2 * n + 4);
-      const m = st.m;
+      needPts(pn + 2 * n + 8);
+      const m = st.m, k = pickTrace(ys, n, stride), P = picked();
       let on = false, x = 0, y = 0;
-      for (let i = 0; i < n; i += stride) {
-        const v = ys[i];
-        if (v !== v) { on = false; continue; }
-        x = ax + bx * xs[i]; y = ay + by * v;
+      for (let q = 0; q < k; q++) {
+        const i = P[q];
+        if (i === PEN_UP) { on = false; continue; }
+        x = ax + bx * xs[i]; y = ay + by * ys[i];
         if (!on) { openPiece(); on = true; } else if (!curOn) openPiece();
-        pb[pn++] = m ? m[0] * x + m[2] * y + m[4] : x;
-        pb[pn++] = m ? m[1] * x + m[3] * y + m[5] : y;
-      }
-      if ((n - 1) % stride) {
-        x = ax + bx * xs[n - 1]; y = ay + by * ys[n - 1];
-        if (!curOn) openPiece();
         pb[pn++] = m ? m[0] * x + m[2] * y + m[4] : x;
         pb[pn++] = m ? m[1] * x + m[3] * y + m[5] : y;
       }
