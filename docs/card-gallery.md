@@ -35,6 +35,32 @@ preview copy).
   `sweep=affected` reads `gallery-affected.json` beside the page.
 - The settled test is sampled (100 ms) only while a call waits: the presenter and the camera announce no "done" event, so a quiet window is the signal.
 
+## The Phone check (preview only): `/preview/?check`
+
+The fast answer to "a script I can run on my phone that finds everything" (19 Nov 2026). The Sweep opens every specimen (about 290, 45 to 60 minutes). The Phone check does
+not: the iPhone's tab kills came from *paths* (the Tests card pane to pane, the HVPG deck's slide 5 to 6, a close zoom then the lobule), so it walks the paths and reads
+what the page holds after **every step**. Open the link, put the phone down, and about three minutes later it shows one report and a Copy button.
+
+- **Code:** `src/ui/gallery/journeys.js` (the paths, pure data, shared with any Node rig: `tests/gpu-journey.js` imports the same steps and brings its own executor),
+  `walk.js` (the runner, the flags and the report; pure, tested by `tests/gallery-walk.test.js`), `walk-exec.js` (plays a step through `window.pps`, reads
+  `gpu-budget.js` and `gl-contexts.js`), `phone-check-panel.js` (the overlay, the address, the test clock, the wake lock). `main.js` loads the gallery page for `?check` on the preview copy.
+- **Address:** `?check` (the paths that would start after 200 s are dropped and named), `?check=full` (no limit), `&rate=8` (test-clock speed, default 6; `1` is real pace),
+  `&only=views,panes` (just those paths), `&fresh=1`. The Tools sheet has a "Phone check" button too.
+- **Speed:** the page runs on the test clock (`pps.testClock({ rate })`), which skips the waiting between frames; each step waits only until the camera, the presenter and the
+  cards are still. One look, no easing waits, layout judged where the walk already stands (never a second open for it), one card of each family rather than every state.
+- **What it walks (priority order):** every move between the four views; every Tests pane forward, on a TIPS patient (IR pane to Doppler, the 18 Nov crash) and back; the catheter-tip
+  zoom with the IR pane open, then into the lobule; HVPG slide 5 to 6 and back four times; each structure card one after another and the lobule's parts; procedure slides; the
+  heaviest two slides of every deck (`heaviestPair`); one card of every teaching-card family.
+- **What it reads after each step:** the GPU estimate and the page's highest mark, live contexts (own, charts, live, lost), who grew (`budget().owners`), `holdersNow().unmetMB`, counted errors,
+  and the fit rules (`pps.gallery.check`) and the self-check rules (`pps.screen` findings) at every stop that is not a camera transit.
+- **What it flags:** 92% of the phone envelope or more ("at the limit", the same gate as the node walker), a step's own gate (tip zoom with a pane open 75%), unmet pressure, a rest above 60% before a
+  path begins, a step that adds 25 MB or more (naming the owners that grew), a path that keeps 15 MB or more after everything is put away, more than 2 own contexts or 12 live, a lost context, a step that
+  failed or did not settle, and fit or self-check findings (the same words at several stops are one line).
+- **Tab kills:** the place is kept in `sessionStorage` before each step starts. A reload that finds a step still open reports it ("THE TAB WAS ENDED on ... step 3, after these steps, the last read
+  was 260 MB") and goes on with the next path on the clean page; after 3 kills it stops and reports. The page's own `last-seen` line (`report.js`) is added to the report.
+- **Cannot judge:** how anything looks, wording, motion smoothness, shaders no step compiles, states no step reaches, the layout of all 290 cards (the Sweep, or the headless layout sweep),
+  and anything the test clock's faster pace hides (a race that needs real time). A device with no Sinusoid view reports the move as a failed step.
+
 ## The Node specimen runner (`tests/gallery-specimens.test.js`)
 
 Runs in `npm test` (so in Quick on every push), no browser. Each specimen of the catalog is opened on the page's own DOM (jsdom, `scripts/warm/` GL stand-in,
