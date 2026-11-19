@@ -9,7 +9,7 @@ function fakeGL() {
   let n = 1;
   const gl = { FRAMEBUFFER: 1, DRAW_FRAMEBUFFER: 2, READ_FRAMEBUFFER: 3, TEXTURE_2D: 4, RGBA8: 5, RGBA: 6, UNSIGNED_BYTE: 7, COLOR_ATTACHMENT0: 8, COLOR: 9, SCISSOR_TEST: 10, RASTERIZER_DISCARD: 11, COLOR_BUFFER_BIT: 12, NEAREST: 13, TEXTURE_MIN_FILTER: 14, TEXTURE_MAG_FILTER: 15, TEXTURE_WRAP_S: 16, TEXTURE_WRAP_T: 17, CLAMP_TO_EDGE: 18, LINEAR: 19 };
   let scissor = true;
-  for (const k of ['bindFramebuffer', 'drawArrays', 'clear', 'blitFramebuffer', 'createTexture', 'createFramebuffer', 'bindTexture', 'texImage2D', 'texParameteri', 'framebufferTexture2D', 'invalidateFramebuffer', 'enable', 'disable', 'deleteTexture', 'deleteFramebuffer']) {
+  for (const k of ['bindFramebuffer', 'drawArrays', 'clear', 'blitFramebuffer', 'createTexture', 'createFramebuffer', 'bindTexture', 'texImage2D', 'texParameteri', 'framebufferTexture2D', 'invalidateFramebuffer', 'enable', 'disable', 'deleteTexture', 'deleteFramebuffer', 'scissor']) {
     gl[k] = (...a) => { calls.push([k, ...a]); if (k === 'disable' && a[0] === 10) scissor = false; if (k === 'enable' && a[0] === 10) scissor = true; return k.startsWith('create') ? { id: n++, kind: k } : undefined; };
   }
   gl.isEnabled = (c) => (c === 10 ? scissor : false);
@@ -139,6 +139,63 @@ test('a renderer that arrives before the restore event has run still gets a scre
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   assert.ok(second.fb && second.fb !== fb1);
   assert.equal(calls.filter((c) => c[0] === 'bindFramebuffer').at(-1)[2], second.fb);
+});
+
+// GPU-4 (19 Nov 2026): a clip cuts every pass that draws on the screen to a box, whatever scissor the pass sets or switches off, and leaves
+// passes on framebuffers of their own and the frame's end copy alone.
+function scissorGL() {
+  const { gl, calls } = fakeGL();
+  const real = { on: false, box: null };
+  const en = gl.enable, dis = gl.disable;
+  gl.scissor = (x, y, w, h) => { calls.push(['scissor', x, y, w, h]); real.box = [x, y, w, h]; };
+  gl.enable = (c) => { en(c); if (c === 10) real.on = true; };
+  gl.disable = (c) => { dis(c); if (c === 10) real.on = false; };
+  return { gl, calls, real };
+}
+
+test('a clip cuts the screen\'s passes to its box, inside their own scissor, and lifts cleanly', () => {
+  const { gl, real } = scissorGL();
+  const canvas = { width: 300, height: 200 };
+  const sc = keepScreen(gl, canvas, { onEnd: () => () => {} });
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  sc.clip(10, 20, 100, 50);
+  assert.ok(real.on && real.box.join() === '10,20,100,50', 'the box alone');
+  gl.disable(gl.SCISSOR_TEST);   // a pass that switches its scissor off (the glass blur does)
+  assert.ok(real.on && real.box.join() === '10,20,100,50', 'still cut');
+  gl.enable(gl.SCISSOR_TEST); gl.scissor(60, 0, 200, 40);   // a pass with a scissor of its own: the two meet
+  assert.equal(real.box.join(), '60,20,50,20');
+  const own = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, own);   // a framebuffer of its own: the pass's own scissor, uncut
+  assert.equal(real.box.join(), '60,0,200,40');
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  assert.equal(real.box.join(), '60,20,50,20', 'the screen again: cut again');
+  sc.unclip();
+  assert.ok(real.on && real.box.join() === '60,0,200,40', 'the pass\'s own scissor is back');
+  gl.disable(gl.SCISSOR_TEST);
+  assert.equal(real.on, false);
+});
+
+test('the frame end copy ignores a clip left standing, and the screen counts the writes made on it', () => {
+  const { gl, calls, real } = scissorGL();
+  const canvas = { width: 300, height: 200 };
+  let end = null;
+  const sc = keepScreen(gl, canvas, { onEnd: (f) => { end = f; return () => {}; } });
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  const w0 = sc.writes;
+  gl.drawArrays(5, 0, 4); gl.drawArrays(5, 0, 4);
+  assert.equal(sc.writes, w0 + 2);
+  const own = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, own); gl.drawArrays(5, 0, 4);
+  assert.equal(sc.writes, w0 + 2, 'a framebuffer of its own is not the screen');
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  sc.clip(0, 0, 10, 10);
+  assert.equal(sc.clipped, true);
+  const n0 = calls.length;
+  end();
+  assert.equal(sc.clipped, false);
+  const blit = calls.slice(n0).find((c) => c[0] === 'blitFramebuffer');
+  assert.deepEqual(blit.slice(1), [0, 0, 300, 200, 0, 0, 300, 200, gl.COLOR_BUFFER_BIT, gl.NEAREST], 'whole');
+  assert.equal(real.on, false, 'no scissor on the copy');
 });
 
 // GPU-5 (19 Nov 2026 review): a canvas resized while nothing is drawn into it (the lobule or the sinusoid open, an iPhone turned) showed a cleared figure for the paint between the

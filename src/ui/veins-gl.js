@@ -66,6 +66,7 @@ import { headVS, headMain, createHeadList } from './blood-heads.js';
 import { softwareGL } from './sw-yield.js';
 import { frameCount, framePhase, onFrameFinal, onFrameEnd, frameFor } from './frame.js';
 import { keepScreen } from './keep-screen.js';
+import { flagValue } from './flags.js';
 import { caught } from './caught.js';
 import { counts, tally } from './frame-counts.js';
 import { morphLowK, morphLowSize } from './morph-low.js';
@@ -1726,13 +1727,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // each { order, prep?, draw }. Every prep runs first (each glass takes its blur from the picture just laid, before any glass is drawn
   // on it), then every draw, lowest order first.
   const tops = [];
+  let topsVer = 0;   // (counts the passes put in the list and taken out of it: a rest present laid in part needs the list as the last present had it)
   // (2 Nov 2026, bug sweep: one throw had taken a hook out for good, so a single bad frame of the cards' glass left every card solid
   // until a reload. A hook that throws is told once and kept; only one failing TOP_FAILS pictures in a row is taken out.)
   const TOP_FAILS = 30;
   const topFailed = (t, e) => {
     t.fails = (t.fails || 0) + 1;
     if (t.fails === 1) console.warn('Veins renderer: what is drawn over the figure failed.', e);
-    if (t.fails >= TOP_FAILS) { const i = tops.indexOf(t); if (i >= 0) tops.splice(i, 1); console.warn(`Veins renderer: what is drawn over the figure failed. It failed ${TOP_FAILS} pictures in a row and is taken out.`); }
+    if (t.fails >= TOP_FAILS) { const i = tops.indexOf(t); if (i >= 0) { tops.splice(i, 1); topsVer++; } console.warn(`Veins renderer: what is drawn over the figure failed. It failed ${TOP_FAILS} pictures in a row and is taken out.`); }
   };
   // What is drawn under the figure in this canvas (the lobule's tissue, tissue-gl.js host): { on(), draw() }. With one, each
   // present lays it on the cleared canvas first and the kept picture over it (premultiplied, pixel for pixel), then the tops; null: the
@@ -3254,6 +3256,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     presents++;
     let laidUnder = false, how = PRES_HOW[0];
     const sameSize = !!up && own.w === canvas.width && own.h === canvas.height && !restX && !restY;   // (the picture is the canvas's own size and sits where the canvas does)
+    // (GPU-4: the plain copy, at rest, with only the blood moved: laid in the blood's box alone, see restBox.)
+    const inPart = restWant(top, again) ? restBox() : null;
+    if (inPart) {
+      how = PRES_HOW[6];
+      restLay(inPart, top);
+      tally(counts.present, how);
+      return;
+    }
     if (camOn() && camDraw(own.tex, false)) { how = PRES_HOW[1]; /* (laid: the kept picture under the camera and alpha) */ }
     else if (!up && under && under.on() && underLay()) { laidUnder = true; how = PRES_HOW[2]; }   // (laid: the under picture, the kept one over it)
     else if (up && !sameSize && upDraw()) how = PRES_HOW[3];
@@ -3285,7 +3295,126 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       fencePart('glasses and labels');
     }
     if (keep) keepNote(laidUnder && top);
+    restNote(how === PRES_HOW[0] && !up && !laidUnder && top, true);
   }
+  // ── Rest present in part (19 Nov 2026, bible review GPU-4) ──
+  // A blood-only frame at rest laid the whole kept picture on the screen, ran every pass over it and copied the whole screen onto the canvas: two whole
+  // copies and every glass and label drawn again for a few moving squares. The second copy cannot be cut (the browser clears the canvas after each
+  // show: keep-screen.js), but the first and the passes can: the screen keeps its picture between frames, so when nothing but the blood's squares changed
+  // since the last present, only their box is laid again from the kept picture, and the passes draw inside that box alone (keepScreen.clip), over what
+  // the last present left everywhere else. It holds only while every part of that is known:
+  //  - the screen is as this renderer left it (nobody wrote on it since: keepScreen writes), at the same sizes, with the same kept picture;
+  //  - no picture but the blood's came since (pictureSeq), each blood frame since is known as tiles (bdTiles), the overlays were not painted again
+  //    (ovRenders) and the list of passes is the one the last present ran (topsVer);
+  //  - this present is the figure's own (a host that asked for one, `again`, has something new to lay) and every pass says it is steady (top.steady():
+  //    nothing it draws changed since it last drew; a pass with no such word keeps the whole present);
+  //  - the box is under three quarters of the canvas.
+  // The glass takes its blur from the screen, which a clip leaves holding last frame's glass outside the box: so it never blurs inside a clip (top.clipped
+  // in glass-gl.js runShare), and a whole present comes at least every PART_FULL_MS, which is when it blurs (its blood is refreshed 4 times a second anyway,
+  // BLOOD_BLUR_MS). ?partial=off keeps every present whole, ?partial=check lays each partial present again whole and compares the two (restCheck).
+  const PART_FULL_MS = 200, PART_MAX_SHARE = 0.75, PART_FLAG = flagValue('partial'), PART_ON = PART_FLAG !== 'off';
+  const restSt = { ok: false, writes: -1, pic: -1, blood: -1, tv: -1, ovr: -1, ovS: false, w: 0, h: 0, ow: 0, oh: 0, tex: null, fullAt: -1e9, run: 0, check: PART_FLAG === 'check', checked: 0, bad: 0, laid: 0, share: 0, why: '', who: '', refused: {} };
+  const PR = [], PPOOL = [], PBOX = [0, 0, 0, 0];
+  if (screenKeep) { const P = (globalThis.pps ||= {}); P.partial = restSt; }   // (pps.partial: how many rest presents were laid in part, why the others were whole)
+  let ovRenders = 0;
+  // (What the present just made leaves as the next one's start. whole: it laid the whole picture.)
+  function restNote(ok, whole) {
+    restSt.ok = !!ok && !!screenKeep && !lost;
+    if (!restSt.ok) return;
+    restSt.writes = screenKeep.writes; restSt.pic = pictureSeq; restSt.blood = bloodSeq; restSt.tv = topsVer; restSt.ovr = ovRenders; restSt.ovS = overShown;
+    restSt.w = canvas.width; restSt.h = canvas.height; restSt.ow = own.w; restSt.oh = own.h; restSt.tex = own.tex;
+    if (whole) { restSt.fullAt = performance.now(); restSt.run = 0; } else restSt.run++;
+  }
+  // (Every pass that draws over the picture can be laid inside the box now.)
+  function topsSteady() {
+    for (let i = 0; i < tops.length; i++) {
+      const t = tops[i];
+      if (t.solo && t.on && !t.on()) continue;   // (a pass that stands alone and shows nothing now)
+      let ok = false;
+      if (typeof t.steady === 'function') { try { ok = !!t.steady(); } catch { ok = false; } }
+      if (!ok) { restSt.who = `order ${t.order ?? 0}${typeof t.steady === 'function' ? '' : ', no steady()'}`; return false; }
+    }
+    return true;
+  }
+  // (Whether this present is a plain copy of the figure's own: no camera, upscale or picture under it, the passes to run, and not a host's ask.)
+  function restWant(top, again) {
+    const no = (why) => { restSt.refused[why] = (restSt.refused[why] || 0) + 1; return false; };
+    if (again) return no('asked for by a pass over the figure');
+    if (!top) return no('without the passes');
+    if (camOn()) return no('under a camera');
+    if (up) return no('upscaled');
+    if (under && under.on()) return no('over a picture under the figure');
+    return true;
+  }
+  // The box (device px from the canvas's top left, [x0, y0, x1, y1]) a present may lay alone, or null: the whole present.
+  function restBox() {
+    const P = restSt, no = (why) => { P.why = why; P.refused[why] = (P.refused[why] || 0) + 1; return null; };   // (why: the last reason a present was laid whole, counted: pps.partial)
+    if (!PART_ON || !screenKeep || lost) return no('off');
+    if (!P.ok) return no('the last present was not a plain whole one');
+    if (screenKeep.writes !== P.writes) return no('something else wrote on the screen');
+    if (P.pic !== pictureSeq) return no('a picture other than the blood\'s');
+    if (P.tv !== topsVer) return no('the list of passes changed');
+    if (P.ovr !== ovRenders || P.ovS !== overShown) return no('the overlays changed');
+    if (P.w !== canvas.width || P.h !== canvas.height || P.ow !== own.w || P.oh !== own.h || P.tex !== own.tex || own.w !== canvas.width || own.h !== canvas.height) return no('a size or the kept picture changed');
+    if (!(bloodSeq > P.blood)) return no('no blood frame since');
+    if (performance.now() - P.fullAt >= PART_FULL_MS) return no('whole present due (the glass blurs)');
+    const n = bdTiles.rects(P.blood, bloodSeq, PR, PPOOL);
+    if (!(n > 0)) return no(n < 0 ? 'the blood\'s tiles are not known' : 'the blood drew nowhere');
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (let i = 0; i < n; i++) { const r = PR[i]; x0 = Math.min(x0, r.x); y0 = Math.min(y0, r.y); x1 = Math.max(x1, r.x + r.w); y1 = Math.max(y1, r.y + r.h); }
+    PBOX[0] = Math.max(0, Math.floor(x0) - 2); PBOX[1] = Math.max(0, Math.floor(y0) - 2); PBOX[2] = Math.min(canvas.width, Math.ceil(x1) + 2); PBOX[3] = Math.min(canvas.height, Math.ceil(y1) + 2);
+    const share = (PBOX[2] - PBOX[0]) * (PBOX[3] - PBOX[1]) / (canvas.width * canvas.height);
+    if (!(share > 0) || share > PART_MAX_SHARE) return no('the box is most of the canvas');
+    if (!topsSteady()) return no(`a pass over the figure is not steady (${P.who})`);
+    if (gpuProbe.on) gpuProbe.gauge('rest present box', `${PBOX[2] - PBOX[0]}x${PBOX[3] - PBOX[1]} px, ${(share * 100).toFixed(0)}% of the canvas`);
+    P.laid++; P.share = share;
+    return PBOX;
+  }
+  // The box laid from the kept picture, the overlays and every pass over it inside the box, the rest of the screen left as the last present had it.
+  function restLay(b, top) {
+    const W = canvas.width, H = canvas.height, w = b[2] - b[0], h = b[3] - b[1], y = H - b[3];   // (GL's y runs up)
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, own.fbo);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, SCR());
+    gl.blitFramebuffer(b[0], y, b[2], y + h, b[0], y, b[2], y + h, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
+    if (gpuProbe.on) gpuProbe.note(COUNTED.presentPart, w * h * 4 / 1024);
+    fencePart('present copy');
+    screenKeep.clip(b[0], y, w, h);
+    try {
+      overLay(true);
+      fencePart('organ overlay laid');
+      if (top && tops.length) { runTops(); gl.bindFramebuffer(gl.FRAMEBUFFER, SCR()); fencePart('glasses and labels'); }
+    } finally { screenKeep.unclip(); }
+    if (restSt.check) restCheck(b);
+    restNote(true, false);   // (after the check, which laid the screen again)
+  }
+  // ?partial=check: the screen as the partial present left it, read; the same present laid whole (with the glass keeping the blur it has, as it did); the two compared.
+  // A difference is a pixel the partial present left stale or drew twice: counted in pps.partial and written to the console with its box.
+  let chkA = null, chkB = null;
+  function restCheck(b) {
+    const W = canvas.width, H = canvas.height, n = W * H * 4;
+    if (!chkA || chkA.length !== n) { chkA = new Uint8Array(n); chkB = new Uint8Array(n); }   // alloc-rare: the check's two buffers, made at its first use and after a resize
+    const rd = (out) => { gl.bindFramebuffer(gl.READ_FRAMEBUFFER, SCR()); gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, out); };
+    rd(chkA);
+    chkNow = true;
+    try {
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, own.fbo); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, SCR());
+      gl.disable(gl.SCISSOR_TEST);
+      gl.blitFramebuffer(0, 0, W, H, 0, 0, W, H, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
+      overLay(true);
+      if (tops.length) { runTops(); gl.bindFramebuffer(gl.FRAMEBUFFER, SCR()); }
+    } finally { chkNow = false; }
+    rd(chkB);
+    let diff = 0, x0 = W, y0 = H, x1 = -1, y1 = -1, worst = 0;
+    for (let i = 0; i < n; i += 4) {
+      const d = Math.max(Math.abs(chkA[i] - chkB[i]), Math.abs(chkA[i + 1] - chkB[i + 1]), Math.abs(chkA[i + 2] - chkB[i + 2]), Math.abs(chkA[i + 3] - chkB[i + 3]));
+      if (d > 2) { diff++; const q = i >> 2, x = q % W, y = (q / W) | 0; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; if (d > worst) worst = d; }
+    }
+    restSt.checked++;
+    if (diff) { restSt.bad++; restSt.last = { diff, worst, box: [x0, H - 1 - y1, x1, H - 1 - y0], laid: b.slice() }; console.warn('Veins renderer: a rest present laid in part differs from the whole one.', restSt.last); }
+  }
+  let chkNow = false;
   // The lobule's kept picture (lobule-keep.js). Whether the picture in scr can be kept and repainted in part: the tissue under it, the
   // overlay over it and the vessel layer are all the ones this renderer knows (keepSrc), nothing else moves in it (every pass added here is
   // `still`), and no camera, upscale or stand-in changes how it is laid. Fills KS.
@@ -3388,7 +3517,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (!over || !overShown || !overM) return;
     const m = overView();
     stack.painter.cssPx = overCss * PW() / canvas.width;
-    if (over.stale(m, PW(), PH())) over.render(m, PW(), PH());
+    if (over.stale(m, PW(), PH())) { over.render(m, PW(), PH()); ovRenders++; }
   }
   // (prepped: overPrep has run already in this present.)
   function overLay(prepped = false) {
@@ -3432,7 +3561,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   }
   const OB = [0, 0, 0, 0], CB = [0, 0, 0, 0];
   // (How a present laid the kept picture, for ?perf's present line (counts.present), and the sizes it last laid at.)
-  const PRES_HOW = ['copy', 'camera', 'under picture', 'upscale', 'filtered copy (upscale compiling)', 'copy (picture is the canvas size)'];
+  const PRES_HOW = ['copy', 'camera', 'under picture', 'upscale', 'filtered copy (upscale compiling)', 'copy (picture is the canvas size)', 'copy in part (the blood\'s box, at rest)'];
   let psW = 0, psH = 0, psCw = 0, psCh = 0, psUw = 0, psUh = 0, psWho = '';
   // The overlay bounds `ob` as the box camDraw lays them in: into CB (camLayBox).
   function camBox(ob) {
@@ -4350,7 +4479,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       /** A host's ask (the labels', the glasses'): the same present, folded into the end of the frame it is made in unless a picture with the
        *  passes over the figure is laid since (see presentAsk). For a host that does not read the canvas after the call. */
       ask: presentAsk,
-      add(t) { if (t.solo && lyP === null && !lost) { try { lyP = finishProgram(gl, startProgram(gl, REUSE_VS, LAYT_FS)); } catch { lyP = false; } } tops.push(t); tops.sort((a, b) => (a.order || 0) - (b.order || 0)); return () => { const i = tops.indexOf(t); if (i >= 0) tops.splice(i, 1); }; },
+      add(t) { if (t.solo && lyP === null && !lost) { try { lyP = finishProgram(gl, startProgram(gl, REUSE_VS, LAYT_FS)); } catch { lyP = false; } } tops.push(t); tops.sort((a, b) => (a.order || 0) - (b.order || 0)); topsVer++; return () => { const i = tops.indexOf(t); if (i >= 0) { tops.splice(i, 1); topsVer++; } }; },
       /** What is drawn under the figure in this canvas ({ on(), draw() }, one at a time): drawn first at each present while on() says so,
        *  onto the cleared canvas, the kept picture laid over it. Returns the call that takes it out. */
       under(u) { under = u; auxStart('lay'); return () => { if (under === u) under = null; }; },
@@ -4362,6 +4491,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       replace(r) { replace = r; return () => { if (replace === r) replace = null; }; },
       /** How many pictures have been laid on the canvas (present): an owner that drew under the figure lays one if a frame laid none. */
       get presents() { return presents; },
+      /** Whether the present under way lays only a box of the picture (restBox): a pass that reads the canvas (the glass's blur) waits for a whole one. */
+      get clipped() { return !!screenKeep?.clipped || chkNow; },
       /** Whether the picture is kept in this canvas's texture (keep): a blood-only frame then repaints only the blood's squares in it. */
       get kept() { return kept.on; },
       /** A warm-up of something drawn over the figure here ({ done(), run() }): run once done() says its programs are compiled, at a free

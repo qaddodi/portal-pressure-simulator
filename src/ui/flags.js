@@ -29,6 +29,7 @@ export const FLAGS = Object.freeze([
   { id: 'swblur', group: 'Compare', kind: 'fixed', fixed: '1', bare: true, meaning: 'Leaves the blur effect on a software renderer (it is dropped by default there).' },
   { id: 'stageover', group: 'Compare', kind: 'fixed', fixed: 'gpu', meaning: 'Draws the figure\'s overlays on the GPU (off by default; on a software renderer only when asked for).' },
   { id: 'gpuorgans', group: 'Compare', kind: 'fixed', fixed: 'force', meaning: 'Organs on the GPU on the software renderer too, for the browser check of the plate layers.' },
+  { id: 'partial', group: 'Compare', kind: 'value', def: 'off', valid: /^(off|check)$/, meaning: 'A figure at rest lays only the blood\'s box again each frame (GPU-4). ?partial=off lays the whole picture every frame, for comparing; ?partial=check lays each partial frame again whole and compares the two (pps.partial).' },
   { id: 'lumen', group: 'Compare', kind: 'fixed', fixed: 'off', meaning: 'No lumen pass and no blood drawn by the Tube renderer (a device A/B that proves or clears the lumen pass).' },
   { id: 'lumenscale', group: 'Compare', kind: 'value', def: '0.5', valid: /^(0?\.\d+|1(\.0+)?)$/, meaning: 'The lumen layer\'s size as a share of the vessel layer (0.25 to 1) for every instance.' },
 ]);

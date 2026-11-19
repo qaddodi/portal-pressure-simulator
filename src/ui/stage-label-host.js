@@ -17,7 +17,7 @@ export function createLabelHost(st, live) {
   // (The labels' pass in the figure's present: its prep, so they are laid before any glass takes its blur, which then has them in it.)
   const labelPass = () => {
     live.labelPassOff?.(); live.labelPassOff = null;
-    if (live.labelGL && live.veins?.top) live.labelPassOff = live.veins.top.add({ order: LABELS_ORDER, prep: () => { if (!gpuProbe.skipLabels) live.labelGL?.drawInto(); }, draw: () => {} });
+    if (live.labelGL && live.veins?.top) live.labelPassOff = live.veins.top.add({ order: LABELS_ORDER, prep: () => { if (!gpuProbe.skipLabels) live.labelGL?.drawInto(); }, draw: () => {}, steady: () => !live.labelGL || !!live.labelGL.steady() });
   };
   { const host = labelHost(); live.labelGL = host ? createLabelGL(labelSvg, gLabels, { software: live.SOFTWARE, marks: [gLeaders, gScan], onBoxes: frostWake, host }) : null; labelPass(); }
   // (Labels part of the figure: each station label drawn at its point as the figure has it in this frame, label-gl.js pinTo.)

@@ -95,7 +95,7 @@ export default [
   { file: 'src/ui/stage*', need: [/onHoles: frostHoles\(key\)/, 'The frosted glass drawn in the figure\'s canvas holds steady (1 Nov 2026, "Move the whole figure onto the GPU"):'] },
   { file: 'src/ui/stage*', forbid: [/labelHoles|(?:live\.)?labelGL\.holes/, 'The frosted glass drawn in the figure\'s canvas holds steady (1 Nov 2026, "Move the whole figure onto the GPU"):'] },
   { file: 'src/ui/stage*', need: [/const LABELS_ORDER = -6;/, 'The frosted glass drawn in the figure\'s canvas holds steady (1 Nov 2026, "Move the whole figure onto the GPU"):'] },
-  { file: 'src/ui/stage*', need: [/(?:live\.)?veins\.top\.add\(\{ order: LABELS_ORDER, prep: \(\) => \{ if \(!gpuProbe\.skipLabels\) (?:live\.)?labelGL\?\.drawInto\(\); \}, draw: \(\) => \{\} \}\)/, 'The frosted glass drawn in the figure\'s canvas holds steady (1 Nov 2026, "Move the whole figure onto the GPU"): (laid before any glass takes its blur)'] },
+  { file: 'src/ui/stage*', need: [/(?:live\.)?veins\.top\.add\(\{ order: LABELS_ORDER, prep: \(\) => \{ if \(!gpuProbe\.skipLabels\) (?:live\.)?labelGL\?\.drawInto\(\); \}, draw: \(\) => \{\}(?:, steady: [^\n]*?)? \}\)/, 'The frosted glass drawn in the figure\'s canvas holds steady (1 Nov 2026, "Move the whole figure onto the GPU"): (laid before any glass takes its blur)'] },
   { file: 'src/ui/stage*', need: [/function hostFrost\(g, o\) \{ if \(!g \|\| !(?:live\.)?veins\?\.top\) return;/, 'The frosted glass drawn in the figure\'s canvas holds steady (1 Nov 2026, "Move the whole figure onto the GPU"):'] },
   // heart-glow
   { file: 'src/ui/presenter*', need: [/ra: \{ node: 'RA', organ: 'heart', /, 'The right atrium\'s slides light the whole heart with a soft glow (not an outline of the atrium alone), and whe'] },
