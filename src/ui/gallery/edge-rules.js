@@ -41,6 +41,23 @@ export function readEdges(io) {
     const w = io.metric(el, 'offsetWidth') || b.width, k = w ? b.width / w : 1;   // (the card as drawn is scaled: the clip is in its own pixels)
     return [r1(b.left + ins[0] * k), r1(b.top + ins[1] * k), r1(b.right - ins[2] * k), r1(b.bottom - ins[3] * k)];
   };
+  // (An inline run of words is boxed by its FONT, not by its line: the box is the font's ascent and descent, and a title set tight (Source Serif at line-height 1.06: the box is
+  // 3.7 px taller than the line at each end) has it stand above the card's top by that much with no letter there, the real ink starting 2 px inside the line. The words of a first
+  // line such as "Heart failure" in a title were found 4 to 5 px "above the card's edge" for that and nothing else (19 Nov 2026, 132 findings). So an inline run that paints
+  // nothing of its own (no background, border, shadow or vertical padding: a pill's box IS ink) is taken at its line's height, line-height from the top of its first line to the
+  // bottom of its last. [top trim, bottom trim] in px.)
+  const lineTrim = (el) => {
+    const cs = st(el);
+    if (cs.display !== 'inline' || typeof io.rects !== 'function') return [0, 0];
+    const L = parseFloat(cs.lineHeight);
+    if (!(L > 0)) return [0, 0];
+    const clear = (c) => !c || c === 'transparent' || /^rgba\(\s*\d+,\s*\d+,\s*\d+,\s*0\s*\)$/.test(c);
+    if (!clear(cs.backgroundColor) || (cs.backgroundImage && cs.backgroundImage !== 'none') || (cs.boxShadow && cs.boxShadow !== 'none')
+      || ['paddingTop', 'paddingBottom', 'borderTopWidth', 'borderBottomWidth'].some((k) => parseFloat(cs[k]) > 0)) return [0, 0];
+    const rs = io.rects(el);
+    if (!rs || !rs.length) return [0, 0];
+    return [Math.max(0, (rs[0].height - L) / 2), Math.max(0, (rs[rs.length - 1].height - L) / 2)];
+  };
   const root = document.querySelector('.pz');
   const shuf = !!root && root.classList.contains('pz-shuf');
   const front = shuf && root.classList.contains('pz-shuf-data') ? 'data' : 'words';
@@ -59,7 +76,8 @@ export function readEdges(io) {
       if (el.tagName === 'CANVAS' || el.tagName === 'SCRIPT' || el.tagName === 'STYLE' || el.classList.contains('sr-only') || !el.textContent.trim() || !shown(el)) continue;
       const r = io.box(el);
       if (!(r.width > 0 && r.height > 0)) continue;
-      const leaf = { t: el.textContent.replace(/\s+/g, ' ').trim().slice(0, 40), b: rect(r), n: nameOf(el) };
+      const [trimT, trimB] = lineTrim(el);
+      const leaf = { t: el.textContent.replace(/\s+/g, ' ').trim().slice(0, 40), b: [r1(r.left), r1(r.top + trimT), r1(r.right), r1(r.bottom - trimB)], n: nameOf(el) };
       // (The nearest box between it and the card that clips: the last line half drawn at its edge. A scrolling box is the scroll rule's business; an ellipsis is meant.)
       if (st(el).textOverflow !== 'ellipsis') {
         for (let a = el.parentElement; a && a !== card; a = a.parentElement) {   // (the card's own edge is the cutoff rule's)
