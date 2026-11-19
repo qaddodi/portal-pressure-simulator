@@ -96,7 +96,7 @@ test('the words give way once more before the data card is cut off: a tighter ti
   assert.match(js, /const put = \(tk, bk\) => \{ (?:live\.)?ui\.text\.style\.setProperty\('--pz-tk', trim \? Math\.min\(tk, WIDE\.tight\) : tk\); (?:live\.)?ui\.text\.style\.setProperty\('--pz-bk', bk\); (?:live\.)?ui\.text\.classList\.toggle\('pz-nocauses', trim > 1\);/);
   assert.match(js, /for \(const n of \[1, 2\]\) \{\s*trim = n; dd\.classList\.remove\('pz-lt', 'pz-lt2'\); stepDk\(1\);\s*below = step\(\);\s*if \(!below && n === 2\) ladder\(\);/);
   // (Only after the steps before it failed: a slide that fitted at Compact, or with its blocks stepped, is never trimmed.)
-  assert.match(js, /below = title\(\);\s*if \(!below\) ladder\(\);\s*if \(!below && sw\) squeeze\(\);/);
+  assert.match(js, /below = title\(\);\s*if \(!below\) ladder\(\);\s*(?:\/\/[^\n]*\n\s*)*(?:if \(!below && sw && !wideSheet\(dd\)\) \{[^\n]*\}\s*)?if \(!below && sw\) squeeze\(\);/);   // (the shuffle's own step may stand between: a screen too short for the pair shuffles, never squeezes)
   // (A fold starts the steps again from the loosest, the trim with them; the slide's lock keeps the CAUSES line's state with its sizes.)
   assert.match(js, /setFolds\(true\); trim = 0; ts\.removeProperty\('--pz-tk'\); ts\.removeProperty\('--pz-bk'\); (?:live\.)?ui\.text\.classList\.remove\('pz-nocauses'\);/);
   assert.match(js, /if \(!below && sw && !held && dd\.classList\.contains\('pz-folds'\)\) squeeze\(\);/);

@@ -692,14 +692,15 @@ export function createZoom(st, live) {
   }
   // The least the data card's fit may be (17 Nov 2026, the tester: its labels fell to 10.3 px at 1440 x 780): its smallest lettering as it reaches the screen at a fit of 1 shrinks no further than 12 px; a card
   // whose lettering is not above 12 px at a fit of 1 keeps the old floor, half.
-  // (A full-width visual panel on the stacked wide layout has no picture whose height the fit could shorten instead: its zoom is its only fit, so it keeps 12 px as its floor
-  // whatever it holds, and the fit's last resort below (pz-scrolls) carries the rest. 18 Nov 2026: ladders, scale, quadrant, walls and plane read 7 to 10 px on an iPhone on its side.)
   function dataFloor(el) {
     const L = minText(el);
-    if (L <= 12 && el === live.ui.panel && live.ui.root.classList.contains('pz-wide')) return 1;
     return L > 12 ? Math.max(0.5, Math.ceil(12 / L * 1000) / 1000) : 0.5;
   }
   function fitCards(...els) {
+    live.shuffle?.park();   // (no card is measured through the shuffle's own transform)
+    try { fitEach(els); } finally { live.shuffle?.resume(); }
+  }
+  function fitEach(els) {
     let refit = false;
     for (const el of els) {
       if (!el || el.hidden || 'folding' in el.dataset) continue;   // (a part mid-fold: the card keeps the fit it will rest with)
@@ -711,7 +712,7 @@ export function createZoom(st, live) {
       const sig = fitSig(el);
       if (fitDone.get(el) === sig) { clipSoon(el); continue; }
       const was = parseFloat(el.style.getPropertyValue('--pz-fit')) || 1;
-      el.style.removeProperty('--pz-fit'); el.style.removeProperty('--pz-z'); el.classList.remove('pz-scrolls');
+      el.style.removeProperty('--pz-fit'); el.style.removeProperty('--pz-z');
       fitFlowTime(el);
       // (The stacked card is fitted with its readings' card tucked, against the tucked cap, whatever state it is in: the instrument holds
       // one size open or tucked, and nothing the fit reads comes from the fit before it. Its readings' travel (--pz-d) is measured at each trial
@@ -852,10 +853,6 @@ export function createZoom(st, live) {
         el.style.setProperty('--pz-z', z.toFixed(3));
       }
       fitEquations(el);
-      // (The last resort, when the picture cannot be made shorter and the lettering may not go under 12 px: a data card on a wide screen's stacked layout, which only an
-      // iPhone on its side leaves too short for its instrument (path cards, forests, the stent's chart), scrolls up and down inside its box rather than have its foot cut off
-      // out of reach. Never sideways. Judged here at the fit the card ends with, with the class off while it is measured; styles/app-05-presenter-cards.css .pz-scrolls.)
-      if ((el === live.ui.data || el === live.ui.panel) && live.ui.root.classList.contains('pz-wide') && ovOf(el).v > 1) el.classList.add('pz-scrolls');
       // (Closed again with no transition, so the answers start hidden and the card rests at its closed height.)
       // (7d, play-test 16 Nov 2026: a centred card that grows as an answer opens re-centres, so everything moved 26 px. Its height with every answer open is kept, --pz-open-h, and the CSS
       // hangs its top at the place that height centres on (.pz-panel.pz-grows), so an answer opening only lengthens it downward: the top and everything above the answer stay still.)

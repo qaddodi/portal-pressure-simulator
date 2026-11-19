@@ -616,10 +616,6 @@
    (presenter.js fitCards sets --pz-fit, the zoom of the card's contents), never clipped or hidden. */
 .app.presenting .stage-view { touch-action: pan-x pan-y; }
 .pz-text, .pz-data, .pz-panel { overflow: clip; overscroll-behavior: none; }
-/* The last resort (18 Nov 2026, the layout sweep: 31 data cards on an iPhone held sideways ran 3 to 254 px past their box, the path cards, a forest, the stent's chart,
-   their feet clipped off the screen with no way to reach them). A data card on the stacked layout whose picture cannot be made shorter, and whose lettering may not go
-   under 12 px, scrolls up and down inside its box (presenter-zoom.js fitCards sets .pz-scrolls); never sideways, so a phone's swipe still opens the next card. */
-.pz-data.pz-scrolls, .pz-panel.pz-scrolls { overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; scrollbar-width: thin; }
 .pz-text > *, .pz-data > *, .pz-panel > * { zoom: var(--pz-fit, 1); }
 .pz-data.col > :not(.pz-tool) { zoom: calc(var(--pz-fit, 1) * var(--pz-dk, 1)); }   /* (stacked under the words when the pair would not fit: the data card's blocks at one of a few fixed smaller sizes, presenter.js DK) */
 /* Pictures never zoom (card sizing, 5 Nov 2026): an instrument or chart (.pz-tool) is drawn in real screen px, at the size its box has,
@@ -685,3 +681,10 @@
 [data-site="presin"] { --site: color-mix(in srgb, var(--tour-portal) 80%, var(--tour-sys)); }
 [data-site="sin"] { --site: color-mix(in srgb, var(--tour-portal) 60%, var(--tour-sys)); }
 [data-site="postsin"] { --site: color-mix(in srgb, var(--tour-portal) 40%, var(--tour-sys)); }
+/* Shuffle (19 Nov 2026, card-shuffle.js): the words' card and the data card share one place when a screen is too short for both. Each is moved by paused animations
+   the script scrubs (a transform added to its own, a clip that leaves its top strip while it is behind, and a veil, this ::after, that darkens it).
+   The one in front stands above the other: .pz-shuf-data (set on the page while the instrument is in front) flips the order as the two cross. */
+.pz.pz-shuf .pz-text::after, .pz-shade.pz-shuf::after, .pz.pz-shuf .pz-data::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--shade-ink); opacity: 0; pointer-events: none; }
+.pz.pz-shuf .pz-text { z-index: 2; }
+.pz.pz-shuf .pz-data { z-index: 1; }
+.pz.pz-shuf.pz-shuf-data .pz-data { z-index: 3; }   /* (the words' card is 2: over the instrument while it leads, under it once it does) */
