@@ -2,6 +2,7 @@
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { D_SMALL } from './ease.js';
 import { cams, camId, camSet, sceneCam, zoomRide } from './scene-cam.js';
+import { stageScope } from './stage-scope.js';
 
 export function createZoom(st, live) {
   const { applyVT, drawVeins, driftEnd, flushVT, refreshCTM, rideNow, rideStart, rideStop, svg, vCanvas, viewNow, wrap } = st;
@@ -94,7 +95,14 @@ export function createZoom(st, live) {
     for (const l of live.zoomLayers || []) { l.el.style.transform = ''; l.el.style.transformOrigin = ''; l.el.style.transition = ''; }
     live.zoomLayers = null; live.zoomAff = null; live.glassCut?.again();
     for (const g of zoomGlass) zoomRide.drop(g);
-    for (const h of zoomHid) { h.el.style.opacity = h.was; h.el.style.transition = h.tr; }
+    // (The callouts that went out under the card come back through the same fade they went out by: their opacity returns under the transition set when they left, which
+    // is dropped only once it has run. Written together with the transition's own removal, the opacity went back to 1 under the stylesheet's transition, which for
+    // a callout is its translate only: one frame, a pop. 19 Nov 2026, bible review STG-6.)
+    if (zoomHid.length) {
+      const back = zoomHid.slice();   // alloc-rare: once as a card zoom closes
+      for (const h of back) { h.el.style.transition = `opacity ${D_SMALL}ms var(--ease)`; h.el.style.opacity = h.was; }
+      stageScope.timer(() => { for (const h of back) h.el.style.transition = h.tr; }, D_SMALL + 40);
+    }
     zoomGlass.length = 0; zoomHid.length = 0;
     live.frostWake();
     rideStop();

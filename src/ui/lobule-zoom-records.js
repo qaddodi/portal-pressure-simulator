@@ -11,7 +11,7 @@ import { geoOf, setGeo } from './svg-gl.js';
 import { clamp } from './util.js';
 
 export function createLobuleRecords(st, live) {
-  const { CARD, CORE, DESIGN, DIVE, LAY_ORDER, LIT_OF, PAN, V, anchorOf, bakeRides, callEl, callLine, callOutMain, callRing, callRingAt, cap, cvKeep, dimmed, fadeIn, fadeOut, fillBase, followEnd, follows, freeRect, freezeLabelGlides, handOn, hexOf, isHid, keepDiscs, labKey, labelLayerOff, labels, labs, leadGL, leadOff, leadOn, leadTo, leaders, lzLoop, measureRun, mirrorAll, mkCallOut, named, nextFrame, noteAt, pick, pickAnchors, placeCall, placeZones, put, relayout, ride, ringDepth, sX, sY, sameBase, setHid, setLayFade, callFade, shiftGeo, sinAt, sizeEnv, snap, spot, trClear, unglide, wantLabels } = st;
+  const { CARD, CORE, DESIGN, DIVE, LAY_ORDER, LIT_OF, PAN, V, anchorOf, bakeRides, callEl, callLine, callOutMain, callRing, callRingAt, cap, commitCall, cvKeep, dimmed, fadeIn, fadeOut, fillBase, followEnd, follows, freeRect, freezeLabelGlides, handOn, hexOf, isHid, keepDiscs, labKey, labelLayerOff, labels, labs, leadGL, leadOff, leadOn, leadTo, leaders, lzLoop, measureRun, mirrorAll, mkCallOut, named, nextFrame, noteAt, pick, pickAnchors, placeCall, placeZones, put, relayout, ride, ringDepth, sX, sY, sameBase, setHid, setLayFade, callFade, shiftGeo, sinAt, sizeEnv, snap, spot, trClear, unglide, wantLabels } = st;
   const VIEW = [1, 0, 0], VIEWC = { k: 1, x: 0, y: 0 };   // (the composed view, written in place)
   function applyView() {
     camThen(VIEWC, CARD, camThen(VIEWC, DIVE, PAN));   // (the card ∘ the dive ∘ the pan: each record has one writer, a card's zoom camera is never written by the dive's frames)
@@ -64,7 +64,13 @@ export function createLobuleRecords(st, live) {
   const mkSol = () => ({ res: [mkRes(), mkRes(), mkRes(), mkRes(), mkRes(), mkRes()], n: 0, total: 0, pl: [], ld: [], lead: null, call: null });   // alloc-rare: made with the view, and in the settled re-layout that still has a clash (never a frame of a hand's move)
   const mkItem = () => ({ k: '', L: null, w: 0, hh: 0, a: [0, 0], ea: [0, 0], edge: null });
   const mkInk = () => ({ x0: 0, y0: 0, x1: 0, y1: 0, r: 0, L: null });
-  const searchBudget = createSearchBudget();   // (LZ2-1: the settled order search keeps to a deadline and is run again, longer, in a later frame)
+  // (STG-1, 19 Nov 2026: the settled order search is a generator. It yields between solves once its frame's slice is spent (sliceOver) and is picked up in the next frame
+  // where it stopped; the labels stand where they are, and the page is written once, when it has finished. What bounds it is a count of solves (search-budget.js), the
+  // same on every device, so the same lobule state gives the same layout on a phone and a Mac, and one change lays the labels once.)
+  const searchBudget = createSearchBudget();
+  const SEARCH_SLICE_MS = 6;
+  let sliceEnd = 0, job = null;
+  const sliceOver = () => performance.now() > sliceEnd;
   const LC = {
     fr: null, ring: null, cards: null, keep: null, lk: 1, hx: 0, hy: 0,
     placed: [], pre: [], base: [], ld0: [], none: [], shK: [], shL: [], stack: [], sizes: [],
@@ -251,7 +257,11 @@ export function createLobuleRecords(st, live) {
   const outsOf = (s) => { let n = 0; for (let i = 0; i < s.n; i++) if (s.res[i].out && isCoreK(s.res[i].k)) n++; return n; };
   const betterSol = (p, q) => outsOf(p) < outsOf(q) || (outsOf(p) === outsOf(q) && p.total < q.total);
   // The pill's state as it stands (where it was put, its ends, what it cost), kept to put back should a layout not win.
-  const callState = (lead) => ({ lead, pOn: live.cpOn, pAt: live.cpAt, pDx: live.cpDx, pDy: live.cpDy, cost: live.callCost, hasAt: spot.has(callEl), ax: spot.has(callEl) ? spot.get(callEl)[0] : 0, ay: spot.has(callEl) ? spot.get(callEl)[1] : 0, line: [geoOf(callLine, 'x1'), geoOf(callLine, 'y1'), geoOf(callLine, 'x2'), geoOf(callLine, 'y2')] });   // alloc-rare: only the settled re-layout that still has a clash (sol.total >= 1e5, the hand up), never a frame of a hand's move
+  const callState = (lead) => {   // alloc-rare: only the settled re-layout that still has a clash (sol.total >= 1e5, the hand up), never a frame of a hand's move
+    const o = lead?.rec, sp = !o && spot.has(callEl) ? spot.get(callEl) : null;   // (the pill as the layout placed it (its record), else as the page has it)
+    return { lead, pOn: live.cpOn, pAt: live.cpAt, pDx: live.cpDx, pDy: live.cpDy, cost: live.callCost, hasAt: o ? true : !!sp, ax: o ? o.ax : sp ? sp[0] : 0, ay: o ? o.ay : sp ? sp[1] : 0,
+      line: o ? [o.line[0], o.line[1], o.line[2], o.line[3]] : [geoOf(callLine, 'x1'), geoOf(callLine, 'y1'), geoOf(callLine, 'x2'), geoOf(callLine, 'y2')] };
+  };
   // A vessel label hidden or crowded: two more layouts are tried, and the one hiding the fewest vessel labels (central
   // vein, sinusoids, portal tract, and any the slide names), then crowding least, is kept. First, the vessel labels
   // placed before the slide's pill, the pill clear of them and their leaders, the optional labels in what is left.
@@ -259,15 +269,15 @@ export function createLobuleRecords(st, live) {
   // (a crowded phone band once dropped the Sinusoids label on a slide about the sinusoids). The pill is never left on a label.
   // Runs only in the settled re-layout that still has a clash (the first order left sol.total >= 1e5 and no hand is moving the view):
   // its objects are made fresh, once per such layout.
-  function coreFirst(items, fr, ring, hex, cards, keep, callLead) {
+  function* coreFirst(items, fr, ring, hex, cards, keep, callLead) {
     const core = [], rest = [];   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
     for (const it of items) (isCoreK(it.k) ? core : rest).push(it);   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
     let s1 = solve(core, LC.pre, LC.none, mkSol()), tb = mkSol();   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
     const idx = [], ord = [];   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
     permStart(idx, core.length);
-    do { if (s1.total < 1e5 || searchBudget.over()) break; const t = solve(permOf(core, idx, ord), LC.pre, LC.none, tb); if (t.total < s1.total) { tb = s1; s1 = t; } } while (nextPerm(idx, core.length));
+    do { if (s1.total < 1e5 || searchBudget.over()) break; const t = solve(permOf(core, idx, ord), LC.pre, LC.none, tb); searchBudget.spend(); if (t.total < s1.total) { tb = s1; s1 = t; } if (sliceOver()) yield; } while (nextPerm(idx, core.length));
     const pl2 = s1.pl.slice();   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
-    const lead2 = placeCall(fr, pl2, cards, s1.ld, crosses, ring, hex, keep, into, mkCallOut());   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
+    const lead2 = placeCall(fr, pl2, cards, s1.ld, crosses, ring, hex, keep, into, mkCallOut(), true);   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
     if (callLead && live.callCost >= 1e6) return null;
     const s3 = solve(rest, pl2, lead2 ? [...s1.ld, lead2] : s1.ld, mkSol());   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
     const out = mkSol();   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
@@ -276,24 +286,24 @@ export function createLobuleRecords(st, live) {
     out.n = s1.n + s3.n; out.total = s1.total + s3.total; out.lead = lead2; out.call = callState(lead2);
     return out;
   }
-  function pillFirst(items, shown) {
+  function* pillFirst(items, shown) {
     const ld = shown.lead ? [shown.lead] : [];   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
     let s2 = solve(items, LC.base, ld, mkSol()), tb = mkSol();   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
     if (items.length <= 5) {
       const idx = [], ord = [];   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
       permStart(idx, items.length);
-      do { if (s2.total < 1e5 || searchBudget.over()) break; const t = solve(permOf(items, idx, ord), LC.base, ld, tb); if (t.total < s2.total) { tb = s2; s2 = t; } } while (nextPerm(idx, items.length));
+      do { if (s2.total < 1e5 || searchBudget.over()) break; const t = solve(permOf(items, idx, ord), LC.base, ld, tb); searchBudget.spend(); if (t.total < s2.total) { tb = s2; s2 = t; } if (sliceOver()) yield; } while (nextPerm(idx, items.length));
     }
     s2.lead = shown.lead; s2.call = shown;
     return s2;
   }
-  function retryClash(sol, items, fr, ring, hex, cards, keep, callLead) {
+  function* retryClash(sol, items, fr, ring, hex, cards, keep, callLead) {
     const shown = callState(callLead);
     let won = null;
-    if (callLead) { const c = coreFirst(items, fr, ring, hex, cards, keep, callLead); if (c && betterSol(c, sol)) { sol = c; won = c; } }
+    if (callLead) { const c = yield* coreFirst(items, fr, ring, hex, cards, keep, callLead); if (c && betterSol(c, sol)) { sol = c; won = c; } }
     let sinIt = null;
     for (let i = 0; i < items.length; i++) if (items[i].k === 'sin' && !items[i].edge) { sinIt = items[i]; break; }
-    let sinOut = false;
+    let sinOut = false, winSin = null;   // (the sinusoid that carries the label is chosen here and set once the search has finished: pick.sin never changes under a search that is cut)
     if (sinIt) for (let i = 0; i < sol.n; i++) if (sol.res[i].k === 'sin' && sol.res[i].out) sinOut = true;
     if (sinIt && sinOut) {
       const g = live.geo, cx = (fr.l + fr.r) / 2, cy = (fr.t + fr.b) / 2, a0x = sinIt.a[0], a0y = sinIt.a[1];
@@ -308,27 +318,60 @@ export function createLobuleRecords(st, live) {
       for (const [t, a] of cands) {   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
         if (searchBudget.over()) break;
         sinIt.a[0] = a[0]; sinIt.a[1] = a[1];
-        const s2 = pillFirst(items, shown);
-        if (betterSol(s2, sol)) { sol = s2; won = s2; winX = a[0]; winY = a[1]; pick.sin = t.id; }
-        const s3 = callLead ? coreFirst(items, fr, ring, hex, cards, keep, callLead) : null;
-        if (s3 && betterSol(s3, sol)) { sol = s3; won = s3; winX = a[0]; winY = a[1]; pick.sin = t.id; }
+        const s2 = yield* pillFirst(items, shown);
+        if (betterSol(s2, sol)) { sol = s2; won = s2; winX = a[0]; winY = a[1]; winSin = t.id; }
+        const s3 = callLead ? yield* coreFirst(items, fr, ring, hex, cards, keep, callLead) : null;
+        if (s3 && betterSol(s3, sol)) { sol = s3; won = s3; winX = a[0]; winY = a[1]; winSin = t.id; }
         if (outsOf(sol) === 0) break;
       }
       sinIt.a[0] = winX; sinIt.a[1] = winY;
+      if (winSin != null) pick.sin = winSin;
     }
     const c = won ? won.call : shown;
     live.cpOn = c.pOn; live.cpAt = c.pAt; live.cpDx = c.pDx; live.cpDy = c.pDy; live.callCost = c.cost;
-    if (c.hasAt) put(callEl, c.ax, c.ay); else { spot.delete(callEl); trClear(callEl); }
-    for (let i = 0; i < 4; i++) setGeo(callLine, CALL_ENDS[i], c.line[i] ?? null);
-    leadGL.paint();
+    retryLand = c;   // (the pill's winning place: written to the page with the layout, landCall, never while the search is under way)
     return sol;
   }
   const CALL_ENDS = ['x1', 'y1', 'x2', 'y2'];
+  let retryLand = null;
+  // The pill, its leader and its ring written to the page: the retry's winner, else the place the first solve gave it. The one write of the pill's place in a layout.
+  function landCall(c, callLead) {
+    if (c) {
+      if (c.hasAt) put(callEl, c.ax, c.ay); else { spot.delete(callEl); trClear(callEl); }
+      for (let i = 0; i < 4; i++) setGeo(callLine, CALL_ENDS[i], c.line[i] ?? null);
+      if (callLead) { const rg = callLead.rec.ring; setGeo(callRing, 'cx', rg[0]); setGeo(callRing, 'cy', rg[1]); setGeo(callRing, 'r', rg[2]); }
+      leadGL.paint();
+    } else if (callLead) commitCall(callLead.rec);
+  }
   function layoutLabels() {
     try { layoutLabelsRun(); } finally { setLayFade(false); }
   }
+  // A search in progress holds while nothing it was made for has changed: the same relayout wish, the same view, the same free space and geometry. Anything else
+  // (a hand's pan, a new size, a lit term, a card) drops it and starts from the new state, the labels still where they were seen (live.follow was never swapped).
+  function jobHolds(fr0, g) {
+    return !!live.layoutKey && g === job.geo && V.k === job.k && V.x === job.x && V.y === job.y && !handOn() && sameBase(job.nf, fr0, g);
+  }
+  function jobDrop() {
+    const jb = job; job = null;
+    jb.g.return();
+    live.layoutKey = '';   // (laid again from the state as it is now)
+  }
+  // One slice of the search: it runs until its frame's slice is spent, or lands the layout (then `job` is empty).
+  function jobStep() {
+    const jb = job;
+    sliceEnd = performance.now() + SEARCH_SLICE_MS;
+    if (jb.nf) setLayFade(jb.still);   // (a later slice: the layout's fade flag is set again; the first slice's body sets it itself)
+    let r;
+    try { r = jb.g.next(); } catch (e) { if (job === jb) job = null; throw e; }
+    if (r.done) { if (job === jb) job = null; return; }
+    // Yielded: the labels stand as they were seen; the ones the layout unhid to place (hidden ones that may come back) are hidden again until it lands.
+    if (!jb.parked) { jb.parked = true; jb.peekHide(true); }
+    nextFrame(jobWake);
+  }
+  function jobWake() { if (job && live.geo && live.fade > 0) lzLoop.want(true); }
   function layoutLabelsRun() {
     const fr0 = freeRect(), g = live.geo;
+    if (job) { if (jobHolds(fr0, g)) { jobStep(); return; } jobDrop(); }
     const sameB = !!live.follow && sameBase(live.follow, fr0, g);
     if (live.layoutKey && sameB && V.k === live.follow.k && V.x === live.follow.x && V.y === live.follow.y) return;
     // While a hand pans the lobule (a drag, its flick, a trackpad scroll), the labels ride with the picture as one
@@ -361,6 +404,13 @@ export function createLobuleRecords(st, live) {
     // made to take the baked places in at once (a layout read in the frame) so the glide could start in the same frame.
     if (bakeFollow()) { relayout(); return; }
     // (No glide after a hand's pan or zoom lets go: the labels take their final spots at once, never easing there; Mohammad, 6 Nov 2026.)
+    // (From here the layout is a generator, layoutBody: it runs in this frame until its slice is spent, and a search that is not finished goes on in the next
+    // frames; the labels stand where they were seen until it lands. 19 Nov 2026, STG-1.)
+    job = { g: null, geo: g, k: V.k, x: V.x, y: V.y, nf: null, still: false, parked: false, peekHide: null };   // alloc-rare: one record a layout that places the labels, never a frame the view only rides
+    job.g = layoutBody(fr0, g, job);   // alloc-rare: one generator a layout
+    jobStep();
+  }
+  function* layoutBody(fr0, g, jb) {
     live.layoutN++;
     // A label that moves while the view holds still (a term lit, a value's width changed) is there in this frame, and so is one that follows
     // a pan or zoom (the DOM label no longer glides under its GPU name: the glide class and its rule were removed, 8 Nov 2026).
@@ -370,7 +420,8 @@ export function createLobuleRecords(st, live) {
     const still = !handOn() && !live.gliding && !live.layerScaled;
     setLayFade(still);   // (the zone names' and the call-out pill's moves in this layout fade too)
     const callWas = callFade.snap();   // (the pointer's leader and ring as they stood: they fade out there, and in at the new place, call-geo-fade.js)
-    live.layoutKey = 'laid'; fillBase(nf, fr0, g); nf.k = V.k; nf.x = V.x; nf.y = V.y; nf.ride = null; live.follow = nf;
+    live.layoutKey = 'laid'; fillBase(nf, fr0, g); nf.k = V.k; nf.x = V.x; nf.y = V.y; nf.ride = null;   // (live.follow takes it when the layout lands, below: until then it is the base the labels are seen at)
+    jb.nf = nf; jb.still = still;
     pickAnchors(fr0);
     if (LC.vbW !== g.W || LC.vbH !== g.H) { LC.vbW = g.W; LC.vbH = g.H; LC.vb = `0 0 ${g.W} ${g.H}`; }   // alloc-rare: only when the lobule's size changed
     if (setGeo(leaders, 'viewBox', LC.vb)) leadGL.paint();
@@ -464,8 +515,7 @@ export function createLobuleRecords(st, live) {
       const chip = outside && k !== 'lymph';
       const off = (outside && !chip) || fr.r - fr.l < w + 16 || fr.b - fr.t < hh + 16;
       if (off) { if (L.peek) { setHid(L.el, true); classSoon(L.el, 'edge', false); } else fadeOut(L.el); leadOff(L); continue; }
-      classSoon(L.el, 'edge', chip);
-      const it = LC.pool[ni++];
+      const it = LC.pool[ni++];   // (its edge class is set when the layout lands)
       it.k = k; it.L = L; it.w = w; it.hh = hh; it.a[0] = ax; it.a[1] = ay; it.edge = null;
       if (chip) {
         const mx = (fr.l + fr.r) / 2, my = (fr.t + fr.b) / 2, dx = ax - mx, dy = ay - my, pad = 10;
@@ -483,7 +533,7 @@ export function createLobuleRecords(st, live) {
     // The slide's pointer pill is placed first (it is the slide's point): the labels then keep clear of it and its leader.
     const pre = LC.pre, base = LC.base;
     pre.length = 0; for (let i = 0; i < placed.length; i++) pre.push(placed[i]);
-    const callLead = placeCall(fr, placed, cards, LC.none, crosses, ring, hex, keep, into, callOutMain);
+    const callLead = placeCall(fr, placed, cards, LC.none, crosses, ring, hex, keep, into, callOutMain, true);   // (dry: the pill is written to the page when the layout lands, landCall)
     base.length = 0; for (let i = 0; i < placed.length; i++) base.push(placed[i]);
     LC.ld0.length = 0; if (callLead) LC.ld0.push(callLead);
     // The designed spots: where the portal tract stands, outward from the central vein.
@@ -516,22 +566,29 @@ export function createLobuleRecords(st, live) {
     // (Mid-pinch, the first order is kept; the full search runs once the hand lets go.)
     live.rough = sol.total >= 1e5 && handOn();
     if (live.rough) { clearTimeout(live.followT); live.followT = setTimeout(followEnd, 140); }
+    retryLand = null;
+    jb.peekHide = (on) => { for (let i = 0; i < items.length; i++) if (items[i].L.peek) setHid(items[i].L.el, on); };   // alloc-rare: one closure a layout that searches
     if (sol.total >= 1e5 && !live.rough) {
-      // Every order of up to six labels (720 at most, only while a clash remains: a few milliseconds).
+      // Every order of up to six labels (720 at most, only while a clash remains), then the retries: a generator that yields between solves once the frame's
+      // slice is spent and goes on in the next frame, bounded by a count of solves, not by a clock (search-budget.js): the same layout on every device. The labels
+      // stand where they were seen until it is done; nothing is laid from a search that is cut. (STG-1, 19 Nov 2026.)
       let trial = SOL_B;
       const idx = LC.idx, ord = LC.ord;
       permStart(idx, items.length);
       searchBudget.begin();
       do {
         const s2 = solve(permOf(items, idx, ord), base, LC.ld0, trial);
+        searchBudget.spend();
         if (s2.total < sol.total) { trial = sol; sol = s2; }
         if (sol.total < 1e5 && items.length > 5) break;   // (up to five labels, 120 orders at most: the shortest leaders win, not just the first clear order)
         if (searchBudget.over()) break;
+        if (sliceOver()) yield;
       } while (nextPerm(idx, items.length));
-      if (sol.total >= 1e5 && !searchBudget.over()) sol = retryClash(sol, items, fr, ring, hex, cards, keep, callLead);
-      // (Cut at its deadline: the best layout so far is laid, and the search is run again from the start next frame with a longer one, LZ2-1.)
-      if (searchBudget.end()) nextFrame(() => { if (live.geo && live.fade > 0) { live.layoutKey = ''; lzLoop.want(true); } });
+      if (sol.total >= 1e5 && !searchBudget.over()) sol = yield* retryClash(sol, items, fr, ring, hex, cards, keep, callLead);
     }
+    if (jb.parked) jb.peekHide(false);   // (the layout lands: the labels it unhid to place are shown as they were)
+    landCall(retryLand, callLead);
+    live.follow = nf;
     // A label waiting at the edge (what it names is off screen) never lies across another label's leader: its place is
     // set by the way it points, so it gives way (at 200 % text on a phone the Central vein's chip covered the Sinusoids' node).
     const res = sol.res, nr = sol.n, lt = LC.ink0, qq = LC.q;
@@ -589,6 +646,7 @@ export function createLobuleRecords(st, live) {
       const ax = rnd1(a[0]), ay = rnd1(a[1]);
       if (L.atX !== ax || L.atY !== ay) { L.atX = ax; L.atY = ay; L.atS = `${ax},${ay}`; }
       restAttr(L.el, 'data-at', L.atS);
+      classSoon(L.el, 'edge', !!edge);
       if (r.out) { if (L.peek) { setHid(L.el, true); classSoon(L.el, 'edge', false); } else fadeOut(L.el); leadOff(L); continue; }
       fadeIn(L.el);
       put(L.el, x - w / 2, y - hh / 2);

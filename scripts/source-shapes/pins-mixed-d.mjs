@@ -92,14 +92,14 @@ export default [
   { file: 'styles/app-09-tests.css', forbid: [/color-mix\([^)]*9\d%/, 'The callouts\' frosted glass drawn on the GPU (glass-gl.js, his "GPU glass" pick of 25 Oct): (@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz.pz-wide.pz-wide .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide .pz-da)'] },   // (was a slice of the file)
   { file: 'styles/app-10-thumb-dock.css', forbid: [/color-mix\([^)]*9\d%/, 'The callouts\' frosted glass drawn on the GPU (glass-gl.js, his "GPU glass" pick of 25 Oct): (@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-data.pz-data.pz-sheet.pz-sheet { background: none; } })'] },   // (was a slice of the file)
   // glide-clock
-  { file: 'src/ui/stage-glide.js', need: [/const clock = opt\.steady && !drift && !(?:live\.)?arcRun \? glideClock\(\) : null;/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ...'] },   // (was a slice of the file)
+  { file: 'src/ui/stage-glide.js', need: [/const clock = opt\.steady && !drift \? glideClock\(\) : null;/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ...'] },   // (was a slice of the file)
   { file: 'src/ui/stage-glide.js', need: [/clamp\(\(clock \? clock\(now\) : now - t0\) \/ ms, 0, 1\)/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ... (and the step reads it)'] },   // (was a slice of the file)
   { file: 'src/ui/presenter-ladders.js', need: [/stage\.cathFocus\(cath\.cam, ms, \{ both: true, steady: true \}\)/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ...'] },   // (was a slice of the file)
   { file: 'src/ui/presenter-ladders.js', need: [/\{ drift: true \} : \{ steady: true \}/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ...'] },   // (was a slice of the file)
   { file: 'src/ui/presenter-proc.js', need: [/stage\.fitSlow\(ms, opt\)/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ... (a whole-figure refit takes it)'] },   // (was a slice of the file)
-  { file: 'src/ui/stage-glide.js', need: [/\{ arc: true, steady: !!opt\.steady, scale: !opt\.steady, slide \}/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ... (and a region\'s)'] },   // (was a slice of the file)
+  { file: 'src/ui/stage-glide.js', need: [/\{ steady: !!opt\.steady, scale: !opt\.steady, slide \}/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ... (and a region\'s)'] },   // (was a slice of the file)
   { file: 'src/ui/stage*', need: [/fitSlow\(ms = 1300, opt = \{\}\) \{[^\n]*animateVT\(to, ms, opt\.steady \? \{ steady: true \} : \{ scale: true, slide: !!opt\.slide \}\)/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ...'] },
-  { file: 'src/ui/stage-cath.js', need: [/\{ both = false, near = false, arc = false, steady = false, scale = false \}/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ...'] },   // (was a slice of the file)
+  { file: 'src/ui/stage-cath.js', need: [/\{ both = false, near = false, steady = false, scale = false \}/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ...'] },   // (was a slice of the file)
   { file: 'src/ui/proc-anim.js', need: [/refit\(ms = 700\) \{[^\n]*stage\.cathFocus\(shot, ms, \{ steady: true \}\)/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ...'] },
   { file: 'src/ui/stage*', need: [/const OPT_STEADY = \{ steady: true \};[\s\S]*animateVT\(d, 400, OPT_STEADY\)/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ... (the home look)'] },
   { file: 'src/ui/stage-fit.js', need: [/animateVT\(to, 420, \{ steady: true \}\)/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ... (the Tests card\'s refit)'] },   // (was a slice of the file)
@@ -235,7 +235,7 @@ export default [
   { file: 'src/ui/stage*', need: [/while \(deg > 10 && !scanTopOk\(y, deg\) && sideOk\(scanBodyLeftOk, tx, deg - 5\)\) deg -= 5;/, 'Phone text and labels (review 15 Oct, #23, #48-#51):'] },
   { file: 'src/ui/stage*', need: [/const q = scanBody\(tip\.tx, tip\.y, scanR\(\) \? 180 - scan\.deg : scan\.deg\);/, 'Phone text and labels (review 15 Oct, #23, #48-#51):'] },
   { file: 'src/ui/stage*', need: [/const sideOk = \(ok, tx, d\) => \(scanR\(\) \? ok\(stageBox\(\)\.width - tx, d\) : ok\(tx, d\)\);/, 'Phone text and labels (review 15 Oct, #23, #48-#51):'] },
-  { file: 'src/ui/stage*', need: [/const BLOCKER_SEL = '\.stage-blocker:not\(\[hidden\]\), \.pz-shade, #nbViews, \.stage-clock';/, 'Phone text and labels (review 15 Oct, #23, #48-#51):'] },
+  { file: 'src/ui/blockers.js', need: [/export const BLOCKER_SEL = '\.stage-blocker:not\(\[hidden\]\), \.pz-shade, #nbViews, \.stage-clock';/, 'Phone text and labels (review 15 Oct, #23, #48-#51):'] },
   { file: 'styles/app-07-floating.css', need: [/\.vdock \.tl-time \{ display: inline;/, 'Phone text and labels (review 15 Oct, #23, #48-#51):'] },   // (was a slice of the file)
   { file: 'styles/app-07-floating.css', need: [/\.vdock \.tl-time \.tl-t-short \{ display: inline; \}/, 'Phone text and labels (review 15 Oct, #23, #48-#51):'] },   // (was a slice of the file)
   { file: 'styles/app-07-floating.css', forbid: [/\.tl-time \{ display: none/, 'Phone text and labels (review 15 Oct, #23, #48-#51):'] },   // (was a slice of the file)
