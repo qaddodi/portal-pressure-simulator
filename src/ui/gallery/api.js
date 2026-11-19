@@ -8,6 +8,9 @@
 //   pps.gallery.check()                                { id, look, size, problems: [{ kind, text, line, where }], busy, slide, structure }
 //   pps.gallery.words()                                { id, look, vw, vh, cards: { selector: [words] } }
 //   pps.gallery.boxes()                                { id, look, vw, vh, boxes: { selector: [l, t, r, b] } }   (rounded to 2 px)
+//   pps.gallery.slide(deck, i, { timeoutMs })          Promise<{ deck, i, n, ok, settled, ms, errors, error? }>   (a REAL deck's slide i, 0-based: starts the deck or steps in it, resolves once it has landed)
+//   pps.gallery.edges()                                { id, look, vw, vh, shuf, front, cards: [...] }   (edge-rules.js: each card's words against its visible edge and the screen's)
+//   pps.gallery.shuffleTo(0 | 1)                       Promise<{ ok, settled }>   (the Shuffle's card in front: 0 the words, 1 the instrument; false when no shuffle is on)
 //   pps.gallery.sweep(spec)                            runs the registered sweep runner (registerSweep); the loop and its resume are sweep.js's
 //   pps.gallery.mark(state, id)                        sets the root attribute (page.js marks the openings a person starts: Browse, the arrows, Next inside a talk)
 //   pps.gallery.registerSweep(fn)                      fn(spec, api) -> report; the Sweep button's runSweep plugs in here
@@ -139,6 +142,37 @@ export function createGalleryApi(env) {
     return out;
   }
 
+  /** A real deck's slide (0-based): the deck is started at it, or the presenter steps there when that deck is already open. */
+  async function slide(deck, i, { timeoutMs } = {}) {
+    const p = env.pps?.presenter;
+    const t0 = now(), err0 = errors();
+    const id = `${deck}#${i + 1}`;
+    setState('opening', id);
+    let error;
+    try {
+      if (!p) throw new Error('no presenter');
+      const at = p.position?.();
+      if (at && at.id === deck) p.go(i); else await p.start(deck, i);
+      current = id;
+    } catch (x) { error = x?.message || String(x); }
+    const s = error ? { settled: false } : await settled({ timeoutMs });
+    const ok = !error && s.settled;
+    setState(ok ? 'settled' : 'failed', id);
+    let n = '';
+    try { n = `${(p.position?.()?.at ?? i) + 1}/${p.count?.() ?? '?'}`; } catch { /* (no count) */ }
+    const out = { deck, i, n, ok, settled: !!s.settled, ms: Math.round(now() - t0), errors: errors() - err0 };
+    if (error) out.error = error; else if (!s.settled) out.error = 'did not settle in time';
+    return out;
+  }
+  /** The Shuffle's card in front (0 the words, 1 the instrument), and the wait for it to land. */
+  async function shuffleTo(to, { timeoutMs = 20000 } = {}) {
+    const sh = env.pps?.presenter?.shuffle?.();
+    if (!sh || !sh.active?.()) return { ok: false, settled: false };
+    sh.go(to);
+    const s = await settled({ timeoutMs, quietMs: 200 });
+    return { ok: true, settled: s.settled };
+  }
+
   const where = () => ({ id: env.id ? env.id() : current, look: env.look() });
   function check() {
     const r = env.check();
@@ -147,6 +181,7 @@ export function createGalleryApi(env) {
   }
   const words = () => ({ ...where(), ...env.words() });
   const boxes = () => ({ ...where(), ...env.boxes() });
+  const edges = () => ({ ...where(), ...(env.edges ? env.edges() : { cards: [] }) });
 
   function registerSweep(fn) { runner = fn; return true; }
   async function sweep(spec = {}) {
@@ -170,6 +205,6 @@ export function createGalleryApi(env) {
     }
   }
 
-  const api = { list, open, settled, check, words, boxes, sweep, registerSweep, startFromAddress, mark: setState, get running() { return !!runner; } };
+  const api = { list, open, settled, check, words, boxes, edges, slide, shuffleTo, sweep, registerSweep, startFromAddress, mark: setState, get running() { return !!runner; } };
   return api;
 }

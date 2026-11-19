@@ -26,6 +26,8 @@ export const layoutReads = () => ({ ...counts, afterWrites: counts.early + count
 // (Each takes the element first; a missing element gives undefined, as `el?.method()` did.)
 export const readBox = (el) => { if (el == null) return undefined; note(); return el.getBoundingClientRect(); };
 export const readRects = (el) => { if (el == null) return undefined; note(); return el.getClientRects(); };
+/** The boxes of an element's text, one per line (a range over its contents), for the edge rules (gallery/edge-rules.js). */
+export const readLines = (el) => { if (el == null) return undefined; note(); const r = document.createRange(); r.selectNodeContents(el); return r.getClientRects(); };
 export const readStyle = (el, pseudo) => { note(); return pseudo ? getComputedStyle(el, pseudo) : getComputedStyle(el); };
 export const readCTM = (el) => { if (el == null) return undefined; note(); return el.getScreenCTM?.() ?? null; };
 // (An SVG element's frame in its own svg's units (getCTM, not the screen's): the organs' paint undoes a parent's by it, which the camera never moves.)
