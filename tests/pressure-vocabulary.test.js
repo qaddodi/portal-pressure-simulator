@@ -47,6 +47,7 @@ const LITERAL_CUT = [
   /\b(?:warn|bad)\s*:\s*\d/,
   /\bticks:\s*\[\s*(?:5|6)\s*,\s*(?:10|12)\s*\]/,
   /\bcuts:\s*\{[^}]*\[\s*(?:5|6)\s*,\s*(?:10|12)\s*\]/,
+  /\[\s*(?:5|6)\s*,\s*(?:10|12)\s*\]/,   // (an array literal of the two cut-offs anywhere: a tile's scale bar had one, table-marks.js, LOOK-10)
 ];
 test('no file but the table writes a HVPG or PPG cut-off as a number', () => {
   const stray = [];

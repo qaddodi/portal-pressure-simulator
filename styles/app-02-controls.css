@@ -357,7 +357,6 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 0 transpar
 .progress i { flex: 1; height: 3px; border-radius: 2px; background: var(--surface-3); }
 .progress i.on { background: var(--accent); }
 .progress i.cur { background: color-mix(in srgb, var(--accent) 55%, var(--surface-3)); }
-.mon.lab .mv::after { content: ' lab'; font-size: 12px; opacity: .7; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .card {
   border: 1px solid var(--border); border-radius: var(--r-card); padding: 16px; cursor: pointer; background: var(--surface); text-align: left;

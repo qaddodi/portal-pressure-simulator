@@ -1,5 +1,3 @@
-@keyframes monAlarm { 50% { opacity: .45; } }
-@media (prefers-reduced-motion: reduce) { .mon.bad .mv { animation: none; text-decoration: underline; } }
 /* Presenter (presenter.js): projector-first slides on the live model. Sizes follow the screen's height,
    so a 720-line and a 1080-line projector show the same slide. The words sit at the left, the data at the
    right; the figure frames itself in the space between (data-safe, --pz-l/--pz-r for the lobule). */
