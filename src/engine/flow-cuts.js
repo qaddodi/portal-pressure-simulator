@@ -13,6 +13,10 @@ export const FLOW_CUTS = Object.freeze({
   stillQ: 0.05,     // mL/s: a vessel that normally carries more than stillRef has "almost stopped" under it
   stillOffQ: 0.08,  // mL/s: a stent that has stopped counts as flowing again only above it, so a flow hovering at 0.05 does not flip Stasis and Patent
   stillRef: 0.3,
+  shuntLarge: 0.3,   // share of the splanchnic blood past the liver: a large shunt from here (the Shunted tile's red, its event), a moderate one from shuntModerate
+  shuntModerate: 0.1,
+  liverSevere: 55,   // % of healthy sinusoidal flow: severely low up to here (the Liver flow tile's red, its event), low up to liverLow
+  liverLow: 75,
 });
 
 /** Whether a stent (or any vessel) has almost stopped: its flow q (mL/s) is under stillQ. One rule for the vessel card's "Stasis", the stent's tiles, the side view's three

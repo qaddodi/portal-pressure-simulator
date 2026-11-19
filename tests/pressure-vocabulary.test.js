@@ -47,6 +47,8 @@ const LITERAL_CUT = [
   /\b(?:warn|bad)\s*:\s*\d/,
   /\bticks:\s*\[\s*(?:5|6)\s*,\s*(?:10|12)\s*\]/,
   /\bcuts:\s*\{[^}]*\[\s*(?:5|6)\s*,\s*(?:10|12)\s*\]/,
+  // (19 Nov 2026, ENG-6: a scale table typed the pair as an array literal beside its key, `hvpg: [0, 25, [5, 10]]`, which none of the above caught.)
+  /\b(?:hvpg|eus|ppg|whvp)\s*:\s*\[[^\]\n]*\[\s*(?:5|6)\s*,\s*(?:10|12)\s*\]/i,
 ];
 test('no file but the table writes a HVPG or PPG cut-off as a number', () => {
   const stray = [];

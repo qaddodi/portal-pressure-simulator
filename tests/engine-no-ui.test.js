@@ -19,3 +19,12 @@ test('the events\' words carry the cut-offs from the cuts modules, not typed cop
   const { FLOW_CUTS } = await import('../src/engine/flow-cuts.js');
   assert.equal(FLOW_CUTS.stasis, 9);
 });
+
+test('the Shunted and Liver flow tiles\' bands and their events are the same numbers (FLOW_CUTS), as the bible\'s ENG-6 asked', async () => {
+  const { FLOW_CUTS } = await import('../src/engine/flow-cuts.js');
+  const { detectEvents } = await import('../src/engine/events.js');
+  const ev = readFileSync(new URL('src/engine/events.js', root), 'utf8'), tm = readFileSync(new URL('src/ui/table-marks.js', root), 'utf8');
+  for (const k of ['shuntLarge', 'liverSevere']) assert.ok(ev.includes(`FLOW_CUTS.${k}`) && tm.includes(`FLOW_CUTS.${k}`), `${k} in both`);
+  assert.ok(!/shuntFraction > 0\.5|liverPerfPct < 60/.test(ev), 'no typed copy in the events');
+  assert.ok(typeof detectEvents === 'function' && FLOW_CUTS.shuntLarge === 0.3 && FLOW_CUTS.liverSevere === 55);
+});

@@ -3,6 +3,7 @@
 // - below 10: cACLD is unlikely (1.3); 10 to 15: suggests cACLD; above 15: highly likely (1.3);
 // - each further 5 kPa from 10 to 25 carries a higher risk of decompensation (1.8, the rule of 5);
 // - ≤15 with platelets ≥150 ×10⁹/L rules CSPH out (1.15); ≥25 rules CSPH in (1.16 b; BMI <30 for MASLD).
+import { PPG_CUTS } from './pressure-cuts.js';
 export const LSM_CUTS = Object.freeze({ unlikely: 10, likely: 15, ruleIn: 25, ruleOutPlt: 150 });
 /** The steps of the rule of five the bar prints a tick at. */
 export const LSM_STEPS = Object.freeze([5, 10, 15, 20, 25]);
@@ -17,7 +18,7 @@ export const LSM_STEPS = Object.freeze([5, 10, 15, 20, 25]);
 export const CONGESTION_FHVP = 8;
 export const SCAR_MIN = 0.3;
 /** The portal pressure gradient (mmHg) from which portal hypertension is present without a scar: the model's amber PPG line (pressure-cuts.js PPG_CUTS.amber). */
-const PH_PPG = 6;
+const PH_PPG = PPG_CUTS.amber;
 /** The context of a state's stiffness: 'congested', 'vascular' or null (the rules apply, or there is no liver disease to apply them to). Takes the fingerprint's or the metrics' own
  *  fields { fhvp, scar, ppg, lsm }; a missing one rules nothing out (no scar given: the liver is read as the rules expect). */
 export function lsmContext(s) {
