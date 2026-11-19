@@ -46,3 +46,10 @@ test('on a phone on its side the rail tilts its names, as a narrow card does, at
   assert.match(css, /\.pz \.pz-rail \.n \{[^}]*rotate: -60deg/);
   assert.match(css, /\.pz \.pz-rail li \{[^}]*font-size: max\(var\(--s-cap\), var\(--pz-min\)\); min-height: 7\.8em/);
 });
+
+test('on a phone on its side the capillary-wall panel puts each picture beside its sentences, so the panel fits at 12 px with no zoom', () => {
+  const css = src('styles/guideline-sides.css');
+  assert.match(css, /\.pz \.pzw-panel \{ display: grid; grid-template-columns: 40% minmax\(0, 1fr\)/);
+  assert.match(css, /\.pz \.pzw-panel > \.pzw-art \{ grid-column: 1; grid-row: 3 \/ span 2/);
+  assert.match(css, /\.pz \.pzw-panel > \.pzw-c2 \{ grid-column: 2; grid-row: 4/);
+});
