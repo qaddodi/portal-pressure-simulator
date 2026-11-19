@@ -5,6 +5,7 @@ import { SHUF } from './card-shuffle.js';
 import { SIDEWAYS_MAX_H, WIDE, figFloorOf, pairRise, phonePlan, sidewaysWords, titleFloorK, dkFloorOf } from './card-type.js';
 import { createInsetHold } from './inset-hold.js';
 import { readBox, readMetric, readStyle } from './layout-snap.js';
+import { modeKey, resetPlace } from './place-reset.js';
 import { reduceMotionMQ as reduce } from './motion.js';
 import { LOBULE_CAM } from './presenter-words.js';
 import { cancelRest, restPass } from './rest-pass.js';
@@ -13,6 +14,7 @@ import { glyphsReady, loadGlyphs, textWidth } from './text-gl.js';
 import { isModalOpen, restBox } from './util.js';
 
 export function createLadders(st, live) {
+  const placeSeen = new WeakMap();   // (the mode each talk's cards were last laid out in: place-reset.js)
   const { GRIP, LIP, LOW_M, SHORT_H, TEXT_CARD, app, autoDock, capOf, cath, creditLease, dataStands, dock, dockPaint, dockRest, dockVec, figOf, fitCards, fitDone, fitSig, frameTo, insetL, liftTo, lipOn, lowKey, minText, overflowOf, phone, placeBar, placeLip, slip, splitSheet, stage, stimer, stopUnder, tabBeside, tabUp, throwCards, underU, until, wideSheet, words, wordsGlide, wrap } = st;
   // A card whose contents grow after the layout (a time-lapse, the numbers settling) is fitted again.
   // A slide whose data card changes only its readings while it shows: a what-if slider or compare button driving the live model
@@ -207,6 +209,8 @@ export function createLadders(st, live) {
     live.ui.root.classList.toggle('short', short);
     const cardOn = TEXT_CARD && !p;   // (a phone held sideways too: its words in a floating card, not a panel at the edge)
     live.ui.root.classList.toggle('pz-card', cardOn); live.ui.shade.classList.toggle('pz-card', cardOn);
+    // (A turn or a window crossing a mode starts the cards from the stylesheet: the last mode's inline places would be read as this one's room.)
+    resetPlace(placeSeen, live.ui.root, modeKey({ phone: p, card: cardOn, short, low }), { data: live.ui.data, text: live.ui.text });
     live.ui.root.classList.toggle('low', low); live.ui.shade.classList.toggle('low', low);
     // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const off = (el) => el.hidden || (el === live.ui.data ? 'gone' in el.dataset : el.classList.contains('pz-hide'));   // (a card only easing out and back in for the next slide still counts, where it rests: the camera frames once)
