@@ -157,7 +157,23 @@ export function nodeParas(n, isRoot) {
   if (n.s) out.push([{ text: n.s, face: 's' }]);
   return out;
 }
-const nodeGap = (paras) => (pi) => (paras.length > 1 && pi === 0 && paras[0][0].face === 't' ? 1 : 2);
+const nodeGap = (paras, extra = 0) => (pi) => (paras.length > 1 && pi === 0 && paras[0][0].face === 't' ? 1 + extra : 2);
+/**
+ * The room each node's condition (its first paragraph, where a verdict follows it) needs added under it so that the verdicts of one row stand on one line: id → px, the row's tallest condition
+ * less this node's own. leadH(paras, width) is a condition's height at its box's width. Pure: tests/tool-path-level.test.js runs it with a stand-in.
+ */
+export function treeLeadExtra(tree, boxes, parasOf, leadH) {
+  const own = new Map(), rowMax = [];
+  for (const { n, d } of flat(tree)) {
+    const paras = parasOf(n.id);
+    if (!(paras.length > 1 && paras[0][0].face === 't')) continue;
+    const h = leadH(paras, boxes.get(n.id).w);
+    own.set(n.id, { h, d }); rowMax[d] = Math.max(rowMax[d] || 0, h);
+  }
+  const out = new Map();
+  for (const [id, { h, d }] of own) out.set(id, Math.max(0, rowMax[d] - h));
+  return out;
+}
 /** The reading of one outcome as paragraphs: the verdict, then the why and the next step. */
 export const readParas = (r) => [[{ text: r.head, face: 'rh' }], [{ text: `${r.why} ${r.next}`, face: 'rp' }]];
 
@@ -219,8 +235,11 @@ export function createPath() {
       y += L.readH + G;
     } else {
       const boxes = treeBoxes(spec.tree, Wv), heights = new Map(), fl = new Map();
+      // (Results stand level: a condition that wraps to a second line in one node (LSM <15 and platelets ≥150) must not leave its verdict lower than its neighbours', Stiffness 9, Rule of five,
+      // 19 Nov 2026, play-test. Each row's conditions take the room of the tallest, the rest of the node's words under it.)
+      const lead = treeLeadExtra(spec.tree, boxes, (id) => nodeParas(sl.byId.get(id), id === spec.tree.id), (paras, w) => flow([paras[0]], w, { align: 'center' }).h);
       for (const [id, b] of boxes) {
-        const paras = nodeParas(sl.byId.get(id), id === spec.tree.id), f = flow(paras, b.w, { align: 'center', gap: nodeGap(paras) });
+        const paras = nodeParas(sl.byId.get(id), id === spec.tree.id), f = flow(paras, b.w, { align: 'center', gap: nodeGap(paras, lead.get(id) || 0) });
         fl.set(id, f); heights.set(id, f.h);
       }
       L.tree = { ...treePlace(spec.tree, boxes, heights, y), boxes, flows: fl };
