@@ -50,7 +50,7 @@ A packet over 64 KB loses detail in this order: the motion history is thinned, t
 | state link: capture, address, read back, apply | `src/ui/packet/state.js` |
 | packet: build, text, parse, check sum | `src/ui/packet/packet.js` |
 | gather from the page (`pps.screen`, `pps.watch`, device, health) | `src/ui/packet/sources.js` |
-| the sheet, the key chord, the long press, `pps.packet` | `src/ui/packet/sheet.js`, `trigger.js`; gallery button `gallery-panel.js` |
+| the sheet, the key chord, the long press, `pps.packet` | `src/ui/packet/sheet.js`, `trigger.js`; gallery button `src/ui/gallery/packet-panel.js` |
 | replay verdicts, compare | `src/ui/packet/replay.js`, `diff.js` |
 | fixture from a packet | `src/ui/packet/test-from-packet.js`, `tests/packets/`, `tests/packets.test.js` |
 | Node replay (jsdom, GL stand-in, the model) | `scripts/packet-node.mjs` |
