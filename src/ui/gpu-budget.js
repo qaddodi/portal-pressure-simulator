@@ -247,6 +247,8 @@ export function notePass(kind, area) {
 // without a call (what they held is gone with it); a restored context's owners make theirs afresh, under fresh generations of their own,
 // and register again. enforce() runs on every hold() and twice a second while frames run.
 export const WARM_SHARE = 0.25, WARM_MAX = 6;
+/** The share of the envelope a page may stand at with idle caches held (a holder made with `soft: true`): above it they are given back, least recently used first, whatever else is held. */
+export const SOFT_SHARE = 0.7;
 const holders = new Set();
 let evictions = 0;
 const holderBytes = (h) => { try { return Math.max(0, +h.bytes() || 0); } catch { return 0; } };
@@ -255,7 +257,7 @@ const holderBytes = (h) => { try { return Math.max(0, +h.bytes() || 0); } catch 
  * drop() (the owner let it go itself, or uses it again as shown), get held }.
  */
 export function hold(spec) {
-  const h = { owner: spec.owner || 'gpu', kind: spec.kind === 'retained' ? 'retained' : 'warm', bytes: spec.bytes || (() => 0), release: spec.release, gl: spec.gl || null, at: nowMs() }; // alloc-rare: once per held resource: its owner touches an existing holder instead of holding again
+  const h = { owner: spec.owner || 'gpu', kind: spec.kind === 'retained' ? 'retained' : 'warm', soft: !!spec.soft, bytes: spec.bytes || (() => 0), release: spec.release, gl: spec.gl || null, at: nowMs() }; // alloc-rare: once per held resource: its owner touches an existing holder instead of holding again
   holders.add(h);
   const handle = { // alloc-rare: once per held resource: its owner touches an existing holder instead of holding again
     touch() { if (holders.has(h)) h.at = nowMs(); },   // (cheap: called on every chart frame; enforce() runs on hold() and the tick)
@@ -275,6 +277,23 @@ function letGo(h) {
 /** Gives back held resources until the warm ones are within their share and count and the registry within its envelope. */
 export function enforce(env = ENVELOPES[deviceClass()]) {
   for (const h of holders) if (h.gl?.isContextLost?.()) holders.delete(h);   // (gone with its context: forgotten, nothing called)
+  // (Idle caches, `soft`: the lobule's kept bitmaps and tiles, the vessel layer under the lobule. The phone check on the iPhone, 19 Nov 2026, read the page at 99% of its envelope for a whole path
+  // with these held, because nothing is given back until the registry is over 100%, and the next step took the tab. They go above SOFT_SHARE of the envelope, the longest unused first, one at a time.)
+  {
+    let any = false;
+    for (const h of holders) if (h.soft) { any = true; break; }
+    if (any) {
+      const limit = env.mb * 1e6 * SOFT_SHARE;
+      const list = [...holders].filter((h) => h.soft).sort((a, b) => a.at - b.at); // alloc-rare: only while an idle cache is held, twice a second at most
+      let held = 0; for (const h of holders) held += holderBytes(h);
+      let gone = 0;
+      for (const h of list) {
+        if (Math.max(registryBytes(), held - gone) <= limit) break;
+        const b = holderBytes(h);
+        if (letGo(h)) gone += b;
+      }
+    }
+  }
   // (The usual case, nothing to give back, is told by sums over the holders alone: no list is made, plan rev 2 §2.8.)
   {
     let wn = 0, wb = 0, held = 0;

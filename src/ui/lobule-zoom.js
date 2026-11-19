@@ -37,7 +37,7 @@ import { FX_GPU, createFxGL } from './fx-gl.js';
 import { WIDE_GL, createWideGL } from './wide-gl.js';
 import { buildLive, buildDyn, buildItems, liveFibreInto, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js';
 import { recordPaint, gpuPicture, releasePicture } from './paint-gl.js';
-import { hold, ownerBytes } from './gpu-budget.js';
+import { deviceClass, hold, ownerBytes } from './gpu-budget.js';
 import { cssColor8 } from './css-color.js';
 import { scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js';
 import { h, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha } from './util.js';
@@ -1145,10 +1145,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // held in the render graph's budget (gpu-budget.js): while the graph is over its memory envelope it is given back whole, and the next
   // dive builds it again, as its first ever did. Never while the lobule is open.
   let keptH = null, keptT = 0;
-  const KEPT_MS = 90000;   // motion-scale: not a move (how long bitmaps are kept); (how long out of the lobule before the bitmaps it kept are given back)
+  const KEPT_MS = deviceClass() === 'phone' ? 12000 : 90000;   // (a phone keeps what a visit left for 12 s, not 90: its envelope holds one visit's pictures and little else, 19 Nov 2026)
+  // motion-scale: not a move (how long bitmaps are kept); (how long out of the lobule before the bitmaps it kept are given back)
   function keptHold() {   // alloc-rare: once per close of the lobule
     if (keptH?.held) { keptH.touch(); return; }
-    keptH = hold({ owner: 'lobule kept', kind: 'retained', bytes: () => ownerBytes('lz-canvas'), release: keptRelease });
+    keptH = hold({ owner: 'lobule kept', kind: 'retained', soft: true, bytes: () => ownerBytes('lz-canvas'), release: keptRelease });
   }
   function keptRelease(timed = false) {   // (timed: after a while out of the lobule; the idle preparation does not draw it again until the next visit asks)
     keptH = null;
