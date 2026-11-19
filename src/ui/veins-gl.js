@@ -4858,6 +4858,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      *  For a canvas the page itself just cleared outside a frame (stage-res.js resizeCanvas, from the resize observer, after the frame's own copy): the figure
      *  drawn again in that task is shown in this paint, not after one blank frame. */
     showNow() { if (screenKeep && !lost) screenKeep.flush(); },
+    /** The canvas was just resized and nothing is drawn again in this task (the lobule or the sinusoid open, a pinch landing outside a frame): the kept screen takes the new size with its picture stretched
+     *  over it and is copied onto the canvas now, so the paint before the next draw shows the figure as it was, never a cleared canvas (keep-screen.js resized; GPU-5). */
+    screenResized() { if (screenKeep && !lost) screenKeep.resized(); },
     /** The current picture as a PNG data URL (call right after draw, in the same task). */
     snapshot() { if (share) return null; const c = { ...cam }; cam.k = 1; cam.ex = cam.ey = 0; cam.a = 1; try { present(false); screenKeep?.flush(); const url = canvas.toDataURL('image/png'); Object.assign(cam, c); if (tops.length || camOn()) present(); return url; } finally { Object.assign(cam, c); } },   // (the figure alone; then laid again whole, as it shows)
     /**

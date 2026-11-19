@@ -7,9 +7,9 @@ import { keepScreen } from '../src/ui/keep-screen.js';
 function fakeGL() {
   const calls = [];
   let n = 1;
-  const gl = { FRAMEBUFFER: 1, DRAW_FRAMEBUFFER: 2, READ_FRAMEBUFFER: 3, TEXTURE_2D: 4, RGBA8: 5, RGBA: 6, UNSIGNED_BYTE: 7, COLOR_ATTACHMENT0: 8, COLOR: 9, SCISSOR_TEST: 10, RASTERIZER_DISCARD: 11, COLOR_BUFFER_BIT: 12, NEAREST: 13, TEXTURE_MIN_FILTER: 14, TEXTURE_MAG_FILTER: 15, TEXTURE_WRAP_S: 16, TEXTURE_WRAP_T: 17, CLAMP_TO_EDGE: 18 };
+  const gl = { FRAMEBUFFER: 1, DRAW_FRAMEBUFFER: 2, READ_FRAMEBUFFER: 3, TEXTURE_2D: 4, RGBA8: 5, RGBA: 6, UNSIGNED_BYTE: 7, COLOR_ATTACHMENT0: 8, COLOR: 9, SCISSOR_TEST: 10, RASTERIZER_DISCARD: 11, COLOR_BUFFER_BIT: 12, NEAREST: 13, TEXTURE_MIN_FILTER: 14, TEXTURE_MAG_FILTER: 15, TEXTURE_WRAP_S: 16, TEXTURE_WRAP_T: 17, CLAMP_TO_EDGE: 18, LINEAR: 19 };
   let scissor = true;
-  for (const k of ['bindFramebuffer', 'drawArrays', 'clear', 'blitFramebuffer', 'createTexture', 'createFramebuffer', 'bindTexture', 'texImage2D', 'texParameteri', 'framebufferTexture2D', 'invalidateFramebuffer', 'enable', 'disable']) {
+  for (const k of ['bindFramebuffer', 'drawArrays', 'clear', 'blitFramebuffer', 'createTexture', 'createFramebuffer', 'bindTexture', 'texImage2D', 'texParameteri', 'framebufferTexture2D', 'invalidateFramebuffer', 'enable', 'disable', 'deleteTexture', 'deleteFramebuffer']) {
     gl[k] = (...a) => { calls.push([k, ...a]); if (k === 'disable' && a[0] === 10) scissor = false; if (k === 'enable' && a[0] === 10) scissor = true; return k.startsWith('create') ? { id: n++, kind: k } : undefined; };
   }
   gl.isEnabled = (c) => (c === 10 ? scissor : false);
@@ -139,4 +139,56 @@ test('a renderer that arrives before the restore event has run still gets a scre
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   assert.ok(second.fb && second.fb !== fb1);
   assert.equal(calls.filter((c) => c[0] === 'bindFramebuffer').at(-1)[2], second.fb);
+});
+
+// GPU-5 (19 Nov 2026 review): a canvas resized while nothing is drawn into it (the lobule or the sinusoid open, an iPhone turned) showed a cleared figure for the paint between the
+// resize and the next draw. The screen now carries its old picture into the new size before the old one is let go, and resized() copies it onto the canvas in the same task.
+test('a resized canvas: the old screen is stretched into the new one, the old one let go, and the canvas given the picture at once', () => {
+  const { gl, calls } = fakeGL();
+  const canvas = { width: 300, height: 200 };
+  let end = null;
+  const sc = keepScreen(gl, canvas, { onEnd: (f) => { end = f; return () => {}; } });
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  const old = sc.fb;
+  gl.drawArrays(5, 0, 4); end();
+  canvas.width = 600; canvas.height = 400;   // (assigning the size clears the shown canvas)
+  const n0 = calls.length;
+  sc.resized();
+  const after = calls.slice(n0);
+  const blits = after.filter((c) => c[0] === 'blitFramebuffer');
+  assert.equal(blits.length, 2, 'one carry into the new screen, one copy onto the canvas');
+  assert.deepEqual(blits[0].slice(1), [0, 0, 300, 200, 0, 0, 600, 400, gl.COLOR_BUFFER_BIT, gl.LINEAR], 'the old picture, stretched');
+  assert.deepEqual(blits[1].slice(1), [0, 0, 600, 400, 0, 0, 600, 400, gl.COLOR_BUFFER_BIT, gl.NEAREST], 'then the whole new screen onto the canvas');
+  assert.notEqual(sc.fb, old);
+  assert.ok(after.some((c) => c[0] === 'deleteFramebuffer' && c[1] === old) && after.some((c) => c[0] === 'deleteTexture'), 'the old screen is let go');
+  const carry = after.findIndex((c) => c[0] === 'blitFramebuffer'), gone = after.findIndex((c) => c[0] === 'deleteFramebuffer');
+  assert.ok(carry >= 0 && carry < gone, 'carried before it is let go');
+  assert.ok(after.some((c) => c[0] === 'bindFramebuffer' && c[1] === gl.READ_FRAMEBUFFER && c[2] === old), 'read from the old screen');
+  assert.equal(sc.carried, 1);
+  const n1 = calls.length;
+  sc.resized();
+  assert.equal(calls.length, n1, 'nothing more to do at the size it has');
+});
+
+test('a resize met by the next bind of the canvas carries the picture too (whoever draws first)', () => {
+  const { gl, calls } = fakeGL();
+  const canvas = { width: 300, height: 200 };
+  const sc = keepScreen(gl, canvas, { onEnd: () => () => {} });
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  canvas.width = 150; canvas.height = 100;
+  const n0 = calls.length;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  const blits = calls.slice(n0).filter((c) => c[0] === 'blitFramebuffer');
+  assert.deepEqual(blits.map((c) => c.slice(1)), [[0, 0, 300, 200, 0, 0, 150, 100, gl.COLOR_BUFFER_BIT, gl.LINEAR]]);
+  assert.equal(calls.slice(n0).filter((c) => c[0] === 'bindFramebuffer').at(-1)[2], sc.fb, 'and the new screen is what is bound');
+});
+
+test('before any screen exists a resize has nothing to carry or show', () => {
+  const { gl, calls } = fakeGL();
+  const canvas = { width: 300, height: 200 };
+  const sc = keepScreen(gl, canvas, { onEnd: () => () => {} });
+  canvas.width = 10;
+  const n0 = calls.length;
+  sc.resized();
+  assert.equal(calls.length, n0);
 });

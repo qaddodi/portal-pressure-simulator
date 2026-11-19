@@ -34,16 +34,19 @@ export function keepScreen(gl, canvas, hooks = {}) {
 function install(gl, canvas) {
   const bind = gl.bindFramebuffer.bind(gl);
   const blit = gl.blitFramebuffer.bind(gl);
-  const st = { tex: null, fb: null, w: 0, h: 0, dirty: false, flushes: 0 };
+  const st = { tex: null, fb: null, w: 0, h: 0, dirty: false, flushes: 0, carried: 0 };
   const cb = { ask: null, copied: null };   // (the renderer that holds the screen now: replaced when a new one takes it over)
   let owner = null, off = null;   // (owner: the handle that holds the frame-end hook; off: that hook's removal)
   let boundR = null, boundD = null;   // (what the context really has bound: the screen's fb where the code bound the canvas)
   function size() {
     const w = Math.max(1, canvas.width | 0), h = Math.max(1, canvas.height | 0);
     if (st.fb && st.w === w && st.h === h) return st.fb;
-    // alloc-rare: the screen is made once, and its storage again only when the canvas is resized (which clears the canvas as well)
-    if (!st.tex) st.tex = gl.createTexture();
-    if (!st.fb) st.fb = gl.createFramebuffer();
+    // alloc-rare: the screen is made once, and made again only when the canvas is resized (which clears the canvas as well)
+    // (GPU-5, 19 Nov 2026: a screen of the new size used to be made empty, so a canvas resized while nothing drew into it (the lobule or the sinusoid open, an iPhone turned, a card
+    // changing the stage box) showed a cleared figure for the paint between the resize and the next draw, the 4 Nov, 12 Nov and now the lobule's one-frame black. The old screen is
+    // carried over into the new one, stretched in one blit, before it is let go: whoever draws next, and whenever, the canvas has never shown nothing.)
+    const oldTex = st.tex, oldFb = st.fb, ow = st.w, oh = st.h;
+    st.tex = gl.createTexture(); st.fb = gl.createFramebuffer();
     gl.bindTexture(gl.TEXTURE_2D, st.tex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
@@ -51,6 +54,18 @@ function install(gl, canvas) {
     gl.bindTexture(gl.TEXTURE_2D, null);
     bind(gl.DRAW_FRAMEBUFFER, st.fb);
     gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, st.tex, 0);
+    if (oldFb && ow > 0 && oh > 0 && !(gl.isContextLost && gl.isContextLost())) {
+      const sc = glOn(gl, gl.SCISSOR_TEST);
+      if (sc) gl.disable(gl.SCISSOR_TEST);
+      bind(gl.READ_FRAMEBUFFER, oldFb);
+      blit(0, 0, ow, oh, 0, 0, w, h, gl.COLOR_BUFFER_BIT, gl.LINEAR);
+      if (sc) gl.enable(gl.SCISSOR_TEST);
+      st.carried++;
+    }
+    if (oldFb) { if (boundR === oldFb) boundR = st.fb; if (boundD === oldFb) boundD = st.fb; }
+    if (oldTex) gl.deleteTexture(oldTex);
+    if (oldFb) gl.deleteFramebuffer(oldFb);
+    bind(gl.READ_FRAMEBUFFER, boundR);
     bind(gl.DRAW_FRAMEBUFFER, boundD);
     st.w = w; st.h = h;
     return st.fb;
@@ -112,10 +127,20 @@ function install(gl, canvas) {
     st.flushes++;
     if (cb.copied) cb.copied();   // (?perf: the copy's GPU wait, timed on a sampled frame)
   }
+  /** The canvas was just resized (its shown surface is cleared): the screen takes the new size with its picture stretched over it, and the canvas is given that picture now, in this task, so the paint
+   *  before the next draw shows the figure as it was, never a cleared canvas. Nothing to do before a first screen exists, or when the size is the one it has. */
+  function resized() {
+    if (!st.fb || (gl.isContextLost && gl.isContextLost())) return;
+    const w = Math.max(1, canvas.width | 0), h = Math.max(1, canvas.height | 0);
+    if (st.w === w && st.h === h) return;
+    size();
+    st.dirty = true;
+    flush();
+  }
   const reset = () => { st.tex = st.fb = null; st.w = st.h = 0; st.dirty = false; boundR = boundD = null; };
   if (canvas && canvas.addEventListener) { canvas.addEventListener('webglcontextlost', reset); canvas.addEventListener('webglcontextrestored', reset); }
   return {   // alloc-rare: once per context
-    flush,
+    flush, resized,
     /** A renderer takes the screen: its hooks replace the last one's. The handle's dispose lets go only what this renderer still holds. */
     attach({ onEnd = null, ask = null, copied = null } = {}) {
       // (A restore's own event resets the screen first, ahead of the stage's listener; if a renderer came before it did, the screen's objects
@@ -124,9 +149,10 @@ function install(gl, canvas) {
       if (off) { off(); off = null; }
       cb.ask = ask; cb.copied = copied;
       const me = {   // alloc-rare: once per renderer
-        flush,
+        flush, resized,
         get fb() { return st.fb; },
         get flushes() { return st.flushes; },
+        get carried() { return st.carried; },
         dispose() { if (owner !== me) return; owner = null; cb.ask = cb.copied = null; if (off) { off(); off = null; } },
       };
       owner = me;
