@@ -59,7 +59,7 @@ export const TALK = {
   // a band's name, once, inside it
   'talk.gap.name': {
     state: { hv: 'data-hv' },
-    base: { font: [600, em(0.92)], fill: tok('text') },
+    base: { font: [600, em(1)], fill: tok('text') },
     when: [[{ hv: true }, { fill: tok('text-2') }]],
   },
   // a series line and its points (a ring of the panel's tone round each), the colour given by the builder (data-p-c)
@@ -80,23 +80,34 @@ export const TALK = {
     base: { font: [600, em(1)], fill: tok('text-2') },
     when: [[{ now: true }, { fill: tok('text') }]],
   },
+  // the steps header (a card whose stage names do not fit over its plot): a ring with its number in it on each state's line, the latest filled
+  'talk.step.ring': {
+    state: { now: 'class:now' },
+    base: { fill: tok('surface-2'), stroke: tok('text-3'), width: 1.25 },
+    when: [[{ now: true }, { fill: tok('text'), stroke: tok('text') }]],
+  },
+  'talk.step.n': {
+    state: { now: 'class:now' },
+    base: { font: [700, em(1)], fill: tok('text-2') },
+    when: [[{ now: true }, { fill: tok('surface-2') }]],
+  },
   // the treatments: a thin neutral bar, a dot where it starts, the name over it
   'talk.rx.bar': { base: { fill: tok('text-3'), opacity: 0.6, stroke: 'none' } },
   'talk.rx.dot': { base: { fill: tok('text-2'), stroke: 'none' } },
-  'talk.rx.name': { base: { font: [500, em(0.9)], fill: tok('text-2') } },
+  'talk.rx.name': { base: { font: [500, em(1)], fill: tok('text-2') } },
   // the time row: a visit's bracket and the breaks between visits, its day, the time between visits
   'talk.axis.mark': { base: { fill: 'none', stroke: tok('text-3'), width: 1.25, cap: 'round', join: 'round' } },
   'talk.when': {
     state: { now: 'class:now' },
-    base: { font: [500, em(0.92)], fill: tok('text-2') },
+    base: { font: [500, em(1)], fill: tok('text-2') },
     when: [[{ now: true }, { fill: tok('text'), weight: 700 }]],
   },
-  'talk.span': { base: { font: [500, em(0.85)], fill: tok('text-3') } },
+  'talk.span': { base: { font: [500, em(1)], fill: tok('text-3') } },
   // the readings rows under the plot (the HVPG's in its cut-off's colour, data-rate) and their names
   'talk.read': {
     state: { rate: 'data-rate', now: 'class:now' },
     base: { font: [600, em(1)], fill: tok('text') },
     when: [[{ rate: 'mid' }, { fill: tok('caution') }], [{ rate: 'hi' }, { fill: tok('danger') }], [{ now: true }, { weight: 700 }]],
   },
-  'talk.read.name': { base: { font: [500, em(0.92)], fill: tok('text-3') } },
+  'talk.read.name': { base: { font: [500, em(1)], fill: tok('text-3') } },
 };
