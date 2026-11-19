@@ -19,8 +19,8 @@ import { frameFor } from './frame.js';
 import { readMetric, readBox } from './layout-snap.js';
 
 export const SHUF = Object.freeze({
-  lift: 30,       // px of the slot above the front card where the strip of the card behind shows
-  strip: 32,      // px of the card behind that shows (about the lift, over the card in front's top edge, so it never crosses into it): its top edge, its title or its header
+  lift: 22,       // px of the slot above the front card where the strip of the card behind shows
+  strip: 24,      // px of the card behind that shows (about the lift, over the card in front's top edge, so it never crosses into it): its top edge, its title or its header
   gapX: 14,       // px between the leaving card and the one standing, at the middle of the shuffle: the leaving card slips out to the right by its own width and this, so at the middle the two do not overlap and the order of their layers is swapped where nothing shows
   drop: 18,       // px the leaving card sinks at the middle
   tilt: 0,        // degrees it turns at the middle (none: the glass follows a translation and a scale at rest, never a turn)
