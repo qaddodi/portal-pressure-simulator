@@ -133,7 +133,7 @@ test('the charts\' numbers sit inside the panel, 8 px in from its edge, and noth
   const curve = read('../src/ui/tool-curve.js'), ft = read('../src/ui/flow-time.js'), talk = read('../src/ui/talk-trace.js');
   assert.match(curve, /const L = Math\.ceil\(tw\(sL\) \+ 14\), R = Math\.floor\(w - \(sR \? tw\(sR\) \+ 14 : 10\)\)/, 'the curve\'s numbers 8 px in (a 6 px gap to the lines)');
   assert.match(ft, /L = Math\.ceil\(tw\(ser\.pScale\) \+ 14 \+/, 'the flow-time numbers 8 px in');
-  assert.match(talk, /B = Math\.max\(T \+ 3 \* fs, HT - 3 \* fs - 39\)/, 'the talk chart\'s time row and two readings rows keep a few px of the panel under them');
+  assert.match(talk, /const footer = \(k\) => fs \+ 22 \+ \(k >= 1 \? fs \+ 10 : 0\) \+ \(k >= 2 \? fs \+ 7 : 0\);/, 'the talk chart\'s time row and its readings rows keep 12 px of the panel under them (the same 3 fs + 39 with both rows)');
   // (The key under a chart's panel starts under it: the steps' key sits 1.3 lines under the axis's name row.)
   assert.match(curve, /y: B \+ G\.foot \+ 1\.3 \* f \+ it\.row \* 1\.5 \* f/);
 });

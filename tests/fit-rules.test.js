@@ -184,3 +184,18 @@ test('the list of kinds, their words, and the copied report', () => {
   assert.match(t, / {2}- \[card\] span\.b "y" 11\.0 px/);
   assert.deepEqual(linesOf(judgeCards({ scroll: ['a'], off: ['b'], enlarged: [], clipped: [] })), ['scroll: a', 'off: b']);
 });
+
+test('a word of a GPU chart placed outside its own box is found from the hidden model (the legend of a card too short for it)', () => {
+  const chart = (ys) => `<div class="pz"><section class="pz-data" data-box="10,10,390,300"><div class="svg-gl-box" data-box="10,100,390,300">
+    <svg data-svg-model="" hidden viewBox="0 0 350 198"><text x="300" y="${ys[0]}">PV</text><text x="300" y="${ys[1]}">FHVP</text><text x="40" y="${ys[2]}" transform="translate(0 40)">gliding</text></svg>
+  </div></section></div>`;
+  const ok = page(chart([120, 140, 400])).run(readCards, { minPx: WORDS_MIN_PX });
+  assert.equal(ok.chart.length, 0, 'a word inside its box, and a word on a glide (transform), are fine');
+  const bad = page(chart([120, 215, 400])).run(readCards, { minPx: WORDS_MIN_PX });
+  assert.equal(bad.chart.length, 1);
+  assert.match(bad.chart[0], /"FHVP" at \[300, 215\] is outside its chart's box 350 x 198/);
+  const j = judgeCards(bad);
+  assert.deepEqual(j.map((p) => p.kind), ['chart']);
+  assert.ok(KINDS.includes('chart') && NEW_KINDS.includes('chart'));
+  assert.deepEqual(judgeCards(bad, { oldRules: true }), [], 'the old rules never had it');
+});

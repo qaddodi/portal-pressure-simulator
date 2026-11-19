@@ -10,6 +10,8 @@
 //   small     lettering under 12 px on the screen (17 Nov, "data-card text >= 12 px", WORDS_MIN_PX)
 //   ratio     a slide title under 1.4 times the words under it (17 Nov, TITLE_RATIO)
 //   sideways  anything inside a card that scrolls sideways (a phone's swipe would open the next card instead)
+//   chart     a word of a chart drawn on the GPU placed outside its own box (the legend and the time row of a card too short for them: Next bleed 6 on a
+//             phone, 18 Nov 2026). Those words are a hidden model, not page text, so no rule above ever saw them; this one reads the model's own numbers.
 //   styled    a card shown before it was whole: still being laid out, words standing before their backing, fonts still loading, a card with a tag and no words
 //   blank, cut, tall   (a structure card on a phone) empty glass above or below its words, a line past its box, a scroller while the words fit
 //
@@ -29,7 +31,7 @@ import { TITLE_RATIO, WORDS_MIN_PX } from '../card-type.js';
 export { TITLE_RATIO, WORDS_MIN_PX };
 
 /** Every category a judge may name, in the order a list shows them. */
-export const KINDS = ['enlarged', 'zoomed', 'scroll', 'clipped', 'off', 'small', 'ratio', 'sideways', 'styled', 'blank', 'cut', 'tall'];
+export const KINDS = ['enlarged', 'zoomed', 'scroll', 'clipped', 'off', 'small', 'ratio', 'sideways', 'styled', 'chart', 'blank', 'cut', 'tall'];
 /** What each kind means, one line, for the list the Check button copies. */
 export const KIND_WORDS = {
   enlarged: 'a card up while nothing asked for it',
@@ -41,12 +43,13 @@ export const KIND_WORDS = {
   ratio: 'the title is under 1.4 times the words',
   sideways: 'something in the card scrolls sideways',
   styled: 'the card showed before it was whole',
+  chart: 'a word of a chart stands outside its box',
   blank: 'empty glass above or below the words',
   cut: 'a line runs past the card',
   tall: 'the card scrolls though its words fit the space',
 };
 /** The four kinds that are new (the checks from the standing rules); scripts can leave them out with --old-rules. */
-export const NEW_KINDS = ['small', 'ratio', 'sideways', 'styled'];
+export const NEW_KINDS = ['small', 'ratio', 'sideways', 'styled', 'chart'];
 
 /** The selectors of the presenter's cards. */
 export const PRESENTER_CARDS = ['.pz-text', '.pz-data', '.pz-panel'];
@@ -144,6 +147,26 @@ export function readCards(io, env) {
       if (cw > 0 && sw > cw + 1 && vis(k)) { const t = `${name(k)} in ${q} scrolls sideways (content ${sw} px, box ${cw} px)`; sideways.push(t); seen(t, k); }
     }
   }
+  // (A chart drawn on the GPU stands as a hidden model, its words not page text, so nothing above sees them. Each word has its place in the model's own box
+  // (x, y, and the viewBox's width and height): a word whose baseline or start is outside that box is cut by the card, the legend and the time row of a chart
+  // given less height than it needs. The newest model of each chart box is the one on show.)
+  const chart = [];
+  for (const q of cards) {
+    const c = document.querySelector(q);
+    if (!c || !vis(c)) continue;
+    for (const b of c.querySelectorAll('.svg-gl-box')) {
+      if (!vis(b)) continue;
+      const ms = [...b.children].filter((m) => m.hasAttribute && m.hasAttribute('data-svg-model')), m = ms[ms.length - 1];
+      if (!m) continue;
+      const vb = (m.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
+      if (vb.length !== 4 || !(vb[2] > 0 && vb[3] > 0)) continue;
+      for (const t of m.querySelectorAll('text')) {
+        const w = (t.textContent || t._t || '').trim(), x = parseFloat(t.getAttribute('x')), y = parseFloat(t.getAttribute('y'));
+        if (!w || t.closest('[transform],[display="none"]') || isNaN(x) || isNaN(y)) continue;
+        if (y > vb[1] + vb[3] + 1 || y < vb[1] - 1 || x > vb[0] + vb[2] + 1 || x < vb[0] - 1) { const k = `${q} chart word "${w.slice(0, 30)}" at [${Math.round(x)}, ${Math.round(y)}] is outside its chart's box ${Math.round(vb[2])} x ${Math.round(vb[3])}`; chart.push(k); seen(k, b); }
+      }
+    }
+  }
   // (Shown before whole.) A card in view that is still being laid out, words before the backing under them, fonts still loading, or a card that is only its tag.
   const prepping = !!document.querySelector('.pz.pz-prep');
   let shown = 0;
@@ -170,7 +193,7 @@ export function readCards(io, env) {
   const te = document.querySelector('.pz-text .pz-h'), be = document.querySelector('.pz-text .pz-line');
   if (te && be && vis(te) && vis(be)) { title = Math.round(screenPx(te) * 10) / 10; body = Math.round(screenPx(be) * 10) / 10; ratioEl = te; }
   if (ratioEl) seen('ratio', ratioEl);
-  return { n: document.querySelector('.pzb-n')?.textContent || '', vw, vh, enlarged, clipped: clipped.slice(0, 12), off: off.slice(0, 12), scroll, small: small.slice(0, 12).map((s) => s[1]), sideways: sideways.slice(0, 12), styled, title, body, fonts, shown };
+  return { n: document.querySelector('.pzb-n')?.textContent || '', vw, vh, enlarged, clipped: clipped.slice(0, 12), off: off.slice(0, 12), scroll, small: small.slice(0, 12).map((s) => s[1]), sideways: sideways.slice(0, 12), styled, chart: chart.slice(0, 12), title, body, fonts, shown };
 }
 
 /** Where the two cards really are with one enlarged (getClientRects: the zoom pins getBoundingClientRect to the resting box). */
@@ -247,6 +270,7 @@ export function judgeCards(r, opts = {}) {
     if (r.title > 0 && r.body > 0 && r.title < TITLE_RATIO * r.body * (1 - RATIO_TOLERANCE)) out.push(P('ratio', `the title is ${r.title} px over words of ${r.body} px (${(r.title / r.body).toFixed(2)}x; at least ${TITLE_RATIO}x)`));
     for (const t of r.sideways || []) out.push(P('sideways', t));
     for (const t of r.styled || []) out.push(P('styled', t));
+    for (const t of r.chart || []) out.push(P('chart', t));
   }
   return out;
 }

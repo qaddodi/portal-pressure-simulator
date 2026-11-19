@@ -78,6 +78,7 @@ export const CATALOG = [
   rec('trace/beats-plain', 'Pressure beat by beat, EKG and HVPG lane off', { preset: 'csph', cam: 'portal', tool: { kind: 'trace', range: 'beats', ekg: false, hvpgLane: false } }),
   rec('trace/beats-delta', 'Pressure beat by beat with the earlier state named', { preset: 'cirr-decomp', params: { respiration: false }, cam: 'varices', data: 'tiles', tiles: ['pv', 'varix'], tool: { kind: 'trace', range: 'beats', deltaLabel: 'before the bleed' } }),
   rec('trace/talk', 'Pressure at every slide so far', { carry: true, cam: 'fit', tool: { kind: 'trace', range: 'talk' } }),
+  rec('trace/talk-steps', 'The talk chart with a sentence for a step name: numbered rings, the latest name only', { carry: true, cam: 'fit', tick: 'The bleeding has stopped, the portal hypertension has not', tool: { kind: 'trace', range: 'talk' } }),
   rec('trace/talk-since', 'The talk chart from one slide on, the clot band named', { carry: true, cam: 'fit', tool: { kind: 'trace', range: 'talk', since: sid('doppler/ghost-before'), gap: 'clot', title: 'The course on one chart' } }),
   rec('trace/talk-milestones', 'The HVPG alone, with milestones named', { carry: true, cam: 'fit', milestone: 'Gallery', tool: { kind: 'trace', range: 'talk', style: 'milestones', bands: ['carvedilol'] } }),
   rec('vitals/default', 'Vital signs: heart rate, blood pressure, hemoglobin', { preset: 'cirr-decomp', cam: 'fit', tool: { kind: 'vitals' } }),
