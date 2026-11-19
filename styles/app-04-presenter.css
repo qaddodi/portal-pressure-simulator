@@ -52,7 +52,7 @@
   --pz-cp: clamp(18px, calc(1.4 * var(--pz-b)), 40px);   /* (one padding, both cards) */
   --pz-cw: min(calc(clamp(340px, min(38vw, calc(23.5 * var(--pz-b))), 640px) * var(--pz-wk, 1)), 42vw);   /* (one card width, about 40 characters of body text) */
   --pz-rw-outline: min(calc(50 * var(--pz-b)), 82%); --pz-rw-table: min(calc(54 * var(--pz-b)), 82%); --pz-rw-check: min(calc(42 * var(--pz-b)), 82%); --pz-rw-chart: min(calc(54 * var(--pz-b)), 82%); --pz-rw-plane: min(calc(48 * var(--pz-b)), 74%); }   /* (the reading cards' widths on a wide screen, below) */
-.pz-shade.pz-card:not(.stack) { --pz-glass-drop: var(--glass-drop); --pz-r: clamp(16px, calc(2.2 * var(--pzh)), 28px); left: var(--pz-cm); top: var(--pz-cm); bottom: var(--pz-cm); --gl-tint: var(--glass-tint); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 22%, transparent); border-radius: var(--pz-r); box-shadow: 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); }
+.pz-shade.pz-card:not(.stack) { --pz-glass-drop: var(--glass-drop); --pz-r: clamp(16px, calc(2.2 * var(--pzh)), 28px); left: calc(var(--pz-cm) + var(--pz-sx, 0px)); top: var(--pz-cm); bottom: var(--pz-cm); --gl-tint: var(--glass-tint); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 22%, transparent); border-radius: var(--pz-r); box-shadow: 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); }
 :root[data-theme="dark"] .pz-shade.pz-card:not(.stack) { --pz-glass-drop: rgb(var(--black-rgb) / .45); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-shade.pz-card:not(.stack) { --pz-glass-drop: rgb(var(--black-rgb) / .45); } }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-shade.pz-card:not(.stack) { --gl-glass: 0; background: var(--glass-tint); } }
@@ -61,7 +61,7 @@
 .pz-shade.pz-card:not(.stack) { transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
 .pz-shade.pz-card:not(.stack):not(.pz-leave) { transition-duration: var(--d-surface), var(--d-surface); transition-delay: .12s, .12s; }
 .pz-shade.pz-card.pz-leave:not(.stack) { opacity: 0 !important; transform: translateX(-18px); transition-delay: 0s; }
-.pz.pz-card:not(.stack) .pz-text, .pz.pz-card:not(.stack) .pz-data.under { left: calc(var(--pz-cm) + var(--pz-cp)); }
+.pz.pz-card:not(.stack) .pz-text, .pz.pz-card:not(.stack) .pz-data.under { left: calc(var(--pz-cm) + var(--pz-cp) + var(--pz-sx, 0px)); }   /* (--pz-sx: a phone on its side stands its cards in the middle of the screen, presenter-ladders.js; 0 everywhere else) */
 /* (The teaching card sits at the top left on every slide, one margin from the top as from the side, with or without a data card.) */
 .pz.pz-card:not(.stack) .pz-text { top: calc(var(--pz-cm) + var(--pz-cp)); bottom: auto; margin-block: 0; width: calc(var(--pz-cw) - 2 * var(--pz-cp)); max-height: calc(100% - 2 * var(--pz-cm) - 2 * var(--pz-cp)); }
 /* A phone held sideways (Mohammad, 17 Oct, I23): the words sit in the same floating card as on every other screen, not a

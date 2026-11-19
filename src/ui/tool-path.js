@@ -190,7 +190,7 @@ export function createPath() {
     const G = tight ? 6 : GAP, R1 = tight ? 8 : 12, R2 = tight ? 4 : 7;   // (tight: the rows closer, only where the card's real room asks for it, below)
     if (!spec || !(W > 0) || !ready) return;
     const Wv = W / sc;   // (the width the picture is laid out in: wider than the card when it is drawn smaller to fit the card's height)
-    // (A phone held sideways gives its cards a wider column when the pair does not fit the height (card-shuffle.js SHUF.wide): a card that wide is not the phone layout's small map but the card or chart a Mac draws.)
+    // (A phone held sideways gives its cards the wallet column (400 px) (card-shuffle.js SHUF.col: the wallet): a card that wide is not the phone layout's small map but the card or chart a Mac draws.)
     const phone = typeof matchMedia === 'function' && matchMedia(PHONE_MQ).matches && !(matchMedia(SIDEWAYS_MQ).matches && W >= CARD_WIDE_MIN);
     const compact = small || (card ? cardCompact(W, phone) : mapFor(spec.tree, W, phone));
     ctxFor();
@@ -245,7 +245,7 @@ export function createPath() {
       // (Where the data card's real room says it, the rows stand closer first (6 px, not 10). A card that has a real room never draws its words under 12 px (the data card's floor, Mohammad's rule):
       // the picture is then drawn at full size, tight, and what the room cannot hold is the layout's to give (the sweep names it). A phone's sheet, with no room given, keeps its figure floor, FIT_MIN.)
       if (!tight && given > 0) return layout(1, small, true);
-      const need = room / L.H, floor = given > 0 && !pic.closest?.('.pz-shuf') ? 1 : FIT_MIN;   // (the one allowance: a tall instrument card in the Shuffle on a short sideways phone may go down to 10 px, Mohammad 18 Nov)
+      const need = room / L.H, floor = given > 0 ? 1 : FIT_MIN;   // (no allowance: the wallet, 19 Nov 2026, took the Shuffle's 10 px with it; a card that has a real room never draws its words under 12 px)
       if (need >= floor) return layout(need, small, tight);
       if (!compact) return layout(1, true, tight);
       if (floor < 1) return layout(floor, small, tight);
