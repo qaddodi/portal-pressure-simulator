@@ -9,7 +9,7 @@ import { darkMQ } from './look.js';
 import { organDimMatrix } from './organ-dim.js';
 import { greyOf, paintRef, parseColor } from './organ-grey.js';
 import { readFail, readGroup as readGroupNow, readGroupRefs, targetRoom } from './organ-paint.js';
-import { freeBytes, room as room$ } from './gpu-budget.js';
+import { freeBytes, hold as gpuHold, room as room$ } from './gpu-budget.js';
 import { fitPlateView, plateBytes } from './plate-room.js';
 import { cropToGrid } from './organs-gl.js';
 import { paintBox } from './plate-copy.js';
@@ -480,7 +480,20 @@ export function createPlate(st, live) {
     stageScope.clear(live.plateSettle);
     live.plateSettle = stageScope.timer(settled, 280);
   }
-  const PLATE_CEILING = 1;   // (the share of the memory envelope a view's picture may fill: gpu-budget.js freeBytes, room)
+  // The sharp view picture is held in the budget as a retained picture (gpu-budget.js hold): the registry counts it, and a page over its envelope, or a dive into the lobule that asks `room` first
+  // (stage-dive.js), gives it back, the figure then standing on the whole plate's picture until the view is still again (19 Nov 2026, the iPhone: nothing but the lobule's own allocations could
+  // be given back, and the page stood at 96% of its envelope at the dive).
+  let plateHold = null;
+  function holdPlateView(bytes) {
+    plateHold?.drop();
+    const v = live.veins;
+    plateHold = gpuHold({ owner: 'sharp view picture', kind: 'retained', gl: v?.gl, bytes: () => (live.veins === v && v && !v.lost && v.hasPlate(1) ? bytes : 0), release: () => {
+      plateHold = null;
+      if (live.veins !== v || !v || v.lost || !v.hasPlate(1)) return;
+      v.dropPlate(1); live.plateView = null; live.plateViewKey = ''; dropViewKeep(); live.veinsDirty = true; live.stageWake();
+    } });
+  }
+  const PLATE_CEILING = 0.7;   // (the share of the memory envelope a view's picture may fill: gpu-budget.js freeBytes, room. 0.7, 19 Nov 2026: at 1 the sharp picture took the page to 97% of a phone's envelope and the next card or view tipped it over)
   async function settled() {
     // (Not with a finger or button still down, nor within 0.28 s of the last input: it is begun once the figure is let go.)
     if (!leftAlone(280)) { live.plateSettle = stageScope.timer(settled, 120); return; }
@@ -539,7 +552,7 @@ export function createPlate(st, live) {
     const vx0 = Math.max(PLATE_RECT[0], ax), vy0 = Math.max(PLATE_RECT[1], ay), vx1 = Math.min(PLATE_RECT[0] + PLATE_RECT[2], bx), vy1 = Math.min(PLATE_RECT[1] + PLATE_RECT[3], by);
     if (live.plateView && vx0 >= live.plateView[0] && vy0 >= live.plateView[1] && vx1 <= live.plateView[2] && vy1 <= live.plateView[3] && scale <= live.plateView[4] * 1.05) return;
     live.plateViewKey = key;
-    try { if (gpuOrgansOn() && await rasterLayers(1, [x0, y0, x1 - x0, y1 - y0], scale)) { live.plateView = [x0, y0, x1, y1, scale]; live.veinsDirty = true; live.stageWake(); } else if (live.plateViewKey === key) live.plateViewKey = ''; } catch (e) { caught('stage:5661', e); /* the whole-plate raster stays */ }
+    try { if (gpuOrgansOn() && await rasterLayers(1, [x0, y0, x1 - x0, y1 - y0], scale)) { live.plateView = [x0, y0, x1, y1, scale]; holdPlateView(bytesAt(fit.reach, fit.k)); live.veinsDirty = true; live.stageWake(); } else if (live.plateViewKey === key) live.plateViewKey = ''; } catch (e) { caught('stage:5661', e); /* the whole-plate raster stays */ }
   }
   const worldBuf = [0, 0];   // (the point kept and written over: every caller takes its two numbers at once)
   function clientToWorldFast(cx, cy) {

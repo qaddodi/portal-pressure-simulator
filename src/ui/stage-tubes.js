@@ -9,7 +9,7 @@ import { follow2 } from './display-state.js';
 import { fluidTarget } from './fluid-step.js';
 import { flareScale, sideEndScale } from './fork-joins.js';
 import { cancelFrame, settling, mayTask } from './frame.js';
-import { overMemory as gpuOverMemory } from './gpu-budget.js';
+import { overMemory as gpuOverMemory, freeBytes } from './gpu-budget.js';
 import { COUNTED, gpuProbe } from './gpu-probe.js';
 import { SYSTEM_COLOR, systemOf } from './highlight-math.js';
 import { createJunctionWidths } from './junction-widths.js';
@@ -105,6 +105,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     prepLobule();
   }
   let prepQ = null;
+  const PREP_BYTES = 130e6, PREP_CEILING = 0.75;   // (what the lobule's preparation ahead keeps, and the share of the memory envelope a page may stand at with it made)
   function prepRun() {
     const q = prepQ;
     if (!live.lobuleOn && !live.diveWait && live.diveT === 0 && live.morphTarget === 0 && (!prepCalm() || live.figureHidden())) { prepIdle(prepRun); return; }   // busy for now: later
@@ -120,6 +121,10 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     if (prepBusy || !live.figureShown || now - prepAt < 1000) return;
     prepAt = now;
     if (!prepCalm() || live.figureHidden() || gpuOverMemory()) return;   // (the lobule's preparation ahead keeps ~130 MB; over the memory envelope it is given back, and not made again until under)
+    // (And never on a page that has not the room to keep it: 19 Nov 2026, the first bug packet from the iPhone read the figure holding 235 MB of its 320 MB envelope at rest, over half of it this
+    // preparation made while nobody had asked for the lobule, and the next card or view that wanted a few tens of MB took the tab. A page with less than PREP_BYTES free below PREP_CEILING of
+    // its envelope waits for a hand on the Lobule button (prepRush: the preparation then runs at once, as it did) or the dive's own painting; the iPad and a computer, whose envelopes hold it, prepare as before.)
+    if (now >= prepRush && freeBytes(PREP_CEILING) < PREP_BYTES) return;
     const q = live.lz.preparePieces(now < prepRush);   // (a hand reaching for the Lobule button: prepared for the state as it is, at once)
     if (!q.length) return;
     prepBusy = true;
