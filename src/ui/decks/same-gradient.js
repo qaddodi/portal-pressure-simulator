@@ -6,9 +6,9 @@
 // the preset's own cirrhosis, params set after that leave them where they were). Fingerprints on 14 Nov 2026, the cirrhosis settings and PPGs retuned at the bedside on 16 Nov (tests/same-gradient.test.js
 // keeps the matches and the contrasts):
 //   ref    csph, cirrhosis 0.64:                  HVPG 12.0, PPG 13.7, portal flow 1.13 L/min, 20% of the portal blood shunted, liver flow 92%
-//   up     masld-csph, cirrhosis 0.675:           HVPG 12.0, PPG 15.0, portal flow 1.00,       39% shunted, liver flow 82%
+//   up     masld-csph, cirrhosis 0.67:            HVPG 12.0, PPG 15.0, portal flow 1.00,       39% shunted, liver flow 82%
 //   flow   csph, cirrhosis 0.602, tone 0.75:      HVPG 12.0, PPG 14.2, portal flow 1.43,       23% shunted, liver flow 109%
-//   shunt  cirr-hepatofugal, cirrhosis 1:         HVPG 12.0, PPG 12.0, portal flow -0.54,     100% shunted, liver flow 32%, encephalopathy index 0.83
+//   shunt  cirr-hepatofugal, cirrhosis 1, tone 1.05: HVPG 12.0, PPG 11.8, portal flow -0.54,     100% shunted, liver flow 32%, encephalopathy index 0.83
 // Sources, checked 14 Nov 2026 against the files in guidelines/: Baveno VIII 2.5 (in MASLD-related cACLD the HVPG may underestimate the true
 // portal pressure gradient, and an HVPG ≥10 mmHg still carries risk); AASLD 2024 guidance statements 3 (the HVPG is the gold standard in
 // cirrhosis), 4 (CSPH is an HVPG ≥10 mmHg), 5 (it may underestimate the portal pressure in some obese and NASH cirrhosis) and 6 (decompensation,
@@ -21,11 +21,11 @@ const PROFILE = { kind: 'profile' };   // the pressure ladder from gut to heart,
 const FLOWS = { kind: 'flows' };       // where the portal blood goes
 const LIVER = ['CONF', 'SIN_R', 'RHV'];
 
-// The four patients, one per slide, each from its own preset. `cirrhosis` is the setting tuned to an HVPG of 12.0 mmHg at the bedside (retuned 16 Nov 2026, when a slide's numbers became the bedside's).
+// The four patients, one per slide, each from its own preset. `cirrhosis` is the setting tuned to an HVPG of 12.0 mmHg at the bedside (retuned 16 Nov 2026, when a slide's numbers became the bedside's, and again 19 Nov, when the run-in grew to the 40 s the live model needs: the masld patient's cirrhosis 0.675 → 0.67, and the shunt patient's tone 1.05, which takes its PPG off the 12 line: ENG-1).
 const REF = { preset: 'csph', params: { cirrhosis: 0.64 }, relax: 365 };
-const UP = { preset: 'masld-csph', params: { cirrhosis: 0.675 }, relax: 365 };
+const UP = { preset: 'masld-csph', params: { cirrhosis: 0.67 }, relax: 365 };
 const FLOW = { preset: 'csph', params: { cirrhosis: 0.602, splanchnicTone: 0.75 }, relax: 365 };
-const SHUNT = { preset: 'cirr-hepatofugal', params: { cirrhosis: 1 }, relax: 365 };
+const SHUNT = { preset: 'cirr-hepatofugal', params: { cirrhosis: 1, splanchnicTone: 1.05 }, relax: 365 };
 
 export const SAME_GRADIENT = {
   id: 'same-gradient', level: 'advanced', title: 'Same gradient, different patient', minutes: 11,
@@ -68,7 +68,7 @@ export const SAME_GRADIENT = {
       id: 'shunt', ...SHUNT, lens: 'direction', cam: ['splenic', 'portal'],
       marks: [{ edges: ['C6'], label: 'Splenorenal shunt', kind: 'note' }, { edges: ['PV_TRUNK'], label: 'Portal vein, reversed', kind: 'note' }],
       tool: FLOWS, data: 'tiles', tiles: ['pvFlow', 'liver'], key: ['pvFlow'], delta: 'ref',
-      vignette: 'A 63-year-old man with cirrhosis on diuretics has had two admissions for overt hepatic encephalopathy. Platelets are 140,000/µL and EGD shows no large varices.',
+      vignette: 'A 63-year-old man with cirrhosis on diuretics has had two admissions for overt hepatic encephalopathy. Platelets are 143,000/µL and EGD shows no large varices.',
       caseQ: 'His HVPG is the same. What will his PPG be?',
       kicker: 'Collaterals', site: 'sin', title: 'A large splenorenal shunt brings the PPG down to the HVPG and reverses the portal flow',
       line: 'The shunt carries the portal blood away from the liver. The PPG is {ppg}, level with the HVPG, and the portal flow is {pvFlow}: hepatofugal.',

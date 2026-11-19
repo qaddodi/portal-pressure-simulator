@@ -54,8 +54,14 @@ const KNOWN = {
   'doppler/probe: 15 cm/s': 'the velocity cut-off', 'doppler/normal: 15 cm/s': 'the velocity cut-off', 'doppler/relation: 15 cm/s': 'the velocity cut-off',
   'doppler/relation: 15.5 mmHg': 'a point on the relation curve, not the ring',
   'gastric-varices/tips: 12 mmHg': 'the PPG target after TIPS', 'hvpg/hvpg: 10 mmHg': 'the CSPH cut-off', 'hvpg/plane: 10 mmHg': 'the CSPH cut-off', 'hvpg/summary: 10 mmHg': 'the CSPH cut-off',
-  'stiffness/ssm: 50 kPa': 'an older SSM cut-off (>50 kPa)', 'hyperdynamic/relation: 6.7 L/min': 'the curve\'s end, pinned above', 'ten-years/d365: 4.4 mmHg': 'a difference of two readings, pinned above',
+  'stiffness/ssm: 50 kPa': 'an older SSM cut-off (>50 kPa)', 'hyperdynamic/relation: 6.8 L/min': 'the curve\'s end, pinned above', 'ten-years/d365: 4.6 mmHg': 'a difference of two readings, pinned above',
   'variceal-bleed/oct: 1.5 mmHg': 'the fall at rest, quoted against the bleed state',
+  // (Round numbers that are thresholds, not readings: they come within a rounding step of a deck state when a state moves by a tenth, as they did when the run-in grew to the
+  // 40 s the live model needs, ENG-1 of 19 Nov 2026.)
+  'hyperdynamic/resist: 8 L/min': 'the top of the normal cardiac output range, 4 to 8 L/min',
+  'landmark-trials/who-tips: 20 mmHg': 'the HVPG ≥20 mmHg criterion of an early TIPS', 'landmark-trials/monescillo: 20 mmHg': 'the HVPG ≥20 mmHg criterion of an early TIPS', 'ten-years/bleed: 20 mmHg': 'the HVPG ≥20 mmHg criterion of an early TIPS',
+  'next-bleed/nsbb: 12 mmHg': 'the Baveno VIII response target, an HVPG of 12 mmHg or less', 'next-bleed/summary: 12 mmHg': 'the Baveno VIII response target, an HVPG of 12 mmHg or less',
+  'sites/healthy: 12 mmHg': 'the gradient from which the bleeding risk rises', 'sites/sin: 12 mmHg': 'the gradient from which the bleeding risk rises', 'sites/relation: 12 mmHg': 'the gradient from which the bleeding risk rises',
 };
 test('no note quotes a number within a rounding step of a reading of its deck without being that reading', async () => {
   const bad = [];

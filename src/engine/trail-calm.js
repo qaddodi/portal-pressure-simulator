@@ -42,3 +42,40 @@ export function calmTrail(rows, nCols, radius) {
   const h = radius > 0 ? radius : calmRadius(n), cols = Array.from({ length: nCols }, (_, c) => calmed(rows.map((r) => r[1 + c]), h));
   return rows.map((r, i) => [r[0], ...cols.map((c) => c[i])]);
 }
+
+// ── The Days chart's trend (ui/pressure-time.js): a series with CHANGES in it ──
+// A treatment is a step, not a slope. A centred fit smears a step both ways: a TIPS on day 180 of an HVPG of 18 that falls to 8 was drawn falling from
+// day 143, reading 13.1 the day before the stent (LOOK-2, 19 Nov 2026), the opposite of what the chart teaches. So a series is cut at every change (a
+// treatment or a procedure: ui/pressure-time.js notes it as the frame arrives) and each piece is calmed alone, its own two ends pinned to the readings,
+// and the change day holds both values, the last before and the first after, so the step is vertical.
+/** One series calmed in pieces: `starts` are the indexes where a new piece begins. A piece shorter than CALM_MIN stays as it was read. */
+export function calmedPieces(a, starts = []) {
+  const n = a.length, cuts = [0, ...[...new Set(starts)].filter((i) => i > 0 && i < n).sort((x, y) => x - y), n], out = new Array(n);
+  for (let k = 0; k + 1 < cuts.length; k++) {
+    const lo = cuts[k], hi = cuts[k + 1], piece = a.slice(lo, hi), c = piece.length >= CALM_MIN ? calmed(piece, calmRadius(piece.length)) : piece;
+    for (let j = 0; j < c.length; j++) out[lo + j] = c[j];
+  }
+  return out;
+}
+/** The Days list's one trace, calmed: days is [{ day, v: { key: reading }, start? }] (start: a change began a new piece here). Returns { x, mid }. */
+export function calmedDays(days, key) {
+  const x = [], v = [], starts = [];
+  for (const d of days) { if (d.v[key] == null) continue; if (d.start && x.length) starts.push(x.length); x.push(d.day); v.push(d.v[key]); }
+  return { x, mid: calmedPieces(v, starts) };
+}
+/** Today's reading into the Days list. A new day is a new point. On the same day a reading just goes on updating today's point (a slider, the
+ *  model settling), unless `stepped`: a change (a treatment or a procedure) came with it, and the point before it stays as it was read while the change
+ *  starts a point of its own on the same day, so the step is vertical and the days before it are not touched. Returns true when the list's points changed
+ *  (a day or a step added, one dropped, or the clock went back), false when only today's point moved. `max`: the days kept. */
+export function recordDay(days, day, v, stepped = false, max = 1500) {
+  const last = days[days.length - 1];
+  let grew = false;
+  if (last && day < last.day) { days.length = 0; grew = true; }
+  const t = days[days.length - 1];
+  if (!t || t.day !== day || (stepped && days.length)) {
+    days.push(stepped && days.length ? { day, v: { ...v }, start: true } : { day, v: { ...v } });
+    grew = true;
+    if (days.length > max) days.shift();
+  } else Object.assign(t.v, v);   // (in place: no record made for a frame that only moves today's point)
+  return grew;
+}
