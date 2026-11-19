@@ -29,6 +29,7 @@ import { createTraceGL, fitPen, keepLayer } from './trace-gl.js';
 import { attrSoon, classSoon, dataSoon, propSoon, runSoon } from './class-soon.js';
 import { dropFront } from './drop-front.js';
 import { gateFactors } from './gate-factors.js';
+import { readBox, readStyle } from './layout-snap.js';
 // (The trace is drawn and handed over in the frame's READ phase, its very start, as the cards' pictures are (svg-gl.js, 787f66b). The hand-over
 // (trace-gl.js end: transferToImageBitmap) makes Safari wait for the GPU to finish everything queued before it: drawn in the early phase, after
 // the figure (priority 0) had queued its frame, that was the figure's GPU work, and the Doppler read 5-11 ms of script a frame at rest on a
@@ -982,7 +983,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const key = `${ro ? repW : report.clientWidth}|${ro ? cvW : cv.clientWidth}|${stripType}|${meta().kind}`;
     if (key !== stripFit) {
       // (the room is the monitor picture's, 12 px in from its right edge, where the report is wider than it: a phone held sideways)
-      const cs = getComputedStyle(report), rr = report.getBoundingClientRect(), br = cv.getBoundingClientRect();
+      const cs = readStyle(report), rr = readBox(report), br = readBox(cv);
       const sc = rr.width / (report.offsetWidth || 1) || 1;   // (screen px per layout px: a card still easing in is scaled)
       const have = Math.min(report.clientWidth - parseFloat(cs.paddingRight), (br.right - rr.left) / sc - 12) - parseFloat(cs.paddingLeft);
       rng ||= document.createRange();
@@ -999,9 +1000,9 @@ export function createDoppler({ onProbe, pickGate = true }) {
       }
       stripStepSet(base);
       // (and the strip's height with them, which the trace starts under whatever the words: a pattern that comes after "Acquiring…")
-      stripFull = Math.ceil(stripRect().bottom - cv.getBoundingClientRect().top) + 4;
+      stripFull = Math.ceil(stripRect().bottom - readBox(cv).top) + 4;
       // (the number's slot, in em of its own type so it scales with any step: as wide as the widest reading)
-      const slot = widest(velB, words.vels).width / sc / (parseFloat(getComputedStyle(velB).fontSize) || 1);
+      const slot = widest(velB, words.vels).width / sc / (parseFloat(readStyle(velB).fontSize) || 1);
       velB.style.minWidth = `${Math.ceil(slot * 100) / 100}em`;
       wNow(velB, was.v); wNow(patternEl, was.p); velEl.hidden = was.vh; patternEl.hidden = was.ph;
       stripBase = base; stripHave = have; stripSc = sc; stripWordsKey = ''; stripSteps.clear();
@@ -1031,7 +1032,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     for (const e of [velEl, dirEl, patternEl]) {
       const q = wordsRect(e, rng);
       if (!q.width) continue;
-      l = Math.min(l, q.left); r = Math.max(r, q.right); b = Math.max(b, e.getBoundingClientRect().bottom);
+      l = Math.min(l, q.left); r = Math.max(r, q.right); b = Math.max(b, readBox(e).bottom);
     }
     return { width: r > l ? r - l + (wText(patternEl) && !patternEl.hidden ? 14 : 0) : 0, bottom: b };
   }
@@ -1046,7 +1047,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const w = layW, hh = layH, was = `${ovTop}|${ovOn}|${stripKey}|${sweepIndex}`;
     const ovKey = `${w}x${hh}`, tOv = performance.now();
     if (ovKey !== ovLast || tOv - ovAt > 500) {
-      ovAt = tOv; const cs = getComputedStyle(cv); ovOn = cs.getPropertyValue('--dop-ov').trim() === '1';
+      ovAt = tOv; const cs = readStyle(cv); ovOn = cs.getPropertyValue('--dop-ov').trim() === '1';
       // (the strip's type sizes, read with it: a slide's text scale can settle after the strip was fitted, which left it fitted too wide)
       if (ovOn) stripType = ['--bs', '--pz-num', '--fs-12', '--fs-14', '--fs-20'].map((v) => cs.getPropertyValue(v).trim()).join();
     }
@@ -1054,7 +1055,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       const k0 = stripKey; fitStrip();
       // (No word of the strip laid out yet gives no bottom: the strip keeps its last height. Taken as is, an infinite height made the
       // trace's image fail to build, a monitor drawn while hidden.)
-      if (ovKey !== ovLast || stripKey !== k0) { rng ||= document.createRange(); const t = Math.max(Math.ceil(stripRect().bottom - cv.getBoundingClientRect().top) + 4, stripStep === stripBase ? stripFull : 0); if (Number.isFinite(t) && (ovKey !== ovLast || t > ovTop || t < ovTop - 4)) ovTop = t; }
+      if (ovKey !== ovLast || stripKey !== k0) { rng ||= document.createRange(); const t = Math.max(Math.ceil(stripRect().bottom - readBox(cv).top) + 4, stripStep === stripBase ? stripFull : 0); if (Number.isFinite(t) && (ovKey !== ovLast || t > ovTop || t < ovTop - 4)) ovTop = t; }
     } else {
       ovTop = 26;
       if (stripFit) { stripStepSet(0); stripKey = stripFit = stripWordsKey = ''; stripSteps.clear(); velEl.firstChild.style.minWidth = ''; }   // (off the strip the words are always whole and full size, the number its own width)

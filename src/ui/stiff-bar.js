@@ -48,7 +48,7 @@ export const BARS = {
 export const VERDICT = { out: ['CSPH ruled out', 'ok'], in: ['CSPH ruled in', 'hi'], open: ['CSPH not ruled out', 'mid'], between: ['CSPH not ruled in or out', 'mid'], congested: ['Congestion: CSPH rules do not apply', 'mid'], vascular: ['Vascular disease: CSPH rules do not apply', 'mid'] };
 /** The rules' eligibility, said once (lsm-cuts.js congestedLiver): a congested liver and spleen are stiff from venous pressure, and Baveno VIII's stiffness rules are for compensated advanced chronic liver disease. */
 export const CONGESTION_NOTE = 'This stiffness reflects congestion, not fibrosis. The Baveno VIII stiffness rules for CSPH apply to compensated advanced chronic liver disease, not to congestion.';
-export const VASCULAR_NOTE = 'No sinusoidal scar here. The Baveno VIII stiffness rules for CSPH apply to compensated advanced chronic liver disease, not to vascular liver disease: a normal stiffness does not exclude portal hypertension.';
+export const VASCULAR_NOTE = 'No sinusoidal fibrosis here. The Baveno VIII stiffness rules for CSPH apply to compensated advanced chronic liver disease, not to vascular liver disease: a normal stiffness does not exclude portal hypertension.';
 /** The context (lsm-cuts.js lsmContext) as it applies to an organ's bar: congestion takes both organs' rules off, a vascular liver only the liver's (SSM >40 kPa is itself a sign of portal hypertension in PSVD, 8.44). */
 export const ctxFor = (organ, ctx) => (ctx === 'congested' || (ctx === 'vascular' && organ !== 'spleen') ? ctx : null);
 const NOTE_OF = { congested: CONGESTION_NOTE, vascular: VASCULAR_NOTE };

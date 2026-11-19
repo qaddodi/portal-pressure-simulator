@@ -37,6 +37,7 @@ import { SAAG_PORTAL } from '../engine/ascites-cuts.js';
 import { darkMQ } from './look.js';
 import { createEusPpg } from './eus-ppg.js';
 import { DIAL_VB, dialTickRadius } from './dial-geometry.js';
+import { readStyle } from './layout-snap.js';
 // (The endoscope's field: drawn in the late part of a frame, after the model's frame of it has been taken in, so once a frame.)
 const drawFrame = lateFrameFor('instruments');
 
@@ -437,7 +438,7 @@ export function createVarixWall() {
     wPinT = now;
   }
   // (The card's type size for the picture's labels: read between frames, never in one; a new size draws again.)
-  const readFs = () => { cv._fsAsk = 0; if (!cv.isConnected) return; cv._fsKw = cv._fsWw; cv._fsKh = cv._fsWh; const was = cv._fs; cv._fs = parseFloat(getComputedStyle(cv).fontSize) || 12; if (cv._fs !== was && lastF) update(lastF); };
+  const readFs = () => { cv._fsAsk = 0; if (!cv.isConnected) return; cv._fsKw = cv._fsWw; cv._fsKh = cv._fsWh; const was = cv._fs; cv._fs = parseFloat(readStyle(cv).fontSize) || 12; if (cv._fs !== was && lastF) update(lastF); };
   function update(f) {
     lastF = f;
     const v = f.metrics.varix;
