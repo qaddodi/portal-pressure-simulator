@@ -1409,6 +1409,8 @@ function openSettings(anchor, withSearch = false) {
     // (From the thumb dock's Settings tab, History (Search is a tab of its own there) and Help follow it: the dock has no More menu, and a touch keyboard has no ?. Enter full screen acts once, so it sits with them.)
     menuSection(null,
       ...(FEEDBACK_EMAIL ? [menuItem('Send feedback', { icon: 'mail', onClick: () => { closePopover(); sendFeedback(); } })] : []),
+      // (Preview copy only, where packet/trigger.js has loaded: the same sheet as holding the orange PREVIEW pill, for a person who does not know the hold.)
+      ...(window.pps?.packet?.open ? [menuItem("What's wrong here?", { icon: 'help', onClick: () => { closePopover(); window.pps.packet.open(); } })] : []),
       // (History and Help are pages inside this sheet, menu recs P4: they slide in over Settings with a back row, and the sheet stays open.)
       ...(withSearch ? [menuItem('History', { icon: 'clock', kb: $('#timeline .tl-hc')?.textContent || null, onClick: () => menuPush('Settings', 'History', timeline.historyList()) }),
         menuItem('Help', { icon: 'help', onClick: () => menuPush('Settings', 'Help', helpRows()) })] : []),

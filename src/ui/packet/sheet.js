@@ -19,7 +19,6 @@ const CSS = `
 .pkt button.go { background: var(--danger); border-color: transparent; color: var(--text-inverse); }
 .pkt textarea.pkt-raw { min-height: 110px; font: 500 12px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; }
 .pkt [hidden] { display: none !important; }
-#preview-badge { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 `;
 
 function copyText(text) {
@@ -41,7 +40,8 @@ export function openPacketSheet({ build, doc = document, say = () => {} }) {
   const copy = el('button', 'go', 'Copy packet'); copy.type = 'button'; copy.disabled = true;
   const close = el('button', '', 'Close'); close.type = 'button';
   const row = el('div', 'pkt-row'); row.append(copy, close);
-  root.append(el('h2', '', "What's wrong here?"), status, list, note, raw, row);
+  const intro = el('p', 'pkt-status', 'Something look wrong? This collects what the app shows right now, so the agent can see it without a screenshot. Nothing is sent: tap Copy, then paste it into the thread.'); intro.style.margin = '0';
+  root.append(el('h2', '', "What's wrong here?"), intro, status, list, note, raw, row);
   doc.body.append(root);
   fadeShown(root, true);
   let packet = null, closed = false;
