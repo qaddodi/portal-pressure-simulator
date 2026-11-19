@@ -16,17 +16,18 @@
 // Pure helpers (shufPose, shufKeyframes, shufDim, spring) are unit-tested in node: tests/card-shuffle.test.js.
 
 import { frameFor } from './frame.js';
-import { readMetric } from './layout-snap.js';
+import { readMetric, readBox } from './layout-snap.js';
 
 export const SHUF = Object.freeze({
   lift: 30,       // px of the slot above the front card where the strip of the card behind shows
   strip: 32,      // px of the card behind that shows (about the lift, over the card in front's top edge, so it never crosses into it): its top edge, its title or its header
-  side: 112,      // px the leaving card slips to the right at the middle of the shuffle
+  gapX: 14,       // px between the leaving card and the one standing, at the middle of the shuffle: the leaving card slips out to the right by its own width and this, so at the middle the two do not overlap and the order of their layers is swapped where nothing shows
   drop: 18,       // px the leaving card sinks at the middle
-  tilt: 5,        // degrees it turns at the middle
+  tilt: 0,        // degrees it turns at the middle (none: the glass follows a translation and a scale at rest, never a turn)
   back: 0.92,     // the size of the card behind
   dimData: 0.26,  // how dark the data card is while it is behind
   dimWords: 0.14, // and the teaching card's two layers (its words, its glass): each half the weight, they stand one over the other
+  wide: 'min(520px, 62vw)',   // the cards' width (--pz-cw) on a screen too short for the pair at the usual 340: a wider column holds the same words and instrument in fewer lines, so more fit stacked and fewer need to shuffle
   drag: 170,      // px of finger travel for the whole shuffle
   radius: 18,     // px, the cards' corner (the clip keeps it)
   steps: 12,      // keyframes along the way (the curve between them is a straight line, the sine is smooth at this many)
@@ -38,15 +39,15 @@ const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 /**
  * Where a card is when the shuffle is at p (0: the words in front; 1: the instrument in front). card: 'words' or 'data'; h: the card's height, px
- * (the card turns about its centre; its top edge is held where the pose says so; lo: the px that show while it is behind). → { f (0 behind, 1 in front), x, y (the top edge's shift), s, rz, ty (the translateY that does it), vis (px of the card that show) }
+ * (the card turns about its centre; its top edge is held where the pose says so; lo: the px that show while it is behind; w: its width, which sets how far it slips out). → { f (0 behind, 1 in front), x, y (the top edge's shift), s, rz, ty (the translateY that does it), vis (px of the card that show) }
  */
-export function shufPose(card, p, h, lo = SHUF.strip) {
+export function shufPose(card, p, h, lo = SHUF.strip, w = 0) {
   const q = clamp01(p), f = card === 'words' ? 1 - q : q;
   const o = card === 'words' ? Math.sin(Math.PI * q) : 0;   // (the words' card is the one that slips out and back: the same way whichever way the swipe goes)
   const s = lerp(SHUF.back, 1, f) - 0.02 * o;
   const y = lerp(-SHUF.lift, 0, f) + SHUF.drop * o;
   const vis = lo + (h - lo) * f * f * (3 - 2 * f);   // (smoothstep: the strip stays a strip until the card is well on its way forward)
-  return { f, x: SHUF.side * o, y, s, rz: SHUF.tilt * o, ty: y - (1 - s) * h / 2, vis: Math.min(h, vis) };
+  return { f, x: (w + SHUF.gapX) * o, y, s, rz: SHUF.tilt * o, ty: y - (1 - s) * h / 2, vis: Math.min(h, vis) };
 }
 
 /** How dark a card is at p (0 to 1, the veil's opacity). words: true for a layer of the teaching card; layers: how many stand over one another. */
@@ -57,10 +58,10 @@ export function shufDim(card, p, layers = 1) {
 }
 
 /** The keyframes of one card's transform (to be ADDED to its own), its clip-path and its veil, from p = 0 (offset 0) to p = 1 (offset 1). */
-export function shufKeyframes(card, h, layers = 1, lo = SHUF.strip) {
+export function shufKeyframes(card, h, layers = 1, lo = SHUF.strip, w = 0) {
   const tf = [], clip = [], dim = [];
   for (let i = 0; i <= SHUF.steps; i++) {
-    const offset = i / SHUF.steps, g = shufPose(card, offset, h, lo);
+    const offset = i / SHUF.steps, g = shufPose(card, offset, h, lo, w);
     tf.push({ offset, transform: `translate(${g.x.toFixed(2)}px, ${g.ty.toFixed(2)}px) rotate(${g.rz.toFixed(3)}deg) scale(${g.s.toFixed(4)})` });
     // (the front card's clip reaches 40 px past its box on every side, so its shadow is never cut; the strip's clip is the card's own edge)
     const e = 40 * g.f;
@@ -80,6 +81,15 @@ export function spring(p, v, target, dt, w = SHUF.w) {
 
 /** The end a release goes to: where a throw of the finger's speed (p per second) would carry p. */
 export const shufEnd = (p, v) => (p + v * 0.16 > 0.5 ? 1 : 0);
+/**
+ * Where a let-go swipe sends the cards: a swipe up brings the instrument forward, a swipe down the words, whatever the cards were doing (a swipe in the middle of a
+ * glide takes the spring over, so six alternating swipes are six moves); a swipe too short and slow to mean either goes to the nearer end. dy: the finger's travel, px, up positive.
+ */
+export function shufDir(p, v, dy) {
+  const fast = Math.abs(v) > 0.8;
+  if (fast || Math.abs(dy) >= 18) return (fast ? v > 0 : dy > 0) ? 1 : 0;
+  return p > 0.5 ? 1 : 0;
+}
 /** The position of a finger that has moved dy px up (negative dy is down) from where p was p0: it gives past the ends. */
 export function shufDrag(p0, dy) {
   const v = p0 + dy / SHUF.drag;
@@ -97,7 +107,7 @@ export function shufDrag(p0, dy) {
 export function createShuffle(live) {
   let on = false, key = '', p = 0, v = 0, target = 0, dragging = false, raf = 0, last = 0, parked = 0, tapOK = false;
   let anims = [];   // [{ el, tf, clip, dim }]
-  let y0 = 0, p0 = 0, hist = [], moved = false;
+  let y0 = 0, p0 = 0, hist = [], moved = false, lastDy = 0;
   const nowMs = () => performance.now();
 
   const root = () => live.ui?.root;
@@ -109,23 +119,55 @@ export function createShuffle(live) {
     dropAnims();
     const ui = live.ui;
     if (!ui || !on) return;
-    // (The words' card stands pad px below its glass's top: its strip is that much shorter, so the two end at the same line.)
-    const gap = ui.shade && ui.text ? Math.max(0, readMetric(ui.text, 'offsetTop') - readMetric(ui.shade, 'offsetTop')) : 0;
-    const sets = [[ui.text, 'words', 2, Math.max(8, SHUF.strip - gap)], [ui.shade, 'words', 2, SHUF.strip], [ui.data, 'data', 1, SHUF.strip]];
-    for (const [el, card, layers, lo] of sets) {
+    // (The words' card stands pad px below its glass's top: the words give no strip of their own (the card behind shows its glass and its kicker only: a strip of
+    // the title's first line, cut in half, read as text over text), so the words' lo is 0.)
+    const sets = [[ui.text, 'words', 2, 0, false], [ui.shade, 'words', 2, SHUF.strip, true], [ui.data, 'data', 1, SHUF.strip, true]];
+    for (const [el, card, layers, lo, glass] of sets) {
       if (!el || !el.animate) continue;
-      const h = readMetric(el, 'offsetHeight');
-      if (!(h > 0)) continue;
-      const kf = shufKeyframes(card, h, layers, lo);
+      const h = readMetric(el, 'offsetHeight'), b = readBox(el);
+      if (!(h > 0) || !b) continue;
+      const w = b.width;
+      const kf = shufKeyframes(card, h, layers, lo, w);
       const mk = (frames, opts) => { const a = el.animate(frames, { duration: 1000, fill: 'both', easing: 'linear', ...opts }); a.pause(); a.currentTime = p * 1000; return a; };   // motion-scale: own pace (paused: the finger and the spring set the time, 1000 is the timeline's unit, never a length of time)
       anims.push({
-        el,
+        el, card, h, w, lo, top: b.top, left: b.left, glass,
         tf: mk(kf.tf, { composite: 'add' }),
         clip: mk(kf.clip),
         dim: mk(kf.dim, { pseudoElement: '::after' }),
       });
     }
     front();
+  }
+
+  // The foot a glass is cut at (the GPU draws it in the figure's canvas, where a page clip-path cannot reach it): client px, from where the card stands now. One kept
+  // object per element, read by the glass in each frame it draws (glass-gl.js, cards.cut): the strip's foot while the card is behind, no cut once it is in front.
+  const cuts = new WeakMap(), FAR = 1e6;
+  function footOf(el) {
+    if (!on) return FAR;
+    for (const a of anims) {
+      if (a.el !== el || !a.glass) continue;
+      const g = shufPose(a.card, p, a.h, a.lo, a.w);
+      return g.f > 0.995 ? FAR : a.top + g.y + g.vis * g.s;
+    }
+    return FAR;
+  }
+  const cutOf = (el) => {
+    if (!on || !el) return null;
+    let c = cuts.get(el);
+    if (!c) { c = { get bottom() { return footOf(el); } }; cuts.set(el, c); }
+    return c;
+  };
+  // Whether a client point is on the strip of the card behind (a finger's width taller than the strip, never under 36 px).
+  function stripHit(x, y) {
+    if (!on) return false;
+    const behind = p > 0.5 ? 'words' : 'data';
+    for (const a of anims) {
+      if (a.card !== behind || !a.glass) continue;
+      const g = shufPose(a.card, p, a.h, a.lo, a.w), left = a.left + g.x + a.w * (1 - g.s) / 2, top = a.top + g.y;
+      const hh = Math.max(36, g.vis * g.s);
+      return x >= left - 6 && x <= left + a.w * g.s + 6 && y >= top - 6 && y <= top + hh;
+    }
+    return false;
   }
 
   function frame(ts) {
@@ -160,14 +202,20 @@ export function createShuffle(live) {
     park() { parked++; if (anims.length) dropAnims(); },
     resume() { if (parked > 0) parked--; if (!parked && on) build(); },
     go(to) { if (!on) return; target = to; run(); },
+    cutOf,
+    stripHit,
+    /** A card is to be zoomed: it is brought to the front (the pair then holds still while the zoom is up: touch). */
+    hold(card) { if (!on) return; target = card === 'words' ? 0 : 1; v = 0; run(); },
+    settled: () => !dragging && !raf && p === target,
     touch(type, y, onBehind) {
       if (!on) return;
-      if (type === 'start') { dragging = true; moved = false; tapOK = !!onBehind; y0 = y; p0 = p; v = 0; hist = [[nowMs(), p]]; target = p; return; }
+      if (live.ui?.zoom?.on) return;   // (a card zoomed: the pair holds still)
+      if (type === 'start') { dragging = true; moved = false; lastDy = 0; tapOK = !!onBehind; y0 = y; p0 = p; v = 0; hist = [[nowMs(), p]]; target = p; return; }
       if (!dragging) return;
       if (type === 'move') {
         const dy = y0 - y;
         if (Math.abs(dy) > 4) moved = true;
-        p = shufDrag(p0, dy); target = p;
+        lastDy = dy; p = shufDrag(p0, dy); target = p;
         scrub(); front();
         const n = nowMs(); hist.push([n, p]); while (hist.length > 2 && n - hist[0][0] > 90) hist.shift();
         return;
@@ -177,7 +225,7 @@ export function createShuffle(live) {
       if (!moved) { if (tapOK) { target = p < 0.5 ? 1 : 0; v = 0; run(); } return; }
       const a = hist[0], b = hist[hist.length - 1];
       v = (b[1] - a[1]) / Math.max(1, b[0] - a[0]) * 1000;
-      target = shufEnd(p, v); run();
+      target = shufDir(p, v, lastDy); run();
     },
   };
   return api;

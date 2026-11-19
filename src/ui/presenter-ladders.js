@@ -83,6 +83,15 @@ export function createLadders(st, live) {
       await until(() => !live.ui || !('folding' in live.ui.data.dataset), 1500);
       if (!zoomReady()) return;
     }
+    // (A shuffled pair: the data card comes to the front first, and the zoom is planned from where it stands then; the words' card stays behind it, never enlarged
+    // (scene is empty for it), and the shuffle holds still while the zoom is up, card-shuffle.js hold. The words' card has no zoom here: it already has the whole height.)
+    const sh = live.shuffle?.active() ? live.shuffle : null;
+    if (sh) {
+      if (focus === 'text') return;
+      sh.hold('data');
+      await until(() => !live.ui || sh.settled(), 900);
+      if (!zoomReady()) return;
+    }
     live.ui.scope?.close();   // (the scope view shuts as a card zooms: it would stand over the card; Mohammad 6 Nov 2026)
     zoomU0 = underU(live.ui.data);
     // (The teaching card's glass, the shade, stands at the figure's level, under the page's veil: framed, it is veiled by fscrim, laid under the
@@ -208,6 +217,9 @@ export function createLadders(st, live) {
     // kept, a card folded at 200% stayed folded back at 100%.)
     // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const at = live.shown || live.entering, lockKey = at ? `${at.gen}:${at.i}:${W.toFixed(0)}x${H.toFixed(0)}:${stage.labelScale()}` : null, lock = lockKey && live.textLock?.key === lockKey ? live.textLock : null;
+    // (Wider cards, 19 Nov 2026: a screen too short for the pair gives the cards a wider column before it shuffles them (below): the same words and instrument in fewer lines. Every pass starts
+    // from the normal width; a slide that was widened keeps it with the rest of what its words lock.)
+    if (lock?.wide) live.ui.root.style.setProperty('--pz-cw', SHUF.wide); else live.ui.root.style.removeProperty('--pz-cw');
     // (A ladder's fold holds for the slide being drawn, from its first measure: keyed by the slide wanted, not the one shown, so
     // the fold found while its cards come in is kept once it shows. Keyed by the slide shown, the card unfolded for a moment
     // as it came in at 200%, then folded again.)
@@ -283,7 +295,7 @@ export function createLadders(st, live) {
     // On a laptop or tablet the data card always stacks under the words' card, at its width, a gap below it (0.6 of the margin),
     // above the controls; what does not fit is made smaller in fixed steps, never moved to the top right. A card in view that
     // changes place fades out, moves while unseen and fades back in.
-    let below = false, shuf = false, gap = 0, cw = 0, foot = H, wordsCap = Infinity, rise = 0;   // (rise: how far a stacked pair that is a few px too tall for the screen stands higher, into its top margin, so the data card keeps its whole height)   // (wordsCap: the height the words' card is held to where the data card needs the room, below)
+    let below = false, shuf = false, wider = !!lock?.wide, gap = 0, cw = 0, foot = H, wordsCap = Infinity, rise = 0;   // (rise: how far a stacked pair that is a few px too tall for the screen stands higher, into its top margin, so the data card keeps its whole height)   // (wordsCap: the height the words' card is held to where the data card needs the room, below)
     slip.base = 0;
     const top0 = cardOn && t ? sm : 0;   // (the cards' top: one margin from the top, as from the side)
     if (cardOn && !low && t && !off(dd)) {
@@ -380,7 +392,24 @@ export function createLadders(st, live) {
         // (Shuffle, 19 Nov 2026, Mohammad: "when the vertical screen is not enough. No text scrolling inside cards." A screen too short for the pair, an iPhone on its side,
         // gives the two cards one place: the words at Regular size in front and the instrument behind, a strip of it showing above, a swipe shuffling them (card-shuffle.js).
         // Each has the whole height, so neither shrinks for the other. A card with readings to tuck (a sheet) tucks them instead.)
-        if (!below && sw && !wideSheet(dd)) { shuf = true; below = true; trim = 0; stepDk(1); put(tk0, 1); }
+        if (!below && sw && !wideSheet(dd) && !lock?.wide) {
+          // (First a wider column: the words and the instrument in fewer lines may fit the pair stacked after all.)
+          live.ui.root.style.setProperty('--pz-cw', SHUF.wide);
+          wider = true; t = r(live.ui.text); cw = t.right - wr.left + pad - sl;
+          trim = 0; stepDk(1); below = title(); if (!below) ladder();
+        }
+        if (!below && sw && !wideSheet(dd)) {
+          shuf = true; below = true; stepDk(1);
+          // (The words stand alone in their place: Regular size at first, then the title a step down, then the CAUSES line gone, the way a pair too tall does (squeeze); the body never
+          // shrinks. The data card's height and the gap are out of the sum for it, so `put` answers whether the words alone fit.)
+          const ch0 = ch, gap0 = gap; ch = 0; gap = 0;
+          trim = 0;
+          let fits = steps();
+          if (!fits) for (const n of [1, 2]) { trim = n; fits = steps(); if (fits) break; }
+          // (None fits at Regular: a phone held sideways, where no room is left, steps the words to Compact as it always has, once the title and the CAUSES line have given what they can; WIDE.words, never under 12 px.)
+          if (!fits) for (const n of [0, 1, 2]) { trim = n; if (step()) break; }
+          ch = ch0; gap = gap0;
+        }
         if (!below && sw) squeeze();   // (the title one step down and the CAUSES line gone: only a phone on its side)
         if (!below && canFold && !held) { setFolds(true); trim = 0; ts.removeProperty('--pz-tk'); ts.removeProperty('--pz-bk'); live.ui.text.classList.remove('pz-nocauses'); stepDk(1); below = title(); if (!below) ladder(); }
         if (!below && sw && !held && dd.classList.contains('pz-folds')) squeeze();   // (folded just now: the same last steps again)
@@ -414,7 +443,7 @@ export function createLadders(st, live) {
       if (dk < 1) dd.style.setProperty('--pz-dk', dk); else dd.style.removeProperty('--pz-dk');
       live.foldHeld = dd.classList.contains('pz-folds') ? foldKey : null;
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-      if (lockKey && !lock) live.textLock = { key: lockKey, below, shuf, dk, folds: dd.classList.contains('pz-folds'), nc: live.ui.text.classList.contains('pz-nocauses'), vars: ['--pz-tk', '--pz-bk'].map((n) => [n, ts.getPropertyValue(n)]) };
+      if (lockKey && !lock) live.textLock = { key: lockKey, below, shuf, wide: wider, dk, folds: dd.classList.contains('pz-folds'), nc: live.ui.text.classList.contains('pz-nocauses'), vars: ['--pz-tk', '--pz-bk'].map((n) => [n, ts.getPropertyValue(n)]) };
       // (A Gut to heart chart is drawn at its own size, never zoomed by the fit, and has a smallest height. Where the pair is too tall for it
       // even at the smallest steps, the words' card eases up with the data card, its top slipping behind the screen's top if need be, so the
       // chart stays whole in its card instead of spilling past the screen (Mohammad, 22 Oct: "It's ok if the top of the teaching card slips
