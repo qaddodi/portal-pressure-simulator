@@ -5,7 +5,7 @@ import { registerRule } from './rules.js';
 import { judgeCards, judgeStructureCard, KINDS, KIND_WORDS } from '../gallery/fit-rules.js';
 
 const OWNER = { scroll: 'src/ui/card-type.js', clipped: 'src/ui/card-type.js', off: 'src/ui/presenter.js', enlarged: 'src/ui/presenter-zoom.js', small: 'src/ui/card-type.js', ratio: 'src/ui/card-type.js', sideways: 'src/ui/presenter-cards.js', styled: 'src/ui/presenter-question.js', blank: 'src/ui/card.js', cut: 'src/ui/card.js', tall: 'src/ui/card.js' };
-const WHY = { small: 'Data-card text is at least 12 px (17 Nov)', ratio: 'The slide title is at least 1.4 times the body (17 Nov)', sideways: 'Nothing inside a card scrolls sideways: a phone swipe would open the next card (17 Nov)', styled: 'A card is never shown before it is fully loaded and styled; no text before its backing (17 Nov)' };
+const WHY = { small: 'Data-card text is at least 12 px (17 Nov)', ratio: 'The slide title is at least 1.4 times the body (17 Nov), 1.3 on a phone where the words need the space (Mohammad, 19 Nov)', sideways: 'Nothing inside a card scrolls sideways: a phone swipe would open the next card (17 Nov)', styled: 'A card is never shown before it is fully loaded and styled; no text before its backing (17 Nov)' };
 
 // (judgeCards and judgeStructureCard run once per report, not once per kind: the results are kept by the report object.)
 const kept = new WeakMap();

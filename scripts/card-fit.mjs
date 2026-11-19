@@ -14,7 +14,7 @@
 //   zoomed   the same slide with its instrument card enlarged, by the corner icon and by a tap on the card (Mac and iPad landscape, where it is offered):
 //            the instrument card must be larger than at rest and stand whole inside the screen (the page's own getBoundingClientRect answers the resting box while a card
 //            rides the zoom, so the judge reads getClientRects). `--no-zoom` leaves this pass out.
-//   small    lettering under 12 px on the screen (standing rule, 17 Nov).        ratio     a slide title under 1.4 times the words under it.
+//   small    lettering under 12 px on the screen (standing rule, 17 Nov).        ratio     a slide title under 1.4 times the words under it (1.3 on a phone).
 //   sideways something inside a card that scrolls sideways.                       styled    a card on the screen before it was whole (still laying out, words before their backing, fonts loading, a bare tag).
 //   `--old-rules` judges only the first six kinds. The judging is src/ui/gallery/fit-rules.js, which the gallery page's Check button runs on the device too.
 // Known, accepted cases go in scripts/card-fit-allowance.json: { "<deck>:<slide n>:<device>": "<why>" }; a listed case that no longer fails is an error

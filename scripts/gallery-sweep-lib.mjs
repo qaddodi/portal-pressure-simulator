@@ -1,5 +1,5 @@
 // The pure half of scripts/gallery-sweep.mjs (no browser, no files): what one specimen's reads become, how two runs are compared and how a run is
-// told in words. tests/gallery-sweep.test.js runs it in node.
+// told in words. tests/gallery-layout-sweep.test.js runs it in node.
 //
 // A result is one specimen at one device size:
 //   { id, device, ok, settled, ms, stable, problems: [{ kind, text, where }], boxes: { selector: [l, t, r, b] }, words: { selector: [string] },
