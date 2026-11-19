@@ -723,6 +723,7 @@ button.finding { cursor: pointer; }
   --hw: max(1.25px, calc(2px * var(--label-k, 1)));
   -webkit-text-stroke: calc(var(--hw) * 2) var(--cap-outline); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; }
 :root[data-theme="dark"] .lz-zone b { font-weight: 700; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .lz-zone b { font-weight: 700; } }   /* (the System-dark twin: LOOK-11) */
 .lz-zone span { font-size: calc(var(--t-cap) * var(--label-scale, 1) * var(--zk, 1)); font-weight: 600; letter-spacing: .08em; opacity: .9; }
 .lz-zone.z1 { --zc: var(--zone-1); } .lz-zone.z2 { --zc: var(--zone-2); } .lz-zone.z3 { --zc: var(--zone-3); }
 .stage-view.in-lobule #labels, .stage-view.in-lobule:not(.lz-shared) #veins, .stage-view.in-lobule .res-fade, .stage-view.in-lobule #stageOver, .stage-view.in-lobule #overlay { visibility: hidden; }
