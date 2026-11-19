@@ -400,7 +400,7 @@ export default [
   { file: 'src/ui/presenter.js', need: [/k === 'ArrowLeft' \|\| k === 'PageUp' \|\| k === 'Backspace'\) \{ if \(!e\.repeat\) prev\(\); \}/, 'A trackpad (or wheel) works the slide as a finger does (Mohammad, 22 Oct:'] },   // (was a slice of the file)
   { file: 'src/ui/presenter.js', need: [/if \(tag === 'input' \|\| tag === 'textarea' \|\| tag === 'select'\) return;/, 'A trackpad (or wheel) works the slide as a finger does (Mohammad, 22 Oct:'] },   // (was a slice of the file)
   { file: 'src/ui/presenter.js', need: [/if \(ui && !ui\.jump\.hidden\) \{ jumpKey\(e\); return; \}/, 'A trackpad (or wheel) works the slide as a finger does (Mohammad, 22 Oct:'] },   // (was a slice of the file)
-  { file: 'src/ui/main.js', forbid: [/↑ · ↓/, 'A trackpad (or wheel) works the slide as a finger does (Mohammad, 22 Oct:'] },   // (was a slice of the file)
+  { file: 'src/ui/main.js', forbid: [/↑ · ↓(?!', 'Change the card)/, 'A trackpad (or wheel) works the slide as a finger does (Mohammad, 22 Oct: no up/down row for the slide; 19 Nov 2026: Up/Down change the card where two cards share a place, the wallet, is the one help row)'] },   // (was a slice of the file)
   // deck-instruments
   { file: 'src/ui/doppler.js', need: [/x1 = padL \+ W/, 'Deck visuals, package G (src/ui/ext-instruments.js):'] },   // (was a slice of the file)
   { file: 'src/ui/doppler.js', need: [/ctx\.moveTo\(xc, lvHi\); ctx\.lineTo\(x1, lvHi\); ctx\.moveTo\(xc, lvLo\); ctx\.lineTo\(x1, lvLo\)/, 'Deck visuals, package G (src/ui/ext-instruments.js):'] },   // (was a slice of the file)
