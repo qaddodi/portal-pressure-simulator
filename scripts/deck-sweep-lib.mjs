@@ -21,8 +21,8 @@ export function chunksFor(devices, decks, parts = 2) {
     load[k] += d.slides.length; mine[k].push(d);
   }
   const out = [];
-  for (let k = 0; k < n; k++) for (const device of devices) out.push({ name: `${device} part ${k + 1}/${n}`, device, decks: mine[k], load: load[k] });
-  return out.sort((a, b) => b.load - a.load);
+  for (const device of devices) for (let k = 0; k < n; k++) out.push({ name: `${device} part ${k + 1}/${n}`, device, decks: mine[k], load: load[k] });
+  return out;   // (device by device in the order asked, so the first size is whole first)
 }
 
 /** What one slide's reads say, as lines "kind: words". `r` is the page's answer ({ main, held, back }); `judgeEdges` is edge-rules.js's. */
@@ -64,4 +64,24 @@ export function summarize(report) {
     }
   }
   return out.join('\n');
+}
+
+/** One share of n of the whole job, balanced by slide count (every deck at every size is one piece, the heaviest first onto the lightest share): [{ name, device, decks }], one chunk per size in it. */
+export function shardChunks(devices, decks, i, n) {
+  const pieces = [];
+  for (const device of devices) for (const d of decks) pieces.push({ device, d, w: d.slides.length });
+  pieces.sort((a, b) => b.w - a.w || a.d.id.localeCompare(b.d.id) || a.device.localeCompare(b.device));
+  const load = Array(n).fill(0), mine = [];
+  for (const p of pieces) { const k = load.indexOf(Math.min(...load)); load[k] += p.w; if (k === i - 1) mine.push(p); }
+  const by = new Map();
+  for (const p of mine) { if (!by.has(p.device)) by.set(p.device, []); by.get(p.device).push(p.d); }
+  return devices.filter((d) => by.has(d)).map((device) => ({ name: `${device} share ${i}/${n}`, device, decks: by.get(device) }));
+}
+
+/** Reports from several shares as one (results keyed by deck, slide and size, so none can clash). */
+export function mergeReports(reports) {
+  const results = {};
+  for (const r of reports) Object.assign(results, r.results);
+  const devices = [...new Set(reports.flatMap((r) => r.devices))], decks = [...new Set(reports.flatMap((r) => r.decks))];
+  return { schema: 1, at: new Date().toISOString(), devices, decks, fast: reports.every((r) => r.fast), rate: reports[0]?.rate, partial: reports.some((r) => r.partial), seconds: Math.max(0, ...reports.map((r) => r.seconds || 0)), results: Object.fromEntries(Object.entries(results).sort(([a], [b]) => a.localeCompare(b))) };
 }

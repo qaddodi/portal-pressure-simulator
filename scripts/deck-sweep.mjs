@@ -1,7 +1,7 @@
 // The deck sweep (Mohammad, 19 Nov 2026: "so we find this crap"): EVERY slide of EVERY real deck at every device size and orientation, layout only.
 //
 //   node scripts/deck-sweep.mjs [--dir .|dist] [--devices mac,mac-short,ipad,ipad-portrait,iphone,iphone-landscape] [--decks hvpg,ascites | all]
-//        [--slides 1-3] [--jobs 4] [--parts 2] [--rate 20] [--timeout 60] [--out report.json] [--fast] [--verbose]
+//        [--slides 1-3] [--jobs 3] [--parts 2] [--shard 3/24] [--rate 20] [--timeout 60] [--out report.json] [--fast] [--verbose]
 //
 // Numbers only: the page's state, layout and words are real, every GL draw is stubbed, nothing is painted and no picture is taken. Each slide is stepped to
 // with the presenter (pps.gallery.slide), waited for until it has landed (pps.gallery.settled), and read until two reads agree. What it judges:
@@ -13,6 +13,8 @@
 // It says "the numbers fit", never "it looks right". Output: the failures as they come, a report (--out, JSON) and a text summary beside it.
 // --fast: the figure is not drawn at all (window.ppsLayoutOnly, seen.js) and frames come every 100 ms of app time; about a third quicker, and `--verify`
 // compares it with a plain run on a few decks so the shortcut is never trusted on its own word.
+// --shard i/n takes one share of n of the whole job (every deck at every size is a piece, balanced by slide count): the CI workflow (deck-sweep.yml) runs
+// the shares side by side on runners of their own and scripts/deck-sweep-merge.mjs joins the reports, which is how the whole check takes minutes.
 // Runs go side by side (--jobs): a chunk is one device and one part of the decks, one browser page each (touch devices get touch, so `(pointer: coarse)` rules apply).
 
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -24,7 +26,7 @@ import { serve } from './serve.mjs';
 import { DECKS } from '../src/ui/decks.js';
 import { SIZES } from './gallery-sweep-lib.mjs';
 import { judgeEdges } from '../src/ui/gallery/edge-rules.js';
-import { chunksFor, slideProblems, summarize, parseSlides } from './deck-sweep-lib.mjs';
+import { chunksFor, shardChunks, slideProblems, summarize, parseSlides } from './deck-sweep-lib.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);
@@ -38,6 +40,7 @@ const WANT = list('decks', 'all');
 const SLIDES = parseSlides(opt('slides', ''));
 const JOBS = Math.max(1, +opt('jobs', 4));
 const PARTS = Math.max(1, +opt('parts', 2));
+const [SHARD_I, SHARD_N] = opt('shard', '1/1').split('/').map(Number);
 const RATE = Math.max(1, +opt('rate', 20));
 const TIMEOUT_MS = Math.max(5, +opt('timeout', 60)) * 1000;
 const OUT = opt('out', '');
@@ -131,10 +134,11 @@ async function runChunk(chunk) {
       }
     }
   } finally { await app.close().catch(() => {}); }
-  console.log(`${chunk.name}: done (${Math.round((Date.now() - T0) / 1000)} s so far)`);
+  console.log(`${chunk.name}: done (${Math.round((Date.now() - T0) / 1000)} s so far, ${Object.keys(results).length} slide visits)`);
+  writeReport(false);   // (a partial report is on disk after every chunk: the list so far)
 }
 
-const chunks = chunksFor(DEVICES, decks, PARTS);
+const chunks = SHARD_N > 1 ? shardChunks(DEVICES, decks, SHARD_I, SHARD_N) : chunksFor(DEVICES, decks, PARTS);   // (the order of --devices decides which sizes are walked first: the heaviest chunks of the first size, then the next)
 let next = 0;
 await Promise.all(Array.from({ length: Math.min(JOBS, chunks.length) }, async () => {
   for (let j = next++; j < chunks.length; j = next++) {
@@ -144,8 +148,12 @@ await Promise.all(Array.from({ length: Math.min(JOBS, chunks.length) }, async ()
 await browser.close();
 server.close();
 
-const report = { schema: 1, at: new Date().toISOString(), devices: DEVICES, decks: decks.map((d) => d.id), fast: FAST, rate: RATE, seconds: (Date.now() - T0) / 1000, results: Object.fromEntries(Object.entries(results).sort(([a], [b]) => a.localeCompare(b))) };
-const summary = summarize(report);
-if (OUT) { mkdirSync(dirname(resolve(OUT)), { recursive: true }); writeFileSync(OUT, JSON.stringify(report, null, 1)); writeFileSync(OUT.replace(/\.json$/, '') + '.txt', `${summary}\n`); }
+function writeReport(final) {
+  const report = { schema: 1, at: new Date().toISOString(), devices: DEVICES, decks: decks.map((d) => d.id), fast: FAST, rate: RATE, partial: !final, seconds: (Date.now() - T0) / 1000, results: Object.fromEntries(Object.entries(results).sort(([a], [b]) => a.localeCompare(b))) };
+  const summary = summarize(report);
+  if (OUT) { mkdirSync(dirname(resolve(OUT)), { recursive: true }); writeFileSync(OUT, JSON.stringify(report, null, 1)); writeFileSync(OUT.replace(/\.json$/, '') + '.txt', `${summary}\n`); }
+  return summary;
+}
+const summary = writeReport(true);
 console.log(`\n${summary}`);
 process.exit(Object.values(results).some((r) => r.ok === false || r.problems.length) ? 1 : 0);

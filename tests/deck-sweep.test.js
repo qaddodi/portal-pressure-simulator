@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
 import { judgeEdges, readEdges } from '../src/ui/gallery/edge-rules.js';
 import { createGalleryApi } from '../src/ui/gallery/api.js';
-import { chunksFor, parseSlides, slideProblems, summarize } from '../scripts/deck-sweep-lib.mjs';
+import { chunksFor, shardChunks, mergeReports, parseSlides, slideProblems, summarize } from '../scripts/deck-sweep-lib.mjs';
 
 const card = (q, over = {}) => ({ q, behind: false, box: [24, 54, 336, 366], vis: [24, 54, 336, 366], leaves: [], ...over });
 const leaf = (t, b, over = {}) => ({ t, b, n: 'p.line', ...over });
@@ -108,14 +108,14 @@ test('shuffleTo() springs the shuffle only when one is on', async () => {
   assert.deepEqual(await none.api.shuffleTo(1), { ok: false, settled: false });
 });
 
-test('the work is cut into chunks of one size and some decks, balanced by slide count, the heaviest first', () => {
+test('the work is cut into chunks of one size and some decks, balanced by slide count, one size after another', () => {
   const decks = [{ id: 'a', slides: Array(10) }, { id: 'b', slides: Array(9) }, { id: 'c', slides: Array(2) }, { id: 'd', slides: Array(1) }];
   const chunks = chunksFor(['mac', 'iphone'], decks, 2);
   assert.equal(chunks.length, 4);
   const each = (dev) => chunks.filter((c) => c.device === dev).flatMap((c) => c.decks.map((d) => d.id)).sort();
   assert.deepEqual(each('mac'), ['a', 'b', 'c', 'd']);
   assert.deepEqual(each('iphone'), ['a', 'b', 'c', 'd']);
-  assert.ok(chunks[0].load >= chunks[3].load);
+  assert.deepEqual(chunks.map((c) => c.device), ['mac', 'mac', 'iphone', 'iphone'], 'device by device, in the order asked');
   assert.equal(chunksFor(['mac'], decks, 9).length, 4, 'never more parts than decks');
 });
 
@@ -144,4 +144,29 @@ test('the summary counts by kind and size, lists what did not open, and names ev
   assert.match(text, /by kind: .*cutoff 1/);
   assert.match(text, /hvpg slide 4 on iphone-landscape: did not settle/);
   assert.match(text, /hvpg slide 3 \(shuffle\):/);
+});
+
+test('shares of the whole job cover every deck at every size exactly once, balanced', () => {
+  const decks = Array.from({ length: 12 }, (_, k) => ({ id: `d${k}`, slides: Array(5 + (k % 5) * 3) }));
+  const devices = ['mac', 'iphone', 'iphone-landscape'];
+  const seen = new Map();
+  const loads = [];
+  for (let i = 1; i <= 5; i++) {
+    let load = 0;
+    for (const c of shardChunks(devices, decks, i, 5)) for (const d of c.decks) { const key = `${c.device}:${d.id}`; seen.set(key, (seen.get(key) || 0) + 1); load += d.slides.length; }
+    loads.push(load);
+  }
+  assert.equal(seen.size, 36);
+  assert.ok([...seen.values()].every((n) => n === 1), 'each piece in exactly one share');
+  assert.ok(Math.max(...loads) - Math.min(...loads) <= 15, `balanced: ${loads}`);
+});
+
+test('shares merge into one report', () => {
+  const a = { devices: ['mac'], decks: ['x'], fast: true, seconds: 5, results: { 'x#1@mac': { deck: 'x', slide: 1, device: 'mac', ok: true, problems: [] } } };
+  const b = { devices: ['iphone'], decks: ['x', 'y'], fast: true, seconds: 9, results: { 'y#1@iphone': { deck: 'y', slide: 1, device: 'iphone', ok: true, problems: ['small: x'] } } };
+  const m = mergeReports([a, b]);
+  assert.deepEqual(m.devices.sort(), ['iphone', 'mac']);
+  assert.deepEqual(m.decks.sort(), ['x', 'y']);
+  assert.equal(Object.keys(m.results).length, 2);
+  assert.equal(m.seconds, 9);
 });

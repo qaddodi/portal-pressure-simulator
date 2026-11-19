@@ -1,0 +1,76 @@
+name: Deck sweep (on request)
+
+# Every slide of every deck at every size, numbers only (scripts/deck-sweep.mjs; Mohammad, 19 Nov 2026: "the whole thing takes 1 min").
+# On request only (Run workflow in the Actions tab): it never deploys or blocks, and a push starts no run of it. The whole job is cut into shares
+# balanced by slide count, one runner each, side by side; the last job joins the shares' reports and writes the failure list to the run summary.
+# Layout only: GL draws stubbed, nothing painted, no picture. A pass says "the numbers fit", never "it looks right".
+
+on:
+  workflow_dispatch:
+    inputs:
+      shares:
+        description: 'Runners side by side (the more, the sooner it is done)'
+        default: '16'
+      sizes:
+        description: 'Sizes (comma list; all six by default)'
+        default: 'mac,mac-short,ipad,ipad-portrait,iphone,iphone-landscape'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deck-sweep-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      shards: ${{ steps.make.outputs.shards }}
+    steps:
+      - id: make
+        run: |
+          n="${{ inputs.shares }}"
+          echo "shards=$(seq 1 "$n" | jq -R . | jq -sc 'map(tonumber)')" >> "$GITHUB_OUTPUT"
+
+  sweep:
+    name: Share ${{ matrix.shard }}
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJson(needs.plan.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-browser
+      - name: Walk this share
+        run: node scripts/deck-sweep.mjs --fast --shard ${{ matrix.shard }}/${{ inputs.shares }} --devices ${{ inputs.sizes }} --jobs 3 --out out/share-${{ matrix.shard }}.json
+        continue-on-error: true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: share-${{ matrix.shard }}
+          path: out/share-${{ matrix.shard }}.json
+          if-no-files-found: warn
+
+  report:
+    needs: sweep
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          path: shares
+      - name: Join the shares
+        run: |
+          node scripts/deck-sweep-merge.mjs shares --out merged/deck-sweep.json > summary.txt || true
+          { echo '### Deck sweep'; echo '```'; head -c 60000 summary.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deck-sweep-report
+          path: merged/
