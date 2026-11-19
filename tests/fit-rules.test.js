@@ -76,6 +76,20 @@ test('scroll, clipped, off and enlarged are read and judged as card-fit.mjs did'
   assert.deepEqual(judgeCards(p.run(readCards, {})).filter((x) => x.kind === 'enlarged').map((x) => x.text), ['the data card is zoomed on entry']);
 });
 
+test('a data card that scrolls up and down for its last resort is its own kind, never words cut off', () => {
+  const box = (ovf, extra = '') => page(`<div class="pz"><section class="pz-data" style="${ovf}" data-box="10,100,350,380" data-scroll-height="533" data-client-height="279" ${extra}><div class="in" data-box="25,137,335,635">Runs past the box</div></section></div>`);
+  const clipped = judgeCards(box('overflow:clip').run(readCards, {}));
+  assert.deepEqual(clipped.map((x) => x.kind), ['scroll'], 'a card that clips: its foot is cut off');
+  const sc = box('overflow-y:auto').run(readCards, {});
+  assert.equal(sc.scroll.length, 0);
+  const j = judgeCards(sc);
+  assert.deepEqual(j.map((x) => x.kind), ['scrolls'], 'a card that scrolls: reachable, reported as the last resort');
+  assert.match(j.find((x) => x.kind === 'scrolls').text, /scrolls up and down, content runs 255 px past its box/);
+  // (It must really scroll: an overflow of auto with nothing to scroll to is the cut-off case.)
+  const none = page(`<div class="pz"><section class="pz-data" style="overflow-y:auto" data-box="10,100,350,380" data-scroll-height="279" data-client-height="279"><div class="in" data-box="25,137,335,635">Runs past</div></section></div>`).run(readCards, {});
+  assert.equal(none.scroll.length, 1);
+});
+
 test('text under 12 px on the screen is found, with a parent zoom counted', () => {
   const p = page(`<div class="pz"><section class="pz-data" data-box="900,60,1400,500">
     <span class="tiny" style="font-size:10.3px" data-box="910,70,1000,90">Too small</span>
@@ -103,6 +117,11 @@ test('the slide title must be at least 1.4 times the words', () => {
   assert.equal(bad[0].kind, 'ratio');
   assert.match(bad[0].text, /22\.4 px over words of 18 px \(1\.24x; at least 1\.4x\)/);
   assert.equal(judgeCards(mk(22.4, 18), { oldRules: true }).length, 0);
+  // (A phone's slide: 23.2 over 17.4 is 1.33, which Mohammad accepted on 19 Nov; 22.4 over 18 (1.24) still fails there.)
+  const ph = (t, b) => page(`<div class="pz stack"><section class="pz-text" data-box="40,40,440,400"><h1 class="pz-h" style="font-size:${t}px" data-box="50,50,400,100">T</h1><p class="pz-line" style="font-size:${b}px" data-box="50,110,400,160">B</p></section></div>`).run(readCards, {});
+  assert.equal(judgeCards(ph(23.2, 17.4)).length, 0, '1.33 on a phone passes');
+  assert.match(judgeCards(ph(22.4, 18))[0].text, /\(1\.24x; at least 1\.3x on a phone\)/);
+  assert.equal(judgeCards(mk(23.2, 17.4)).length, 1, 'the same sizes on a wide screen still fail');
   // (No words under the title: nothing to compare.)
   assert.equal(judgeCards({ title: 30, body: 0 }).length, 0);
 });
@@ -150,7 +169,7 @@ test('the enlarged card is judged by what readZoom sees', () => {
 });
 
 test('a structure card: blank glass, a cut line, a scroller while the words fit, and the rules from the standing list', () => {
-  const html = (body, extra = '') => `<section class="action-card" ${extra} data-offset-height="300" style="max-height:600px">
+  const html = (body, extra = '') => `<section class="action-card docked" ${extra} data-offset-height="300" style="max-height:600px">
     <div class="ac-body" data-offset-top="0" style="overflow-y:hidden">${body}</div></section>`;
   const kid = (top, h, extra = '') => `<div class="row" data-offset-top="${top}" data-offset-height="${h}" data-box="0,${top},300,${top + h}" ${extra}>words</div>`;
   const ok = page(html(kid(14, 100) + kid(120, 160))).run(readStructureCard, null, {});
@@ -160,10 +179,14 @@ test('a structure card: blank glass, a cut line, a scroller while the words fit,
   assert.equal(blank[0].text, '60px above, 90px below (card 300px)');
   const cut = judgeStructureCard(page(html(kid(14, 100) + kid(120, 200))).run(readStructureCard, null, {}));
   assert.deepEqual(cut.map((x) => x.text), ['a line runs 20px past the card']);
-  const scroller = judgeStructureCard(page(html(kid(14, 100) + kid(120, 160)).replace('class="action-card"', 'class="action-card ac-scroll"')).run(readStructureCard, null, {}));
+  // (At its largest height a card whose body scrolls has its lower rows to scroll to: not cut. 18 Nov sweep: the TIPS card on a phone sideways, 38 px past 280.)
+  const scrolls = page(html(kid(14, 100) + kid(120, 200)).replace('max-height:600px', 'max-height:300px').replace('overflow-y:hidden', 'overflow-y:auto')).run(readStructureCard, null, {});
+  assert.deepEqual(judgeStructureCard(scrolls).map((x) => x.kind), []);
+  assert.deepEqual(judgeStructureCard(page(html(kid(14, 100) + kid(120, 200)).replace('max-height:600px', 'max-height:300px')).run(readStructureCard, null, {})).map((x) => x.kind), ['cut'], 'at its largest with its body not scrolling it is cut');
+  const scroller = judgeStructureCard(page(html(kid(14, 100) + kid(120, 160)).replace('class="action-card docked"', 'class="action-card docked ac-scroll"')).run(readStructureCard, null, {}));
   assert.deepEqual(scroller.map((x) => x.kind), ['tall']);
   // (At its largest height a card is let to scroll.)
-  assert.deepEqual(judgeStructureCard(page(html(kid(14, 100) + kid(120, 160)).replace('class="action-card"', 'class="action-card ac-scroll"').replace('max-height:600px', 'max-height:300px')).run(readStructureCard, null, {})), []);
+  assert.deepEqual(judgeStructureCard(page(html(kid(14, 100) + kid(120, 160)).replace('class="action-card docked"', 'class="action-card docked ac-scroll"').replace('max-height:600px', 'max-height:300px')).run(readStructureCard, null, {})), []);
   const small = judgeStructureCard(page(html(`<div class="row" style="font-size:10px" data-offset-top="14" data-offset-height="100" data-box="0,14,300,114">tiny</div>` + kid(120, 160))).run(readStructureCard, null, {}));
   assert.deepEqual(small.map((x) => x.kind), ['small']);
   const side = judgeStructureCard(page(html(`<div class="row" style="overflow-x:auto" data-offset-top="14" data-offset-height="100" data-scroll-width="500" data-client-width="260" data-box="0,14,300,114">wide</div>` + kid(120, 160))).run(readStructureCard, null, {}));
@@ -171,6 +194,13 @@ test('a structure card: blank glass, a cut line, a scroller while the words fit,
   assert.deepEqual(judgeStructureCard(page(html('')).run(readStructureCard, null, {})).map((x) => x.kind).sort(), ['blank', 'styled'], 'a card with no words in it');
   assert.equal(page('<p>none</p>').run(readStructureCard, null, {}), null);
   assert.deepEqual(judgeStructureCard(null), []);
+  // (A wide screen's card is not the phone's docked sheet: it keeps overflow auto always, so a scroller there is not a finding. 18 Nov sweep: 300 false 'tall' on Mac, iPad and Details faces.)
+  const wide = html(kid(14, 100) + kid(120, 160)).replace('class="action-card docked"', 'class="action-card ac-scroll"').replace('overflow-y:hidden', 'overflow-y:auto');
+  assert.deepEqual(judgeStructureCard(page(wide).run(readStructureCard, null, {})), []);
+  // (With the details open the scroller that counts is theirs: ac-scroll with details that fit is a finding, with details taller than their room it is right.)
+  const det = (scrollH) => html(kid(14, 100) + kid(120, 160)).replace('class="action-card docked"', 'class="action-card docked ac-scroll"').replace('</section>', `<section class="ac-details"><div class="ad-scroll" data-scroll-height="${scrollH}" data-client-height="200"></div></section></section>`);
+  assert.deepEqual(judgeStructureCard(page(det(380)).run(readStructureCard, null, {})), [], 'taller details scroll, rightly');
+  assert.deepEqual(judgeStructureCard(page(det(200)).run(readStructureCard, null, {})).map((x) => x.kind), ['tall']);
 });
 
 test('the list of kinds, their words, and the copied report', () => {
@@ -183,4 +213,19 @@ test('the list of kinds, their words, and the copied report', () => {
   assert.ok(t.indexOf('scroll (') < t.indexOf('small ('), 'kinds in their fixed order');
   assert.match(t, / {2}- \[card\] span\.b "y" 11\.0 px/);
   assert.deepEqual(linesOf(judgeCards({ scroll: ['a'], off: ['b'], enlarged: [], clipped: [] })), ['scroll: a', 'off: b']);
+});
+
+test('a word of a GPU chart placed outside its own box is found from the hidden model (the legend of a card too short for it)', () => {
+  const chart = (ys) => `<div class="pz"><section class="pz-data" data-box="10,10,390,300"><div class="svg-gl-box" data-box="10,100,390,300">
+    <svg data-svg-model="" hidden viewBox="0 0 350 198"><text x="300" y="${ys[0]}">PV</text><text x="300" y="${ys[1]}">FHVP</text><text x="40" y="${ys[2]}" transform="translate(0 40)">gliding</text></svg>
+  </div></section></div>`;
+  const ok = page(chart([120, 140, 400])).run(readCards, { minPx: WORDS_MIN_PX });
+  assert.equal(ok.chart.length, 0, 'a word inside its box, and a word on a glide (transform), are fine');
+  const bad = page(chart([120, 215, 400])).run(readCards, { minPx: WORDS_MIN_PX });
+  assert.equal(bad.chart.length, 1);
+  assert.match(bad.chart[0], /"FHVP" at \[300, 215\] is outside its chart's box 350 x 198/);
+  const j = judgeCards(bad);
+  assert.deepEqual(j.map((p) => p.kind), ['chart']);
+  assert.ok(KINDS.includes('chart') && NEW_KINDS.includes('chart'));
+  assert.deepEqual(judgeCards(bad, { oldRules: true }), [], 'the old rules never had it');
 });

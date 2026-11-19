@@ -28,7 +28,7 @@ export const NEXT_BLEED = {
   summary: 'After a first variceal bleed: why EVL alone lets varices recur, how carvedilol lowers the portal pressure behind them, why the two together are first-line, and the TIPS that follows when they fail.',
   slides: [
     {
-      id: 'after', terms: ['varix'], preset: 'cirr-decomp', action: BAND, cam: 'varices', labels: ['VAR'], tool: SINCE, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['hvpg'],
+      id: 'after', tick: 'After the bleed', terms: ['varix'], preset: 'cirr-decomp', action: BAND, cam: 'varices', labels: ['VAR'], tool: SINCE, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['hvpg'],
       vignette: 'A 58-year-old man with alcohol-associated cirrhosis and diuretic-controlled ascites had an esophageal variceal bleed 5 days ago, controlled with octreotide, ceftriaxone and EVL. He did not meet preemptive TIPS criteria.',
       kicker: 'After the bleed', site: 'sin', title: 'The bleeding has stopped, the portal hypertension has not',
       line: 'One band stopped the bleeding, but the varices are still {varix} and the HVPG {hvpg}. Without secondary prophylaxis, up to 60% rebleed within a year, most within 6 weeks.',
@@ -46,14 +46,14 @@ export const NEXT_BLEED = {
       ask: ['Why does a Child–Pugh B 8 patient get a TIPS after a fundal bleed but not after a controlled esophageal bleed without active bleeding?', 'A fundal (GOV2 or IGV1) bleed is high risk, and a TIPS is the preferred definitive treatment up to Child–Pugh C 13. For an esophageal bleed the preemptive TIPS needs Child–Pugh C 10 to 13, or B 8 to 9 with active bleeding.'],
     },
     {
-      id: 'bands', terms: ['varix'], action: [BAND, BAND, BAND], cam: 'varices', mark: BANDED, tool: SINCE, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'after',
+      id: 'bands', tick: 'EVL alone', terms: ['varix'], action: [BAND, BAND, BAND], cam: 'varices', mark: BANDED, tool: SINCE, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'after',
       kicker: 'EVL alone', site: 'sin', title: 'EVL shrinks the varices, not the portal pressure',
       line: 'EVL every 2 to 4 weeks shrinks the varices to {varix}. The portal pressure behind them does not fall: the HVPG is {hvpg}.',
       notes: 'Each band ligates a variceal column, which necroses and sloughs over the next days. Sessions are repeated every 2 to 4 weeks (AASLD favors 4, to let post-banding ulcers heal) until the varices are eradicated. Obliterating the collateral removes a decompressing route for portal flow, so the portal pressure, if anything, rises slightly; the model shows such a rise, though the evidence for it in patients is weak. (AASLD 2024 statement 20.)',
       ask: ['How often is EVL repeated after a variceal bleed, and until when?', 'Every 2 to 4 weeks until the varices are eradicated.'],
     },
     {
-      id: 'slough', days: 300,
+      id: 'slough', tick: 'Bands slough', days: 300,
       question: 'Will the varices recur with EVL alone?', lapse: { seconds: 8, from: 'Varices banded', to: '10 months later' }, terms: ['varix'], cam: 'varices', labels: ['VAR'], tool: MONTHS, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'after',
       kicker: 'EVL alone', site: 'sin', title: 'Bands slough and the varices recur',
       line: 'Without surveillance for ten months, the varices regrow to {varix} while the HVPG barely moves, from {hvpg@after} to {hvpg}. Hence endoscopy 6 months after eradication, then every 12 months.',
@@ -61,7 +61,7 @@ export const NEXT_BLEED = {
       ask: ['Why do varices recur after eradication by EVL?', 'The portal pressure that caused them has not changed, so portal flow reopens the same collaterals.'],
     },
     {
-      id: 'nsbb', preset: 'cirr-decomp', params: CARV, action: BAND, cam: 'varices', labels: ['VAR'], tool: SINCE, data: 'tiles', tiles: ['hvpg', 'hr'], hvpgResp: 'after', key: ['hvpg'], delta: 'after', cite: 'Baveno VIII 4.8, Table 3',
+      id: 'nsbb', tick: 'Carvedilol', preset: 'cirr-decomp', params: CARV, action: BAND, cam: 'varices', labels: ['VAR'], tool: SINCE, data: 'tiles', tiles: ['hvpg', 'hr'], hvpgResp: 'after', key: ['hvpg'], delta: 'after', cite: 'Baveno VIII 4.8, Table 3',
       kicker: 'Carvedilol', site: 'sin', title: 'Carvedilol lowers the pressure behind the varices',
       line: 'Once titrated, carvedilol lowers the HVPG from {hvpg@after} to {hvpg} and the heart rate to {hr}. The Baveno VIII response, ≥10% or to {<=12 mmHg}, is stated for primary prophylaxis.',
       notes: 'Carvedilol is started at 6.25 mg/day and increased to 12.5 mg/day if blood pressure allows. It reduces portal inflow, as propranolol does, and also lowers intrahepatic resistance, so it lowers the HVPG more; Baveno VIII prefers it after a bleed. A response is a fall in HVPG of ≥10% from baseline, or to ≤12 mmHg (Baveno VIII Table 3, which states it for primary prophylaxis; Baveno VIII gives no separate, stricter target after a bleed, so the same rule is applied). This man is a clear responder, with a fall of about 23%; many patients respond less. HVPG is rarely measured in practice, so the response is usually assumed. Reduce or stop carvedilol if the systolic blood pressure stays <90 mmHg, the MAP <65 mmHg, or AKI develops. (Baveno VIII 4.8, Table 3.) The response tile is the third tile on this slide because the fall is the point of it. A beta-blocker does not shrink the varices within days, so the varix is not shown here; in the model it follows the pressure at once.',
@@ -78,7 +78,7 @@ export const NEXT_BLEED = {
       ask: ['Which patients recovering from a variceal bleed, not eligible for a preemptive TIPS, may be considered for TIPS and transplant?', 'Those who also had a non-bleeding decompensating event, such as ascites or encephalopathy (Baveno VIII 4.10, a weak recommendation).'],
     },
     {
-      id: 'both', terms: ['varix'], action: [BAND, BAND, BAND], cam: 'varices', mark: BANDED, tool: SINCE, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'after',
+      id: 'both', tick: 'Carvedilol + EVL', terms: ['varix'], action: [BAND, BAND, BAND], cam: 'varices', mark: BANDED, tool: SINCE, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'after',
       kicker: 'Both together', site: 'sin', title: 'Carvedilol plus EVL is first-line',
       line: 'EVL shrinks the varices to {varix}. With carvedilol HVPG is {hvpg}, above the {hvpg@nsbb} with one band because banding closes a collateral, and below the {hvpg@bands} with EVL alone.',
       notes: 'Compared with EVL alone, adding an NSBB lowered rebleeding in every subgroup and improved survival in Child–Pugh B and C. The two act on different targets: EVL obliterates the varix, and carvedilol lowers the portal pressure that refills it. A patient who cannot receive one of the two continues the other. (Baveno VIII 4.8; AASLD 2024 statement 38.)',

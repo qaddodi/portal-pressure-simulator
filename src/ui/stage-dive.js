@@ -6,6 +6,7 @@ import { reducedMs, settleAt, smooth01, DIVE_MS, RISE_MS } from './motion.js';
 import { fadeStop } from './res-fade.js';
 import { riseCentre } from './rise-path.js';
 import { store } from './store.js';
+import { room } from './gpu-budget.js';
 import { clamp, lerp } from './util.js';
 import { OVER_ALL } from './stage-over.js';
 import { cams, camAbout, camId } from './scene-cam.js';
@@ -315,6 +316,7 @@ export function createDive(st, live) {
     // spleen still ease, and they go on easing in view as it zooms out, drawn live, rather than finishing unseen first.)
     return live.plateOn() && !live.plateBusy && (live.liveOn() || (!live.lvMoving && !live.fluidEasing() && !spleenMoving())) && live.plateKey === live.plateStateKey();
   }
+  const LOBULE_BYTES = 130e6;   // (what the lobule's pictures hold on a phone, measured: tests/gpu-journeys.test.js)
   function setLobule(on, painted = false) {
     if (on && live.morphTarget !== 0) return;
     live.risePrep = false; stageScope.clear(live.risePrepT);
@@ -327,6 +329,9 @@ export function createDive(st, live) {
     // Into the lobule for a new patient: its tissue bitmap is painted in the worker first (lz.paintAhead), so the frame the zoom
     // starts in does not paint it on the main thread (1.8 s on CI's laptop profile, HVPG 5 to 6). The anatomy stays as it is
     // meanwhile (nothing is set: lobuleOn waits too), the slide's words still coming in; the dive then starts as before.
+    // (Room first: the lobule's own pictures come to about LOBULE_BYTES on top of what the figure holds, and the page asks the budget before it makes them, which gives back what is held
+    // for later, the figure's sharp picture and the warm views, until it fits: 19 Nov 2026, the iPhone stood at 96% of its envelope at the dive and nothing had been asked.)
+    if (on && live.diveT === 0 && !painted) room(LOBULE_BYTES, 0.85);
     if (on && live.diveT === 0 && !painted) {
       const ahead = live.lz?.paintAhead?.();
       if (ahead) {

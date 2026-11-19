@@ -143,6 +143,13 @@ test('fit-ratio fires when the title is under 1.4 times the words and stays quie
   try { fires('fit-ratio', screenOf(bad), /1\.11x|ratio|title/); quiet('fit-ratio', screenOf(good)); } finally { bad.restore(); good.restore(); }
 });
 
+test('fit-ratio allows 1.3 on a phone (Mohammad, 19 Nov: 1.33 is OK where the text needs the space): the real iPhone packet, 24.1 over 17.7, is quiet; 22.4 over 18 still fires', () => {
+  // (The phone's slide is a .pz.stack; a wide screen's is not, and the same sizes still fire there.)
+  const mk = (cls, t, b) => page(CLEAN.replace('<div class="pz">', `<div class="pz${cls}">`).replace('font-size:28px', `font-size:${t}px`).replace('font-size:18px', `font-size:${b}px`));
+  const a = mk(' stack', 24.1, 17.7), b = mk(' stack', 22.4, 18), c = mk('', 24.1, 17.7);
+  try { quiet('fit-ratio', screenOf(a)); fires('fit-ratio', screenOf(b), /at least 1\.3x on a phone/); fires('fit-ratio', screenOf(c), /at least 1\.4x/); } finally { a.restore(); b.restore(); c.restore(); }
+});
+
 test('fit-styled fires on a card shown while the slide is still being laid out, and stays quiet once it is whole', () => {
   const bad = page(CLEAN.replace('<div class="pz">', '<div class="pz pz-prep">')), good = page(CLEAN);
   try { fires('fit-styled', screenOf(bad), /pz-prep/); quiet('fit-styled', screenOf(good)); } finally { bad.restore(); good.restore(); }
