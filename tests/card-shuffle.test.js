@@ -5,7 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { arrowsOwnKey } from '../src/ui/key-owner.js';
-import { SHUF, shufMaxH, shufFall, shufPoseCss, shufBehind, shufKeyframes, shufInk, shufName, spring, shufEnd, shufFrom, shufDrag, shufDir, createShuffle } from '../src/ui/card-shuffle.js';
+import { SHUF, shufMaxH, shufTop, shufFall, shufPoseCss, shufBehind, shufKeyframes, shufInk, shufName, spring, shufEnd, shufFrom, shufDrag, shufDir, createShuffle } from '../src/ui/card-shuffle.js';
 import { WORDS_MIN_PX } from '../src/ui/card-type.js';
 
 const src = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
@@ -32,7 +32,7 @@ test('the card in front is centred with room for the strip below it and the same
   assert.equal(shufMaxH(100), 0);
   assert.ok(shufMaxH(393, 1) >= 282 && shufMaxH(393, 1) > shufMaxH(393), 'the tight room (a slide no column fits at the usual gap) holds the 282 px cards of the gallery');
   assert.equal(shufMaxH(393, 1), 393 - 2 * (SHUF.strip + SHUF.gapTight));
-  assert.equal(shufMaxH(393, 2), 393 - 2 * SHUF.edge, 'the last room: the whole screen less an edge each way, so a card needing 350 px never has its words shrunk');
+  assert.equal(shufMaxH(393, 2), 393 - SHUF.edge - SHUF.strip - SHUF.gapTight, 'the last room: from the top edge to the strip\'s top, so a card needing 330 px never has its words shrunk');
   // (the tallest card stands with its foot a gap above the strip: top + h + gap = H - strip)
   const h = shufMaxH(393), top = (393 - h) / 2;
   assert.equal(top + h + SHUF.gap, 393 - SHUF.strip);
@@ -98,8 +98,8 @@ test('the layout gives every pair on a phone on its side the wallet, centred, an
   assert.match(s, /live\.shuffle\?\.park\(\);\s*\n\s*try \{ layoutNow\(\); \} finally \{ live\.shuffle\?\.resume\(\); \}/);
   assert.match(s, /live\.shuffle\?\.sync\(shuf, lockKey \|\| '', \{ H: H \/ k, pad: pad \/ k \}\)/);
   assert.match(s, /let y = shuf \? top0 :/);
-  assert.match(s, /shift = shuf \? Math\.max\(4 \* k - top0, \(H - \(t\.height \+ 2 \* pad\)\) \/ 2 - top0\)/, 'the words\' glass is centred by its own height');
-  assert.match(s, /ddTop = Math\.max\(4 \* k, \(H - hd\) \/ 2\)/, 'and the instrument by its own');
+  assert.match(s, /shift = shuf \? shufTop\(H, t\.height \+ 2 \* pad, 4 \* k, k\) - top0/, 'the words\' glass is centred by its own height, or as high as it must stand to clear the strip');
+  assert.match(s, /ddTop = shufTop\(H, hd, 4 \* k, k\)/, 'and the instrument by its own');
   assert.match(s, /!shuf && !wideSheet\(dd\)\) rise = pairRise/, 'a wallet does not rise');
   assert.match(s, /textLock = \{ key: lockKey, below, shuf, room, col: colIx,/, 'the wallet and its column are part of what a slide keeps');
   assert.match(s, /'--pz-sx'/, 'the pair is shifted to the middle by the one left margin');
@@ -270,4 +270,15 @@ test('every scrub wakes the glass, so the plate and the words move together with
   const c = src('src/ui/card-shuffle.js');
   assert.match(c, /import \{ signalMove \} from '\.\/num-move\.js';/);
   assert.match(c, /function scrub\(\) \{[^\n]*signalMove\(\); \}/);
+});
+
+test('a front card\'s foot is never below the strip\'s top: the full 48 px strip always shows, whatever the card\'s height (centred where it can be, as high as the edge where it cannot)', () => {
+  for (const H of [320, 360, 393, 430, 480]) for (let h = 60; h <= shufMaxH(H, 2); h += 5) {
+    const top = shufTop(H, h, SHUF.edge), foot = top + h;
+    assert.ok(foot <= H - SHUF.strip - SHUF.gapTight + 1e-9, `H ${H}, h ${h}: foot ${foot} is over the strip (top ${H - SHUF.strip})`);
+    assert.ok(top >= SHUF.edge - 1e-9, `H ${H}, h ${h}: the card is above the screen`);
+    if (h <= shufMaxH(H, 1)) assert.ok(Math.abs(top - (H - h) / 2) < 1e-9, `H ${H}, h ${h}: a card that fits is centred`);
+  }
+  assert.equal(shufTop(393, 335, 4), 4, 'a 335 px card stands at the top edge, its foot 339, the strip from 345'); assert.equal(shufTop(393, 330, 4), 9);
+  assert.equal(shufMaxH(393, 2), 335);
 });

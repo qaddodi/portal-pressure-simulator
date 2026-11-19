@@ -1,7 +1,7 @@
 // One of the six ladders zoomed; layout and fit
 // (moved out of presenter.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { throwLanded, throwing } from './card-throw.js';
-import { SHUF, shufMaxH } from './card-shuffle.js';
+import { SHUF, shufMaxH, shufTop } from './card-shuffle.js';
 import { SIDEWAYS_MAX_H, WIDE, figFloorOf, pairRise, phonePlan, sidewaysWords, titleFloorK, dkFloorOf } from './card-type.js';
 import { createInsetHold } from './inset-hold.js';
 import { readBox, readMetric, readStyle } from './layout-snap.js';
@@ -584,13 +584,13 @@ export function createLadders(st, live) {
       // it does for a pair a few px too tall, so the card's foot is not cut. Stiffness 8's map, 20 to 25 px over, on a short screen. The Shuffle has its own place.)
       if (!shuf && !wideSheet(dd)) { const need = toolDemand(dd) * k; if (need > 0.5) rise = Math.max(rise, pairRise(need, top0, 4 * k)); }
       // (The wallet's cards each stand centred by their own height, the glass of the words and the instrument: the words' shift here, the instrument's top below.)
-      shift = shuf ? Math.max(4 * k - top0, (H - (t.height + 2 * pad)) / 2 - top0) : rise > 0 ? -rise : Math.max(0, Math.min((H - stackH) / 2 - top0, foot - top0 - stackH));
+      shift = shuf ? shufTop(H, t.height + 2 * pad, 4 * k, k) - top0 : rise > 0 ? -rise : Math.max(0, Math.min((H - stackH) / 2 - top0, foot - top0 - stackH));
       // (Centred once per slide: while only the data card's readings change (a time-lapse, a what-if slider), the pair keeps the place
       // it came in at, so the words never ride up and down with a reading that measured a pixel taller.)
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       // (The wallet's instrument stands centred by its own height, held the same way while only its readings change.)
       if (shuf) {
-        const hd = (parseFloat(dd.style.getPropertyValue('--ft-card')) || readMetric(dd, 'offsetHeight')) * k; let ddTop = Math.max(4 * k, (H - hd) / 2);
+        const hd = (parseFloat(dd.style.getPropertyValue('--ft-card')) || readMetric(dd, 'offsetHeight')) * k; let ddTop = shufTop(H, hd, 4 * k, k);
         if (lockKey && topLock?.key === lockKey && readingsOnly()) ddTop = topLock.v; else if (lockKey) topLock = { key: lockKey, v: ddTop };
         dd.style.top = `${(ddTop / k).toFixed(1)}px`;
       }
@@ -615,13 +615,13 @@ export function createLadders(st, live) {
     // (With no data card the card is centred top to bottom, never closer than one margin to either edge.)
     // (A phone held sideways: level with the data card at the top right, or centred with no data card, one margin (LOW_M) from the
     // top and the foot; the deck's tab sits in its taller top padding, padT.)
-    const lvl = cardOn && low && t ? (d ? d.top - wr.top : Math.max(vm, (H - t.height - pad - padT) / 2)) + padT
+    const lvl = cardOn && low && t ? (d ? d.top - wr.top : shuf ? shufTop(H, t.height + pad + padT, vm, k) : Math.max(vm, (H - t.height - pad - padT) / 2)) + padT
       : cardOn && t ? (d && !below ? d.top - wr.top : off(dd) ? Math.max(sm, (H - t.height - 2 * pad) / 2) : top0 + shift) + pad : null;
     // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     ts.top = lvl != null ? `${(lvl / k).toFixed(1)}px` : ''; ts.bottom = ts.marginBlock = lvl != null ? 'auto' : '';
     if (lvl != null) ts.marginBlock = '0';
     // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-    ts.maxHeight = lvl != null ? `${Math.min((H - lvl - pad - (low ? vm : sm)) / k, wordsCap).toFixed(1)}px` : phoneCap != null ? `${phoneCap.toFixed(1)}px` : '';   // (one margin at the bottom too)
+    ts.maxHeight = lvl != null ? `${Math.min((H - lvl - pad - (shuf ? (SHUF.strip + SHUF.gapTight) * k : low ? vm : sm)) / k, wordsCap).toFixed(1)}px` : phoneCap != null ? `${phoneCap.toFixed(1)}px` : '';   // (one margin at the bottom too)
     if (t) t = r(live.ui.text);   // (always: the words may already stand there, and the glass is sized to where they are)
     // The words sit on a frosted glass pane: the figure shows through it blurred, behind a crisp edge with a soft
     // shadow. The figure frames itself just past that shadow, so nothing it frames is hidden.

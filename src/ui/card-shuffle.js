@@ -27,7 +27,7 @@ import { signalMove } from './num-move.js';
 export const SHUF = Object.freeze({
   strip: 48,      // px of the card behind that show at the foot of the screen: its grab bar and its name (a finger's height, never a piece of a line)
   gapTight: 6,    // px least under the card in front when the slide has no column that fits it with the usual gap
-  edge: 8,        // px least between a card and the screen's edge when even that is not room: it then stands over the strip of the card behind
+  edge: 4,        // px least between a card and the screen's top when it is too tall to be centred: it then stands as high as that, its foot still above the strip's top (never over it)
   gap: 14,        // px least between the foot of the card in front and the top of the strip
   cols: ['min(400px, 62vw)', 'min(460px, 62vw)', 'min(520px, 62vw)'],   // the wallet's card widths (--pz-cw), one for both cards, centred on the screen: 400 first; a slide whose words or instrument need more height takes a wider column (fewer lines), never a smaller type
   drag: 190,      // px of finger travel for the whole change
@@ -37,7 +37,12 @@ export const SHUF = Object.freeze({
 
 
 /** The tallest a card in front can be: centred, with the strip and its gap below it (and the same above, so it stays centred). H: the screen's height. */
-export const shufMaxH = (H, room = 0) => Math.max(0, H - 2 * (room >= 2 ? SHUF.edge : SHUF.strip + (room === 1 ? SHUF.gapTight : SHUF.gap)));
+export const shufMaxH = (H, room = 0) => Math.max(0, room >= 2 ? H - SHUF.edge - SHUF.strip - SHUF.gapTight : H - 2 * (SHUF.strip + (room === 1 ? SHUF.gapTight : SHUF.gap)));
+/**
+ * Where a card h tall stands (top, same unit as H and h; k scales the strip's px to it): centred, and where it is too tall to be centred between the strip and the top it stands as high as
+ * `edge` and no lower, so its foot is never below the strip's top, the whole 48 px strip always showing (Mohammad's play-test, 19 Nov 2026: a strip cut through its name, a strip hidden whole).
+ */
+export const shufTop = (H, h, edge, k = 1) => Math.max(edge, Math.min((H - h) / 2, H - (SHUF.strip + SHUF.gapTight) * k - h));
 
 // The screen's height and the padding of the words' glass, in the page's px: written by sync() after each layout, read by every pose (module state: the throw composes the same pose).
 const geom = { H: 390, pad: 0 };

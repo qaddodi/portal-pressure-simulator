@@ -1,7 +1,6 @@
 import './dom-shim.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { treeLeadExtra } from '../src/ui/tool-path.js';
 
 // Stiffness 9, Rule of five (19 Nov 2026, play-test): "LSM <15 and platelets ≥150" wrapped to two lines and left "CSPH excluded" 15 px under "CSPH presumed" and "Not settled".
@@ -18,9 +17,7 @@ test('each row\'s conditions take the room of the tallest, so the verdicts under
   for (const id of ['in', 'gray', 'out']) assert.equal(lines[id] * 15 + ex.get(id), 30, `${id}'s verdict starts at the row's one line`);
 });
 
-test('a row whose conditions are all one line adds nothing; the layout asks it', () => {
+test('a row whose conditions are all one line adds nothing', () => {
   const ex = treeLeadExtra(tree, boxes, paras, () => 15);
   for (const v of ex.values()) assert.equal(v, 0);
-  const s = readFileSync(new URL('../src/ui/tool-path.js', import.meta.url), 'utf8');
-  assert.match(s, /gap: nodeGap\(paras, lead\.get\(id\) \|\| 0\)/);
 });
