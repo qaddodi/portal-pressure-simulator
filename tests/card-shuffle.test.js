@@ -265,3 +265,9 @@ test('a card in front that stands over the strip is touched as itself: the strip
   const s = src('src/ui/card-shuffle.js');
   assert.match(s, /const f = anims\.find\(\(x\) => x\.card !== behind && x\.glass\);\n\s*if \(f && y < f\.top \+ shufFall\(f\.layer, f\.h\) \* shufBehind\(f\.layer, p\) \+ f\.h\) return false;/);
 });
+
+test('every scrub wakes the glass, so the plate and the words move together with no frame of lag', () => {
+  const c = src('src/ui/card-shuffle.js');
+  assert.match(c, /import \{ signalMove \} from '\.\/num-move\.js';/);
+  assert.match(c, /function scrub\(\) \{[^\n]*signalMove\(\); \}/);
+});

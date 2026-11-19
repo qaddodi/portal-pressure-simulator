@@ -22,6 +22,7 @@ import { frameFor } from './frame.js';
 import { clamp01, lerp } from './num.js';
 import { readMetric, readBox } from './layout-snap.js';
 import { setThrowPose } from './card-throw.js';
+import { signalMove } from './num-move.js';
 
 export const SHUF = Object.freeze({
   strip: 48,      // px of the card behind that show at the foot of the screen: its grab bar and its name (a finger's height, never a piece of a line)
@@ -148,7 +149,7 @@ export function createShuffle(live) {
     }
   }) : null;
   function dropAnims() { kids?.disconnect(); for (const a of anims) for (const k of [a.tf, a.name, ...(a.inks || [])]) { try { k?.cancel(); } catch { /* (an animation already gone) */ } } anims = []; }
-  function scrub() { const t = p * 1000; for (const a of anims) { a.tf.currentTime = t; if (a.name) a.name.currentTime = t; for (const k of a.inks) k.currentTime = t; } }
+  function scrub() { const t = p * 1000; for (const a of anims) { a.tf.currentTime = t; if (a.name) a.name.currentTime = t; for (const k of a.inks) k.currentTime = t; } signalMove(); }   // (the glass is woken after every write, so the plate is drawn where the words are in this frame, never one behind)
   function marks(onNow) { const r = root(); if (r) { r.classList.toggle('pz-shuf', onNow); live.ui.shade?.classList.toggle('pz-shuf', onNow); live.ui.data?.classList.toggle('pz-shuf', onNow); } }
   // The card coming forward stands above the other for the whole change (the one rising from the foot is over the one that sinks behind it), so no layer is swapped where both show.
   function front() { const r = root(); if (r) r.classList.toggle('pz-shuf-data', rising === 'data'); }
