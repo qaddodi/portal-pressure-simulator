@@ -59,7 +59,7 @@ test('instant: every leaving card sets off in the tap\'s task, on one distance, 
 
 
 test('glass: a card raised by --pz-rise or --pz-lift (untucking) has its glass raised with it each frame', () => {
-  assert.match(presenter, /shift: riseShift \}\)/);
+  assert.match(presenter, /shift: riseShift(?: \}\)|, cut: )/);
   assert.match(presenter, /el === (?:live\.)?ui\.data \? \(wide && el\.classList\.contains\('col'\) \? risePx\(el, '--pz-lift'\) : 0\)/);
 });
 
