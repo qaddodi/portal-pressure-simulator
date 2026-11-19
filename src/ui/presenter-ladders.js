@@ -342,7 +342,7 @@ export function createLadders(st, live) {
       // never widens: every slide keeps one card width), then the data card's blocks step smaller (DK). At the last step the pair
       // stays stacked and the data card's own fit does the rest.
       // (trim: the words' card's last steps, below. 1: the title one step further down (WIDE.tight); 2: and the CAUSES line gone.)
-      let trim = 0, wordsFit = true;
+      let trim = 0;
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const put = (tk, bk) => { live.ui.text.style.setProperty('--pz-tk', trim ? Math.min(tk, WIDE.tight) : tk); live.ui.text.style.setProperty('--pz-bk', bk); live.ui.text.classList.toggle('pz-nocauses', trim > 1); t = r(live.ui.text); return top0 + t.height + 2 * pad + gap + ch <= foot; };   // (no slack once shrunk: the data card is never squeezed)
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
@@ -411,7 +411,7 @@ export function createLadders(st, live) {
           // own steps and never under 12 px, fit the height the strip leaves; the widest is kept where none does.)
           const kEl = dd.querySelector('.pz-tiles .pzt-k'), dkMin = dkFloorOf(kEl ? parseFloat(readStyle(kEl).fontSize) : 0);
           // (A card still taller than that at the widest column takes the tight room, the gap under it a little smaller (SHUF.gapTight): a card of 282 px is not a card that cannot stand.)
-          let both = false;   // (and wordsFit: the words alone fit, as the last column left them)
+          let both = false;
           for (tight of [false, true]) {
             foot = top0 + shufMaxH(H / k, tight) * k;
           for (colIx = 0; colIx < SHUF.cols.length; colIx++) {
@@ -430,7 +430,7 @@ export function createLadders(st, live) {
             // (None fits at Regular: the words step to Compact, as a phone on its side always did, once the title and the CAUSES line have given what they can; WIDE.words, never under 12 px.)
             if (!fits) for (const n of [0, 1, 2]) { trim = n; if (step()) { fits = true; break; } }
             ch = ch0; gap = gap0;
-            both = fits && dataFits; wordsFit = fits;
+            both = fits && dataFits;
             if (both || colIx === SHUF.cols.length - 1) break;
           }
             if (both) break;
@@ -447,10 +447,7 @@ export function createLadders(st, live) {
         // (The words' extra steps, card-type.js sidewaysWords: a step is kept only while the card's smallest lettering stays 12 px on the
         // screen (minText), and where none fits the pair the words stay at the last step kept, never back up at Compact, which left the
         // data card the rest: Doppler 3 on an iPhone on its side had a strip of spectrum under 5 lines of words, 11 Nov 2026.)
-        // (The wallet's words that no step of the column loop fit: the same steps below Compact, with the data card out of the sum as it is in the loop, since it has a card of its own.
-        // HVPG 8 on an iPhone on its side: 350 px of words in a 345 px box, a chip cut at the top and the last pill on the edge, 19 Nov 2026, play-test.)
-        if ((!below || (shuf && !wordsFit)) && H <= SIDEWAYS_MAX_H * k) {
-          const ch1 = ch, gap1 = gap; if (shuf) { ch = 0; gap = 0; }
+        if (!below && H <= SIDEWAYS_MAX_H * k) {
           trim = 2;
           // (16 Nov 2026, play-test, iPhone 844 x 390, Circulation 3: the words' last fit, 0.984, was left from Regular's height, where the card had
           // overflowed its cap. Every step below it was then judged with that zoom on top, its smallest lettering read 11.8 px, the first step was refused
@@ -460,7 +457,6 @@ export function createLadders(st, live) {
           const own = { clear: () => { ts.removeProperty('--pz-fit'); ts.removeProperty('--pz-z'); }, restore: () => { if (fz) ts.setProperty('--pz-fit', fz); if (zz) ts.setProperty('--pz-z', zz); } };
           if (!sidewaysWords(put, () => minText(live.ui.text), own).last) put(WIDE.title, WIDE.words);   // (not even the first step keeps 12 px: Compact, as before)
           fitDone.delete(live.ui.text); fitCards(live.ui.text); t = r(live.ui.text);
-          ch = ch1; gap = gap1;
           below = true;
         }
         if (!below) { step(); below = true; }

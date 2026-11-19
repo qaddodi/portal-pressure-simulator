@@ -112,7 +112,7 @@ test('the column is 400 px first and widens only when a slide needs it; the type
   for (const c of SHUF.cols) assert.match(c, /^min\(\d+px, \d+vw\)$/);
   const l = src('src/ui/presenter-ladders.js');
   assert.match(l, /for \(colIx = 0; colIx < SHUF\.cols\.length; colIx\+\+\) \{/);
-  assert.match(l, /both = fits && dataFits; wordsFit = fits;\n\s*if \(both \|\| colIx === SHUF\.cols\.length - 1\) break;/);
+  assert.match(l, /both = fits && dataFits;\n\s*if \(both \|\| colIx === SHUF\.cols\.length - 1\) break;/);
   assert.match(l, /for \(tight of \[false, true\]\) \{\n\s*foot = top0 \+ shufMaxH\(H \/ k, tight\) \* k;/, 'no column fits at the usual gap: the tight room is tried before the widest column is kept');
 });
 
@@ -257,12 +257,4 @@ test('the words hand over at the middle of the change with no blank gap: one car
   assert.ok(longest <= 45, `the words are both nearly gone for ${longest / 10}% of the change (a flash); the handoff is one straight ramp each, the middle is a point`);
   assert.equal(inkAt(kd, 0.5), 0); assert.equal(inkAt(kw, 0.5), 0);
   assert.ok(inkAt(kw, 0.3) > 0.99 && inkAt(kd, 0.7) > 0.99, 'the card leaving keeps its words to p 0.3, the card arriving has them whole from p 0.7');
-});
-
-test('the wallet\'s words that no column step fits take the steps below Compact, the data card out of the sum, so the card wraps its words (HVPG 8: 350 px in a 345 px box)', () => {
-  const s = src('src/ui/presenter-ladders.js');
-  assert.match(s, /let trim = 0, wordsFit = true;/);
-  assert.match(s, /both = fits && dataFits; wordsFit = fits;/);
-  assert.match(s, /if \(\(!below \|\| \(shuf && !wordsFit\)\) && H <= SIDEWAYS_MAX_H \* k\) \{\n\s*const ch1 = ch, gap1 = gap; if \(shuf\) \{ ch = 0; gap = 0; \}/);
-  assert.match(s, /fitCards\(live\.ui\.text\); t = r\(live\.ui\.text\);\n\s*ch = ch1; gap = gap1;/, 'the data card\'s height is put back after');
 });
