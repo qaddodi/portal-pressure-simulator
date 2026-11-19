@@ -344,7 +344,7 @@ export function createLadders(st, live) {
       // (trim: the words' card's last steps, below. 1: the title one step further down (WIDE.tight); 2: and the CAUSES line gone.)
       let trim = 0;
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-      const put = (tk, bk) => { live.ui.text.style.setProperty('--pz-tk', trim ? Math.min(tk, WIDE.tight) : tk); live.ui.text.style.setProperty('--pz-bk', bk); live.ui.text.classList.toggle('pz-nocauses', trim > 1); t = r(live.ui.text); return top0 + t.height + 2 * pad + gap + ch <= foot; };   // (no slack once shrunk: the data card is never squeezed)
+      const put = (tk, bk) => { live.ui.text.style.setProperty('--pz-tk', trim ? Math.min(tk, WIDE.tight) : tk); live.ui.text.style.setProperty('--pz-bk', bk); live.ui.text.classList.toggle('pz-nocauses', trim > 1); t = r(live.ui.text); return top0 + t.height + 2 * pad + (shuf ? Math.max(0, padT - pad) : 0) + gap + ch <= foot; };   // (no slack once shrunk: the data card is never squeezed)
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       // (Regular only, 17 Nov 2026, Mohammad: "Fix this issue everywhere": the words never step down for the data card's height. The data card's blocks step
       // smaller, its instrument folds behind Show, its own fit does the rest. Only a phone held sideways, where no room is left, still steps the words down.)
@@ -407,6 +407,9 @@ export function createLadders(st, live) {
           // 400 px, centred on the screen: the words at Regular size in front and the instrument behind, its top 48 px showing at the foot, a swipe up or down changing the card
           // (card-shuffle.js). Each card has the whole height the strip leaves (shufMaxH), so neither shrinks for the other and nothing scrolls. A card with readings to tuck (a sheet) tucks them instead.)
           shuf = true; below = true;
+          // (The words are measured at their own height, never at the room's cap of an earlier pass or a zoom fitted to it: a card that was cut to 307 px of 331 read as 307, fitted the 400 px column it
+          // was in, and never widened, TIPS 10 to 13, 19 Nov 2026, play-test. The cap is written again below from the room the layout ends with.)
+          ts.maxHeight = 'none'; ts.removeProperty('--pz-fit'); ts.removeProperty('--pz-z');
           // (The column widens only when a slide needs it: 400 px first, then 460 and 520 (fewer lines of the same type). A column is taken when the words fit it alone and the instrument's blocks, at their
           // own steps and never under 12 px, fit the height the strip leaves; the widest is kept where none does.)
           const kEl = dd.querySelector('.pz-tiles .pzt-k'), dkMin = dkFloorOf(kEl ? parseFloat(readStyle(kEl).fontSize) : 0);
@@ -615,7 +618,7 @@ export function createLadders(st, live) {
     // (With no data card the card is centred top to bottom, never closer than one margin to either edge.)
     // (A phone held sideways: level with the data card at the top right, or centred with no data card, one margin (LOW_M) from the
     // top and the foot; the deck's tab sits in its taller top padding, padT.)
-    const lvl = cardOn && low && t ? (d ? d.top - wr.top : shuf ? shufTop(H, t.height + pad + padT, vm, k) : Math.max(vm, (H - t.height - pad - padT) / 2)) + padT
+    const lvl = cardOn && low && t ? (d ? d.top - wr.top : shuf ? shufTop(H, t.height + pad + padT, SHUF.edge * k, k) : Math.max(vm, (H - t.height - pad - padT) / 2)) + padT
       : cardOn && t ? (d && !below ? d.top - wr.top : off(dd) ? Math.max(sm, (H - t.height - 2 * pad) / 2) : top0 + shift) + pad : null;
     // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     ts.top = lvl != null ? `${(lvl / k).toFixed(1)}px` : ''; ts.bottom = ts.marginBlock = lvl != null ? 'auto' : '';

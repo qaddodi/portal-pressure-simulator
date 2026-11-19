@@ -109,7 +109,7 @@ test('the layout gives every pair on a phone on its side the wallet, centred, an
 });
 
 test('the column is 400 px first and widens only when a slide needs it; the type never gets smaller for it', () => {
-  assert.deepEqual(SHUF.cols.map((c) => parseInt(/(\d+)px/.exec(c)[1], 10)), [400, 460, 520, 580, 640]);
+  assert.deepEqual(SHUF.cols.map((c) => parseInt(/(\d+)px/.exec(c)[1], 10)), [400, 460, 520, 580, 640, 720, 800]);
   assert.equal(SHUF.colsUsual, 3, 'the two widest are for the last room only');
   for (const c of SHUF.cols) assert.match(c, /^min\(\d+px, \d+vw\)$/);
   const l = src('src/ui/presenter-ladders.js');
@@ -282,4 +282,11 @@ test('a front card\'s foot is never below the strip\'s top: the full 48 px strip
   }
   assert.equal(shufTop(393, 335, 4), 4, 'a 335 px card stands at the top edge, its foot 339, the strip from 345'); assert.equal(shufTop(393, 330, 4), 9);
   assert.equal(shufMaxH(393, 2), 335);
+});
+
+test('the wallet measures the words at their own height (no cap, no zoom of an earlier pass) and counts the glass\'s taller top padding, so a card cut short is seen as too tall and the column widens', () => {
+  const l = src('src/ui/presenter-ladders.js');
+  assert.match(l, /shuf = true; below = true;\n(?:\s*\/\/[^\n]*\n)*\s*ts\.maxHeight = 'none'; ts\.removeProperty\('--pz-fit'\); ts\.removeProperty\('--pz-z'\);/);
+  assert.match(l, /return top0 \+ t\.height \+ 2 \* pad \+ \(shuf \? Math\.max\(0, padT - pad\) : 0\) \+ gap \+ ch <= foot; \};/);
+  assert.deepEqual(SHUF.cols.map((c) => parseInt(/(\d+)px/.exec(c)[1], 10)).slice(-2), [720, 800]);
 });
