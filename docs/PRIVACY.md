@@ -13,8 +13,8 @@ Portal Pressure Simulator runs entirely in the browser. Updated 11 November 2026
   closes). *Help › Privacy* lists the stored keys and clears them.
 - **What leaves the device**, only by the user's action: shared links and script files (which
   contain the model state or a script). *Send feedback* (in Settings) opens a draft in the
-  user's own email app, with the device, screen size, frame speed, recent errors and a link to
-  the view. Nothing is sent unless the user sends that email. No score is reported anywhere.
+  user's own email app, with the device, screen size, frame speed, recent errors, a few lines on what
+  the app's own self-checks found on the screen, and a link to the view. Nothing is sent unless the user sends that email. No score is reported anywhere.
 - **Offline cache.** A service worker caches the app's own files so it works offline. It caches
   nothing else.
 

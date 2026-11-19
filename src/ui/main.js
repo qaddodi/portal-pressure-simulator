@@ -97,6 +97,7 @@ import { createScope } from './scope.js';
 import { classSoon, runSoon } from './class-soon.js';
 import { sizeOf, watchSize, rectsSoon, restTask } from './geom.js';
 import { feedbackDiagnostics } from './feedback-diag.js';
+import { fitMailto } from './packet/short.js';
 import { startReport, reportLines } from './report.js';
 import { noteJump } from './display-state.js';
 import { createIdleRest, REST_AFTER_MS } from './idle-rest.js';
@@ -1377,8 +1378,9 @@ function wireTopbar() {
   if (flagOn('perf')) import('./perf-readout.js').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
   // ?offgpu=1 in the address: the live count of work off the GPU, flashing red when it happens during motion (offgpu-overlay.js). Without it, never loaded.
   if (flagOn('offgpu')) import('./offgpu-overlay.js').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
-  // ?watch in the address, on the preview copy (or a local run): the motion recorder and its red dot (watch/start.js; docs/watch.md). Without it, never loaded.
-  if (flagOn('watch')) import('./watch/start.js').then(({ startWatch }) => startWatch(() => window.pps)).catch(() => { /* a measuring aid only */ });
+  // ?watch in the address, on the preview copy (or a local run): the motion recorder and its red dot (watch/start.js; docs/watch.md), and on the debug page (?debug). Without either, never loaded.
+  // (The debug page, ?debug, has the recorder on by default: a person who pressed Report there has the last 10 s of motion in the packet without having to know the flag.)
+  if (flagOn('watch') || flagValue('debug') !== null) import('./watch/start.js').then(({ startWatch }) => startWatch(() => window.pps)).catch(() => { /* a measuring aid only */ });
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());
@@ -1521,16 +1523,26 @@ function helpRows(titled = false) {
 // Send feedback: a draft in the viewer's own email app, addressed to the author, with what a bug report needs underneath
 // (the build from the preview pill, the device, the screen and a link back to this exact view). The app itself sends
 // nothing, so the Privacy page stays true.
-function sendFeedback() {
+async function sendFeedback() {
   try { localStorage.setItem(ASK_KEY, 'done'); } catch (e) { caught('main:1120', e); /* storage unavailable */ }   // (sent once: the timed ask never comes)
   const build = document.getElementById('preview-badge')?.textContent.trim() || 'Live site';
   const theme = currentLook() || (darkMQ.matches ? 'dark' : 'light');
-  const body = ['What happened, and what did you expect to happen?', '', '', '',
+  const base = ['What happened, and what did you expect to happen?', '', '', '',
     'Please keep these details:', `Build: ${build}`, `Device: ${navigator.userAgent}`,
     `Screen: ${innerWidth} × ${innerHeight} at ${devicePixelRatio}×, ${theme} theme`, `View: ${resumeUrl()}`,
     ...feedbackDiagnostics({ perf: framePerf, blurWhy: (el) => stage.blurWhy?.(el) ?? null }), ...reportLines()].join('\n');
+  // (What the app's own self-checks find on this screen, as a few lines under the details, and the whole report kept ready to copy: read once, here, after the Settings sheet has left, never for longer
+  // than FEEDBACK_READ_MS so the draft is not held up. The whole body is capped so the mail link stays one a mail app takes: PROD-29.)
+  let fb = null;
+  try {
+    await new Promise((ok) => setTimeout(ok, FEEDBACK_SHEET_MS));
+    fb = await Promise.race([import('./packet/feedback.js').then((m) => m.readFeedback(window.pps)), new Promise((ok) => setTimeout(() => ok(null), FEEDBACK_READ_MS))]);
+  } catch (e) { caught('main:feedback-read', e); /* the draft goes without it */ }
+  const body = fitMailto(base, fb?.short || '');
   location.href = `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent('Portal Pressure Simulator feedback')}&body=${encodeURIComponent(body)}`;
+  if (fb?.full) toast('Your email app has the short report.', '', { actions: [['Copy the full report', () => { navigator.clipboard?.writeText(fb.full).then(() => toast('Full report copied: paste it under your message.'), () => toast('Could not copy it from here.', 'bad')); }]] });
 }
+const FEEDBACK_SHEET_MS = 380, FEEDBACK_READ_MS = 2500;   // (the Settings sheet's leave, then the most the screen read may take)
 function doUndo() { timeline.undo(); }
 function doRedo() { timeline.redo(); }
 function toggleTheme() {
@@ -2538,7 +2550,7 @@ function openPrivacy() {
   openModal('Privacy', h('div', {},
     h('p', {}, 'The simulator runs entirely in your browser. It makes no requests to any other site: no analytics, no trackers, no advertising, no third-party fonts or scripts. There is no account and no server that stores anything about you.'),
     h('p', {}, 'What stays on this device, in your browser’s storage: your preferences (theme) and presenter scripts you create. It leaves the device only when you share it (a link or a script file).'),
-    FEEDBACK_EMAIL ? h('p', {}, 'Send feedback (in Settings) opens a draft in your own email app with your device, screen size, how fast the page is running, which blurs the browser is drawing, a short list of recent errors and page reloads, and a link to the view you were on. Nothing is sent unless you send that email yourself.') : null,
+    FEEDBACK_EMAIL ? h('p', {}, 'Send feedback (in Settings) opens a draft in your own email app with your device, screen size, how fast the page is running, which blurs the browser is drawing, a short list of recent errors and page reloads, a few lines on what the app\'s own checks found on the screen, and a link to the view you were on. Nothing is sent unless you send that email yourself.') : null,
     h('p', {}, 'For institutions: no personal data is processed by the publisher, which supports FERPA and GDPR compliance.'),
     h('p', { class: 'sub' }, keys.length ? `Stored now: ${keys.join(', ')}.` : 'Nothing is stored on this device yet.'),
     clearRow(keys)));

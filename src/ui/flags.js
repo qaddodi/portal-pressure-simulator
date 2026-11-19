@@ -114,8 +114,9 @@ export const validValue = (flag, v) => { const f = byId.get(flag); return !!f &&
 
 /** Addresses the app reads that no toggle writes (so not in FLAGS, the bench's rows): content, the debug page and its walks. `gate` as for FLAGS. */
 export const EXTRA = Object.freeze([
-  { id: 'gallery', group: 'Pages', gate: 'local', meaning: 'The card gallery and debug page (?gallery=frame is the phone frame, ?gallery&sweep=... runs the Sweep).' },
-  { id: 'check', group: 'Pages', gate: 'local', meaning: 'The Phone check (?check=full for the long walk).' },
+  { id: 'debug', group: 'Pages', gate: 'local', meaning: 'The debug page (the card gallery, with Report and Full check on its bar; the motion recorder is on by default). ?debug=check is the Phone check, ?debug=full its long walk, ?debug=frame the device frame.' },
+  { id: 'gallery', group: 'Pages', gate: 'local', meaning: 'The old spelling of ?debug (?gallery=frame is the phone frame, ?gallery&sweep=... runs the Sweep; the sweeps still open it so).' },
+  { id: 'check', group: 'Pages', gate: 'local', meaning: 'The old spelling of ?debug=check, the Phone check (?check=full for the long walk).' },
   { id: 'rate', group: 'Pages', alias: 'testclock', meaning: 'The Phone check\'s old spelling of the test clock\'s rate: the same as ?testclock=N.' },
   { id: 'only', group: 'Pages', meaning: 'The Phone check or the Sweep: just these journeys or specimens (comma list).' },
   { id: 'steps', group: 'Pages', meaning: 'The Phone check: steps=0 leaves out the per-step rows.' },
@@ -129,6 +130,9 @@ export const EXTRA = Object.freeze([
   { id: 'home', group: 'Open', meaning: 'Open Patients or Present (?home=explore|present).' },
   { id: 'back', group: 'Open', meaning: 'Open quietly (no case card, no shared-scenario toast): a replay or a back link.' },
 ]);
+
+/** The new spelling of the debug page's three forms: `?debug` is `?gallery`, `?debug=check` is `?check`, `?debug=full` is `?check=full`, `?debug=frame` is `?gallery=frame`. Asking for an old name also hears the new one. */
+const DEBUG_FORMS = Object.freeze({ gallery: { '': '', gallery: '', frame: 'frame' }, check: { check: '', full: 'full' } });
 
 /** Where a flag works. Unlisted flags are 'live'. (The recorder, the bug packet and the gallery are preview and local only; the measuring flags work on the live site too.) */
 const GATES = Object.freeze({ watch: 'local' });
@@ -151,10 +155,14 @@ const shut = (id, p) => p.gated && !OPEN[gateOf(id)](p.loc);
 export function flagValue(id, at) {
   const p = parts(at); if (shut(id, p)) return null;
   const it = item(id, p.search);
-  return it ? (it.value == null ? '' : it.value) : null;
+  if (it) return it.value == null ? '' : it.value;
+  const d = DEBUG_FORMS[id] && item('debug', p.search);   // (?debug, the one name for the debug page: its value says which form)
+  const v = d ? DEBUG_FORMS[id][d.value == null ? '' : d.value] : undefined;
+  return v === undefined ? null : v;
 }
 /** True when the flag is in the address in a form that turns it on (bare ?perf, ?offgpu or ?offgpu=1, ?fps=120, ?rest=off ...) and its gate is open here. Flags that are not in FLAGS (EXTRA) are on when present. */
 export function flagOn(id, at) {
+  if (DEBUG_FORMS[id]) return flagValue(id, at) !== null;
   const p = parts(at); if (shut(id, p)) return false;
   const it = item(id, p.search); if (!it) return false;
   const f = FLAGS.find((x) => x.id === id);
