@@ -22,7 +22,7 @@ const ranges = (bits) => {   // runs of open bins, the seam joined
 
 // (The captured tubes carry no kind; the flags and the z the lobule gives each kind say it: the central vein F_RING | F_SHADOW, the portal venule that with F_EDGE,
 // the arteriole and the ductule F_EDGE alone, told apart by z 0.7 and 0.55.)
-const kindOf = (k) => (k.fl === 516 ? 'cv' : k.fl === 580 ? 'pv' : Math.abs(k.z - 0.7) < 1e-6 ? 'ha' : Math.abs(k.z - 0.55) < 1e-6 ? 'bd' : '?');
+const kindOf = (k) => (Math.abs(k.z - 0.8) < 1e-6 ? 'lv' : k.fl === 516 ? 'cv' : k.fl === 580 ? 'pv' : Math.abs(k.z - 0.7) < 1e-6 ? 'ha' : Math.abs(k.z - 0.55) < 1e-6 ? 'bd' : '?');
 
 test('six portal venules, arterioles and ductules and one central vein carry F_RING, and no other row does; the dip texel stays 0', () => {
   const count = {};
@@ -35,7 +35,7 @@ test('the central vein has a mouth for each vessel that joins it and closed arcs
   const cv = rows.find((k) => kindOf(k) === 'cv'), nJoin = cap.joins.filter((j) => j.members.includes(cv.r)).length;
   const bits = open(cv.w), nOpen = bits.filter(Boolean).length;
   assert.ok(nOpen > 0 && nOpen < BINS, `some of the rim open, some closed (${nOpen} of ${BINS})`);
-  assert.ok(nOpen / BINS < 0.6, `the closed arcs are the larger part of the rim (open ${nOpen} of ${BINS})`);
+  assert.ok(nOpen / BINS < 0.75, `a closed arc between mouths stays (open ${nOpen} of ${BINS}: the sinusoids flare into the vein, lobule-mouths.js flareAt, so the mouths take most of the rim)`);
   assert.ok(ranges(bits) >= Math.ceil(nJoin * 0.6) && ranges(bits) <= nJoin, `about a mouth a join: ${ranges(bits)} runs for ${nJoin} joins`);
   for (const k of rows.filter((x) => kindOf(x) === 'bd')) assert.deepEqual(k.w, [0, 0, 0], 'a bile ductule: no joins, no mouth');
   for (const k of rows.filter((x) => kindOf(x) === 'pv')) assert.equal(ranges(open(k.w)), 2, 'a portal venule: its two inlets');

@@ -49,7 +49,7 @@ const fpOf = (v, hvpg, ppg) => { const P = NODES.map(() => 0); P[NODES.findIndex
 // (eight stations: gut, portal vein, pre, intra, post, hepatic vein, IVC, right atrium)
 const HEALTHY = fpOf([8, 7, 6, 5, 4, 3, 3, 2], 2, 4);
 const CIRR = fpOf([22, 20, 19, 17, 6, 4, 4, 3], 13, 16);
-const BETTER = fpOf([14, 12, 11, 9, 5, 4, 4, 3], 5, 8);
+const BETTER = fpOf([14, 12, 11, 9, 5, 4, 4, 3], 6, 8);   // (HVPG 6: past the >5 line, so mild; 5.0 itself is normal since 14 Nov 2026)
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const all = (n, out = []) => { out.push(n); (n.children || []).forEach((c) => c.tag && all(c, out)); return out; };
 const cls = (n) => [...n.classSet].join(' ');
@@ -99,7 +99,7 @@ test('a new state glides there: the readings, the line and the blocks change by 
   assert.deepEqual(valuesOf(), ['14', '12', '11', '9', '5', '4', '4', '3'], 'arrived');
   const bracket = all(svg).filter((n) => /\bppf-br\b/.test(cls(n)) && geoOf(n, 'opacity') > 0.99);
   assert.ok(bracket.length >= 1, 'the brackets stand at full strength once it has arrived');
-  assert.equal(bracket.find((n) => n.attrs['data-k'] === 'hvpg')?.attrs['data-rate'], 'mid', 'HVPG 5 is rated mid now');
+  assert.equal(bracket.find((n) => n.attrs['data-k'] === 'hvpg')?.attrs['data-rate'], 'mid', 'HVPG 6 is rated mid now');
   tool.dispose();
 });
 

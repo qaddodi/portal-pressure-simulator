@@ -2,7 +2,7 @@
 //
 // The repository root stays a working, build-free site (GitHub Pages serves it as is, and
 // `npm start` runs it). This script writes an optimized copy to dist/ for hosts that can serve a
-// build output, and for the SCORM package:
+// build output:
 //
 //   - one module graph per entry (the app, the engine worker), split so the command palette
 //     and the presenter stay separate chunks loaded on first use;
@@ -16,6 +16,8 @@
 // stylesheet load far faster than ~60 source files on a slow or filtered network (pages-build: 1).
 
 import { build as esbuild } from 'esbuild';
+import { fatalWarnings, refusal } from './build-warnings.mjs';
+import { releaseName } from './release-name.mjs';
 import { readFileSync, writeFileSync, rmSync, mkdirSync, cpSync, readdirSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, dirname, resolve, relative, basename, sep } from 'node:path';
@@ -24,6 +26,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { execSync } from 'node:child_process';
 import { gzipSync } from 'node:zlib';
 import { withCsp } from './csp.mjs';
+import { appCssFiles } from './app-css.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'dist');
@@ -51,24 +54,17 @@ const stripStamps = {
     b.onResolve({ filter: /\?v=/ }, (args) => ({ path: resolve(args.resolveDir, args.path.replace(/\?v=[0-9a-f]+$/, '')) }));
   },
 };
-// An import esbuild can only make `undefined` (the module is empty, or exports nothing) minifies to `(void 0)(...)` and the page dies at
-// boot ("(void 0) is not a function", preview c3fb93ed, when a conflict emptied glass-gl.js). esbuild only warns, so the build fails on it.
+// (Warnings that fail the build, scripts/build-warnings.mjs: an import that is always undefined, and a CSS syntax error, strict or not.)
 const build = async (opts) => {
   const r = await esbuild(opts);
-  const bad = r.warnings.filter((w) => w.id === 'import-is-undefined');
-  if (bad.length) throw new Error('Build refused, an import is always undefined:\n' + bad.map((w) => `  ${w.location?.file}:${w.location?.line} ${w.text}`).join('\n'));
+  const bad = fatalWarnings(r.warnings);
+  if (bad.length) throw new Error(refusal(bad));
   return r;
 };
 // Release identity (PR-04): the newest v2026.11.N tag (when the checkout has tags) plus the short commit, so a tester's "which version?"
 // has an answer and a bad merge has a rollback target. PPS_RELEASE overrides it; a checkout with no git says "build".
-const RELEASE = (() => {
-  if (process.env.PPS_RELEASE) return process.env.PPS_RELEASE;
-  const git = (a) => { try { return execSync('git ' + a, { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return ''; } };
-  const tag = git('describe --tags --abbrev=0 --match "v20*"');
-  const hash = (process.env.GITHUB_SHA || git('rev-parse HEAD')).slice(0, 8);
-  return [tag, hash].filter(Boolean).join(' · ') || 'build';
-})();
-const common = { define: { __PPS_RELEASE__: JSON.stringify(RELEASE) }, bundle: true, format: 'esm', minify: true, target: ['es2022'], legalComments: 'none', logLevel: 'warning', plugins: [stripStamps] };
+const RELEASE = releaseName((a) => { try { return execSync('git ' + a, { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return ''; } });   // (scripts/release-name.mjs: this checkout's tag and commit, never GITHUB_SHA)
+const common = { define: { __PPS_RELEASE__: JSON.stringify(RELEASE) }, bundle: true, format: 'esm', minify: true, sourcemap: 'external', target: ['es2022'], legalComments: 'none', logLevel: 'warning', plugins: [stripStamps] };
 
 // 1. The engine worker, as one self-contained module.
 const worker = await build({ ...common, entryPoints: [join(ROOT, 'src/worker.js')], outdir: ASSETS, entryNames: 'worker-[hash]', write: true, metafile: true });
@@ -80,8 +76,11 @@ const sweepFile = basename(Object.keys(sweep.metafile.outputs).find((f) => f.end
 // 1c. The dye bolus's worker (dye-worker.js: the slugs' advance), the same way.
 const dye = await build({ ...common, entryPoints: [join(ROOT, 'src/ui/dye-worker.js')], outdir: ASSETS, entryNames: 'dye-[hash]', write: true, metafile: true });
 const dyeFile = basename(Object.keys(dye.metafile.outputs).find((f) => f.endsWith('.js')));
+// 1d. Work backward's refinement worker (inverse-worker.js: the engine run near the best fits), the same way.
+const inverse = await build({ ...common, entryPoints: [join(ROOT, 'src/ui/inverse-worker.js')], outdir: ASSETS, entryNames: 'inverse-[hash]', write: true, metafile: true });
+const inverseFile = basename(Object.keys(inverse.metafile.outputs).find((f) => f.endsWith('.js')));
 
-// 2. The app. Every module that starts a worker (host.js, presenter-visuals.js: the engine; stage-vessels.js: the binning; stage-blood.js:
+// 2. The app. Every module that starts a worker (host.js, calc-client.js: the engine; stage-vessels.js: the binning; stage-blood.js:
 // the dye) points the Worker at the bundled worker file. The modules are found by what they hold, not by name: when the stage split
 // moved the binning and dye workers out of stage.js, a filter naming stage.js left the shipped build asking for ./sweep-worker.js, which
 // is not there, so every stretch of the change between the views failed and each of its frames was binned on the CPU (his Mac, 8 Nov
@@ -90,6 +89,7 @@ const WORKER_SRC = [
   [/new URL\('\.\.\/worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/g, `new URL('./${workerFile}', import.meta.url)`],
   [/new URL\('\.\/sweep-worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/g, `new URL('./${sweepFile}', import.meta.url)`],
   [/new URL\('\.\/dye-worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/g, `new URL('./${dyeFile}', import.meta.url)`],
+  [/new URL\('\.\/inverse-worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/g, `new URL('./${inverseFile}', import.meta.url)`],
 ];
 const workerHolders = new Set(readdirSync(join(ROOT, 'src/ui')).filter((f) => f.endsWith('.js')).map((f) => join(ROOT, 'src/ui', f))
   .filter((f) => WORKER_SRC.some(([re]) => { re.lastIndex = 0; return re.test(readFileSync(f, 'utf8')); })));
@@ -180,7 +180,7 @@ if (process.env.PPS_META) writeFileSync(process.env.PPS_META, JSON.stringify(app
 // (No shipped file may still start a worker from its source address: the bundle has no such file, the worker fails to load, and its
 // callers fall back to the main thread without a word. Always refused, preview builds too.)
 for (const f of Object.keys(app.metafile.outputs).filter((x) => x.endsWith('.js'))) {
-  const left = readFileSync(resolve(f), 'utf8').match(/new URL\(["'`](?:\.\.\/worker|\.\/sweep-worker|\.\/dye-worker)\.js/);
+  const left = readFileSync(resolve(f), 'utf8').match(/new URL\(["'`](?:\.\.\/worker|\.\/sweep-worker|\.\/dye-worker|\.\/inverse-worker)\.js/);
   if (left) throw new Error(`Build refused: ${basename(f)} still starts a worker from its source address (${left[0]}): add its module to the worker-url plugin`);
 }
 // A module made an entry above also gets an entry file that only re-exports it; the app imports the shared chunk instead, so a re-export
@@ -215,7 +215,7 @@ for (const queue = [appOut]; queue.length;) {
 
 // 3. Styles: fonts, tokens and layout in one file; fonts get hashed names.
 const cssEntry = join(OUT, '_entry.css');
-writeFileSync(cssEntry, ['fonts/fonts.css', 'styles/tokens.css', 'styles/icons.css', 'styles/app.css', 'styles/path.css', 'styles/scope-card.css', 'styles/tests-card.css'].map((f) => `@import "${relative(OUT, join(ROOT, f)).split(sep).join('/')}";`).join('\n'));
+writeFileSync(cssEntry, ['fonts/fonts.css', 'styles/tokens.css', 'styles/icons.css', ...appCssFiles(ROOT), 'styles/path.css', 'styles/scope-card.css', 'styles/tests-card.css', 'styles/from-readings.css', 'styles/guideline-sides.css'].map((f) => `@import "${relative(OUT, join(ROOT, f)).split(sep).join('/')}";`).join('\n'));
 const css = await build({ ...common, plugins: [], entryPoints: [cssEntry], outdir: ASSETS, entryNames: 'app-[hash]', assetNames: '[name]-[hash]', loader: { '.woff2': 'file', '.png': 'file' }, write: true, metafile: true });
 rmSync(cssEntry);
 const cssFile = basename(Object.keys(css.metafile.outputs).find((f) => f.endsWith('.css')));
@@ -251,13 +251,25 @@ html = html.replace('</head>', `${head}\n</head>`);
 writeFileSync(join(OUT, 'index.html'), withCsp(html));   // (the policy hashes the page's inline scripts, so it is added last)
 writeFileSync(join(OUT, 'release.txt'), RELEASE + '\n');
 
+// Source maps (SHL-3): written next to each file by esbuild, then moved OUT of dist into dist-maps/ (never published, never precached; the deploy keeps them per release
+// as an artifact), so a stack from the field ("chunk-ab12.js:1:48213") can be turned back into a source line by release. Nothing in dist names them.
+const MAPS = join(ROOT, 'dist-maps');
+rmSync(MAPS, { recursive: true, force: true });
+mkdirSync(MAPS, { recursive: true });
+for (const f of readdirSync(ASSETS).filter((n) => n.endsWith('.map'))) {
+  const js = join(ASSETS, f.slice(0, -4));
+  if (statSync(js, { throwIfNoEntry: false })) cpSync(join(ASSETS, f), join(MAPS, f));
+  rmSync(join(ASSETS, f), { force: true });
+}
+writeFileSync(join(MAPS, 'release.txt'), RELEASE + '\n');
+
 // 6. Service worker: precache everything; hashed assets never change, so cache-first is safe.
 const walk = (p) => (statSync(p).isDirectory() ? readdirSync(p).flatMap((f) => walk(join(p, f))) : [p]);
 const files = walk(OUT).map((p) => relative(OUT, p).split(sep).join('/')).filter((f) => f !== 'sw.js').sort();
 // (The handout figures, deck stills and tester guide PDFs are left to load when used, so installing offline support stays light.)
 // (The "Lighter organ art" switch's lines load only when it is turned on (stage.js syncArtLite), so the switch left off downloads nothing new.)
 const liteChunks = Object.entries(app.metafile.outputs).filter(([, o]) => Object.keys(o.inputs).some((i) => i.endsWith('src/ui/organ-art-lite.js'))).map(([f]) => 'assets/' + basename(f));
-const cached = files.filter((f) => !/^(brand\/(handout|decks)|guides)\//.test(f) && !liteChunks.includes(f));
+const cached = files.filter((f) => !/^(brand\/(handout|decks|share)|guides)\//.test(f) && !liteChunks.includes(f));
 // (The fonts' Greek and extended-Latin subsets are drawn only where a word needs them, and the browser fetches one by its unicode-range
 // at that moment. A first visit's install does not fetch them with the rest: they are cached once the page is quiet (the page asks,
 // 'pps:fill'), or when first used, so a person who never meets one never downloads it, and the install does not compete with the first
@@ -273,7 +285,8 @@ const SCOPE = 'pps@' + new URL(self.registration.scope).pathname + '@';
 const CACHE = SCOPE + '${version}';
 const FILES = ${JSON.stringify(['./', ...install])};
 const LATER = ${JSON.stringify(later)};
-self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting())); });
+// Installed file by file, each asked again on a failed answer (pull, below): one bad response used to fail the whole install (addAll), silently, and the page kept the old worker.
+self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => Promise.all(FILES.map(async (f) => { const res = await pull(new Request(f)); if (res.status !== 200) throw new Error('install: ' + f + ' ' + res.status); await c.put(f, res); }))).then(() => self.skipWaiting())); });
 // The page asks for the rest once it has been left alone (src/ui/main.js): the fonts' other subsets, for offline use.
 // ('pps:files': a page that sees a new worker take over asks which files it holds, to tell an update that changed its own files from one it already has.)
 self.addEventListener('message', (e) => { if (e.data === 'pps:files' && e.ports[0]) e.ports[0].postMessage(FILES); else if (e.data === 'pps:fill') e.waitUntil(caches.open(CACHE).then(async (c) => { for (const f of LATER) if (!(await c.match(f))) await c.add(f); }).catch(() => {})); });
@@ -281,17 +294,20 @@ self.addEventListener('message', (e) => { if (e.data === 'pps:files' && e.ports[
 // its own hashed files (the server has only the new ones), so it can start a presentation; any older cache goes.
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => { const prev = ks.filter((k) => k !== CACHE && k.startsWith(SCOPE)).at(-1); return Promise.all(ks.filter((k) => k !== CACHE && k !== prev && (k.startsWith(SCOPE) || k.startsWith('pps-'))).map((k) => caches.delete(k))); }).then(() => self.clients.claim())); });
 // (A response is stored under waitUntil, so the worker is kept alive until the write ends; a storage failure is swallowed, the response is still served.)
-const keep = (e, req, res) => { if (res.status === 200) { const copy = res.clone(); e.waitUntil(caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {})); } };
+// A page is kept under './' only, in this copy's own cache: five deep links, ?preset= addresses or ?r= stale-recovery reloads leave one page entry, not five, and an offline start
+// opens this copy's current page, never another copy's or an older release's (the cache API's global match answers from any cache on the origin, oldest first).
+const keep = (e, req, res) => { if (res.status === 200) { const copy = res.clone(); e.waitUntil(caches.open(CACHE).then((c) => c.put(req.mode === 'navigate' ? './' : req, copy)).catch(() => {})); } };
+const mine = (req) => caches.open(CACHE).then((c) => c.match(req));
 // A hashed file the page's fresh HTML names can be missing for a moment right after a deploy (an edge of the host still on the old site, or a 404 it
 // remembered): the page would then stop with "Could not load main-HASH.js". So a failed fetch of one is asked again, up to three more times, bypassing the HTTP cache.
 const pull = async (req) => { let res; for (let i = 0; i < 4; i++) { try { res = await fetch(i ? req.url : req, i ? { cache: 'reload' } : undefined); if (res.status < 400) return res; } catch (err) { if (i === 3) throw err; } await new Promise((r) => setTimeout(r, 400 * 2 ** i)); } return res; };
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
-  if (new URL(req.url).pathname.includes('/assets/')) { e.respondWith(caches.match(req).then((hit) => hit || pull(req).then((res) => { keep(e, req, res); return res; }))); return; }
+  if (new URL(req.url).pathname.includes('/assets/')) { e.respondWith(mine(req).then((hit) => hit || pull(req).then((res) => { keep(e, req, res); return res; }))); return; }
   const fresh = req.mode === 'navigate' ? fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }) : fetch(req, { cache: 'no-cache' });
   e.respondWith(fresh.then((res) => { keep(e, req, res); return res; })
-    .catch(() => caches.match(req).then((hit) => hit || (req.mode === 'navigate' ? caches.match('./') : Response.error()))));
+    .catch(() => mine(req.mode === 'navigate' ? './' : req).then((hit) => hit || Response.error())));
 });
 `);
 

@@ -1,0 +1,617 @@
+/* ── The thumb dock (15 Oct) ───────────────────────────────────────
+   A phone, or a tablet held upright, in Patients (class .thumb, main.js): the top bar keeps two corner chips,
+   the patient on the left and the Colored-by key on the right. Treat, Tests, History, Layers and Settings sit in a tab
+   row at the foot of the dock, under the play bar, in reach of a thumb. The cards and menus open above the dock,
+   so the tab row, HVPG and PPG never move or hide. Pinch zooms; only Fit stays of the zoom buttons. */
+.thumb-bar { display: none; }
+.app.thumb .thumb-bar { grid-area: nb; display: flex; align-items: stretch; gap: 2px; padding: 3px 6px 4px; border-top: 1px solid var(--hairline); }
+.app.thumb .vdock:not(.mini) { grid-template-areas: "st st" "tl ro" "nb nb"; }
+.nb-tab { position: relative; flex: 1 1 0; min-width: 0; height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 0; border: 0; border-radius: calc(var(--r-sheet) - 6px); background: none; color: var(--text-2); font: 600 var(--fs-12)/1 var(--font-ui); cursor: pointer; transition: scale var(--d-flip) var(--ease); -webkit-tap-highlight-color: transparent; }
+.nb-tab > :is(svg, .ic) { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; } .nb-tab > .ic { -webkit-mask-image: url("../brand/icons/icons-r.png"); mask-image: url("../brand/icons/icons-r.png"); background-color: currentColor; }
+.nb-l { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.25; }   /* (a line as tall as the letters: line-height 1 clipped the descenders of y and g) */
+@media (hover: hover) { .nb-tab:hover { color: var(--text); } }
+.nb-tab:is([aria-pressed="true"], [aria-expanded="true"]) { color: var(--text); background: var(--surface-2); }
+.nb-tab:is([aria-pressed="true"], [aria-expanded="true"]) > svg { stroke: var(--accent); } .nb-tab:is([aria-pressed="true"], [aria-expanded="true"]) > .ic { background-color: var(--accent); }
+.nb-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* What moved to the tab row leaves the top bar and the play bar. */
+.app.thumb :is(.top-right, #btnBlood, #btnLobuleLayers, .tl-hist, #zoomIn, #zoomOut) { display: none !important; }
+.app.thumb .topbar .tb-id { flex: 0 1 auto; min-width: 0; }
+.app.thumb .topbar .stage-bar.top { flex: 1 1 auto; order: 0; justify-content: flex-end; }
+.app.thumb .topbar .sb-left { display: none; }
+/* The view switch (Circuit, Anatomy, Lobule, Sinusoid) is its own pill, centred a little above the play bar, on every screen
+   (16 Oct, Mohammad: "detached from the timeline button slightly above it as a pill and centered"; main.js syncThumb moves it
+   there). The selected view sits in a soft inner pill. On an upright phone or tablet an open card or menu covers it as it
+   covers the play row, and it comes back with them. The sinusoid view keeps the bar and the pill. While presenting the switch
+   stays in the top bar. */
+.nb-views { display: none; }
+.app:not(.presenting) .vdock:not(.mini) > .nb-views { display: flex; position: absolute; left: 0; right: 0; width: max-content; max-width: calc(100vw - 16px); margin: 0 auto; padding: 6px; border-radius: 21px; isolation: isolate; }
+/* The pill's face: its glass, on a box of its own behind the buttons, so it can grow and shrink about its centre as buttons come
+   and go (pill-motion.js) while the buttons keep their places. (A full pill, 42 px tall; only a 1 px contact shade, so the 8 px
+   gap and the bar's edge keep the canvas's colour.) */
+.nb-views > .vp-face { position: absolute; z-index: -1; top: 0; bottom: 0; left: 50%; width: 100%; translate: -50% 0; border-radius: inherit; background: var(--glass); box-shadow: 0 0 1px rgb(var(--night-rgb) / .04), inset 0 0 0 1px var(--hairline); pointer-events: none; }
+.app:not(.presenting) .vdock:not(.mini) > .nb-views { bottom: calc(100% + 8px); }   /* (8 px above the play bar) */
+.nb-views #viewSeg { position: relative; display: flex; gap: 2px; min-width: 0; height: auto; padding: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.nb-views #viewSeg button { position: relative; flex: 0 0 auto; min-width: 0; min-height: 0; height: 30px; padding: 0 14px; border-radius: 15px; font-size: var(--fs-14); font-weight: 600; letter-spacing: 0; white-space: nowrap; }
+/* (The painted pill is 30 px; the touch reaches 7 px past it above and below, 44 px in all, unseen.) */
+.nb-views #viewSeg button::after { content: ""; position: absolute; inset: -7px 0; }
+.nb-views #viewSeg button[aria-pressed="true"] { background: color-mix(in srgb, var(--text) 9%, transparent); box-shadow: none; color: var(--text); }
+/* (The gliding piece, seg-glide.js, wears this look: a 30 px pill tinted with the text colour. While the pill folds it travels on the fold's clock, below.) */
+.nb-views #viewSeg.seg-glide::before { background: color-mix(in srgb, var(--text) 9%, transparent); box-shadow: none; border-radius: 15px; }
+@media (forced-colors: none) { .nb-views #viewSeg.seg-glide button[aria-pressed="true"] { background: transparent; } }
+@media (max-width: 359px) { .nb-views #viewSeg button { padding: 0 10px; font-size: var(--fs-12); } }   /* (the full 14 px pill is 340 px wide with four buttons, so it fits from 360 up) */
+@media (max-width: 299px) { .nb-views #viewSeg button { padding: 0 6px; } }   /* (Safari's page zoom lays a 390 phone out 260 wide: the pill is 245 px, not 278) */
+/* A phone: the cards (Tests, Treat, Details) and the menus sit above the dock, inset like it, round on every corner. */
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
+  .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)) {
+    left: calc(env(safe-area-inset-left) + 6px) !important; right: calc(env(safe-area-inset-right) + 6px) !important; bottom: var(--nb-occ, calc(var(--vdock-h) + 14px)) !important;
+    border-radius: var(--r-sheet) !important; padding-bottom: 0; max-height: calc(100% - var(--top-safe) - var(--nb-occ, var(--vdock-h)) - 22px);
+  }
+  .app.thumb .instrument-workspace .dock-pane { padding-bottom: 16px; }
+  /* No grabber on the top edge (15 Oct, Mohammad: it covered the titles and the Tests tabs): a drag from anywhere on the
+     card moves it, up to Full and down to Half or closed. The button stays for the keyboard (Half/Full), seen only on focus,
+     and never takes a touch, so the head under it gets the tap or the drag. */
+  .app.thumb :is(.panel-grab, .sheet-grab) { pointer-events: none; }
+  html.thumb-ui .menu.as-sheet { box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); left: calc(env(safe-area-inset-left) + 6px) !important; right: calc(env(safe-area-inset-right) + 6px); --thumb-bot: max(var(--thumb-occ, 0px), calc(env(safe-area-inset-bottom, 0px) + 6px)); bottom: var(--thumb-bot); max-height: calc(100dvh - var(--thumb-bot) - max(72px, var(--thumb-top, 0px) + 8px)); padding-bottom: 10px; border-radius: var(--r-sheet); }
+  /* (16 Nov 2026) The Layers sheet and the Colored-by sheet change the figure, so they stop at under half the screen: the camera frames the figure in the strip above
+     them (util.js popover `safe`), each toggle shows, and the rows scroll. The rule is tied to --thumb-top and --thumb-bot as the sheet's own cap is. */
+  /* (Layers stops under half the screen on purpose: its rows change the figure, which stays in view in the strip above it as each is toggled; tests/layers-sheet*.test.js. A tester asked for it to take the room on 18 Nov 2026; the figure strip is the rule.) */
+  html.thumb-ui .menu.as-sheet.layers-pop { max-height: min(48dvh, calc(100dvh - var(--thumb-bot) - max(72px, var(--thumb-top, 0px) + 8px))); }
+  html.thumb-ui .why-pop.as-sheet { box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); left: calc(env(safe-area-inset-left) + 6px); right: calc(env(safe-area-inset-right) + 6px); --thumb-bot: max(var(--thumb-occ, 0px), calc(env(safe-area-inset-bottom, 0px) + 6px)); bottom: var(--thumb-bot); max-height: calc(100dvh - var(--thumb-bot) - max(72px, var(--thumb-top, 0px) + 8px)); padding-bottom: 14px; border-radius: var(--r-sheet); }
+}
+/* Fit and the circuit's turn upright live in the Layers tab's menu (15 Oct, option 2), so nothing floats over the figure
+   above the dock, the sinusoid view included, which keeps the dock (2 Nov): its view pill goes back out to the lobule. */
+.app.thumb .zoom-pill { display: none !important; }
+/* (The sinusoid view: the zoom group stands upright at the bottom right on every screen, as on a Mac, so the centred view pill
+   has the bottom row to itself, even on a 320 px phone.) */
+#app.sin-focus .zoom-pill { flex-direction: column; }
+/* One card or menu at a time above the thumb dock, each a solid piece that comes and goes whole: it rises a little
+   out of the dock as it fades in and sinks back as it fades out, never sliding across the dock, and one opened while
+   another is still going out rises over it as it sinks (.sw-in, util.js switchIn; menu recs C4, 13 Nov 2026). */
+/* (15 Oct, Mohammad) Every card and sheet sits on the tab row's top edge, covering the play bar, and rises out from
+   behind the tab row and sinks back behind it, Tests included: it slides by its own height while the part below its
+   resting bottom edge is clipped (clip-path is in the card's own moved coordinates, so the cut stays on that edge). */
+/* (The cut is the tab row's top line, 8 px under the card's resting edge, and only across the card's own width: its shadow
+   falls whole into the gap and beside the tab row, with no seam.) */
+/* The slide and the cut are one value, --sink, so they always move together: iOS runs an animated transform on its own
+   layer, ahead of a clip-path animated beside it, and the card showed over the tab row while it closed (15 Oct). */
+@property --sink { syntax: '<length-percentage>'; inherits: false; initial-value: 0px; }
+/* (1 Nov 2026, move everything to GPU) A card with a plate (sheet-move.js: Details, Treat, Tests) slides its whole height under its still
+   cut, below. One without (a vessel's card, the Doppler and the other floating tools before their plate) rises a short way from behind
+   the opaque tab row as it fades in, by translate and opacity alone: the eased --sink moved its clip-path with it, a repaint every
+   frame. The drag still moves --sink under the finger. */
+@keyframes thumbIn { from { opacity: 0; translate: 0 var(--thumb-rise, 24px); } }
+@keyframes thumbOut { to { opacity: 0; translate: 0 var(--thumb-rise, 24px); } }
+/* (Only a menu that opens from the dock, class from-dock (util.js popover), rises and sinks this way: the Colored-by menu
+   from the top bar of an upright iPad had slid up from under its spot, its card cut away but its shadow showing, 17 Oct.) */
+.app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui) { translate: var(--occ-x, 0px) var(--sink, 0px); }   /* (--occ-x: the glide aside for the card to its right, app-07-floating.css) */
+.app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)) { clip-path: polygon(-40px -40px, calc(100% + 40px) -40px, calc(100% + 40px) calc(100% + 40px), 100% calc(100% + 40px), 100% calc(100% - var(--sink, 0px) + 8px + var(--r-sheet)), calc(100% - var(--r-sheet) * .134) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .5), calc(100% - var(--r-sheet) * .5) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .134), calc(100% - var(--r-sheet)) calc(100% - var(--sink, 0px) + 8px), var(--r-sheet) calc(100% - var(--sink, 0px) + 8px), calc(var(--r-sheet) * .5) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .134), calc(var(--r-sheet) * .134) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .5), 0 calc(100% - var(--sink, 0px) + 8px + var(--r-sheet)), 0 calc(100% + 40px), -40px calc(100% + 40px)); }
+/* (A menu is drawn above the whole app, the tab row included, and sits on the tab row's top edge like the cards: its cut runs
+   across its whole shadow on that line, so it casts nothing on the tab row beside it either; a phone's sheet too.) */
+/* The Settings menu ends above the bottom bar: its shadow is cut at the bar's top (util.js clipBar writes only --bar-clip). */
+.menu.app-menu { clip-path: inset(-64px -64px var(--bar-clip, -64px) -64px); }
+/* (4 Nov) A menu sheet (Settings, Why?, Layers, History, Blood) rises from behind the dock and sinks back behind it: the slide is its own, the cut on the
+   dock's top line is the sheet layer's (.sheet-layer above), so no move of it, a pull, a let-go, a flick, its entrance or its exit, carries a cut of its own. */
+@keyframes dock-sheet-in { from { opacity: var(--edge-o, 1); transform: translateY(calc(100% + 8px)); } }
+@keyframes dock-sheet-out { to { opacity: var(--edge-o, 1); transform: translateY(calc(100% + 8px)); } }
+/* (16 Nov 2026) The menu sheets' entrance and exit (Settings, Why?, Layers, History, Blood, the main menu) are no CSS animation: sheet-ride.js writes them in the page's frames, so their glass goes with them; with Reduce Motion it fades (120 ms over the dock). */
+.app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui) { --card-out: thumbOut; }
+@media (prefers-reduced-motion: no-preference) {
+  #app.thumb.panel-open .panel, #app.thumb .treat-card, #app.thumb .instrument-workspace.float-ui.entering { animation: thumbIn var(--d-small) var(--ease) backwards; }
+  /* (A menu is drawn above the tab row, so it never rises across it: it settles in where it rests, by opacity; a menu sheet, as-sheet, slides like the cards, below.) */
+  html.thumb-ui .menu.from-dock:not(.as-sheet) { animation: scale-settle var(--d-small) var(--ease) backwards; }
+  html.thumb-ui .menu.from-dock:not(.as-sheet).leaving { animation: scale-settle-out var(--d-small) var(--ease-in) forwards; }
+  /* A sheet moved by its content (has-plate, sheet-move.js) rises and sinks the same way, but by its content's translate alone under
+     its still clip: no --sink is eased frame by frame on the main thread. The box holds (sheet-hold) so its leave still ends on it. */
+  #app.thumb.panel-open .panel.has-plate, #app.thumb .treat-card.has-plate, #app.thumb .instrument-workspace.float-ui.entering.has-plate { animation: none; }
+  #app.thumb.panel-open .panel.has-plate > :not(.tc-page), #app.thumb .treat-card.has-plate > :not(.tc-page), #app.thumb .instrument-workspace.float-ui.entering.has-plate > :not(.tc-page) { animation: sheet-rise var(--d-small) var(--ease) backwards; }
+  #app.thumb :is(#panel, #treatCard, #historyCard, #dock).has-plate.card-leaving { --card-out: sheet-hold; animation-duration: var(--d-small) !important; }
+  #app.thumb :is(#panel, #treatCard, #historyCard, #dock).has-plate.card-leaving > * { animation: sheet-sink var(--d-small) var(--ease-in) forwards; }
+  /* (13 Nov 2026, menu recs C4) A switch (Treat to Tests, Layers to Settings, a vessel's card to Details) is one motion: the one coming in
+     rises over the one going out while that one sinks behind the dock, each on its own 240 ms slide. Nothing crossfades, so two sheets of
+     different heights never show two tops at once (the W4 crossfade did), and the spot is never empty: the new top passes the old one. */
+  #app.thumb .has-plate.sw-in { z-index: calc(var(--z-panel) + 2); }
+  html.thumb-ui .menu.as-sheet.sw-in { z-index: calc(var(--z-popover) + 1); }
+}
+@keyframes sheet-rise { from { translate: 0px calc(var(--sheet-size, 60vh) + 8px); } }
+@keyframes sheet-sink { to { translate: 0px calc(var(--sheet-size, 60vh) + 8px); } }
+@keyframes sheet-hold { to { opacity: 1; } }
+/* (15 Oct, Mohammad) No card may ever be drawn over the tab row, at any moment (open, close, drag, switch). So the
+   whole thumb dock is stacked above every card, and its play-bar half steps out of the way instead: the dock's glass
+   lives on its own layer (::before) and fades, with the play bar and readouts, while a card or menu is up, so the card
+   shows in their place; the tab row has its own opaque face and stays on top throughout. */
+.app.thumb .vdock:not(.mini) { z-index: calc(var(--z-panel) + 20); background: transparent; box-shadow: none; }
+.app.thumb .vdock:not(.mini)::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--glass); box-shadow: var(--shadow-pill); pointer-events: none; transition: opacity var(--d-small) var(--ease) .1s; }
+.app.thumb .vdock:not(.mini) .thumb-bar { position: relative; isolation: isolate; border-top: 0; padding-top: 4px; border-radius: var(--r-sheet); background: linear-gradient(var(--glass), var(--glass)), var(--stage-bg); box-shadow: inset 0 0 0 1px var(--hairline); }
+/* (The tab row's two looks, closed (square top, a top hairline, sitting on the play bar) and open (round all over, lifted by a shadow,
+   with a card on it), are layers crossfaded by their opacity alone: the row itself is the open shape, always opaque; ::before puts
+   back the closed square top (its corners and hairlines), ::after carries the open shadow. No radius, shadow or border is eased.) */
+.app.thumb .vdock:not(.mini) .thumb-bar::before { content: ""; position: absolute; z-index: -1; left: 0; right: 0; top: 0; height: var(--r-sheet); background: linear-gradient(var(--glass), var(--glass)), var(--stage-bg); box-shadow: inset 0 1px 0 var(--hairline), inset 1px 0 0 var(--hairline), inset -1px 0 0 var(--hairline); pointer-events: none; transition: opacity var(--d-small) var(--ease) .1s; }
+/* (13 Nov 2026, Mohammad: "Not everything is one glass / How about timeline menu?") Once the GPU draws the dock's glass ([data-gl]) the dock is that one
+   glass and nothing more: the 92 % layer under the play bar and the tab row's own opaque face are taken off (a menu or card never passes under the
+   dock: the sheet layer and the cards are cut on its top line, sheet-layer.js), and the tab row keeps one hairline over it. Without the GPU, as before. */
+.app.thumb .vdock:not(.mini)[data-gl]::before { background: none; box-shadow: none; }
+.app.thumb .vdock:not(.mini)[data-gl] .thumb-bar { background: none; box-shadow: none; }
+.app.thumb .vdock:not(.mini)[data-gl] .thumb-bar::before { background: none; box-shadow: inset 0 1px 0 var(--hairline); }
+.app.thumb .vdock:not(.mini) .thumb-bar::after { content: ""; position: absolute; z-index: -1; inset: 0; border-radius: inherit; box-shadow: var(--shadow-2); opacity: 0; pointer-events: none; transition: opacity var(--d-small) var(--ease) .1s; }
+.app.thumb .vdock:not(.mini) > :not(.thumb-bar) { transition: opacity var(--d-small) var(--ease) .1s, translate var(--d-small) var(--ease) .1s; }
+/* (17 Oct, Mohammad: the timeline appearing as a card slides down should be smoother.) The play bar, the views pill and the
+   dock's glass come back only once the card has mostly sunk behind the tab row (its exit is .18 s, eased fast-out, so it is
+   about nine tenths gone at .1 s), then fade in over .24 s while the bar rises 6 px into place, so it never draws over the
+   moving card. They step aside fast and at once when a card rises (the rules below), as the card covers them. */
+/* (Below the tab row, down to the screen's edge, is part of it too: a card sliding away is gone once it passes the tab row's top.) */
+/* (No flat band under the tab row: a card is cut at the tab row's top line, 8 px under its resting foot, so nothing of it
+   is ever drawn lower, and the figure shows under the dock. The cut follows the tab row's rounded top corners and leaves
+   the sides open, so the card's shadow falls past those corners like any other shadow, with no straight edge or square
+   corner in it; a menu, drawn above the whole app, still casts nothing on the tab row itself.) */
+/* (The dock's parts are named, not "> :not(.thumb-bar)": a :has() rule whose last part names nothing restyled the whole app
+   (3,500 elements) on every node a model tick wrote anywhere in it, 30–60% of the CPU while a slide sat still.) */
+/* (13 Nov 2026: the patient menu's sheet (menu-sheet-open) and the Search sheet put the pill away too; it had shown through the patient menu's foot.)
+   (4 Nov, Mohammad) The dock is never covered: the play bar, the timeline, the readouts and the tab row stay up and live, and every card
+   and menu rests 8 px above the dock's top (--sheet-foot). Only the view pill, which floats in that slot, steps aside. It comes back
+   a beat late (.3 s), so between two cards, while one has gone and the next is yet to rise, it does not blink in and out.) */
+.app.thumb:is(.dock-open, .panel-open, .menu-sheet-open) .vdock:not(.mini) > .nb-views, .app.thumb:has(#treatCard:not([hidden])) .vdock:not(.mini) > .nb-views, html.thumb-ui:has(.sheet-layer > .menu, .sheet-layer > .why-pop.as-sheet.show, body > .pal-back:not([hidden])) .app.thumb .vdock:not(.mini) > .nb-views { opacity: 0; pointer-events: none; translate: 0 var(--bar-sink, 0px); transition: none; }   /* (13 Nov 2026: gone at once. The pill lies above the sheets, in the dock, so a fade let its words show over a sheet already rising past it; the sheet's top passes it in its first few frames) */
+.app.thumb .vdock:not(.mini) > .nb-views { transition: opacity var(--d-small) var(--ease) .3s, translate var(--d-small) var(--ease) .3s; }
+/* (Open, the tab row's top hairline is its edge ring on the outer edge, as on a card: its own top border goes, with 1 px more padding, so no fill shows above the line.) */
+@media (prefers-reduced-motion: no-preference) { .app.thumb .vdock:not(.mini) { --bar-sink: 6px; } }   /* (the rise; with reduced motion the bar only fades) */
+
+/* While a card covers the play bar, the bar's empty top row must not catch taps meant for the card's bottom edge (the Doppler's stent tiles sit there): only the tab row takes touches. */
+
+/* (13 Nov 2026, B) A vessel's or organ's card on a phone stands above the view switch (which stays up and live), 12 px from each side:
+   8 px over the pill, which floats 42 px over the dock's top edge. It rises 24 px from where it stands and sinks back 16 px, and a pull down
+   puts it away (card.js) behind the dock, cut at the dock's top edge as the other sheets are. It stays out of the way while Details is up. */
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
+  .app.thumb:not(.dock-open) .action-card.docked {
+    bottom: calc(var(--nb-occ, calc(var(--vdock-h) + 14px)) + 50px);
+    clip-path: polygon(-40px -40px, calc(100% + 40px) -40px, calc(100% + 40px) calc(100% + 40px), 100% calc(100% + 40px), 100% calc(100% + 0px + var(--r-sheet)), calc(100% - var(--r-sheet) * .134) calc(100% + 0px + var(--r-sheet) * .5), calc(100% - var(--r-sheet) * .5) calc(100% + 0px + var(--r-sheet) * .134), calc(100% - var(--r-sheet)) calc(100% + 0px), var(--r-sheet) calc(100% + 0px), calc(var(--r-sheet) * .5) calc(100% + 0px + var(--r-sheet) * .134), calc(var(--r-sheet) * .134) calc(100% + 0px + var(--r-sheet) * .5), 0 calc(100% + 0px + var(--r-sheet)), 0 calc(100% + 40px), -40px calc(100% + 40px));   /* (18 Nov 2026, the tester at 390 px: a card pulled down slid under the view-switch pill with its Stenosis row and slider track showing behind and beside it. The cut is the card's own foot, where its glass is cut too (main.js sheetGlass cut), not the dock's top edge 50 px lower: words, paper and glass go behind the foot together.) */
+  }
+  .app.thumb:not(.dock-open) .action-card.docked { --ac-max: calc(100% - var(--nb-occ, calc(var(--vdock-h) + 14px)) - 50px - var(--top-safe, 56px) - 56px); }   /* (the room between the case pill and the view switch) */
+  .app.thumb.panel-open .action-card.docked { visibility: hidden; transition: visibility 0s linear var(--d-small); }
+}
+
+/* (17 Oct, Mohammad) An upright iPad has the iPhone's bottom bar and cards, "scaled down proportionally, similar to how much we
+   scaled down the teaching cards on ipad": the bar, the cards over it and the menu sheets take the deck cards' 70 % of the width,
+   centred. Heights: "proportional to the ipad proportions vertically ... and not fill the whole screen ever": a card's Full
+   stops at 62 % of the screen (main.js sheetBehaviour: Half 45 %, an iPhone's share), the figure in view above it. */
+@media (min-width: 700px) and (max-width: 1100px) and (orientation: portrait) {
+  .app.thumb .vdock:not(.mini) { left: 15%; right: 15%; }
+  .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)) { left: 15% !important; right: 15% !important; max-height: min(62%, calc(100% - var(--top-safe) - var(--nb-occ, var(--vdock-h)) - 22px)); }
+  .app.thumb:not(.dock-open) .action-card.docked { left: 15% !important; right: 15%; }
+  .app.thumb.dock-open:not(.instrument-focus) .action-card.docked { left: 15% !important; right: 15%; }   /* (over the Tests card: the same 70 %, not the whole width) */
+  html.thumb-ui .umenu.sheet { left: 15% !important; right: 15%; height: min(62dvh, var(--menu-h, 62dvh)); }   /* (the library menu: the tablet's 70 % and its 62 % Full, as the other menus) */
+  html.thumb-ui .menu.as-sheet { left: 15% !important; right: 15%; max-height: min(62dvh, calc(100dvh - var(--thumb-bot, var(--thumb-occ, 0px)) - max(72px, var(--thumb-top, 0px) + 8px))); }
+  html.thumb-ui .menu.as-sheet .tl-pop.tl-history { max-height: calc(62dvh - 24px); }   /* (History's list scrolls under its head, as on the phone) */
+  html:not(.thumb-ui) .menu.as-sheet { left: 15% !important; right: 15%; max-height: 62dvh; }   /* (a talk has no thumb dock, and Settings there is the same 70 % and 62 % as every other sheet on the iPad) */
+  .why-pop.as-sheet { left: 15%; right: 15%; max-height: min(62dvh, calc(100dvh - var(--thumb-bot, var(--thumb-occ, 0px)) - max(72px, var(--thumb-top, 0px) + 8px))); }   /* (Why?: the same 70 % and 62 % as the other sheets) */
+}
+
+/* ── History beside Treat and Tests (15 Oct) ───────────────────────
+   History left the play bar: on a Mac, an iPad held sideways and a phone held sideways it is a top-bar button
+   beside Treat and Tests (its card opens in Treat's place on the right); upright, it is a tab in the thumb dock. */
+.vdock .tl-hist { display: none !important; }
+.tb-act .tb-hc:empty { display: none; }
+.topbar:not([data-fit="2"], [data-fit="3"]) .tb-act .tb-hc:empty { display: inline-block; visibility: hidden; }   /* (it keeps its room: the badge appearing after the first edit widened History and tipped the bar to its icon-only step, R2-1, 17 Nov) */
+.tb-act .tb-hc { min-width: 18px; height: 18px; margin-left: -2px; padding: 0 5px; border-radius: 999px; background: var(--surface-3); color: var(--text-2); font: 600 var(--fs-12)/18px var(--font-ui); text-align: center; font-variant-numeric: tabular-nums; }
+.topbar[data-fit="2"] .tb-act .tb-hc, .topbar[data-fit="3"] .tb-act .tb-hc { display: none; }
+.history-card .tl-pop.tl-history { width: auto; max-height: none; overflow: visible; padding: 2px 0 6px; }
+
+/* Settings › "Frosted glass" off (html[data-noglass]): no live blur anywhere, which spares the GPU re-blurring the
+   moving figure every frame. Cards and the figure's label pills turn solid instead. */
+:root[data-noglass] *, :root[data-noglass] *::before, :root[data-noglass] *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+:root[data-noglass] :is(.sv-legend, .pz-fk, .pz .pz-fk.pz-fk, .toast) { background: var(--surface); }
+:root[data-noglass] :is(.pz-shade, .pz-shade.pz-card, .pz-shade.stack, .pz-data.pz-data, .pz-case, .pz-bar, .pz.stack .pz-bar, .pz-scales, .cl-glass) { --gl-glass: 0; background: var(--surface); }
+/* (The upright split sheet's two glass pieces: its own fill is none, the pieces carry the glass, so they turn solid with the rest.) */
+/* (The split sheet is its two pseudo-element cards, solid here; its own box is no third card behind them: with the blur off it showed as a second rounded panel round the tiles and the instrument card, Mohammad, 3 Nov 2026.) */
+:root[data-noglass] .pz-data.pz-data.pz-sheet.pz-sheet { background: none; }
+@media (prefers-reduced-transparency: reduce) { .pz-data.pz-data.pz-sheet.pz-sheet { background: none; } }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-data.pz-data.pz-sheet.pz-sheet { background: none; } }
+:root[data-noglass] .pz.stack.stack .pz-data.pz-sheet::before, :root[data-noglass] .pz.stack.stack .pz-data.pz-sheet::after { background: var(--surface); }
+:root[data-noglass] .pz.pz-wide.pz-wide .pz-data.pz-sheet::before, :root[data-noglass] .pz.pz-wide.pz-wide .pz-data.pz-sheet::after { background: var(--surface); }
+/* No browser blur anywhere (Mohammad, 1 Nov 2026: "Move everything to GPU"; no backdrop-filter is declared in this file at all). A glass the figure's GPU draws ([data-gl]) keeps its frost; any other glass, and a GPU glass whenever the figure's canvas cannot take it
+   (the lobule, a dive, a fade, a label across it), shows the solid look of Settings › Blur effect off instead of the browser's backdrop blur, so
+   nothing over the moving figure is re-blurred by the browser on any frame. The teaching card's shade keeps a layer of its own the whole time,
+   never made and dropped as its glass changes hands (the iPhone lost its outline, tabs and credit on that swap, 1 Nov). */
+:root:root :is(.sv-legend, .pz-fk, .pz .pz-fk.pz-fk, .toast):not([data-gl]) { background: var(--surface); }
+:root:root :is(.pz-shade, .pz-shade.pz-card, .pz-shade.stack, .pz-data.pz-data, .pz-case, .pz-bar, .pz.stack .pz-bar, .pz-scales, .cl-glass):not([data-gl]) { background: var(--surface); }
+:root:root .pz.stack.stack .pz-data.pz-sheet:not([data-gl])::before, :root:root .pz.stack.stack .pz-data.pz-sheet:not([data-gl])::after { background: var(--surface); }
+:root:root .pz.pz-wide.pz-wide .pz-data.pz-sheet:not([data-gl])::before, :root:root .pz.pz-wide.pz-wide .pz-data.pz-sheet:not([data-gl])::after { background: var(--surface); }
+:root:root .pz-shade { will-change: transform; }
+/* Every glass's edge is the one glass's, drawn with it on the GPU (--glass-edge, glass-gl.js): the page's own border and box-shadow are taken off
+   while the GPU draws it ([data-gl="edge"]), so the glass and its edge are one shape that can change size in view (2 Nov 2026, the slide motion recs),
+   and every glass has the same edge (13 Nov 2026, "No types"). The dialog's and the palette's veils round them stay the page's. */
+:root:root [data-gl="edge"]:not(.pal, .modal) { box-shadow: none !important; border-color: transparent !important; }
+/* The figure key: a small pill, its name with the colour scale under it (no "None" or "Large" words; a key of named swatches keeps its names). */
+.pz-fk.grad, .pz-fk.grad.col { flex-direction: column; align-items: center; gap: .2em; padding: .28em 14px .34em; font-size: max(12px, calc(var(--s-cap) * .78)); }   /* (the 12 px floor: a key's words had read 11 px, and 10 here) */
+.pz-fk.grad .pz-lens-bar { width: 4em; height: .5em; }
+/* A wider screen's colour key (Mac, iPad, a phone held sideways) sits right on top of the nav pill at the lower right: right-aligned with it,
+   a small gap above it, the pill's own glass and corners (Mohammad, 15 Oct). Its own width; it moves with the pill. */
+.pz:not(.stack) .pz-fk { left: auto; top: auto; right: var(--pz-cm); bottom: calc(max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)) + 44px + 8px); translate: none; border-radius: var(--r-sheet); }   /* (its glass, edge and shadow: the base rule's, the nav pill's own) */
+/* A phone's colour key sits at the words' bottom-left corner, on the nav pill's row (figure-key.js fades it in once the cards have landed). */
+.pz.stack .pz-fk { left: 21px; top: auto; bottom: calc(26px + var(--pz-sb)); translate: none; z-index: 1; }
+/* On the nav pill's row the key is the pill's twin: the same 38 px height, bottom and centre line, its corners, its words centred,
+   one line or two (Mohammad, 17 Oct: a two-line key stood taller and higher than the pill). A key with more than fits that height
+   takes its own row above (presenter.js fitKey). */
+.pz.stack:not(.fk-up) .pz-fk { bottom: calc(21px + var(--pz-sb)); min-height: 38px; padding-block: 0; align-content: center; justify-content: center; line-height: 1.2; border-radius: var(--r-sheet); }
+.pz.stack.tab .pz-fk { left: calc(15% + 13px); }
+/* (An upright tablet's pill stands 29 px up, 13 px inside the card's foot, so its key, the pill's twin, stands level with it: at the phone's 21 px it
+   sat 8 px below the pill and 5 px from the card's edge, against it (iPad portrait, Varices 4, 1 Nov). Kept on its own row above the pill, it rises with it.) */
+.pz.stack.tab:not(.fk-up) .pz-fk { bottom: calc(29px + var(--pz-sb)); }
+.pz.stack.tab.fk-up .pz-fk { bottom: calc(73px + var(--pz-sb)); }
+/* Too wide for the room beside the nav pill: its own row just above the pill's row, never under it (presenter.js fitKey), one line where
+   it fits, else wrapped to the card's width (never shrunk: shrunk, its words had gone under 12 px). */
+.pz.stack.fk-up .pz-fk { bottom: calc(65px + var(--pz-sb)); }
+/* A phone held sideways: a key too long for the room beside the teaching card wraps there, its name over its swatches (presenter.js lowKey). */
+.pz.low.fk-side .pz-fk:not(.grad) { bottom: calc(max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)) + 44px + 4px); max-width: var(--pz-fk-room, 280px); flex-wrap: wrap; row-gap: 0; column-gap: .55em; padding-block: .22em .26em; }
+.pz.low.fk-side .pz-fk:not(.grad) .pz-lens-items { flex-wrap: wrap; row-gap: 0; column-gap: .45em; flex-basis: 100%; }
+.pz.stack.fk-up.fk-wrap .pz-fk:not(.grad) { max-width: var(--pz-fk-room, 280px); flex-wrap: wrap; row-gap: .1em; column-gap: .55em; padding-block: .3em .34em; }
+/* Two lines beside the pill: as tall as its row, bottoms level (presenter.js fitKey). */
+.pz.stack.fk-two .pz-fk:not(.grad) { max-width: var(--pz-fk-room, 200px); flex-wrap: wrap; row-gap: .1em; column-gap: .55em; }   /* (its height, bottom and corners: the pill's, above) */
+.pz.stack:is(.fk-up, .fk-two) .pz-pillclr { margin-bottom: calc((var(--pz-reach-box, 37px) + var(--pz-fkrow, 0px)) / var(--pz-fit, 1)); }
+
+/* ── Tests card on a phone (15 Oct, Mohammad) ─────────────────────
+   The scope fills the card's width (its height the room left), the band button sits right under it, and the five
+   readings stand compact under the button, three and two. The X goes from every dock card: a pull down closes it. */
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
+  #app.thumb .card-close { display: none !important; }
+  #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(110px, 1fr) auto auto; gap: 10px; }
+  #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-stage { grid-column: 1; grid-row: 1; }
+  #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-stage > .chart-box.square { width: min(100cqw, max(100cqh - 24px, var(--stage-min))); }
+  #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .chart-side > .btn { grid-row: 2; grid-column: 1; }
+  #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .chart-side > .ctl-sub { display: none; }
+  #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read { grid-column: 1; grid-row: 3; display: flex; flex-wrap: nowrap; gap: 5px; }
+  #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div { flex: 1 1 0; min-width: 0; min-height: 52px; padding: 6px 7px; gap: 2px; border-radius: var(--r-control); }
+  #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) :is(.endo-grade span, .endo-more) { left: 7px; right: 7px; }
+  #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div::after { height: 10px; }
+  #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) :is(.endo-grade span, .endo-more) { bottom: 5px; }
+  #app.thumb .endo-stage { --stage-min: 110px; justify-content: flex-end; }
+  /* (A phone's five readings: three and two where the pane is under 450 px, the card's own grid, so each is wide enough for its 12 px words and a number a person can read; five in a row left the values 8 to 12 px and the captions 6 to 9.) */
+  @container tpane (max-width: 449px) {
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div { grid-column: span 2; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > :nth-child(n + 4) { grid-column: span 3; }
+  }
+  /* Wall mechanics: the cross-section the card's width (its height the room left), the stress tile and the four tiles in one row
+     under it; the note under them only at Full. */
+  #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(110px, 1fr) auto auto; gap: 10px; }
+  #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stage { grid-column: 1; grid-row: 1; }
+  #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stage > .chart-box.square { width: min(100cqw, max(100cqh - 24px, var(--stage-min))); }
+  /* (A 320 px phone's Full card: the picture takes the 2 px the equation's row leaves spare, so "muscle" keeps its room in the ring.) */
+  @media (max-width: 340px) { #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stage > .chart-box.square { width: min(100cqw, max(100cqh - 22px, var(--stage-min))); } }
+  #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-read { grid-column: 1; grid-row: 2; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-read > div { padding: 7px 8px 6px; }
+  #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .chart-side > .ctl-sub { grid-row: 3; text-align: center; }
+  #app.thumb .instrument-workspace.sheet-half .dock-pane[data-pane="endoscopy"] > .wall-view .chart-side > .ctl-sub { display: none; }
+  /* A short card (Half on a small phone, or with Safari's toolbar showing): the picture on the left, the tiles two by two on its
+     right, so every tile stays in view without scrolling; the caption keeps just the equation. */
+  @container tpane (max-height: 330px) and (min-width: 280px) {
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view { grid-template-columns: minmax(0, 1fr) minmax(0, 62%); grid-template-rows: minmax(0, 1fr); gap: 8px 10px; }   /* (one row: the empty second row's 8 px gap made a 664 px phone's Half card scroll by 6 px) */
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stage { --stage-min: 90px; grid-row: 1; justify-content: center; }
+    /* (16 px taller than wide, upward into the column's spare room: the T and the ΔP arrow over the varix take that room, not
+       the picture's size, and the ring and the equation under it keep their places) */
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stage > .chart-box.square { width: min(100cqw, max(100cqh - 24px, var(--stage-min))); aspect-ratio: auto; height: min(max(100cqh - 24px, var(--stage-min)), min(100cqw, max(100cqh - 24px, var(--stage-min))) + 16px); margin-top: -16px; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .wall-cap { display: none; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-read { grid-column: 2; grid-row: 1; grid-template-columns: repeat(2, minmax(0, 1fr)); align-self: center; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .chart-side > .ctl-sub { display: none; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-read { gap: 5px; }
+  }
+  /* A very short card (Half on a 320 x 568 or smaller phone, 200 px or less): no room for the picture beside two rows of tall
+     tiles, so the readings alone, compact (the ladder cards' precedent, a667e9f): the wall stress down the left, ΔP, r, w and
+     the index two by two beside it, each value with its unit on one line; the picture is back at Full. */
+  @container tpane (max-height: 200px) {
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; align-content: center; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stage { display: none; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-read { grid-column: 1; grid-row: 1; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); grid-auto-rows: auto; align-self: center; gap: 4px; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-read > .endo-stress { grid-column: 1; grid-row: 1 / span 2; justify-content: center; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-read > div { padding: 4px 7px 3px; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-tile .endo-num { flex-direction: row; align-items: baseline; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-tile .endo-num small:empty { display: none; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-tile .endo-num small { margin-left: 3px; }
+  }
+  /* HVPG: the monitor the card's full width, the readings over it with Measure HVPG at their right (15 Oct, always in view); the steps and words under
+     the monitor only at Full. */
+  #app.thumb [data-pane="hvpg"] > .hvpg-bar { order: 0; flex: none; flex-wrap: nowrap; gap: 10px; }
+  #app.thumb [data-pane="hvpg"] .hvpg-kv { order: 0; flex: 1 1 auto; min-width: 0; gap: 12px; }
+  #app.thumb [data-pane="hvpg"] > .hvpg-box, #app.thumb [data-pane="hvpg"] .hvpg-ir .hvpg-box { --cv-w: 100cqw; --cv-h: 100cqh; order: 1; width: auto; max-width: none; aspect-ratio: auto; flex: 1 1 0 !important; min-height: 130px !important; max-height: none; margin-inline: -10px; }
+  #app.thumb [data-pane="hvpg"] .hvpg-bar > .btn { order: 1; margin-left: auto; min-height: 36px; padding-inline: 12px; }
+  #app.thumb [data-pane="hvpg"] > .chart-side { order: 3; }
+  #app.thumb .instrument-workspace.sheet-half [data-pane="hvpg"] > .chart-side { display: none; }
+  /* Doppler: the reading, the flow's direction and the waveform's name in the monitor's top strip, as on a slide's data card
+     (doppler.js reads --dop-ov); the gauge and the tiles under the monitor. */
+  #app.thumb .instrument-view.dop .dop-main { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto auto auto; row-gap: 0; }
+  #app.thumb .instrument-view.dop .dop-box { --dop-ov: 1; grid-area: 1 / 1 / 3 / 2; min-height: 130px !important; }
+  #app.thumb .instrument-view.dop .dop-report { grid-area: 1 / 1 / 6 / 2; display: grid; grid-template-rows: subgrid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; column-gap: calc(.6em * var(--dop-k, 1)); margin-inline: -10px; padding: 0 12px 0 12px; min-width: 0; }
+  /* (what the report lays over the monitor, and the gauge's hanging words, never run past the card's width; the clip stands 10 px out on
+     each side, where the monitor and the report reach (margin-inline: -10px): clipped at the content's edge, the monitor lost 10 px each side,
+     its scale's 100 and "cm/s" cut on the right and its words hard against the left, and the rightmost tile's number (CI), reaching past the
+     clip, was not drawn at all (gl-words draws only words that fit whole). Mohammad's iPhone, 13 Nov 2026.) */
+  #app.thumb .instrument-view.dop .dop-main { overflow-x: clip; margin-inline: -10px; padding-inline: 10px; }
+  #app.thumb .instrument-view.dop .dop-velrow { display: contents; }
+  #app.thumb .instrument-view.dop :is(.dop-vel, .dop-dir, .dop-pattern) { grid-row: 1; align-self: start; position: relative; z-index: 1; padding-top: 8px; margin: 0; white-space: nowrap; pointer-events: none; color: var(--white); text-shadow: 0 0 2px var(--black), 0 0 3px var(--black); }
+  #app.thumb .instrument-view.dop .dop-vel { grid-column: 1; }
+  #app.thumb .instrument-view.dop .dop-dir { grid-column: 2; font-size: max(12px, calc(var(--fs-14) * var(--dop-k, 1))); gap: calc(.45em * var(--dop-k, 1)); padding-top: calc(8px + .3em); }
+  #app.thumb .instrument-view.dop .dop-dir:is([data-sev="danger"], [data-sev="critical"]) { color: color-mix(in srgb, var(--danger) 70%, var(--white)); }
+  #app.thumb .instrument-view.dop .dop-pattern { grid-column: 3; justify-self: start; font-size: max(12px, calc(var(--fs-14) * var(--dop-k, 1))); padding-top: calc(8px + .3em); color: rgb(var(--white-rgb) / .8); }
+  #app.thumb .instrument-view.dop .dop-pattern::before { content: '·'; margin-right: .45em; color: rgb(var(--white-rgb) / .6); }
+  #app.thumb .instrument-view.dop .dop-vel b { font-size: calc(var(--fs-20) * var(--dop-k, 1)); color: var(--white); }
+  #app.thumb .instrument-view.dop .dop-vel small { font-size: max(12px, calc(var(--fs-12) * var(--dop-k, 1))); color: rgb(var(--white-rgb) / .6); }
+  #app.thumb .instrument-view.dop .dop-range { grid-row: 3; grid-column: 1 / -1; margin: 8px -2px 0 -2px; }
+  /* (A short phone's half sheet has no room for the range bar under the monitor's 130 px floor: it ran over the monitor's bottom
+     labels on a 375 x 667 phone. It goes, as the note does at Half; the tiles keep the readings, and Full shows it.) */
+  @media (max-height: 700px) { #app.thumb .instrument-workspace.sheet-half .instrument-view.dop .dop-range { display: none; } }
+  #app.thumb .instrument-view.dop .dop-stats { grid-row: 4; grid-column: 1 / -1; margin: 8px -2px 0 -2px; }
+  /* The one-line reading of the pattern is under the tiles only at Full (it is dropped at Half to keep the monitor's room). */
+  #app.thumb .instrument-view.dop .dop-note { display: none; grid-row: 5; grid-column: 1 / -1; margin: 8px -2px 0; font-size: var(--fs-14); color: var(--text-2); }
+  #app.thumb .instrument-workspace:not(.sheet-half) .instrument-view.dop .dop-report > .dop-note:not(:empty) { display: block; }   /* (it fades in with a pull to Full, dock-sheet.js) */
+}
+/* (Tests card on a phone) the neighbouring tab's pane, shown beside the open one while a sideways drag pages between them. */
+.dock-pane.swipe-peer { display: flex; flex-direction: column; gap: 16px; animation: none; }
+.dock-body:has(.swipe-peer) .dock-pane.active { animation: none; }
+.instrument-workspace .dock-body:has(.swipe-peer) > :is(.dock-pane.active, .swipe-peer) { grid-area: 1 / 1; }
+
+/* ── Tests card on a laptop or tablet (the card at the side) ─────────────────────────────────────────────
+   Fitted to its content: Doppler, the scope view and Readouts join Ascites, HVPG and FibroScan (dock.js fitHeight
+   sets .nat on the view while it measures). The pictures then take their own size: the spectrum its 1.6 shape, the
+   scope's circle the card's width (at most 560 px); a window too short for that keeps the full card as before. */
+.instrument-workspace.float-ui .dock-pane > .instrument-view.nat .dop-main { flex: none; }
+/* (the scope view fitted is always one column: picture, tiles, button; its pane is no longer tall enough for the aspect test that picks it) */
+.instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view.nat:not(.wall-view) { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto; gap: 14px; }
+.instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view.nat:not(.wall-view) .endo-stage { grid-column: 1; grid-row: 1; }
+.instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view.nat:not(.wall-view) .endo-read { grid-column: 1; grid-row: 2; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view.nat:not(.wall-view) .endo-read > div { grid-column: span 2; }
+.instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view.nat:not(.wall-view) .endo-read > :nth-child(n + 4) { grid-column: span 3; }
+.instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view.nat:not(.wall-view) .chart-side > .btn { grid-row: 3; }
+@container tpane (min-width: 450px) {
+  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view.nat:not(.wall-view) .endo-read { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view.nat:not(.wall-view) .endo-read > :is(div, :nth-child(n + 4)) { grid-column: span 1; }
+}
+.instrument-workspace.float-ui .dock-pane > .instrument-view.nat .endo-stage { container-type: inline-size; min-height: 0; }
+.instrument-workspace.float-ui .dock-pane > .instrument-view.nat .endo-stage > .chart-box.square { width: min(100cqw, 560px); }
+/* Doppler: the reading, the flow's direction and the waveform's name in the monitor's top strip, as on a slide's data card
+   and the phone's Tests card (doppler.js reads --dop-ov); under the monitor the normal range, the tiles and the one-line note. */
+#app .instrument-workspace.side .instrument-view.dop .dop-main { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto auto; row-gap: 0; gap: 0; }
+#app .instrument-workspace.side .instrument-view.dop .dop-box { --dop-ov: 1; grid-area: 1 / 1 / 2 / 2; }
+/* (The monitor's size-contained box counts as empty when the grid sizes its rows, so where the card is too short to fit its content
+   (a phone held sideways) the rows gave it only its 100 px floor and the range bar and the tiles were laid over its lower half.
+   Its rows now hold its real height, the card's width at the 1.6 shape; the card scrolls to the tiles.) */
+#app .instrument-workspace.side .instrument-view.dop .dop-box { aspect-ratio: auto; align-self: stretch; min-height: 160px; --cv-w: 100cqw; --cv-h: 100cqh; --cv-l: 0px; --cv-t: 0px; }   /* (13 Nov 2026: the spectrum fills the card's height above the figures, not the 1.6 shape with a gap under it) */
+#app .instrument-workspace.side .instrument-view.dop .dop-report { grid-area: 1 / 1 / 4 / 2; display: grid; grid-template-rows: subgrid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; column-gap: calc(.6em * var(--dop-k, 1)); row-gap: 0; margin: 0; padding: 0 12px 0 12px; min-width: 0; }
+#app .instrument-workspace.side .instrument-view.dop .dop-velrow { display: contents; }
+#app .instrument-workspace.side .instrument-view.dop :is(.dop-vel, .dop-dir, .dop-pattern) { grid-row: 1; align-self: start; position: relative; z-index: 1; padding-top: 8px; margin: 0; white-space: nowrap; pointer-events: none; color: var(--white); text-shadow: 0 0 2px var(--black), 0 0 3px var(--black); }
+#app .instrument-workspace.side .instrument-view.dop .dop-vel { grid-column: 1; }
+#app .instrument-workspace.side .instrument-view.dop .dop-dir { grid-column: 2; font-size: max(12px, calc(var(--fs-14) * var(--dop-k, 1))); gap: calc(.45em * var(--dop-k, 1)); padding-top: calc(8px + .3em); }
+#app .instrument-workspace.side .instrument-view.dop .dop-dir:is([data-sev="danger"], [data-sev="critical"]) { color: color-mix(in srgb, var(--danger) 70%, var(--white)); }
+#app .instrument-workspace.side .instrument-view.dop .dop-pattern { grid-column: 3; justify-self: start; font-size: max(12px, calc(var(--fs-14) * var(--dop-k, 1))); padding-top: calc(8px + .3em); color: rgb(var(--white-rgb) / .8); }
+#app .instrument-workspace.side .instrument-view.dop .dop-pattern::before { content: '·'; margin-right: .45em; color: rgb(var(--white-rgb) / .6); }
+#app .instrument-workspace.side .instrument-view.dop .dop-vel b { font-size: calc(var(--fs-20) * var(--dop-k, 1)); color: var(--white); }
+#app .instrument-workspace.side .instrument-view.dop .dop-vel small { font-size: max(12px, calc(var(--fs-12) * var(--dop-k, 1))); color: rgb(var(--white-rgb) / .6); }
+#app .instrument-workspace.side .instrument-view.dop .dop-stats { grid-row: 2; grid-column: 1 / -1; margin: 10px -12px 0 -12px; }
+#app .instrument-workspace.side .instrument-view.dop .dop-note { grid-row: 3; grid-column: 1 / -1; margin: 12px -12px 0 -12px; font-size: var(--fs-14); color: var(--text-2); }
+#app .instrument-workspace.side .instrument-view.dop .dop-note:empty { display: none; }
+/* A phone held sideways: little height, width to spare. The monitor and its strip on the left, at the 1.6 shape fitted to the card's
+   visible height (--dop-mw, read by the children against .dop-main, a size container; the canvas sits top left in its box), the range bar and the stent's tiles in a column beside it: everything
+   shows at once, nothing over the monitor, no scrolling. */
+@media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+  #app .instrument-workspace.side .dock-pane > .instrument-view.dop { display: flex; flex-direction: column; min-height: 0; }
+  #app .instrument-workspace.side .instrument-view.dop .dop-main { --dop-side: 124px; --dop-mw: min(calc(100cqw - var(--dop-side) - 12px), calc(100cqh * 1.6)); container-type: size; flex: 1 1 0 !important; min-height: 0; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  #app .instrument-workspace.side .instrument-view.dop .dop-box { grid-area: 1 / 1 / 3 / 2; justify-self: start; width: var(--dop-mw); --cv-l: 0px; --cv-t: 0px; aspect-ratio: auto; min-height: 0 !important; max-height: none !important; height: auto !important; }
+  /* (the report spans both: the strip's words over the monitor, the range bar and tiles in its last column, 12 px clear of the monitor) */
+  #app .instrument-workspace.side .instrument-view.dop .dop-report { grid-area: 1 / 1 / 3 / 3; grid-template-columns: auto auto minmax(0, 1fr) calc(100cqw - var(--dop-mw)); column-gap: 0; padding: 0 0 0 12px; }
+  #app .instrument-workspace.side .instrument-view.dop .dop-report :is(.dop-dir, .dop-pattern) { margin-left: calc(.6em * var(--dop-k, 1)); }
+  #app .instrument-workspace.side .instrument-view.dop .dop-range { grid-area: 1 / 4; align-self: start; margin: 0 0 0 12px; }
+  #app .instrument-workspace.side .instrument-view.dop .dop-stats { grid-area: 2 / 4; align-self: start; margin: 8px 0 0 12px; display: flex; flex-direction: column; gap: 4px; }
+  #app .instrument-workspace.side .instrument-view.dop .dop-stats dt { font-size: 12px; }
+  #app .instrument-workspace.side .instrument-view.dop .dop-stats { gap: 3px; }
+  #app .instrument-workspace.side .instrument-view.dop .dop-stats > div:not([hidden]) { flex: none; display: flex; flex-direction: row; align-items: baseline; justify-content: space-between; gap: 6px; padding: 2px 8px; }
+  /* (An iPhone SE on its side leaves the monitor under 100 px: the range bar goes, as on a short phone's half sheet, and the tiles keep
+     the readings in slimmer rows.) */
+  @media (max-height: 340px) {
+    #app .instrument-workspace.side .instrument-view.dop .dop-range { display: none; }
+    #app .instrument-workspace.side .instrument-view.dop .dop-stats { grid-row: 1 / 3; margin-top: 0; gap: 2px; }
+    #app .instrument-workspace.side .instrument-view.dop .dop-stats > div:not([hidden]) { padding: 1px 8px; }
+    #app .instrument-workspace.side .instrument-view.dop .dop-stats dd { font-size: 14px; }
+  }
+  #app .instrument-workspace.side .instrument-view.dop .dop-note { display: none; }
+  /* (the range's numbers in the narrow column as one line, "90–190 cm/s", right-aligned: placed under the band they ran into each other) */
+  #app .instrument-workspace.side .instrument-view.dop .dop-ticks { position: static; container-type: normal; display: flex; justify-content: flex-end; height: auto; margin-top: 4px; font-size: var(--fs-12); line-height: 1.3; }
+  #app .instrument-workspace.side .instrument-view.dop .dop-ticks > span { position: static; transform: none !important; translate: none !important; }
+  #app .instrument-workspace.side .instrument-view.dop .dop-ticks > .dop-g-zero { display: none; }
+  #app .instrument-workspace.side .instrument-view.dop .dop-ticks > .dop-g-lo::after { content: '–'; }
+  #app .instrument-workspace.side .instrument-view.dop .dop-ticks > span::after { position: static; }
+}
+
+/* ── Tests card tiles: one style on every tab, the Readouts tiles': the name in sentence case over the value, both left
+   aligned, on the same flat tile. (A highlighted tile keeps its own edge: Doppler's chosen stent third, the stigmata.) */
+.instrument-workspace .dop-stats > div:not([hidden]) { padding: 6px 8px 5px; border-radius: var(--r-control); justify-content: flex-start; gap: 1px; }
+.instrument-workspace .dop-stats dt,
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read dt { font: 500 var(--fs-12)/1.4 var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--text-2); text-align: left; }
+.instrument-workspace .dop-stats dd { font: 600 var(--fs-20)/1.25 var(--font-ui); letter-spacing: -.015em; }
+.instrument-workspace .dop-stats dd small { font-size: var(--fs-12); font-weight: 500; letter-spacing: 0; color: var(--text-3); }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div { align-items: flex-start; justify-content: flex-start; text-align: left; gap: 1px; padding: 8px 10px 7px; border-radius: var(--r-control); }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) :is(.endo-read dd, .endo-chip-v, .endo-grade) { text-align: left; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) :is(.endo-num, .endo-chip-v, .endo-grade b, .endo-grade b:empty + span) { font: 600 min(var(--fs-20), 21cqi)/1.25 var(--font-ui); letter-spacing: -.015em; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) :is(.endo-grade span, .endo-more) { left: 10px; right: 10px; bottom: 7px; text-align: left; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-grade b:empty + span { font-size: min(var(--fs-20), 21cqi); }
+.instrument-workspace .ab-tile dt { color: var(--text-2); }
+
+/* Readouts: three tiles to a row (each group is three, so the groups line up), with the short names (MAP, RA pressure)
+   where a third of the card is narrow; two to a row on a phone. */
+.rp-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@container (max-width: 519px) { .rp-tiles .metric .k .k-l { display: none; } .rp-tiles .metric .k .k-s { display: inline; } }
+@container (max-width: 399px) { .rp-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .rp-tiles .metric .k .k-l { display: inline; } .rp-tiles .metric .k .k-s { display: none; } }
+/* Two columns and an odd group (three pressures, three flows, the fifth vital): the last tile takes the whole row instead of leaving a hole beside it. */
+@container (max-width: 399px) { .rp-tiles .metric:last-child:nth-child(odd) { grid-column: 1 / -1; } }
+
+/* Ascites: serum albumin's stepper is the drain's (− value +), a little wider for its unit. */
+.ab-dp-vol.ab-sa { width: 132px; flex: none; }
+
+/* ── The slim play line (15 Oct, option 2) ───────────────────────────
+   One row: play, speed, the clock and jump at the left, the two key readings at the right as plain numbers, with no bars
+   and no rating words (Tests > Readouts has the rest). On an upright phone or tablet it sits on the tab row; on a Mac or
+   an iPad held sideways it is the whole bar. The colour of a number still says normal, raised or high. */
+.app.thumb .vdock .stage-bar.bottom { height: 48px; min-height: 48px; }
+.app.thumb .vdock .readouts:not(.all) .ro-group { padding: 0 2px; justify-content: center; }
+.app.thumb .vdock .readouts:not(.all) .metric { flex-direction: row; flex-wrap: nowrap; align-items: baseline; justify-content: flex-end; gap: 0 5px; padding: 0 6px; }
+.app.thumb .vdock .readouts:not(.all) .metric :is(.rb, .s, .tr) { display: none; }
+.app.thumb .vdock .readouts:not(.all) .metric .k { flex: 0 1 auto; min-width: 0; }
+.app.thumb .vdock .readouts:not(.all) .metric .v { flex: none; font-size: var(--fs-20); }
+.app.thumb .vdock .readouts:not(.all) .metric .v .unit { display: none; }
+.app.thumb .vdock .readouts:not(.all) .ro-group + .ro-group::before { display: none; }
+.app.thumb .vdock .readouts { border-left: 0; }
+.app.thumb .vdock .readouts:not(.all) { width: auto; container-type: normal; }   /* (sized by its two numbers) */
+.app.thumb .vdock .readouts:not(.all) :is(.ro-tiles, .metric) { flex: none; }
+.app.thumb .vdock .readouts:not(.all) .metric { width: max-content; }
+.app.thumb .vdock .readouts:not(.all) .metric .k { flex: none; overflow: visible; }
+.app.thumb .vdock .timeline .tl-jumps { margin-left: 0; }
+/* A phone: the clock keeps only its own width (not the Mac's 64 px column), so the lobule's two readings fit whole. */
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
+  .app.thumb .vdock .timeline .tl-time { min-width: 5ch; margin-left: 6px; }   /* (five tabular figures, "10:00": the clock's width holds as 9:59 turns to 10:00, so the fast-forward button and the readings beside it never step) */
+  .app.thumb .vdock .readouts:not(.all) { padding-right: 6px; }
+  .app.thumb .vdock .readouts:not(.all) .ro-tiles { column-gap: 2px; }   /* (a number stays 8 px from the next tile's flash; sweep 01 #17) */
+}
+/* A narrow phone (iPhone SE, 375 px and less): a little less room around the numbers so both fit. */
+@media (max-width: 380px) {
+  .app.thumb .vdock .timeline { gap: 4px; }
+  .app.thumb .vdock .readouts:not(.all) .metric { padding: 0 3px; gap: 0 4px; }
+  .app.thumb .vdock .readouts:not(.all) .ro-tiles { column-gap: 5px; }
+  .app.thumb .vdock .readouts:not(.all) .metric .v { font-size: 18px; }
+}
+/* The smallest phones (320 px): the play row a step tighter. */
+@media (max-width: 359px) {
+  .app.thumb .vdock .timeline { gap: 2px; }
+  .app.thumb .vdock .timeline .tl-time { margin-left: 5px; margin-right: -1px; }   /* (the jump icon has room of its own inside its button; 3 px went to the readings' gap) */
+  .app.thumb .vdock .readouts:not(.all) .ro-group { padding: 0; }
+  .app.thumb .vdock .timeline .tl-ff { width: 30px; }
+  .app.thumb .vdock .readouts:not(.all) .metric { padding: 0 1px; gap: 0 2px; }
+  .app.thumb .vdock .readouts:not(.all) .metric .v { font-size: 16px; }
+}
+/* The compact form, each name over its number, only where name and number cannot sit side by side at 12 px: Explore below
+   360 px, and the lobule up to 400 px, whose flows reach three digits ("Portal in 106"). (16 Oct: beside them the lobule's
+   "Portal in 105" ran past a 360 px bar, and a 320 px phone's names were 10 px.) It keeps the bar's one slim row. */
+@media (max-width: 359px) {
+  .app.thumb .vdock .readouts:not(.all) .metric { flex-direction: column; align-items: flex-start; justify-content: center; padding: 0 3px; gap: 0; }
+  .app.thumb .vdock .readouts:not(.all) .metric .k { font-size: var(--fs-12); line-height: 14px; letter-spacing: 0; }
+  .app.thumb .vdock .readouts:not(.all) .metric .v { line-height: 18px; }
+}
+@media (min-width: 360px) and (max-width: 400px) {
+  .app.thumb .vdock .readouts.lob:not(.all) .metric { flex-direction: column; align-items: flex-start; justify-content: center; gap: 0; }
+  .app.thumb .vdock .readouts.lob:not(.all) .metric .k { font-size: var(--fs-12); line-height: 14px; letter-spacing: 0; }
+  .app.thumb .vdock .readouts.lob:not(.all) .metric .v { line-height: 20px; }
+  .app.thumb .vdock .readouts.lob:not(.all) .metric { position: relative; top: 1px; }   /* (centred on play by the letters' ink) */
+}
+/* The readings share the room right of the play row evenly (16 Oct: it had piled up past the last reading, and the tiles
+   crowded each other): the gap before the first, between them and after the last is the same, measured from the jump
+   icon's ink (its button has room of its own, so the row starts under the button's spare edge; only the tiles take taps). */
+.app.thumb .vdock:not(.mini) { grid-template-columns: auto minmax(0, 1fr); }
+.app.thumb .vdock .readouts:not(.all) { padding-right: 0; }
+.app.thumb .vdock .readouts:not(.all) :is(.ro-row, .ro-group, .ro-tiles) { flex: 1 1 auto; min-width: 0; padding-left: 0; padding-right: 0; }
+.app.thumb .vdock .readouts:not(.all) .ro-tiles { justify-content: space-evenly; margin: 0 -3px 0 -12px; pointer-events: none; }   /* (-3px: a name's last letter has a little room of its own) */
+.app.thumb .vdock .readouts:not(.all) .metric { pointer-events: auto; }
+/* A phone held sideways: the same, the play row packed by play and the readings spread evenly over the rest (16 Oct: a 145 px
+   empty run sat between the clock and the jump button, and more past the last reading). */
+@media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+  .vdock:not(.mini) { grid-template-columns: auto minmax(0, 1fr); }
+  .vdock:not(.mini) .timeline .tl-jumps { margin-left: 0; }
+  .vdock:not(.mini) .readouts:not(.all) { width: auto; }
+  .vdock:not(.mini) .readouts:not(.all) :is(.ro-row, .ro-group, .ro-tiles) { flex: 1 1 auto; min-width: 0; padding-left: 0; padding-right: 0; }
+  .vdock:not(.mini) .readouts:not(.all) .ro-tiles { justify-content: space-evenly; margin-right: -3px; }
+  .vdock:not(.mini) .readouts:not(.all) .metric.primary { flex: none; width: max-content; }
+}
+.app:not(.presenting) .vdock .readouts:not(.all) .metric .val { display: inline-block; min-width: var(--vr, 0px); text-align: left; font-variant-numeric: tabular-nums; }   /* (room for the tile's usual reading, set per tile in dock.js, so a reading keeps its width as it changes; the spare room falls after the value) */
+@media (min-width: 1000px), (orientation: landscape) and (max-height: 500px) {   /* (a Mac, where the unit shows: the room is kept after "mmHg" instead, so the unit stays beside its value) */
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric:is([data-id="hvpg"], [data-id="ppg"]) .val { min-width: var(--vr, 0px); text-align: right; }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric:is([data-id="hvpg"], [data-id="ppg"]) .v { display: inline-block; }   /* (3 Nov 2026, "it's hidden then appears and jumbles around": the value's box is the same wide whether it shows a dash, "4.5" or "16.5", flush to its right, so the unit never moves) */
+}
+@media (min-width: 1000px), (orientation: landscape) and (max-height: 500px) {   /* (a Mac from 1024 px, an iPad held sideways) */
+  .app:not(.thumb):not(.presenting) .vdock { width: max-content; max-width: calc(100% - 2 * var(--gap)); }
+  .app:not(.thumb):not(.presenting):not(.dock-open) .vdock { left: 50%; right: auto; transform: translateX(-50%); }   /* (centred as on the iPad, where a phone on its side had it left-aligned) */
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) :is(.ro-tiles, .metric) { flex: none; }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric { width: max-content; }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric :is(.k, .v) { flex: none; overflow: visible; }
+  .app:not(.thumb):not(.presenting) .vdock .tl-pin span { display: inline; }
+  .app:not(.thumb):not(.presenting) .vdock .tl-pin { width: auto; height: 34px; padding: 0 10px; gap: 6px; margin-left: 4px; border: 1px solid var(--border); color: var(--text); font-weight: 600; }
+  .app:not(.thumb):not(.presenting) .vdock .tl-pin[aria-pressed="true"] { background: var(--text); color: var(--stage-bg); border-color: transparent; --hv-bg: var(--text); --hv-bd: transparent; }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric :is(.v, .unit) { overflow: visible; }
+  .app:not(.thumb):not(.presenting) .vdock .stage-bar.bottom { height: 52px; min-height: 52px; padding-right: 12px; }   /* (Compare ends 12 px before the divider, the gap between the bar's other controls: it was 4, sweep 16 Oct) */
+  .app:not(.thumb):not(.presenting) .vdock .timeline .tl-jumps { margin-left: 0; }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) { width: auto; padding: 0 0 0 6px; container-type: normal; }   /* (no right padding: the last reading's own room keeps it as far from the bar's end as play is from its start) */
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .ro-group { padding: 0 2px; justify-content: center; flex: none; }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric { flex: none; flex-direction: row; align-items: baseline; gap: 0 6px; padding: 4px 10px; }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric :is(.rb, .s, .tr) { display: none; }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .ro-tiles { gap: 6px; }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric .k { font-weight: 600; }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric .v { font-size: var(--fs-20); }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .ro-group + .ro-group::before { display: none; }
+}
+/* A figure label under the open menu is hidden while it is open (main.js labelsUnderMenu): no sliver beside the menu's edge.
+   It fades out with the menu and back after it (.16 s), rather than blinking (motion review P9). */
+#labels .lb.under-menu { opacity: 0; pointer-events: none; transition-duration: var(--d-flip); }
+/* A disabled button with words reads clearly (sweep batches 02–03: "No fluid" white on pale blue at 1.9:1, "Band a column" at
+   2.5:1, the small "A" at 1.7:1): flat, on the quiet surface, its words in the third ink (at least 4.5:1 on it in every theme),
+   never faded. Only its look says it is off: no fill colour, no shadow, the not-allowed cursor. */
+:is(.btn, .ac-btn, .ac-toggle, .drug, .order-chip, .order-btn, .ab-drain):disabled { opacity: 1; background: var(--surface-2); border-color: var(--border); color: var(--text-3); box-shadow: none; }
+:is(.btn, .ac-btn, .ac-toggle, .drug, .order-chip, .order-btn, .ab-drain):disabled :is(svg, .ic) { opacity: .8; }
+
+/* The colour key in the top bar is never squeezed (16 Oct): its scale keeps its width, and so its numbers, on every phone,
+   upright or sideways; the patient's name gives way instead (its short form, on up to two 12 px lines). */
+.lg-scale { flex: none; }
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
+  /* (The bar is not a size container here, so it is as wide as its key: a container is zero wide until it is given room.) */
+  .app.thumb .topbar { flex-wrap: nowrap; }
+  .app.thumb .topbar .stage-bar.top { container-type: normal; }
+  /* (Both give way, down to what they need: the name its longest word, the key its caption and a 48 px scale with its end numbers.) */
+  .app.thumb .topbar :is(.stage-bar.top, .sb-right, .lens-btn, .legend) { flex: 0 1 auto; min-width: min-content; overflow: visible; }
+  .app.thumb .topbar .lg-scale { flex: none; width: clamp(48px, calc(100vw - 302px), 88px); }   /* (88 px from a 390 px phone up, 48 at 320: an empty box adds only its width to the bar's size, so it is set by the screen) */
+  .app.thumb .topbar .legend { gap: 13px; }   /* (9 px between the caption and the first number, which hangs past the scale's end by half its width) */
+  .app.thumb .topbar .tb-id { flex: 0 1 auto; min-width: min-content; margin-right: auto; }
+  /* The name's room is the most the widest key (Velocity, 216 px at 390) leaves it, whichever key shows, so a long name wraps the same
+     on every lens ("Decomp. cirrhosis" jumped between one line and two as the key changed width). The key's scale is the clamp above. */
+  .app.thumb .topbar .tb-id { max-width: calc(100% - 136px - clamp(48px, calc(100vw - 302px), 88px)); }
+  .topbar .lg-cats:not(.lg-dots) { display: grid; gap: 1px 0; line-height: 1.25; }   /* (Physiological over Reversed) */
+}
+/* A phone held sideways: the key keeps its whole width too, so the bar's fit (main.js) sees what it needs and compacts or takes two rows. */
+@media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+  #app:not(.thumb) .topbar :is(.sb-right, .lens-btn, .legend) { min-width: min-content; }
+  #app:not(.thumb) .topbar .lg-scale { min-width: 48px; }
+}
+@media (max-width: 359px) {
+  .app.thumb .topbar .legend { gap: 9px; }   /* (the narrowest phones: 5 px between the caption and the first number) */
+}
+
+/* Reduce Motion (P3): the same keyframes without the movement, so every entrance and exit still fades. (A @keyframes in a
+   matching media query replaces the one of the same name above.) Loops that only move stop; spinners breathe instead. */
+/* Reduce Motion, the small moves inside controls (item 22 of docs/recommendations/animation-and-transitions.md): a switch's thumb, a chevron, a
+   fill or a band that only follows a state or a value is set at once; an opacity that goes with it stays (a fade stands in for a move, motion.js).
+   The zoom pill and the view bar keep their fade and lose their slide. (-moz-range-thumb is alone: one pseudo the browser does not know drops a whole list.) */
+@media (prefers-reduced-motion: reduce) {
+  .section > summary .chev, .switch span::after, .ac-toggle .switch-vis i, .ab-tg .switch-vis i, .ab-dp-alb .switch-vis i, .menu-btn .chev, .workspace-divider span, .scan-probe .sp-svg,
+  .ab-belly-fill, .ab-iap-fill, .dop-band, .dop-band-caps > i, .dop-mark, .dop-ticks > span, .stage-clock { transition: none; }
+  .stage-fit, .stage-rotate { transition-property: opacity; }   /* (they fade as the float UI does, never pop: 15 Nov 2026) */
+  input[type=range]::-webkit-slider-thumb { transition: none; }
+  input[type=range]::-moz-range-thumb { transition: none; }
+  .zoom-pill, .app.figure-focus .zoom-pill, .zoom-pill .ib:not(.stage-rotate):not(:disabled) { transition-property: opacity; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @keyframes fade-rise { from { opacity: 0; } }
+  @keyframes fade-rise-b { from { opacity: 0; } }
+  @keyframes fade-rise-out { to { opacity: 0; } }
+  @keyframes slide-from-edge { from { opacity: 0; } }
+  @keyframes slide-to-edge { to { opacity: 0; } }
+  @keyframes scale-settle { from { opacity: 0; } }
+  @keyframes scale-settle-out { to { opacity: 0; } }
+  @keyframes thumbIn { from { opacity: 0; } }
+  @keyframes thumbOut { to { opacity: 0; } }
+  @keyframes sheet-rise { from { opacity: 0; } }
+  @keyframes sheet-sink { to { opacity: 0; } }
+  @keyframes dock-sheet-in { from { opacity: 0; } } @keyframes dock-sheet-out { to { opacity: 0; } }
+  @keyframes spin { 50% { opacity: .35; } }
+  @keyframes pz-spin { 50% { opacity: .35; } }
+  @keyframes pzw-drift { }
+  @keyframes pzw-rise { 0%, 100% { opacity: 0; } 25%, 75% { opacity: 1; } }
+  @keyframes sp-tap { }
+  @keyframes sp-tap2 { }
+  @keyframes shimmer { }
+}
+
+html.thumb-ui :where(.tl-split .ib.play, .tl-ff, .lens-btn, .card-close, .pal-x, .sheet-head .ib, .um-x, .um-link) { position: relative; }   /* (play-test C6, 16 Nov 2026: a phone's controls are 44 px to touch: the ones painted smaller keep their look and take an invisible 44 px box centred on them, by the layout and not the pointer; the speed chip and the pin keep their own, their ::after and border being taken) */
+html.thumb-ui :is(.tl-split .ib.play, .tl-ff, .lens-btn, .card-close, .pal-x, .sheet-head .ib, .um-x, .um-link)::after { content: ''; position: absolute; inset: auto; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); translate: -50% -50%; background: none; border: 0; }
+html.thumb-ui #labels .lb-pick { stroke: transparent; stroke-width: 24px; stroke-linejoin: round; }   /* (a label the GPU draws: a transparent stroke on its pointer rect reaches 12 px past it all round; the rect's size, which the label solver and the credit read, is the same) */

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { liveZoomShare } from '../src/ui/lobule-live.js';
+import { lobuleSource } from './split-src.js';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
@@ -20,7 +21,7 @@ test('the cap is sharp enough for every zoom at which the bitmap still shows, an
 });
 
 test('the bitmap is capped only once the shader has fully eased in', () => {
-  const lz = src('src/ui/lobule-zoom.js');
+  const lz = lobuleSource();
   assert.doesNotMatch(lz, /SEEN_CAP|seencap/);
   assert.match(lz, /const seenCap = \(G\) => \(liveE >= 1 && liveGoal\(\) === 1 && tissueOnGL \? 2 \*\* \(Math\.ceil\(Math\.log2\(6 \/ \(0\.052 \* G\.R\)\) \* 2\) \/ 2\) : Infinity\);/);
   // (paintTissue and the bitmap painted ahead both take it.)
@@ -29,7 +30,7 @@ test('the bitmap is capped only once the shader has fully eased in', () => {
 });
 
 test('a bitmap painted sharper before the shader took over is painted again small, between frames', () => {
-  const lz = src('src/ui/lobule-zoom.js');
+  const lz = lobuleSource();
   assert.match(lz, /if \(worldSc > cap0 \* 2\.01 && worldCv\.width && worldGeo === G && ws === worldState && !xfT0\) \{/);
 });
 

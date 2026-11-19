@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { presenterSource, lobuleSource } from './split-src.js';
 
 globalThis.getComputedStyle = () => ({ getPropertyValue: () => '#ffffff' });
 globalThis.document.styleSheets = [{ cssRules: [{ style: ['--white'] }] }];   // (the tokens the page declares, util.js readVars)
@@ -27,7 +28,7 @@ test('the label width cache is cut at 1500 and the input tracker is made on read
 
 test('a start that failed reaches the page\'s boot card; a script that cannot be fetched does too; a strict CSP is not an old browser', () => {
   const m = read('src/ui/main.js');
-  assert.match(m, /\(window\.ppsBootErrors \|\|= \[\]\)\.push\(String\(err\?\.message \|\| err\)\.slice\(0, 300\)\); window\.ppsBootFail\?\.\(\);/);
+  assert.match(m, /\(window\.ppsBootErrors \|\|= \[\]\)\.push\(String\(err\?\.message \|\| err\)\.slice\(0, 300\)\); window\.ppsBootFail\?\.\(\{ force: !window\.ppsWired \}\);/);
   const html = read('index.html');
   assert.match(html, /w\.addEventListener\('error',function\(e\)\{var t=e&&e\.target;if\(t&&t\.tagName==='SCRIPT'\)\{.*?note\('Could not load '/);
   assert.match(html, /data-try[^]*?ppsFigureReady[^]*?\?r='/, 'a failed entry script is retried with a fresh URL before the boot card shows');
@@ -60,7 +61,7 @@ test('GL: a restored sinusoid context draws a paused picture again; the lobule g
   assert.match(gl, /const onBack = \(\) => \{ if \(gone\) return; epoch\+\+; tgt = null; sent\.clear\(\); ok = null; skipped = true; startLater\(\); \};\s*evCv\.addEventListener\('webglcontextrestored', onBack\)/);
   assert.match(gl, /get epoch\(\) \{ return epoch; \}/);
   assert.match(read('src/ui/sinusoid-view.js'), /sigW === canvas\.width && sigH === canvas\.height && sigEpoch === gpu\.epoch/);
-  assert.match(read('src/ui/lobule-zoom.js'), /glTried = false; gl\?\.dispose\?\.\(\); gl = null;/);
+  assert.match(lobuleSource(), /glTried = false; gl\?\.dispose\?\.\(\); gl = null;/);
   const d = read('src/ui/doppler-gl.js');
   assert.doesNotMatch(d, /getContext\(/);   // (the Doppler's trace has no context of its own to leave unused: it draws in the chart drawer's)
 });
@@ -70,7 +71,7 @@ test('a still layer gives its bitmap back; a presenter worker that never said he
   const sl = read('src/ui/still-layer.js');
   assert.match(sl, /drop\(\) \{\}/);
   assert.doesNotMatch(sl, /getContext|createElement/);
-  const p = read('src/ui/presenter.js') + read('src/ui/presenter-visuals.js');
+  const p = presenterSource() + read('src/ui/presenter-visuals.js') + read('src/ui/calc-client.js');
   assert.match(p, /let w = null;\n\s+try \{\n\s+w = new Worker\(/);
   assert.match(p, /if \(w\) \{ w\.onmessage = w\.onerror = null; w\.terminate\(\); \}/);
 });
@@ -130,4 +131,61 @@ test('no reload loop: a page that was reloaded fresh in the last minute shows th
   b.fire();
   assert.equal(b.replaced.length, 0);
   assert.equal(b.failed.length, 1);
+});
+
+// ---- Boot failure states (SHL-4, 19 Nov 2026): a failed or slow start is never a dead shell, a stack trace or an unreadable card ----
+// The page's cover script (index.html: the one that owns #boot) run in a sandbox with a small stand-in DOM.
+const cover = read('index.html').match(/<script>(\(function\(\)\{var MIN=600[\s\S]*?)<\/script>/)[1];
+function coverBoot({ withCover = true, figureReady = false } = {}) {
+  let boot = null;
+  const mk = () => {
+    const cls = new Set();
+    return { id: '', innerHTML: '', classList: { add: (c) => cls.add(c), remove: (c) => cls.delete(c), contains: (c) => cls.has(c) }, setAttribute() {}, querySelector: () => null, remove() { boot = null; }, cls };
+  };
+  if (withCover) { boot = mk(); boot.innerHTML = '<div class="boot-in"></div>'; }
+  const timers = [], attrs = {};
+  const w = { addEventListener() {}, ppsBootErrors: [], ppsFigureReady: figureReady, Promise };
+  const document = {
+    getElementById: (id) => (id === 'boot' ? boot : null), createElement: () => mk(),
+    body: { insertBefore: (el) => { boot = el; el.id = 'boot'; }, appendChild() {} },
+    documentElement: { setAttribute: (k, v) => { attrs[k] = v; }, removeAttribute: (k) => { delete attrs[k]; } },
+    fonts: { load: () => Promise.resolve() },
+  };
+  const ctx = vm.createContext({ window: w, document, location: { href: 'https://x.test/' }, navigator: { userAgent: 'test' }, performance: { now: () => 0 }, requestAnimationFrame() {}, addEventListener() {}, setTimeout: (f, ms) => { timers.push([f, ms]); return timers.length; }, Promise, String, Math, Array });
+  vm.runInContext(cover, ctx);
+  return { w, timers, attrs, get boot() { return boot; } };
+}
+
+test('the failure card rebuilds the cover when it has already lifted, and a start-up that threw is not silenced by a ready figure', () => {
+  const lifted = coverBoot({ withCover: false });
+  lifted.w.ppsBootFail();
+  assert.ok(lifted.boot, 'no cover, so a new one is made: the card is never lost');
+  assert.match(lifted.boot.innerHTML, /couldn’t start/);
+  assert.ok(lifted.boot.cls.has('failed'));
+  const ready = coverBoot({ figureReady: true });
+  ready.w.ppsBootFail();
+  assert.equal(ready.boot.innerHTML.includes('couldn’t start'), false, 'a plain call after the figure is ready stays quiet (a late error is not a failed start)');
+  ready.w.ppsBootFail({ force: true });
+  assert.match(ready.boot.innerHTML, /couldn’t start/, 'main() threw before the buttons answered: the card shows even though the figure was ready');
+});
+
+test('a start that is still pending at 15 s says so, with Reload, instead of lifting the cover onto a shell that ignores every tap', () => {
+  const b = coverBoot();
+  const at15 = b.timers.find(([, ms]) => ms === 15000);
+  assert.ok(at15, 'the 15 s check is armed');
+  at15[0]();
+  assert.match(b.boot.innerHTML, /Still loading/);
+  assert.match(b.boot.innerHTML, /data-reload/);
+  assert.ok(b.boot.cls.has('failed'), 'the card is held (the CSS 20 s fail-safe leaves a .failed card up)');
+  assert.ok(!b.boot.cls.has('done'), 'the cover is not lifted');
+});
+
+test('every var(--token) the page\'s own inline style names is defined by a style sheet (the failure card named --text-1, which nothing defines: black on black in Dark)', () => {
+  const html = read('index.html');
+  const inline = [...html.matchAll(/<style>([\s\S]*?)<\/style>/g)].map((m) => m[1]).join('\n');
+  const defined = new Set();
+  for (const f of ['styles/tokens.css', 'styles/app-01-chrome.css', 'styles/app-05-presenter-cards.css', 'fonts/fonts.css']) for (const m of read(f).matchAll(/(--[a-z0-9-]+)\s*:/g)) defined.add(m[1]);
+  for (const m of inline.matchAll(/(--[a-z0-9-]+)\s*:/g)) defined.add(m[1]);   // (a token the page declares for itself)
+  const missing = [...new Set([...inline.matchAll(/var\((--[a-z0-9-]+)/g)].map((m) => m[1]))].filter((t) => !defined.has(t));
+  assert.deepEqual(missing, [], 'tokens named in index.html that no style sheet defines (their fallback colour is used on every look)');
 });

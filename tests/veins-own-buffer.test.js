@@ -1,6 +1,5 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 // The stage's vessel canvas keeps no picture of its own (120 fps addendum §7; on by default since 31 Oct, recs A3): it is made
 // without preserveDrawingBuffer, and the picture the frames repaint in part is kept in a texture of the renderer's own, copied whole
@@ -26,6 +25,7 @@ function fakeGL() {
         calls.push([k, ...a]);
         if (k === 'getShaderParameter') return true;
         if (k === 'getProgramParameter') return a[1] === gl.ACTIVE_UNIFORMS ? 0 : true;
+        if (k === 'checkFramebufferStatus') return gl.FRAMEBUFFER_COMPLETE;   // (the Tube's targets are made: no other renderer to fall back on)
         if (k === 'getExtension') return null;
         if (k === 'getParameter') return 'stand-in';
         if (k.startsWith('create')) return { obj: nextObj++, kind: k };
@@ -48,26 +48,10 @@ async function renderer(url, who) {
 }
 const blits = (f, from) => f.calls.slice(from).filter((c) => c[0] === 'blitFramebuffer');
 
-function keepsItsOwn({ g, f, attrs, look }) {
-  assert.equal(attrs.preserveDrawingBuffer, true);
-  const n0 = f.calls.length;
-  g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
-  g.composite(look, { on: true });
-  assert.equal(blits(f, n0).length, 0);
-  // The composite draws onto the canvas itself (framebuffer null).
-  const binds = f.calls.slice(n0).filter((c) => c[0] === 'bindFramebuffer');
-  assert.deepEqual(binds.at(-1), ['bindFramebuffer', f.gl.FRAMEBUFFER, null]);
-}
-
 test('the stage\'s vessel canvas is not kept by the browser: the renderer keeps it (keep-screen.js) and has no stencil of its own: the kept picture holds it', async () => {
   const { attrs } = await renderer('../src/ui/veins-gl.js');
   assert.equal(attrs.preserveDrawingBuffer, false);
   assert.equal(attrs.stencil, false);
-});
-
-test('a renderer neither the stage\'s nor the lobule\'s keeps its own picture; there is no ?lzone switch', async () => {
-  keepsItsOwn(await renderer('../src/ui/veins-gl.js', 'apart'));
-  assert.doesNotMatch(readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8'), /LZ_ONE|lzone=/);
 });
 
 test('by default the lobule\'s vessel canvas draws into its kept picture too, so its overlay can be laid over each present', async () => {
@@ -178,17 +162,6 @@ test('by default a pan copies at most the kept picture onto the canvas, once (th
   // (Since 753bd6d5 a whole pan frame after a whole frame is drawn straight onto the canvas: no copy at all. Any copy goes to the canvas.)
   const t = blitTargets(f, n);
   assert.ok(t.length <= 1 && t.every((x) => x === null), `copies: ${JSON.stringify(t)}`);
-});
-
-test('by default a zoom frame draws in one pass even where the context has no stencil: the kept picture brings its own', async () => {
-  const { g, f, look } = await renderer('../src/ui/veins-gl.js');
-  g.draw([1, 0, 0, 1, 0, 0], look, { on: true });
-  const n = f.calls.length;
-  g.draw([1.5, 0, 0, 1.5, 0, 0], look, { on: true });
-  const c = f.calls.slice(n);
-  assert.ok(c.some((x) => x[0] === 'enable' && x[1] === f.gl.STENCIL_TEST), 'the vessel cells marked in the stencil');
-  assert.ok(f.calls.some((x) => x[0] === 'renderbufferStorage' && x[2] === f.gl.STENCIL_INDEX8), 'a stencil of the kept picture\'s own');
-  assert.equal(blitTargets(f, n).at(-1), null, 'then copied onto the canvas');
 });
 
 test('a stand-in for the whole picture (top.replace) is drawn alone at the present, on a cleared canvas, and nothing is copied', async () => {

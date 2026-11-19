@@ -3,9 +3,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
-const src = read('src/ui/slider-gl.js'), css = read('styles/app.css'), util = read('src/ui/util.js');
+const src = read('src/ui/slider-gl.js'), css = appCss(), util = read('src/ui/util.js');
 // (The pure parts, taken out of the module so no page is needed: they use nothing of it.)
 const pure = (name) => { const at = src.indexOf(`export ${name}`); assert.ok(at >= 0, name); return src.slice(at, src.indexOf('\n}\n', at) + 3); };
 const thumbX = new Function(`${src.slice(src.indexOf('export const thumbX'), src.indexOf('\n', src.indexOf('export const thumbX'))).replace('export const', 'return')}`)();

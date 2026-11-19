@@ -11,8 +11,8 @@ import { fingerprintOf } from '../src/engine/portal/fingerprint.js';
 import { deepMerge } from '../src/engine/portal/scenario.js';
 import { PPG_CUTS } from '../src/engine/portal/pressure-cuts.js';
 await import('./dom-shim.js');   // (the chart draws on the GPU, svg-gl.js, which loads only with a page)
-const { LINE } = await import('../src/ui/flow-time.js');
-const { eventLines, eventGraphOf, eventScale, EVENT_S, PRE_S, EVENT_WORD } = await import('../src/ui/event-graph.js');
+const { LINE, END_APART } = await import('../src/ui/flow-time.js');
+const { eventLines, eventGraphOf, eventScale, eventScales, EVENT_S, PRE_S, EVENT_WORD } = await import('../src/ui/event-graph.js');
 const { specOf, procKindOf } = await import('../src/ui/proc-anim.js');
 
 const decks = (await Promise.all(readdirSync(new URL('../src/ui/decks/', import.meta.url)).map((f) => import(`../src/ui/decks/${f}`))))
@@ -44,7 +44,7 @@ test('every slide whose procedure changes the patient and shows two readings car
   assert.deepEqual(eventLines({ procedure: 'tips', tiles: ['liver', 'ppg'] }), ['ppg', 'liver'], 'the pressure below');
   // (Every TIPS a slide plays: each graphs its PPG, and the reading its words are about.)
   const tips = Object.fromEntries(procSlides.filter(({ s }) => kindOf(s) === 'tips').map(({ d, s }) => [`${d.id}/${s.id}`, eventLines(s)]).filter(([, l]) => l));
-  assert.deepEqual(tips, { 'shunts/play': ['ppg', 'liver'], 'gastric-varices/tips': ['ppg', 'gv'], 'variceal-bleed/tips': ['ppg', 'varix'], 'ten-years/tips': ['ppg', 'liver'] });
+  assert.deepEqual(tips, { 'shunts/play': ['ppg', 'liver'], 'gastric-varices/tips': ['ppg', 'gv'], 'variceal-bleed/tips': ['ppg', 'varix'], 'ten-years/tips': ['ppg', 'liver'], 'tips-complete/play': ['ppg', 'liver'] });
   // (BRTO and BATO: the fundal varix they close, and the PPG that rises as its outlet goes; no PPG goal, only its red cut-off.)
   for (const id of ['brto', 'bato']) {
     const s = unique.find((d) => d.id === 'gastric-varices').slides.find((x) => x.id === id), g = eventGraphOf(s);
@@ -119,4 +119,43 @@ test('after BRTO the fundal varix closes at once and the PPG rises over the seco
   assert.ok(at.at(-1).ppg > b.ppg + 0.5, `the PPG rises after it (${b.ppg.toFixed(1)} to ${at.at(-1).ppg.toFixed(1)} mmHg)`);
   const ps = eventScale('ppg', [st.before.fp.ppg, st.fp.ppg]), gs = eventScale('gv', [st.before.fp.gv, st.fp.gv]);
   for (const f of at) assert.ok(f.ppg <= ps.max && f.gv <= gs.max, 'every reading inside its fixed scale');
+});
+
+test('two lines that would end on one spot get one axis widened, so their dots and values stand apart (16 Nov 2026)', () => {
+  const spec = { kind: 'tips', word: 'Stent open', lines: ['hvpg', 'liver'], target: null };
+  const frac = (S, j, v) => (v * (LINE[spec.lines[j]][4] ?? 1) - S[j].min) / (S[j].max - S[j].min);
+  const b = [16, 40], end = [9, 35];
+  const tight = [eventScale('hvpg', [b[0], end[0]]), eventScale('liver', [b[1], end[1]])];
+  assert.ok(Math.abs(frac(tight, 0, end[0]) - frac(tight, 1, end[1])) < END_APART, 'fixture: tight scales end close together');
+  const S = eventScales(spec, b, end);
+  assert.ok(Math.abs(frac(S, 0, end[0]) - frac(S, 1, end[1])) >= END_APART - 1e-9, 'the ends stand apart');
+  assert.deepEqual([S[0].min, S[0].max], [tight[0].min, tight[0].max], 'one axis stays as it was');
+  assert.ok(S[1].max > tight[1].max && S[1].min === tight[1].min, 'the other has more room over its line, from the same start');
+  // Lines that already stand apart, or a graph whose end is not known yet, keep their scales.
+  assert.deepEqual(eventScales(spec, [16, 40], [9, 80]), [eventScale('hvpg', [16, 9]), eventScale('liver', [40, 80])]);
+  assert.deepEqual(eventScales(spec, b, null), [eventScale('hvpg', [16, null]), eventScale('liver', [40, null])]);
+});
+
+test('the goal\'s name stands where no line does (play-test B12: "Target <12" sat on the varix line)', async () => {
+  const { goalSpot } = await import('../src/ui/event-graph.js');
+  const f = 12, L = 40, R = 300, edge = 100, bottom = 200;
+  assert.deepEqual(goalSpot(L, R, f, edge, bottom, [50, 20], [60, 30]), [L + 6, 'start', edge + 12], 'a clear band: under the edge at the left');
+  assert.deepEqual(goalSpot(L, R, f, edge, bottom, [108, 20], [60, 30]), [R - 6, 'end', edge + 12], 'a line starting under the edge: at the right');
+  assert.deepEqual(goalSpot(L, R, f, edge, bottom, [108, 20], [110, 30]), [L + 6, 'start', bottom - 6], 'lines under it at both ends: low in the band');
+  assert.deepEqual(goalSpot(L, R, f, edge, 120, [108], [110]), [L + 6, 'start', edge + 12], 'a band too short for a second row keeps its first spot');
+  // (A printed value over a line's head, "2.9 mm", stands where the name would: the name moves to the next spot that no value touches.)
+  const tagAt = (x, y) => [x - 30, x + 30, y - 1.8 * f, y - 0.4 * f];
+  const o = { w: 60, start: [tagAt(L + 20, 130)], end: [] };
+  assert.deepEqual(goalSpot(L, R, f, edge, bottom, [130], [150], o), [R - 6, 'end', edge + 12], 'a value at the start passes the left spot over');
+  assert.deepEqual(goalSpot(L, R, f, edge, bottom, [130], [130], { ...o, end: [tagAt(R, 130)] }), [L + 6, 'start', bottom - 6], 'values at both ends: low in the band');
+  assert.deepEqual(goalSpot(L, R, f, edge, bottom, [50, 20], [60, 30], { w: 60, start: [tagAt(L + 20, 70)], end: [] }), [L + 6, 'start', edge + 12], 'a value that stands above the name does not move it');
+});
+
+test('the graph\'s readings take the settled state\'s numbers by its last seconds, so its head ends on the one number the card prints (play-test B12: 8.2 against 7.6)', async () => {
+  const { endMix } = await import('../src/ui/event-graph.js');
+  assert.equal(endMix(0, 20), 0); assert.equal(endMix(14, 20), 0, 'the model\'s own course for the first 70%');
+  assert.equal(endMix(20, 20), 1, 'whole at the end');
+  let last = 0;
+  for (let t = 0; t <= 20; t += 0.5) { const w = endMix(t, 20); assert.ok(w >= last - 1e-12 && w <= 1, 'one smooth rise'); last = w; }
+  assert.ok(endMix(17, 20) > 0.1 && endMix(17, 20) < 0.9, 'in between mid-glide');
 });

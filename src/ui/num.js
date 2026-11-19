@@ -26,6 +26,14 @@ export function fmt(v, d = 1) {
   m.set(v, r);
   return r;
 }
+/** fmt(v, d) with the thousands comma of the app's big numbers ("1,320"; lymph-day.js, the readouts of mL/day): the same text as fmt below a thousand. */
+export function fmtG(v, d = 1) {
+  const t = fmt(v, d);
+  if (t === NOT_SHOWN) return t;
+  const [int, frac] = t.split('.');
+  const g = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return frac === undefined ? g : `${g}.${frac}`;
+}
 /** |v| to d decimals after a true minus for any v below zero: "−0.0" for −0.04, and toFixed's own "NaN" or "Infinity" (fmt's rules are not
  *  applied; the chart tools have always printed their axes and bars this way). */
 export const minusFixed = (v, d) => (v < 0 ? '−' : '') + Math.abs(v).toFixed(d);

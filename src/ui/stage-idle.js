@@ -19,7 +19,7 @@ export function createIdle(st, live) {
         live.hiddenAt = t;
         // (Review pass item 8: the warm window is held in the global budget too (gpu-budget.js hold): several warm views at once, or memory
         // over the envelope, give these back before WARM_MS. Its release is this trim, once; showing the figure again drops the hold.)
-        live.veinsHold = gpuHold({ owner: 'veins (under the lobule)', kind: 'warm', gl: live.veins.gl, bytes: () => (live.veinsTrimmed ? 0 : vCanvas.width * vCanvas.height * 58), release: () => { live.veinsHold = null; if (!live.veinsTrimmed && live.veins && !live.veins.lost && !live.glowSync) { live.veins.trim(); live.veinsTrimmed = true; live.veinsDirty = true; } } });
+        live.veinsHold = gpuHold({ owner: 'veins (under the lobule)', kind: 'warm', soft: true, gl: live.veins.gl, bytes: () => (live.veinsTrimmed ? 0 : vCanvas.width * vCanvas.height * 58), release: () => { live.veinsHold = null; if (!live.veinsTrimmed && live.veins && !live.veins.lost && !live.glowSync) { live.veins.trim(); live.veinsTrimmed = true; live.veinsDirty = true; } } });
       }
       if (t - live.hiddenAt < WARM_MS) return;
     }

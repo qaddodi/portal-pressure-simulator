@@ -5,6 +5,7 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss, presenterSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
@@ -27,14 +28,14 @@ test('a hidden label leaves the Tab order and the screen reader, and one with fo
   assert.match(fn, /aria-hidden', 'true'/);
   assert.match(fn, /removeAttribute\('aria-hidden'\)/);
   assert.match(fn, /document\.activeElement === b\.g/, 'focus is never pulled out from under a person');
-  assert.match(fn, /hid \|\| !(?:live\.)?(?:live\.)?keyStops \? '-1' : '0'/);
+  assert.match(fn, /hid \|\| !(?:live\.)?keyStops \? '-1' : '0'/);
   // Every place a label is hidden goes through it: the per-frame draw and the fade-out.
   assert.match(s, /gc\.toggle\('lb-off', !!it\.hide\); ch = true; \}\s*labelStop\(b, !!it\.hide\);/);
   assert.match(s, /b\.g\.classList\.add\('lb-off'\); live\.labelGL\?\.dirty\(b\.g\); \}\s*labelStop\(b, true\);/);
 });
 
 test('a talk turns the figure\'s stops off before it takes the stage and back on as it ends', () => {
-  const p = read('src/ui/presenter.js');
+  const p = presenterSource();
   const on = p.indexOf('stage.setKeyStops?.(false)'), pres = p.indexOf('store.set({ presenting: true', on);
   assert.ok(on > 0 && pres > on && pres - on < 400, 'off first, then presenting');
   const back = p.indexOf('stage.setKeyStops?.(true)');
@@ -48,7 +49,7 @@ test('the debug overlay starts off on every load: no stored choice is read back'
 });
 
 test('Windows high contrast keeps the on and selected states and the switches visible', () => {
-  const css = read('styles/app.css');
+  const css = appCss();
   const at = css.indexOf('@media (forced-colors: active)');
   assert.ok(at > 0);
   const blk = css.slice(at);

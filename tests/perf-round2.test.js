@@ -3,6 +3,7 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 globalThis.ResizeObserver ??= class { observe() {} };
 globalThis.MutationObserver ??= class { observe() {} };
@@ -97,7 +98,7 @@ test('NP11: afterExit hides once the exit animations end, never for an element o
 });
 
 test('NP9, NP11, NP12: the Compare badge stands under the desktop top bar; closing pieces wait for their fade; Rotate folds in the zoom pill', () => {
-  const css = read('styles/app.css'), main = read('src/ui/main.js'), card = read('src/ui/card.js'), pal = read('src/ui/palette.js');
+  const css = appCss(), main = read('src/ui/main.js'), card = read('src/ui/card.js'), pal = read('src/ui/palette.js');
   assert.match(css, /@media \(min-width: 1024px\) \{ \.cmp-badge \{ top: calc\(var\(--top-safe, 0px\) \+ 6px \+ var\(--cmp-h, 0px\)\); \} \}/);
   assert.match(card, /closeTimer = afterExit\(el, 'ac-leaving',/);
   assert.match(main, /hintT = afterExit\(el, 'leaving',/);
@@ -121,10 +122,10 @@ test('RF4 and NP3: the lens key and its name are watched by the top bar glide; A
 test('B7: vessel colour bins hold until the value is 0.4 mmHg from the bin shown (no flicker with the breath)', () => {
   const stage = stageSource();
   const def = stage.slice(stage.indexOf('  const qHold = '), stage.indexOf('  };', stage.indexOf('  const qHold = ')) + 4);
-  assert.match(def, /if \(!\(Math\.abs\(v - was\) < 0\.4\)\) a\[i\] = qP\(v\);/);
+  assert.match(def, /if \(!\(Math\.abs\(v - was\) < 0\.4\)\) a\[i\] = (?:live\.)?qP\(v\);/);
   // The logic itself, on a value breathing across the 12.25 edge between the 12.0 and 12.5 bins.
   const qP = (v) => Math.round(v * 2) / 2, EDGES = [{}];
-  const qHold = new Function('qP', 'EDGES', `const colourBins = new Map();\n${def}\nreturn qHold;`)(qP, EDGES);
+  const qHold = new Function('qP', 'EDGES', 'live', `const colourBins = new Map();\n${def}\nreturn qHold;`)(qP, EDGES, { qP });
   const shown = [12.2, 12.3, 12.2, 12.3, 12.35, 12.2].map((v) => qHold('pressure', 0, 0, v));
   assert.deepEqual(shown, [12, 12, 12, 12, 12, 12]);
   assert.equal(qHold('pressure', 0, 0, 12.45), 12.5);   // 0.45 from the bin shown: it moves on

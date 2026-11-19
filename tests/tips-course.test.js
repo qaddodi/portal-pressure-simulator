@@ -1,6 +1,6 @@
 // The TIPS stent's anatomic course (Mohammad, 11 Nov 2026: "straight doesn't make any sense for ANY shunt"; at 21:19, after the build that ran it into the end of a vein: "the TIPS has to be
 // from the vein to the vein, not to the sinusoid, middle of the RPV to middle of the RHV, not end to end"). It is a gentle curve that starts ON the centre line of the right portal vein
-// (PVH_R, the wide run the figure labels) near the middle of its run and ends ON the centre line of the right hepatic vein (RHV_IVC, the wide stretch that carries its name) near the middle
+// (PVH_R, PVH_R_1 and PVH_R_2, the wide run the figure labels) near the middle of its run and ends ON the centre line of the right hepatic vein (RHV_IVC_1 and RHV_IVC, the wide stretch that carries its name) near the middle
 // of its run, so each end is a side branch on a trunk, not a vessel's end or a node. Pure geometry: the paths as anatomy.js holds them.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -35,7 +35,9 @@ function onCourse(P, p) {
 }
 const dist = (P, p) => onCourse(P, p)[0];
 
-const TIPS = sample(EDGE_PATH.TIPS), RPV = sample(EDGE_PATH.PVH_R), RPV_ON = sample(EDGE_PATH.PRE_R), RHV = sample(EDGE_PATH.RHV_IVC), RHV_UP = sample(EDGE_PATH.POST_R_RHV);
+// (A vein the TIPS joins part-way is cut there into stretches, topology.js JUNCTIONS: the vein is its stretches end to end.)
+const whole = (...ids) => ids.flatMap((id, i) => sample(EDGE_PATH[id]).slice(i ? 1 : 0));
+const TIPS = sample(EDGE_PATH.TIPS), RPV = whole('PVH_R', 'PVH_R_1', 'PVH_R_2'), RPV_ON = sample(EDGE_PATH.PRE_R), RHV = whole('RHV_IVC_1', 'RHV_IVC'), RHV_UP = sample(EDGE_PATH.POST_R_RHV);
 const first = TIPS[0], last = TIPS.at(-1);
 
 test('the TIPS is a curve, not a straight run, and so is the DIPS', () => {

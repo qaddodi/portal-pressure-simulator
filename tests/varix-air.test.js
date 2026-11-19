@@ -26,14 +26,14 @@ test('the pressure inside the varix, the HVPG and the portal pressure are the sa
   e.varixAir('VAR');
   const after = computeMetrics(e);
   assert.deepEqual(Array.from(e.P), Array.from(P0), 'the node pressures are untouched');
-  near(e.P[e.ni.VAR], 18.2, 0.05, 'the pressure inside the varix');
+  near(e.P[e.ni.VAR], 18.3, 0.05, 'the pressure inside the varix');
   assert.equal(after.hvpg, before.hvpg);
   assert.deepEqual({ ...after, varix: null }, { ...before, varix: null }, 'every other reading is the same');
   const restAfter = { ...after.varix }; delete restAfter.air;
   assert.deepEqual(restAfter, rest);
-  // The pressure across the wall is the pressure inside less the air's: 8.2 at 10 mmHg, none left at 18.
-  near(e.varix('VAR', e.P, 10).ptm, 8.2, 0.05, 'across the wall at 10 mmHg');
-  near(e.varix('VAR', e.P, 18).ptm, 0.2, 0.05, 'across the wall at 18 mmHg');
+  // The pressure across the wall is the pressure inside less the air's: 8.3 at 10 mmHg, none left at 18 (the decompensated patient's pressure inside is 18.3 since the lymph model's larger ascites, it was 18.2).
+  near(e.varix('VAR', e.P, 10).ptm, 8.3, 0.05, 'across the wall at 10 mmHg');
+  near(e.varix('VAR', e.P, 18).ptm, 0.3, 0.05, 'across the wall at 18 mmHg');
 });
 
 test('no air changes nothing: varix() reads as it did before the argument', () => {

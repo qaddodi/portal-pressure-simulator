@@ -64,29 +64,91 @@ export function timeOfBalloon(b) {
   return T.inflate + ((lo + hi) / 2) * (T.wedge - T.inflate);
 }
 
-// The venous pulse the free catheter tip sees, as a fraction of its height over one beat (850 ms, about 70/min): the a wave as the
-// right atrium contracts, the small c wave as the tricuspid valve closes, the x descent, the v wave as the atrium fills against
-// the closed valve, the y descent as it empties. The shape of a hepatic vein's (or central venous) tracing, with its mean taken out
-// so the number the monitor reads stays the level itself.
-const around = (ph, at) => ((ph - at + 1.5) % 1) - 0.5;
-const bump = (ph, at, wide, high) => high * Math.exp(-((around(ph, at) / wide) ** 2));
-const venousRaw = (ph) => bump(ph, 0.0, 0.07, 0.72) + bump(ph, 0.17, 0.045, 0.22) + bump(ph, 0.31, 0.08, -0.5) + bump(ph, 0.56, 0.1, 0.58) + bump(ph, 0.78, 0.07, -0.42);
-const VENOUS_MEAN = (() => { let s = 0; for (let i = 0; i < 400; i++) s += venousRaw(i / 400); return s / 400; })();
-export const venousAt = (ph) => venousRaw(((ph % 1) + 1) % 1) - VENOUS_MEAN;
-// (With no model beside it, a test or a card with no frame: the trace's own 850 ms beat and 3.6 s breath on the procedure's clock.)
-const BEAT_MS = 850, BREATH_MS = 3600;
-/** The model's breath is a 4 s sine (engine.js computeExt), and its right atrium contracts, the a wave, at cardiac phase 0.88 (physiology.js raWave). */
+// ── The catheter's pressure wave (Mohammad, 17 Nov 2026: the old trace was "a zigzag" that "doesn't reflect the real heart beat of the patient") ──
+// What a pressure transducer on a catheter tip draws, in mmHg about the reading (the mean), from the patient's own heart rate and breath:
+//  - the cardiac pulse of a free hepatic vein, the IVC or the right atrium (they are one column of blood): the a wave as the atrium contracts (the
+//    tallest), the small c wave as the tricuspid valve bulges back, the x descent of ventricular systole, the rounder v wave as the atrium fills
+//    against the closed valve, the y descent as it empties, then the slow diastolic rise to the next a wave. The systolic events keep their time
+//    after the a wave (scaled with the square root of the beat's length, as systole is), so a faster heart shortens diastole, not the whole beat.
+//  - the breath: a dip as the patient breathes in (the pressure in the chest falls) and a long flat end-expiration, one breath every 4 s, the model's.
+//  - the heart quickens a little with each breath in (sinus arrhythmia) and no two beats are quite the same height: a real patient's beat-to-beat variation.
+//  - damped (damp 0..1): the pulse a wedged catheter or a portal needle sees. The still column (or the sinusoids and the portal bed) filter the
+//    sharp a/c/v complex into a small, smooth, slightly late ripple at the heart rate; the breath passes through whole. A WHVP trace is a smooth
+//    line that rises and falls with the breath, with only a faint beat on it (Groszmann, Hepatology 2004; Bosch, J Hepatol 2009).
+// The size is what the monitor shows at its usual scale, kept modest (Mohammad, 12 Nov 2026: a free baseline should not heave).
+/** The free (undamped) cardiac pulse, peak to peak, and the breath's swing, peak to peak (mmHg). */
+export const CARDIAC_PP = 0.9, BREATH_PP = 0.8;
+/** How much of the cardiac pulse a wedged catheter loses (0..1): the wedged trace keeps its breath but little of its beat. */
+export const WEDGE_DAMP = 0.8;
+/** How much of the cardiac pulse a needle or catheter in the portal vein loses: portal pressure is nearly non-pulsatile; its breath stays. */
+export const PORTAL_DAMP = 0.7;
+/** The model's breath is a 4 s cycle (engine.js computeExt), and its right atrium contracts, the a wave, at cardiac phase 0.88 (physiology.js raWave). */
 export const BREATH_S = 4, A_WAVE_PHASE = 0.88;
-const BREATH_AMP = 0.45;
-/** How much of the venous pulse and the breath the trace shows (Mohammad, 12 Nov 2026: the free baseline "is bouncing", it should be steady): a quiet tremor on a level line, not a heaving one. 1 is the full wave, 0 a ruler-flat line. */
-export const WAVE_GAIN = 0.3;
+/** With no model beside it (a test, a card with no frame): a 70/min heart and the model's 4 s breath on the procedure's own clock. */
+export const BEAT_MS = 60000 / 70, BREATH_MS = BREATH_S * 1000;
+const TAU = 2 * Math.PI;
+const wrapHalf = (x) => x - Math.round(x);   // (a phase difference, in cycles, to -0.5..0.5)
+const frac = (x) => x - Math.floor(x);
+// The a/c/x/v/y events: [time after the a wave's peak (s, at 70/min), width (s), height (relative)].
+const EVENTS = [[0, 0.05, 1.0], [0.13, 0.032, 0.32], [0.255, 0.065, -0.55], [0.42, 0.075, 0.62], [0.6, 0.075, -0.5]];
+const RR70 = 60 / 70, SQRTPI = Math.sqrt(Math.PI);
+function venousRaw(tau, rr) {
+  const s = Math.min(1.15, Math.max(0.6, Math.sqrt(rr / RR70)));
+  let y = 0;
+  for (let i = 0; i < EVENTS.length; i++) {
+    const [at, wide, high] = EVENTS[i], c = at * s, w = wide * s;
+    for (let k = -1; k <= 1; k++) { const d = (tau - c - k * rr) / w; y += high * Math.exp(-d * d); }
+  }
+  // (its mean over the beat, taken out exactly so the trace's mean is the reading)
+  let m = 0;
+  for (let i = 0; i < EVENTS.length; i++) m += EVENTS[i][2] * EVENTS[i][1] * s * SQRTPI;
+  return y - m / rr;
+}
+// (scaled so the free pulse is CARDIAC_PP peak to peak at 70/min: measured once)
+const VEN_PP = (() => { let lo = Infinity, hi = -Infinity; for (let i = 0; i < 600; i++) { const y = venousRaw((i / 600) * RR70, RR70); lo = Math.min(lo, y); hi = Math.max(hi, y); } return hi - lo; })();
+// The breath: a dip on the breath in, centred where the model's breath sine is lowest (phase 0.75 of its 4 s), with a long flat end-expiration.
+const BREATH_AT = 0.72, BREATH_W = 0.17;
+const breathRaw = (psi) => { const d = wrapHalf(psi - BREATH_AT) / BREATH_W; return -Math.exp(-d * d); };
+const BR = (() => { let lo = Infinity, hi = -Infinity, s = 0; for (let i = 0; i < 800; i++) { const y = breathRaw(i / 800); lo = Math.min(lo, y); hi = Math.max(hi, y); s += y; } return { mean: s / 800, pp: hi - lo }; })();
+/** Sinus arrhythmia: the beat's phase leads by up to this much (cycles) through the breath, so the rate rises about 4/min with each breath in. */
+export const RSA = 0.045;
+/** Beat-to-beat height: each beat's own factor, 1 ± BEAT_VAR, from its number (the same beat is always the same height). */
+export const BEAT_VAR = 0.07;
+const beatH = (k) => { const s = Math.sin(k * 12.9898 + 78.233) * 43758.5453; return 1 + BEAT_VAR * (2 * (s - Math.floor(s)) - 1); };
+
+/** The breath's part of the trace at breath phase psi (cycles; 0.72 the breath in): mmHg about the mean, BREATH_PP peak to peak. */
+export const breathWave = (psi) => ((breathRaw(psi) - BR.mean) / BR.pp) * BREATH_PP;
+/**
+ * The cardiac part of the trace at beat phase phi (cycles from an a wave's peak; continuous, so phi's whole part counts the beats), at heart rate
+ * hr (/min), damped by damp (0 the free venous pulse; to WEDGE_DAMP and beyond, a small smooth ripple): mmHg about the mean.
+ */
+export function cardiacWave(phi, hr, damp) {
+  const rr = 60 / Math.min(200, Math.max(30, hr > 0 ? hr : 70)), f = frac(phi), k = Math.floor(phi);
+  // (each beat its own height, eased into the next one's through diastole, never in the middle of a wave)
+  const hk = f < 0.72 ? beatH(k) : beatH(k) + (beatH(k + 1) - beatH(k)) * easeMove((f - 0.72) / 0.28);
+  const soft = Math.min(1, Math.max(0, damp / 0.5));
+  const sharp = soft < 1 ? venousRaw(f * rr, rr) / VEN_PP : 0, smooth = 0.5 * Math.cos(TAU * (f - 0.1));
+  return ((1 - soft) * sharp + soft * smooth) * CARDIAC_PP * Math.max(0, 1 - damp) * hk;
+}
+/** The whole wave at beat phase phi and breath phase psi (cycles), heart rate hr, damped by damp; breath 0 while the patient does not breathe. */
+export const traceWave = (phi, psi, hr, damp, breath = 1) => cardiacWave(phi + RSA * Math.sin(TAU * (psi - BREATH_AT)) * breath, hr, damp) + breathWave(psi) * breath;
+/** The wave on a procedure's own clock alone (tt ms; a 70/min heart, the 4 s breath): what a trace recorded with no model beside it draws. */
+export const clockWave = (tt, damp) => traceWave(tt / BEAT_MS, tt / BREATH_MS, 70, damp, 1);
+/** Where a recorded trace's beat and breath should be at procedure time tt (ms), from the model's clock w (syncWave), else the procedure's own.
+ *  out: [beat phase (a wave at whole numbers), breath phase, heart rate, breath on]. Pure. */
+export function wavePhaseAt(tt, w, out) {
+  if (w && w.on) {
+    const age = (w.t - tt) / 1000;
+    out[0] = w.cyc - A_WAVE_PHASE - (age * w.hr) / 60; out[1] = (w.m - age) / BREATH_S; out[2] = w.hr; out[3] = w.breath;
+  } else { out[0] = tt / BEAT_MS; out[1] = tt / BREATH_MS; out[2] = 70; out[3] = 1; }
+  return out;
+}
+export { wrapHalf };
 
 /**
- * The trace's waves on the model's own clock (item 9), so the trace, the EKG and the Doppler pulse together. The waves belong to model time,
- * not to the procedure's: a sample taken `age` seconds before the head (the trace's newest point, at procedure time t) is the model's beat and
- * breath `age` seconds before its own now, so Back, a rewind to the free level or a long frame never plays them backwards.
+ * The model's beat and breath for a recorded trace (trace-tape.js), so the trace, the EKG and the Doppler pulse together:
  *   t: the procedure's ms at the head; m: the model's seconds there; cyc: the model's cardiac phase there; hr: beats a minute; breath: 1 while
- *   the model breathes; on: the model has been read at least once (until then pressureAt keeps its own beat and breath).
+ *   the model breathes; on: the model has been read at least once.
  */
 export const newWave = () => ({ on: false, t: 0, m: 0, cyc: 0, hr: 70, breath: 1, f: null, at: 0 });
 /**
@@ -107,23 +169,12 @@ export function syncWave(w, f, t, now) {
   return w;
 }
 
-/** The catheter pressure at time tt: the free level with the venous pulse (a, c, v waves) and the swing of breathing (the hepatic
- *  venous pressure falls with each breath in); as the balloon fills it climbs to the wedged level in step with it, the waves damped
- *  by the still column, which carries only a softened, delayed trace of the sinusoids' pulse. w: the model's clock (syncWave), else the
- *  waves run on the procedure's own. */
-export function pressureAt(tt, v, w = null) {
-  const b = balloonAt(tt);
-  return v.fhvp + (v.whvp - v.fhvp) * b + waveAt(tt, w) * WAVE_GAIN * (1 - WEDGE_DAMP * b);
-}
-/** How much of its pulse the wedged trace loses, 0..1: the still column softens it, but the beat and the breath still show on the wedge (Mohammad, 13 Nov 2026:
- *  "still has variability beat to beat"; it was 0.85, which drew the wedge as a ruler-flat line). */
-export const WEDGE_DAMP = 0.45;
-/** The beat and breath at tt (ms on a procedure's clock), as a fraction of the trace's full wave (WAVE_GAIN scales it): on the model's clock (w, syncWave), else on the
- *  procedure's own (an 850 ms beat and a 3.6 s breath), so a trace drawn once is drawn the same way again: it never reshuffles. Every monitor's wave (monitor.js). */
-export function waveAt(tt, w = null) {
-  if (w && w.on) {
-    const age = (w.t - tt) / 1000;
-    return venousAt(w.cyc - A_WAVE_PHASE - (age * w.hr) / 60) + Math.sin(((w.m - age) / BREATH_S) * 2 * Math.PI) * BREATH_AMP * w.breath;
-  }
-  return venousAt(tt / BEAT_MS) + Math.sin(tt / BREATH_MS * 2 * Math.PI) * BREATH_AMP;
+/** The HVPG catheter's mean level at tt: the free level, then, as the balloon fills, climbing in step with it to the wedged level. */
+export const levelAt = (tt, v) => v.fhvp + (v.whvp - v.fhvp) * balloonAt(tt);
+/** How much of its cardiac pulse the HVPG catheter's trace has lost at tt: none while free, WEDGE_DAMP once the balloon is up. */
+export const dampAt = (tt) => WEDGE_DAMP * balloonAt(tt);
+/** The catheter pressure at time tt on the procedure's own clock (no model): the level with its beat and breath. A recorded trace
+ *  (trace-tape.js) draws the same wave on the patient's own heart rate and breath; this is that trace with no model beside it. */
+export function pressureAt(tt, v) {
+  return levelAt(tt, v) + clockWave(tt, dampAt(tt));
 }

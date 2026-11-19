@@ -13,6 +13,7 @@
 // cards leave and no closer than the slide's kMax.
 
 import { CIRCUIT_ZONES } from './anatomy.js';
+import { piecesOf } from './part-names.js';
 
 // The Circuit view's named regions (circuit world units, x 30-1360, y 30-730; the series row runs along y 345). A circuit slide's `cam` names
 // one of these, gives a raw box or says 'fit'; with no `cam`, its `zone` names the region (presenter.js). The zones come from CIRCUIT_ZONES.
@@ -83,6 +84,8 @@ export function growBox(box, f, floor = 0) {
 // (The result is one kept object with its four lists, cleared and refilled by each call: the presenter reads it as it frames, at once.)
 const NAMES = { organs: [], edges: [], points: [], unknown: [] };
 const addNew = (list, id) => { if (!list.includes(id)) list.push(id); };
+/** A vessel, and the other pieces of the vein it is part of (a vein a shunt joins part-way is one vessel to name). */
+const addVessel = (list, id) => { addNew(list, id); for (const p of piecesOf(id)) addNew(list, p); };
 /** What the names of an `on` list point at, as { organs, edges, points, unknown }. A name is tried as a term target (its vessels and
  *  organ, a station's id too), an organ, a station (its place on the plate), else a vessel id. `unknown` holds a name that is none of
  *  them: a vessel is only known when `ctx.edges` (a Set of ids) is given. ctx: { targets, organs (Set), nodes ({ id: [[x, y], …] }), edges? } */
@@ -92,10 +95,10 @@ export function camNames(on, ctx) {
   for (const n of on) {
     const t = typeof n === 'string' ? ctx.targets[n] : null;
     if (typeof n !== 'string') out.unknown.push(String(n));   // alloc-rare: only a name that is not a string, a slide-data error that deck checks report; never per frame
-    else if (t && (t.edges?.length || t.organ)) { if (t.edges) for (const e of t.edges) addNew(out.edges, e); if (t.organ) addNew(out.organs, t.organ); }
+    else if (t && (t.edges?.length || t.organ)) { if (t.edges) for (const e of t.edges) addVessel(out.edges, e); if (t.organ) addNew(out.organs, t.organ); }
     else if (ctx.organs.has(n)) addNew(out.organs, n);
     else if (ctx.nodes[n]?.[0]) out.points.push(ctx.nodes[n][0]);
-    else if (!ctx.edges || ctx.edges.has(n)) addNew(out.edges, n);
+    else if (!ctx.edges || ctx.edges.has(n)) addVessel(out.edges, n);
     else out.unknown.push(n);
   }
   return out;

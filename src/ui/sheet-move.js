@@ -65,12 +65,15 @@ function dropDrag(el) {
   for (const m of d.movers) m.cancel();
 }
 
+// A child that stands where the sheet will be, not where it is (data-sheet-free: Treat's Changes page, which slides in sideways while the sheet grows or sinks under it, 18 Nov 2026): it takes no part in the
+// sheet's ride, and is cut at the top of what the sheet shows (clip-path, written in the frame the ride is), so it never shows above the sheet's own top.
+const isFree = (c) => !!c.hasAttribute?.('data-sheet-free');   // (a sheet's test double may be a plain object)
 /** Holds the content y px down (0: in place), stopping any ease. */
 export function setSheetOffset(el, y) {
   stopSheet(el);
   el._sheetOff = y;
   const v = y ? `0px ${y}px` : '';
-  for (const c of el.children) c.style.translate = v;   // (its plate put in as the sheet was set up: sheetParts)
+  for (const c of el.children) if (!isFree(c)) c.style.translate = v;   // (its plate put in as the sheet was set up: sheetParts)
   signalMove();
 }
 
@@ -92,10 +95,11 @@ export function stopSheet(el) {
 export function glideSheet(el, y, { easing = EASE_ARRIVE, duration = D_SMALL, done, frame } = {}) {
   const from = sheetOffset(el);
   stopSheet(el);
-  const parts = [...el.children];   // (the plate first, put in as the sheet was set up: sheetParts)
+  const all = [...el.children], parts = all.filter((c) => !isFree(c)), free = all.filter(isFree);   // (the plate first, put in as the sheet was set up: sheetParts)
+  const cut = (cur) => { for (const c of free) c.style.clipPath = cur > 0.5 ? `inset(${cur.toFixed(1)}px 0 0 0)` : ''; };   // alloc-rare: a string a frame for each free child (one, while a page slides)
   el._sheetOff = y;
   const v = y ? `0px ${y}px` : '';
-  if (Math.abs(from - y) < 0.5) { for (const c of parts) c.style.translate = v; frame?.(y); signalMove(); done?.(); return; }
+  if (Math.abs(from - y) < 0.5) { for (const c of parts) c.style.translate = v; cut(0); frame?.(y); signalMove(); done?.(); return; }
   const ease = cssCurve(easing);
   // alloc-rare: a sheet's ease begins: one record and its end, once for each move, not for each frame
   const r = { parts, to: y, timer: 0 };
@@ -108,8 +112,8 @@ export function glideSheet(el, y, { easing = EASE_ARRIVE, duration = D_SMALL, do
   // Out of date if anything took the sheet over meanwhile: stopSheet.)
   const mine = el._sheetRun;
   const land = () => { if (el._sheetRun === mine) done(); };
-  const end = () => { if (runs.get(el) !== r) return; runs.delete(el); clearTimeout(r.timer); for (const c of parts) { glideStop(c); c.style.translate = v; } signalMove(); if (done) restPass(land); };
+  const end = () => { if (runs.get(el) !== r) return; runs.delete(el); clearTimeout(r.timer); for (const c of parts) { glideStop(c); c.style.translate = v; } cut(0); signalMove(); if (done) restPass(land); };
   for (let i = 0; i < parts.length; i++) glideTranslate(parts[i], 0, from, 0, y, duration, ease, i ? undefined : end);
-  if (frame) glideCall(el, duration, ease, (e) => frame(from + (y - from) * e));   // (after the parts: the same frame, the same ease)
+  if (frame || free.length) glideCall(el, duration, ease, (e) => { const cur = from + (y - from) * e; cut(cur); frame?.(cur); });   // (after the parts: the same frame, the same ease)
   r.timer = setTimeout(end, duration + 120);   // (a page whose frames stall, in the background or a busy browser, still lands on time)
 }

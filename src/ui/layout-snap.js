@@ -14,10 +14,11 @@
 //    a ResizeObserver (it reports after the browser's own layout, for free) and their places from whoever put them there (place()).
 // A consumer reads the snapshot first and asks the browser (readBox) only for what the snapshot does not hold.
 import { framePhase } from './frame.js';
+import { flagOn } from './flags.js';
 
 // Where the reads happen: by the frame's phase ('read' is the clean one; 'early', 'late' and 'final' come after writes) or 'task'
 // (an event, a timer, an observer). Counted only while ?perf or ?offgpu is watching; window.pps.layoutReads() in the console.
-const WATCH = typeof location !== 'undefined' && /[?&](perf|offgpu)\b/.test(location.search || '');
+const WATCH = flagOn('perf') || flagOn('offgpu');
 const counts = { read: 0, early: 0, late: 0, final: 0, task: 0 };
 const note = WATCH ? () => { counts[framePhase() || 'task']++; } : () => {};
 export const layoutReads = () => ({ ...counts, afterWrites: counts.early + counts.late + counts.final });
@@ -26,6 +27,8 @@ export const layoutReads = () => ({ ...counts, afterWrites: counts.early + count
 // (Each takes the element first; a missing element gives undefined, as `el?.method()` did.)
 export const readBox = (el) => { if (el == null) return undefined; note(); return el.getBoundingClientRect(); };
 export const readRects = (el) => { if (el == null) return undefined; note(); return el.getClientRects(); };
+/** The boxes of an element's text, one per line (a range over its contents), for the edge rules (gallery/edge-rules.js). */
+export const readLines = (el) => { if (el == null) return undefined; note(); const r = document.createRange(); r.selectNodeContents(el); return r.getClientRects(); };
 export const readStyle = (el, pseudo) => { note(); return pseudo ? getComputedStyle(el, pseudo) : getComputedStyle(el); };
 export const readCTM = (el) => { if (el == null) return undefined; note(); return el.getScreenCTM?.() ?? null; };
 // (An SVG element's frame in its own svg's units (getCTM, not the screen's): the organs' paint undoes a parent's by it, which the camera never moves.)

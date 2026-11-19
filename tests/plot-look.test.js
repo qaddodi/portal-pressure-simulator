@@ -12,9 +12,10 @@ import { LOOKS } from '../src/ui/chart-looks/index.js';
 import { planeOf, frame, bleed, scaler, plotNumbers, hasAxes, PAD, est } from '../src/ui/visual-plane.js';
 import { xAxisRow, xAxisName, xTicks, fmtTick } from '../src/ui/tool-curve.js';
 import { ZONE_TOP } from '../src/ui/tool-profile.js';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const css = read('../styles/app.css');
+const css = appCss();
 const touch = (a, o) => a[0] < o[2] && a[2] > o[0] && a[1] < o[3] && a[3] > o[1];
 // (An element builder that keeps what it was given: the test DOM draws no SVG.)
 const sv = (tag, attrs = {}, ...kids) => ({ tag, attrs, kids: kids.flat().filter(Boolean) });
@@ -83,9 +84,9 @@ test('a number never sits on a point: a box kept off takes the number out, the a
   // (The same on the HVPG against PPG plane: both axes named (2 Nov: "tough to know HVPG PPG"), and a point by the 12 takes only that number out.)
   const hp = planeOf('hvpg-ppg'), hf = frame(800, 450), h = scaler(hp, hf), hk = [[h.X(0.4) - 12, h.Y(12.3) - 12, h.X(0.4) + 12, h.Y(12.3) + 12]];
   const hs = plotNumbers(hp, hf, h.X, h.Y, fs, hk);
-  assert.deepEqual(hs.filter((n) => n.cls === 'pze-ax').map((n) => n.text).sort(), ['HVPG (WHVP − FHVP), mmHg', 'PPG (portal − IVC), mmHg'], 'each axis named in full, with what it is and its unit');
+  assert.deepEqual(hs.filter((n) => n.cls === 'pze-ax').map((n) => n.text).sort(), ['HVPG (WHVP − FHVP), mmHg', 'PPG (PV − IVC), mmHg'], 'each axis named in full, with what it is and its unit');
   assert.deepEqual(hs.filter((n) => n.cls !== 'pze-ax').map((n) => n.text).sort(), ['10', '5', '6'], 'the y 12 beside the point is left out, the other cut-offs stay');
-  // (A narrow plot, a phone's, names them with the unit alone; the definition (WHVP − FHVP, portal − IVC) is for a plot 700 px or wider.)
+  // (A narrow plot, a phone's, names them with the unit alone; the definition (WHVP − FHVP, PV − IVC) is for a plot 700 px or wider.)
   for (const [W, H, fs] of [[345, 300, 16], [390, 340, 16], [620, 260, 14]]) {
     const f = frame(W, H), sc = scaler(hp, f), t = plotNumbers(hp, f, sc.X, sc.Y, fs).filter((n) => n.cls === 'pze-ax').map((n) => n.text).sort();
     assert.deepEqual(t, ['HVPG, mmHg', 'PPG, mmHg'], `${W} px: both axes named with their unit`);
@@ -132,7 +133,7 @@ test('the charts\' numbers sit inside the panel, 8 px in from its edge, and noth
   const curve = read('../src/ui/tool-curve.js'), ft = read('../src/ui/flow-time.js'), talk = read('../src/ui/talk-trace.js');
   assert.match(curve, /const L = Math\.ceil\(tw\(sL\) \+ 14\), R = Math\.floor\(w - \(sR \? tw\(sR\) \+ 14 : 10\)\)/, 'the curve\'s numbers 8 px in (a 6 px gap to the lines)');
   assert.match(ft, /L = Math\.ceil\(tw\(ser\.pScale\) \+ 14 \+/, 'the flow-time numbers 8 px in');
-  assert.match(talk, /B = Math\.max\(T \+ 3 \* fs, HT - 3 \* fs - 39\)/, 'the talk chart\'s time row and two readings rows keep a few px of the panel under them');
+  assert.match(talk, /const footer = \(k\) => fs \+ 22 \+ \(k >= 1 \? fs \+ 10 : 0\) \+ \(k >= 2 \? fs \+ 7 : 0\);/, 'the talk chart\'s time row and its readings rows keep 12 px of the panel under them (the same 3 fs + 39 with both rows)');
   // (The key under a chart's panel starts under it: the steps' key sits 1.3 lines under the axis's name row.)
   assert.match(curve, /y: B \+ G\.foot \+ 1\.3 \* f \+ it\.row \* 1\.5 \* f/);
 });
@@ -173,9 +174,11 @@ test('a flow-time chart with treatments keeps their names and bars inside the pa
   for (const n of [1, 2, 3]) assert.ok(1.4 + 0.32 * n - (2.8 - 1.7 + (n - 1) * 0.32 + 0.2) >= 0.4, `${n} bars: room under the last`);
 });
 
-test('the criteria cards\' lead line and rule stand centred, as the first-visit graph\'s do', () => {
-  assert.match(css, /\.pzc-top \{ display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center;/);
-  assert.match(css, /\.pzc-lead \{ flex: 0 1 auto; min-width: 0; margin: 0; text-align: center;/);
+test('the criteria cards\' lead line and rule stand at the left with the title; only the zones card (the first-visit graph) keeps them centred', () => {
+  assert.match(css, /\.pzc-top \{ display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-start;/);
+  assert.match(css, /\.pzc-lead \{ flex: 0 1 auto; min-width: 0; margin: 0; text-align: left;/);
+  assert.match(css, /\.pz-crit\.has-zones \.pzc-top \{[^}]*justify-content: center;/);
+  assert.match(css, /\.pz-crit\.has-zones \.pzc-lead \{[^}]*text-align: center;/);
 });
 
 test('the Explore dock\'s canvas charts lay the same rounded panel: plotFill is the panel\'s rect in the tile tone, laid first, and neither chart keeps an axis line', () => {

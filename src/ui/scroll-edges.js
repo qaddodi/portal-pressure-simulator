@@ -4,7 +4,7 @@
 // says which ends have more (--sedge-t / --sedge-b, 0 or 1, registered in app.css; a menu's veils ease them by their opacity, a list's mask takes them at once); the stylesheet draws them
 // (a mask on the scrolling element, or a sticky veil on a menu, which is its own glass and must keep its edge and shadow whole).
 //
-// Which lists: the menu's two columns, the Treat and Tests bodies, the docked cards' scroller and every popover menu (Settings, Blood,
+// Which lists: the menu's two columns, the Treat and Tests bodies, every card's face and its details' scroller (a card's words cut at its foot say nothing about more below) and every popover menu (Settings, Blood,
 // Layers, the lens menu, and the phone's sheets). Left to their own: the History list (its own mask) and the search palette.
 //
 // Cost: no scroll listener and no read of the page as it scrolls or in a frame: the browser reports the ends (IntersectionObserver), and
@@ -12,7 +12,7 @@
 import { restPass } from './rest-pass.js';
 import { reduceMotionMQ } from './motion.js';
 
-const LISTS = '.um-col, .um-cols, .tc-body, .ac-scroll, .menu:not(.tl-history), .instrument-workspace .dock-pane';
+const LISTS = '.um-col, .um-cols, .tc-body, .action-card > .ac-body, .ad-scroll, .menu:not(.tl-history), .instrument-workspace .dock-pane';   // (the cards' faces, the details' own scroller: a face with more below fades at its foot)
 const SLOP = 1;   // (px: a fraction of a pixel of scroll, from zoom or rounding, is not "more")
 
 /** Which ends of a scrolled box have more beyond them: [top, bottom] as 0 or 1. A box that does not scroll has neither. */

@@ -8,21 +8,25 @@
 // readout tile. In Explore the live HVPG readouts stay hidden until this has run for the patient
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
-import { h, fmt, icon, toast, swapText } from './util.js';
+import { h, fmt, icon, toast, swapText, foldHidden, hasBox } from './util.js';
 import { glWords } from './gl-words.js';
-import { hvpgSev, hvBlocked, NOT_SHOWN } from '../engine/portal/pressure-cuts.js';
+import { hvpgSev, HVPG_WORDS, hvBlocked, NOT_SHOWN, NOT_MEASURABLE } from '../engine/portal/pressure-cuts.js';
 import { pressureColor } from './colormap.js';
 import { store, logAction, hiddenNow, updateParams } from './store.js';
 import { shownOr } from './shown.js';
 import { classSoon, restartSoon, attrSoon, dataSoon, propSoon } from './class-soon.js';
-import { T, ease, cruise, k01, balloonAt, timeOfBalloon, pressureAt, newWave, syncWave } from './hvpg-clock.js';
+import { T, ease, cruise, k01, balloonAt, timeOfBalloon, levelAt, dampAt, pressureAt, newWave, syncWave } from './hvpg-clock.js';
 import { frameFor, cancelFrame } from './frame.js';
 import { createTraceGL } from './trace-gl.js';
 import { drawMonitor, C, SEV_C, cell, fm1, HVPG_TEXT } from './monitor.js';
 import { rateOf } from './table-marks.js';
 import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure, procRunning } from './proc-anim.js';
+import { procPlay } from './procedure-names.js';
 import { reduceMotionMQ } from './motion.js';
 import { createIrPpg } from './ir-ppg.js';
+import { createIrTips } from './ir-tips.js';
+import { createSwap } from './monitor-takeover.js';
+import { leaveFor } from './leave-for-shot.js';
 const nextFrame = frameFor('hvpg-proc');
 
 let stageRef = null;
@@ -33,11 +37,13 @@ export function setHvpgStage(stage) { stageRef = stage; }
 // procedure is aborted and the catheter withdrawn. No reading, so HVPG stays unmeasured.
 const TB = { probe0: T.zoom + 300, probe1: T.zoom + 3900, abort: T.zoom + 3900, back: T.zoom + 5300, end: T.zoom + 8700 };   // (from the end of the catheter's way in, as it was: 4600, 8200, 8200, 9600, 13000)
 const ABORT_MSG = 'Unable to cannulate the hepatic vein: procedure aborted';
+/** The measure button's words: it says what is happening, and the result's arrival ends the measuring (the catheter still coming out is not a measurement). */
+export const measureLabel = (running, hasResult) => (running ? (hasResult ? 'Withdrawing the catheter…' : 'Measuring…') : hasResult ? 'Measure again' : 'Measure HVPG');
 const STEPS = [
   ['enter', 'Catheter in', 'Right internal jugular access: the balloon catheter passes through the SVC, the right atrium and the IVC into the right hepatic vein.', 'Catheter'],
   ['free', 'Free pressure (FHVP)', 'With the balloon deflated, the tip records the hepatic venous outflow pressure.', 'Free'],
   ['wedge', 'Wedged pressure (WHVP)', 'The balloon is inflated just proximal to the tip and occludes the vein. Once the pressure is stable, the static column beyond it reflects the sinusoidal pressure.', 'Wedged'],
-  ['result', 'HVPG = WHVP − FHVP', 'The pressure drop across the sinusoids. Normal <5 mmHg; ≥10 mmHg is clinically significant portal hypertension.', 'HVPG'],
+  ['result', 'HVPG = WHVP − FHVP', 'The pressure drop across the sinusoids. Normal ≤5 mmHg; ≥10 mmHg is clinically significant portal hypertension.', 'HVPG'],
 ];
 // The tracing is the one monitor (monitor.js), dark in both themes; its colours are the figure's rings' too.
 const sevOf = hvpgSev;
@@ -45,7 +51,7 @@ const sevOf = hvpgSev;
 const SEV = { ok: 'ok', mid: 'caution', hi: 'danger' };
 const readOf = {};   // (the one reading rateOf is handed, {[k]: v}, rewritten in place: rateOf reads only that key and keeps nothing)
 const sevOfRead = (k, v) => { readOf[k] = v; return SEV[rateOf(k, readOf)[0]] || ''; };
-const SEV_WORD = { danger: 'Clinically significant portal hypertension (CSPH)', caution: 'Mild portal hypertension', ok: 'Normal' };
+const SEV_WORD = { danger: HVPG_WORDS.danger[1], caution: HVPG_WORDS.caution[1], ok: HVPG_WORDS.ok[1] };   // (the one set of band words, pressure-cuts.js)
 const sevWord = (v) => SEV_WORD[hvpgSev(v)];
 // (The words a phase says, made once: a frame picks one by the band instead of building it.)
 const ABORT_CAP = `${ABORT_MSG}. The hepatic vein is thrombosed (Budd–Chiari), so the catheter cannot enter it and no free or wedged pressure can be read. HVPG is not measurable.`;
@@ -78,14 +84,18 @@ export function createHvpgProcedure() {
   // The treatments played on the same anatomy (proc-anim.js): each catheter on its own route, the model changed when it ends.
   // One the patient cannot have (a TIPS already in, a shunt already closed) stays dimmed, and a tap says why; BRTO and BATO
   // are only there while the patient has gastric varices to treat.
-  const procBtns = Object.fromEntries(PROC_KINDS.map((k) => [k, h('button', { type: 'button', class: 'btn sm hvpg-proc-btn', 'aria-label': `Play ${PROCS[k].name}`,
+  const procBtns = Object.fromEntries(PROC_KINDS.map((k) => [k, h('button', { type: 'button', class: 'btn sm hvpg-proc-btn', 'aria-label': procPlay(k),
     onclick: () => play(k), onpointerup: (e) => { if (e.pointerType !== 'mouse' && !procBtns[k].disabled) play(k); } }, icon('play'), h('span', {}, PROCS[k].name))]));
   // The PPG by interventional radiology, a measurement played the same way (ir-ppg.js): its monitor stands in the HVPG tracing's place while it runs and after it.
   const ir = createIrPpg({ busy: () => (t0 != null && t < tEnd()) || !!proc, onChange: () => paintSide() });
+  // (The HVPG tracing and the PPG by IR's monitor hand the place over with a fade, never a pop: the one that leaves fades out, then the other fades in. monitor-takeover.js)
+  const trace = createSwap({ base: [box], over: [ir.box], drawn: hasBox });
   const procRow = h('div', { class: 'hvpg-procs', role: 'group', 'aria-label': 'Play a procedure on the anatomy' }, h('span', { class: 'hvpg-procs-k' }, 'Watch'), ...Object.values(procBtns), ir.btn);
   const stepsEl = h('ol', { class: 'hvpg-steps' }, stepEls);
   const side = h('div', { class: 'chart-side' }, stepsEl, caption, procRow, note);
   const el = h('div', { class: 'dock-pane', 'data-pane': 'hvpg' }, bar, box, ir.panel, side);
+  // The stent's own test beside this one (Tests › IR › TIPS, ir-tips.js): a switch in the pane's head row, and a view that holds the pane's place while it shows.
+  const tips = createIrTips({ host: el, onChange: () => paintSide() });
 
   let t0 = null, t = 0, raf = 0, frame = null, result = null, sig = '', cam = '', blocked = false;
   const phase = () => (t0 == null && !result ? 'idle' : blocked ? (t < TB.abort ? 'enter' : 'abort') : t < T.free ? 'enter' : t < T.inflate ? 'free' : t < T.result ? 'wedge' : 'result');
@@ -102,8 +112,7 @@ export function createHvpgProcedure() {
   function start() {
     if ((t0 != null && t < tEnd()) || proc || procRunning()) return;
     const st = store.get();
-    if (st.lobule) store.set({ lobule: false });
-    if (st.view !== 'anatomic') store.set({ view: 'anatomic' });
+    leaveFor(stageRef, { shot: 'route', route: 'hvpg', opt: SHOT_NEAR });
     ir.hide();
     result = null; t0 = performance.now(); t = 0; cam = ''; blocked = hvBlocked(st.params); snap = now()?.metrics ? { ...live() } : null;   // alloc-rare: once as a measurement starts (a copy, kept for the run)
     loop();
@@ -118,8 +127,7 @@ export function createHvpgProcedure() {
     playT = performance.now();
     const st = store.get(), why = procBlocked(kind, st.params, now()?.metrics);
     if (why) { toast(why); return; }
-    if (st.lobule) store.set({ lobule: false });
-    if (st.view !== 'anatomic') store.set({ view: 'anatomic' });
+    leaveFor(stageRef, kind);
     procKind = kind; procStep = 0;
     // (Each step names the vessel it works on with the figure's own callout, as a slide's mark; whatever was called out before
     // comes back when it ends. Here it plays through by itself, holding a moment at each step.)
@@ -226,6 +234,7 @@ export function createHvpgProcedure() {
     // Before any measurement, with the readouts on show (Settings, or measured once for this patient), the three read live,
     // the free and wedged pressures as the bar reads them and the HVPG as their difference, so the row and the bar agree (sweep
     // batch 03, shots 05 and 30: dashes here beside HVPG 0.9 on the bar).
+    const blockedNow = hvBlocked(st.params);
     const open = ph === 'idle' && !!st.frame?.metrics && !hiddenNow(st)?.has('trueHVPG') && !hvBlocked(st.params);   // (a blocked vein: dashes, as after the abort)
     let v = values();
     if (open) { const f1 = Math.round(shownOr('fhvp', v.fhvp) * 10) / 10, w1 = Math.round(shownOr('whvp', v.whvp) * 10) / 10; openV.fhvp = f1; openV.whvp = w1; openV.hvpg = Math.round((w1 - f1) * 10) / 10; v = openV; }
@@ -234,7 +243,9 @@ export function createHvpgProcedure() {
     else { shown.fhvp = ph !== 'idle' && ph !== 'enter' && ph !== 'abort'; shown.whvp = ph === 'result' || (ph === 'wedge' && t >= T.callout); shown.hvpg = ph === 'result' && (t0 == null || t >= T.sum); }
     for (let ki = 0; ki < 3; ki++) {
       const k = KEYS3[ki];
-      const txt = shown[k] ? fmt(v[k], 1) : NOT_SHOWN;
+      // (A vein that cannot be catheterized, Budd–Chiari, says so in each reading's place; a dash is a reading not yet taken.)
+      const nm = !shown[k] && blockedNow, txt = shown[k] ? fmt(v[k], 1) : nm ? NOT_MEASURABLE : NOT_SHOWN;
+      dataSoon(vals[k], 'nm', nm ? '1' : '');
       if (valW[k].text !== txt) {
         valW[k].set(txt);
         // The difference arrives after the two readings have settled: it fades and rises in, never pops. (Not a live reading:
@@ -262,7 +273,7 @@ export function createHvpgProcedure() {
     const say = proc ? PROCS[procKind].steps[Math.max(0, procStep)][2] : ir.caption() || cap;
     swapText(caption, say);   // (a new step's words crossfade in)
     const busy = (t0 != null && t < tEnd()) || !!proc || ir.running();
-    propSoon(box, 'hidden', ir.shown()); propSoon(stepsEl, 'hidden', ir.shown());   // (the PPG by IR's monitor stands in the HVPG tracing's place, and the HVPG's four steps give way to its caption)
+    trace.set(ir.shown()); foldHidden(stepsEl, ir.shown());   // (the PPG by IR's monitor stands in the HVPG tracing's place, and the HVPG's four steps give way to its caption; both fade, and come back when the monitor goes)
     propSoon(ir.btn, 'disabled', busy);
     propSoon(startBtn, 'disabled', busy);
     for (let pi = 0; pi < PROC_KINDS.length; pi++) {
@@ -275,7 +286,7 @@ export function createHvpgProcedure() {
       classSoon(b, 'off', off);
       attrSoon(b, 'aria-pressed', on ? 'true' : 'false');
     }
-    const lbl = t0 != null && t < tEnd() ? 'Measuring…' : result ? 'Measure again' : 'Measure HVPG';
+    const lbl = measureLabel(t0 != null && t < tEnd(), !!result);
     btnW.set(lbl);
     const n = st.mode === 'explore' && !st.presenting
       ? (st.showHvpg ? 'The HVPG readouts are always shown.' : st.hvpgMeasured ? 'Measured: the HVPG readouts stay live until a new patient is loaded.' : 'The HVPG readouts stay hidden until the HVPG is measured here.')
@@ -292,6 +303,7 @@ export function createHvpgProcedure() {
   function update(f) {
     frame = f;
     ir.update();
+    tips.update(f);
     if (raf) return;   // the animation loop paints
     paintSide();
     const r = cv.getBoundingClientRect();
@@ -302,7 +314,9 @@ export function createHvpgProcedure() {
   store.on('hvpgMeasured', (v) => { if (!v && (result || t0 != null || proc)) reset(); });
   store.on('lastHVPG', (v) => { if (!v && result) reset(); });
   paintSide();
-  return { id: 'hvpg', label: 'HVPG procedure', el, update, start };
+  return { id: 'hvpg', label: 'Interventional radiology', el, head: tips.head, update, start, shown: (on) => tips.setActive(on),
+    /** Tests › IR › TIPS on this stent ('TIPS' or 'DIPS'): a vessel card's way in (actions.js, ctx.openIr). False when the patient has no such stent. */
+    openStent: (id) => tips.openStent(id) };
 }
 
 // The same monitor for a Presenter slide (decks.js monitor, under the slide's words), following the slide's
@@ -384,10 +398,13 @@ export function createHvpgMonitor() {
     if (mode && el.isConnected) { const now = performance.now(); if (!raf) last = now; cancelFrame(raf); raf = 0; step(now); }
   }
   // (A new size redraws it; the animation loop paints while it runs.)
-  new ResizeObserver(() => { if (!raf && (mode || waiting)) draw(); }).observe(cv);
+  const ro = new ResizeObserver(() => { if (!raf && (mode || waiting)) draw(); });
+  ro.observe(cv);
   /** The catheter has not reached the hepatic vein: the monitor stands empty (a trace already begun is left alone). Returns whether it is empty now. */
   function hold() { if (mode) return false; waiting = true; if (!raf) draw(); return true; }
-  return { el, set, balloon, hold, started: () => !!mode };
+  /** The monitor is let go (a presentation over): its frame, its words' timer and size observer stop, and the tracing's GPU context is given back. */
+  function dispose() { cancelFrame(raf); raf = 0; clearTimeout(sayT); sayT = 0; ro.disconnect(); gpu?.dispose(); }
+  return { el, set, balloon, hold, started: () => !!mode, dispose };
 }
 
 // ── The tracing: the one monitor (monitor.js), dark in both themes, on the HVPG catheter's script ──
@@ -401,11 +418,12 @@ export const HVPG_SCRIPT = {
   heads: HVPG_TEXT.heads, win: [T.free - 300, T.back], enterWord: 'Catheter advancing',   // (its words: the one table, monitor.js HVPG_TEXT)
   abort: ['Unable to cannulate hepatic vein', 'Unable to cannulate hepatic vein: procedure aborted', 'HVPG not measurable'],
   notes: HVPG_TEXT.notes,
-  at: (tt, v, w) => pressureAt(tt, v, w),
+  lv: levelAt, damp: dampAt,   // (the trace's mean level and how damped its pulse is: hvpg-clock.js; the monitor records it with the patient's beat and breath, trace-tape.js)
+  at: (tt, v) => pressureAt(tt, v),   // (the same trace on the procedure's own clock, no model: tests)
   segs: [[T.free - 300, T.inflate, 'free'], [T.inflate, T.back, 'wedge']],   // (blue while free, orchid once the balloon is up; the wedged trace solid: owner, 10 Nov 2026)
   status(t, v, st, o) {
     if (t < T.inflate) { o.label = 'FHVP'; o.num = fmt(v.fhvp, 1); o.col = 'free'; }
-    else if (t < T.result) { o.label = t < T.wedge ? 'Balloon inflating' : t < T.callout ? 'Settling' : 'WHVP'; o.num = fmt(t < T.callout ? pressureAt(t, v, st.wave) : v.whvp, 1); o.col = 'wedge'; }
+    else if (t < T.result) { o.label = t < T.wedge ? 'Balloon inflating' : t < T.callout ? 'Settling' : 'WHVP'; o.num = fmt(t < T.callout ? levelAt(t, v) : v.whvp, 1); o.col = 'wedge'; }
     else if (st.running && t < T.sum) { o.label = 'WHVP'; o.num = fmt(v.whvp, 1); o.col = 'wedge'; }
     else { o.label = 'HVPG'; o.num = fmt(v.hvpg, 1); o.col = SEV_C[sevOf(v.hvpg)]; }
   },
@@ -413,6 +431,7 @@ export const HVPG_SCRIPT = {
   drops: [[T.inflate - 80, 'Free', 'fhvp', 'free', 1], [T.callout, 'Wedge', 'whvp', 'wedge', -1]],
   levels: [[T.inflate, 'fhvp', 'free', 'FHVP'], [T.result, 'whvp', 'wedge', 'WHVP']],
   result: { show: T.result, at: T.sum, lo: 'fhvp', hi: 'whvp', key: 'hvpg', word: 'HVPG', sev: hvpgSev },
+  secs: true,   // (a seconds axis along the bottom, from the start of the free sweep: the tracing had only its stage words)
   ticks: [[T.inflate, 'balloon up']],   // (the balloon's tick and its words come with the balloon, not before: Mohammad, 12 Nov 2026)
   ymax: (v) => Math.max(15, Math.ceil((Math.max(v.whvp, v.fhvp) + 5) / 5) * 5),
 };

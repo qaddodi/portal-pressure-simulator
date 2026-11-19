@@ -3,9 +3,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
-const pal = read('src/ui/palette.js'), css = read('styles/app.css');
+const pal = read('src/ui/palette.js'), css = appCss();
 
 test('the list always has the one highlight element, and the row paints no highlight of its own', () => {
   assert.doesNotMatch(pal, /GLIDE|palglide/);

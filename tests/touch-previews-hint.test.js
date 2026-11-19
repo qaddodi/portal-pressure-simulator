@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
@@ -11,7 +12,7 @@ test('patient rows get the ⓘ that opens their preview under the row', () => {
   const row = menu.slice(menu.indexOf('function patientRow'), menu.indexOf('const deckPreview'));
   assert.match(row, /class: 'um-info'/);
   assert.match(row, /toggleInline\(li, \(\) => patientPreview\(p\), info\)/);
-  assert.match(read('styles/app.css'), /\(pointer: coarse\) \{\s*\.um-row \{[^}]*\}\s*\.um-info \{ display: inline-flex; \}/);
+  assert.match(appCss(), /\(pointer: coarse\) \{\s*\.um-row \{[^}]*\}\s*\.um-info \{ display: inline-flex; \}/);
 });
 
 test('the first-run hint shows once, as a sticky message card, until the first pick', () => {
@@ -21,7 +22,7 @@ test('the first-run hint shows once, as a sticky message card, until the first p
   assert.match(fn, /a vessel or the liver to change it\./);
   assert.match(fn, /sticky: true, onClose: done/);
   assert.match(fn, /store\.on\('selection', \(sel\) => \{ if \(sel\) close\(\); \}\)/);
-  assert.match(fn, /localStorage\.setItem\(HINT_KEY, '1'\)/);
+  assert.match(fn, /prefs\.setItem\(HINT_KEY, '1'\)/);
   assert.match(fn, /if \(navigator\.webdriver\) return;/, 'never in the browser checks or visual references');
 });
 

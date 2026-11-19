@@ -6,7 +6,7 @@
   "scope": "./",
   "display": "standalone",
   "background_color": "#F1EBE0",
-  "theme_color": "#16181D",
+  "theme_color": "#F1EBE0",
   "lang": "en",
   "categories": ["education", "medical"],
   "icons": [

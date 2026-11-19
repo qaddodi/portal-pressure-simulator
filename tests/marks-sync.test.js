@@ -28,6 +28,6 @@ test('the overlay update that rebuilds the marks reads them in the same task, af
 
 test('the frame loop still reads them too (a look or a theme that changes them, a clamp that has faded out)', () => {
   const b = body(/function olStep\(now\)/);
-  assert.match(b, /marksSync\(\)/);
+  assert.match(b, /marksSync/);   // (framePart('outlines: marks', live.marksSync): named for ?perf)
   assert.doesNotMatch(b, /marksBuild\)/, 'one way in');
 });

@@ -3,12 +3,7 @@
 export const LOBULE = {
   id: 'lobule', level: 'advanced', title: 'Inside the lobule: the site of each disease', minutes: 7,
   sections: [['The lobule', ['The lobule']], ['Where the resistance lies', ['Presinusoidal', 'Sinusoidal', 'Postsinusoidal', 'Cardiac']], ['Measuring', ['Measuring']]],
-  objectives: [
-    'Trace blood through the lobule from the portal tract to the central vein',
-    'Locate schistosomiasis, cirrhosis, sinusoidal obstruction syndrome and congestive hepatopathy in the lobule',
-    'Predict the HVPG and the ascites protein from the site of resistance',
-    'Explain what the wedged pressure reflects and what it misses',
-  ],
+  objectives: ['Trace blood through the lobule from the portal tract to the central vein', 'Locate each cause of resistance in the lobule and predict the HVPG and ascites protein', 'Explain what the wedged pressure reflects and what it misses'],
   checks: [
     ['Which zone of the lobule is injured first by hypoperfusion or congestion?', 'Zone 3, around the central vein, which receives the least oxygen.'],
     ['Where does schistosomiasis add resistance to the flow?', 'In the portal venules of the portal tract, upstream of the sinusoids, so the HVPG stays near normal.'],
@@ -45,7 +40,7 @@ export const LOBULE = {
       id: 'cirr', terms: { 'space of Disse': 'sinusoid:disse', fenestrae: 'sinusoid:fenestrae', 'stellate cells': 'sinusoid:stellate', sinusoid: 'sinusoid:lumen' }, preset: 'cirr-decomp', cam: 'sinusoid', callout: { at: 'sin', label: 'Resistance' }, scales: { anatomy: { cam: 'liver', labels: ['CONF', 'SIN_R', 'RHV'] }, lobule: { cam: 'lobule:sinusoid', glow: ['lobule:sinusoid'] } }, data: 'tiles', tiles: ['sin', 'hvpg'],
       compare: [{ label: 'Fenestrae open', short: 'Open', params: { fenestrae: 1 } }, { label: 'Closed (cirrhosis)', short: 'Closed', own: true }],
       kicker: 'Sinusoidal', site: 'sin', title: 'Cirrhosis narrows the sinusoid',
-      vignette: 'A 61-year-old woman with MASH cirrhosis has ascites controlled on spironolactone and furosemide. Her albumin is 2.8 g/dL, and her platelets are 60,000/µL.',
+      vignette: 'A 61-year-old woman with MASH cirrhosis has ascites controlled on spironolactone and furosemide. Her albumin is 2.8 g/dL, and her platelets are 59,000/µL.',
       line: 'Collagen fills the space of Disse, the fenestrae close, and stellate cells contract around the sinusoid.',
       notes: 'Activated stellate cells lay down collagen in the space of Disse; the endothelium loses its fenestrae and gains a basement membrane (capillarization). Fibrosis and regenerative nodules distort and compress the sinusoids. This structural component accounts for about three quarters of the increased resistance. The rest is dynamic tone: reduced intrahepatic nitric oxide and stellate cell contraction, which is why carvedilol can lower it. With the sinusoidal wall capillarized, protein no longer crosses freely, so cirrhotic ascites is low in protein.',
       ask: ['Name the two parts of the raised resistance in cirrhosis.', 'Structural (fibrosis, nodules, capillarized sinusoids) and dynamic (vascular tone).'],
@@ -67,11 +62,18 @@ export const LOBULE = {
       ask: ['Why is the HVPG normal in congestive hepatopathy although the portal pressure is high?', 'The WHVP and FHVP rise together with the right atrial pressure.'],
     },
     {
-      id: 'wedge', cutouts: ['sinusoid'], preset: 'schisto', cath: 'wedge', tool: { kind: 'profile' }, key: ['hvpg'], column: true,
+      id: 'wedge', preset: 'schisto', cath: 'wedge', tool: { kind: 'profile' }, key: ['hvpg'], column: true,
       kicker: 'Measuring', site: 'presin', title: 'The wedged pressure reflects the sinusoids',
       line: 'In cirrhosis sinusoidal pressure approximates portal pressure, so the wedged pressure (WHVP) estimates it. In schistosomiasis the portal pressure is high but sinusoidal pressure is not: the WHVP stays normal.',
       notes: 'Wedging the catheter, or inflating its balloon, stops flow in that hepatic vein. The static column of blood upstream of the tip then equilibrates with the pressure where it next meets flowing blood: the sinusoids. In cirrhosis sinusoidal pressure is about equal to portal pressure, so the wedged pressure is a surrogate for it. In schistosomiasis, shown here, the portal pressure is high but sinusoidal pressure is not, so the wedged pressure, and the HVPG, are normal. Only a direct portal pressure measurement or the PPG shows presinusoidal resistance.',
       ask: ['Which sites of resistance does the wedged pressure miss?', 'Prehepatic and presinusoidal resistance, such as portal vein thrombosis and schistosomiasis.'],
+    },
+    {
+      id: 'wedge-sinusoid', cam: 'lobule:sinusoid', terms: { sinusoids: 'lobule:sinusoid' }, data: 'tiles', tiles: ['sin', 'pv'], key: ['sin'],
+      kicker: 'Measuring', site: 'presin', title: 'In schistosomiasis the sinusoidal pressure stays normal',
+      line: 'Resistance upstream of the sinusoids keeps the sinusoidal pressure at {sin} while the portal pressure is high. The wedged column ends in the sinusoids, so the WHVP is normal.',
+      notes: 'In schistosomiasis the eggs obstruct the portal venules in the portal tracts, upstream of the sinusoids. The sinusoids themselves see a normal pressure, so the static column of blood behind the wedged catheter reads normal and the HVPG stays normal despite a high portal vein pressure. Only a direct portal pressure measurement or the PPG shows the presinusoidal resistance.',
+      ask: ['Why is the wedged pressure normal when the portal vein pressure is high in schistosomiasis?', 'The resistance lies upstream of the sinusoids, so the sinusoidal pressure, which the WHVP reflects, is normal.'],
     },
     {
       // (The relation chart before the summary: each disease's wedged pressure against its portal vein pressure, on a plane with the
@@ -80,7 +82,7 @@ export const LOBULE = {
       plane: { x: { key: 'pv', min: 0, max: 30, ticks: [0, 10, 20, 30], name: 'Portal vein pressure, mmHg', short: 'Portal, mmHg' },
         y: { key: 'whvp', min: 0, max: 30, ticks: [0, 10, 20, 30], name: 'Wedged pressure, mmHg', short: 'WHVP, mmHg' }, zones: [], key: 'never', diag: { label: 'WHVP = portal' } },
       of: [{ preset: 'healthy', name: 'Healthy' }, { id: 'cirr', name: 'Cirrhosis' }, { preset: 'sos', name: 'Sinusoidal obstruction', short: 'SOS', site: 'postsin' },
-        { id: 'cong', name: 'Heart failure', short: 'Heart' }, { id: 'wedge', name: 'Schistosomiasis', short: 'Schisto' }, { preset: 'pvt-chronic', name: 'Portal vein clot', short: 'Clot', site: 'pre' }],
+        { id: 'cong', name: 'Heart failure', short: 'Heart' }, { id: 'wedge', name: 'Schistosomiasis', short: 'Schisto' }, { preset: 'pvt-chronic', name: 'Portal vein thrombosis', short: 'Clot', site: 'pre' }],
       kicker: 'Summary', title: 'The wedged pressure equals portal pressure only for sinusoidal or downstream resistance',
       line: 'On the dashed line the wedged pressure equals the portal pressure. Below it, the resistance is prehepatic or presinusoidal, and the wedged pressure misses it.',
       notes: 'Each disease is a point: portal vein pressure on the x-axis, wedged pressure on the y-axis. Cirrhosis and sinusoidal obstruction syndrome lie on the line, because the resistance is in or downstream of the sinusoids and the WHVP reflects the pressure upstream of it. Right heart failure lies on it as well, with every pressure high and no gradient. Schistosomiasis and portal vein thrombosis fall far below it: the portal pressure is high, but the WHVP reflects near-normal sinusoids, so the HVPG is normal. Only a direct portal pressure measurement, or the PPG, shows them. (AASLD 2024 Table 1 and p. 1181; Baveno VIII Table 3, the right atrial pressure measured to rule out a post-hepatic component. That the wedged pressure misses presinusoidal resistance is the model\'s own result, from the site of the resistance.)',

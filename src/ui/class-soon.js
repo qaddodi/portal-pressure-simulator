@@ -53,7 +53,8 @@ let port = null;
 const ask = () => {
   if (pending) return;
   pending = true;
-  if (!port && typeof MessageChannel !== 'undefined') { const ch = new MessageChannel(); ch.port1.onmessage = flush; ch.port1.unref?.(); port = ch.port2; }
+  if (!port && typeof MessageChannel !== 'undefined') { const ch = new MessageChannel(); ch.port1.onmessage = flush; /** @type {any} */ (ch.port1).unref?.();   // (Node's MessagePort has unref, the browser's has not: so a test run can exit)
+    port = ch.port2; }
   if (port) port.postMessage(0); else setTimeout(flush, 0);
 };
 

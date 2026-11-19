@@ -5,10 +5,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
+import { appCss } from './split-src.js';
 
 const read = (p) => unsnap(readFileSync(new URL(p, import.meta.url), 'utf8'));
 const main = read('../src/ui/main.js');
-const css = read('../styles/app.css');
+const css = appCss();
 const html = read('../index.html');
 const dock = read('../src/ui/dock.js');
 
@@ -32,7 +33,7 @@ test('the play / pause is the timeline\'s: no second one in the top bar', () => 
 });
 
 test('on a phone, Treat, Tests and Layers go back out to the lobule first, and open there', () => {
-  assert.match(main, /const outOfSin = \(\) => \{ if \(store\.get\(\)\.sinusoid\) store\.set\(\{ sinusoid: false \}\); \};/);
+  assert.match(main, /const outOfSin = \(\) => \{ if \(store\.get\(\)\.sinusoid\) setViewKey\('lobule'\); \};/);
   for (const t of ['treat', 'tests']) assert.match(main, new RegExp(`tab\\('${t}', [^\\n]*outOfSin\\(\\);`));
   assert.match(main, /tab\('layers', 'layers', 'Layers', menuTab\(\(a\) => \{ outOfSin\(\); openLayersMenu\(a\); \}\)\)/);
 });

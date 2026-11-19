@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { seamOf, splitPlan } from '../src/ui/face-split.js';
 import { ringBox } from '../src/ui/focus-ring.js';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
@@ -52,7 +53,7 @@ test('focus ring: the copy is the control\'s box grown by the ring\'s offset and
 });
 
 test('selection pill and menu veils: compositor rules behind their classes', () => {
-  const css = read('styles/app.css');
+  const css = appCss();
   assert.match(css, /\.seg-glide\.glide-gpu::before \{ left: 0; top: 0; translate: var\(--gx\) var\(--gy\); scale: var\(--gsx, 1\) var\(--gsy, 1\); transform-origin: 0 0;\s*transition: translate var\(--d-small\) var\(--ease-move\), scale var\(--d-small\) var\(--ease-move\); \}/);
   assert.match(css, /:root\.se-gpu \.menu\.se \{ transition: none; \}/);
   assert.match(read('src/ui/scroll-edges.js'), /\n\s+document\.documentElement\.classList\.add\('se-gpu'\);/);

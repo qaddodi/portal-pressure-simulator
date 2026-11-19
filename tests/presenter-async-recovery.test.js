@@ -1,18 +1,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { presenterSource } from './split-src.js';
 
-const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const src = presenterSource();
 const between = (a, b) => { const i = src.indexOf(a); assert.ok(i >= 0, a); return src.slice(i, src.indexOf(b, i + a.length)); };
 
 test('B13: the whole preparation job is inside a try, and a failure settles every waiter and ends the talk', () => {
-  const prep = between('  function prepare() {', '  // Each slide\'s numbers for the printed notes');
-  assert.match(prep, /const prepFailed = \(\) => \{[\s\S]*?for \(const w of waiters\) w\.res\(null\);[\s\S]*?waiters = \[\];[\s\S]*?stop\(\);[\s\S]*?toast\(/);
-  assert.match(prep, /\(async \(\) => \{\s*try \{[\s\S]*await host\.request\('snapshot'\)[\s\S]*\} catch \(err\) \{ console\.error\(err\); prepFailed\(\); \}\s*\}\)\(\);/);
+  // (The job is solve() now, shared by a start and a warm-up from the Present menu; prepare() hands it the deck's slides.)
+  const prep = between('  async function solve(', '  // A deck\'s states computed ahead');
+  assert.match(prep, /const failed = \(\) => \{[\s\S]*?for \(const w of waiters\) w\.res\(null\);[\s\S]*?waiters = \[\];[\s\S]*?stop\(\);[\s\S]*?toast\(/);
+  assert.match(prep, /try \{[\s\S]*await host\.request\('snapshot'\)[\s\S]*\} catch \(err\) \{ console\.error\(err\); failed\(\); \}\s*\}/);
 });
 
 test('B14: a start overtaken during its awaits returns before it writes the deck, saved state or UI', () => {
-  const start = between('  async function start(id, at = 0, opts = null) {', '  // Ending a talk, the slide');
+  const start = between('  async function start(id, at = 0, opts = null) {', '\n  }\n').replace(/\blive\./g, '');   // (read as before the parts: the shared lets are live.x there)
   const gen = start.indexOf('++startGen');
   const awaitCapture = start.indexOf('await capture()');
   const check = start.indexOf('if (startMine !== startGen) return;');
@@ -22,7 +24,7 @@ test('B14: a start overtaken during its awaits returns before it writes the deck
 });
 
 test('B15: toAnatomy takes a cut predicate, checks it after every wait, and every caller passes its own', () => {
-  const fn = between('  async function toAnatomy(next, cut = () => false) {', '  // Glide the camera to a slide');
+  const fn = between("  async function toAnatomy(next, cut = () => false, to = 'anatomy') {", '  // Glide the camera to a slide');
   // Every await is followed (on the same line or the next statement) by a cut() check before more writes.
   const lines = fn.split('\n');
   lines.forEach((l, i) => {

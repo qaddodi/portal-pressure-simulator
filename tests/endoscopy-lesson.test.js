@@ -87,5 +87,5 @@ test('what the lesson took from the old Endoscopy deck is taught where it went',
   assert.equal(BLEED.checks.length, 4, 'four checks, as before');
   assert.ok(BLEED.checks.some(([q, a]) => /hemoglobin do you transfuse/.test(q) && /7 to 8 g\/dL/.test(a)), 'the transfusion check');
   assert.match(NEXT_BLEED.slides.find((s) => s.id === 'slough').notes, /Post-banding ulcers[^.]*bleed\. Baveno VIII calls this rare but serious \(5\.47\)/);
-  assert.match(NEXT_BLEED.slides.find((s) => s.id === 'slough').notes, /every 6 to 12 months/);
+  assert.match(NEXT_BLEED.slides.find((s) => s.id === 'slough').notes, /6 months after eradication and then every 12 months/);
 });

@@ -3,22 +3,36 @@
 import { gpuProbe } from './gpu-probe.js';
 import { darkMQ } from './look.js';
 import { transformOf } from './svg-gl.js';
+import { earClip } from './ear-clip.js';
 
 /**
  * The matrix [a b c d e f] that takes an element's own coordinates to the overlay's: the transforms of the element and of every group above it, outer first, up to `stop`.
  * A transform the browser's computed style does not give (a browser that leaves an SVG transform attribute out of it: Safari showed the TIPS stent's front marker at the
  * figure's origin, a thin bar stuck to the figure, 11 Nov 2026) is read from the attribute. null: no transform on the way. `cs`: the element's computed style, read by the caller.
  */
-export function markMatrix(el, stop, cs) {
-  let M = null;
-  for (let e = el; e && e !== stop; e = e.parentNode) {
-    const c = e === el && cs ? cs : getComputedStyle(e), t = c.transform;
+export function markMatrix(el, stop, cs, memo = null) {
+  // (`memo`: a Map a build keeps for its shapes, the product of the transforms above each group worked out once: a mark read the whole chain, a style read for each group, 18 Nov 2026.)
+  const own = (e, c) => {
+    const t = c.transform;
     let q = null;
     if (t && t !== 'none') q = t.match(/-?[\d.]+(?:e-?\d+)?/g).map(Number);
     else if (e.getAttribute?.('transform')) q = transformOf(e.getAttribute('transform'));
-    if (q) M = M ? [q[0] * M[0] + q[2] * M[1], q[1] * M[0] + q[3] * M[1], q[0] * M[2] + q[2] * M[3], q[1] * M[2] + q[3] * M[3], q[0] * M[4] + q[2] * M[5] + q[4], q[1] * M[4] + q[3] * M[5] + q[5]] : q;
+    return q;
+  };
+  const mul = (q, M) => (q ? (M ? [q[0] * M[0] + q[2] * M[1], q[1] * M[0] + q[3] * M[1], q[0] * M[2] + q[2] * M[3], q[1] * M[2] + q[3] * M[3], q[0] * M[4] + q[2] * M[5] + q[4], q[1] * M[4] + q[3] * M[5] + q[5]] : q) : M);
+  const above = (e) => {
+    if (!e || e === stop) return null;
+    if (memo?.has(e)) return memo.get(e);
+    const M = mul(above(e.parentNode), own(e, getComputedStyle(e)));
+    memo?.set(e, M);
+    return M;
+  };
+  if (!memo) {
+    let M = null;
+    for (let e = el; e && e !== stop; e = e.parentNode) M = mul(own(e, e === el && cs ? cs : getComputedStyle(e)), M);
+    return M;
   }
-  return M;
+  return mul(above(el.parentNode), own(el, cs || getComputedStyle(el)));
 }
 
 export function createMarks(st) {
@@ -116,43 +130,25 @@ export function createMarks(st) {
     out[0] = k[0] / 255; out[1] = k[1] / 255; out[2] = k[2] / 255; out[3] = a * (k.length > 3 ? k[3] : 1);
     return true;
   }
-  // Ear clipping: the triangles of a simple polygon (counter-clockwise or not), as indices of the points of P (flat, n points), in ecOut,
-  // three to a triangle; the winding's sign returned.
-  const ecIdx = [], ecOut = [];
-  let ecSgn = 1;
-  const ecCross = (P, a, b, c) => ((P[2 * b] - P[2 * a]) * (P[2 * c + 1] - P[2 * a + 1]) - (P[2 * b + 1] - P[2 * a + 1]) * (P[2 * c] - P[2 * a])) * ecSgn;
-  const ecInside = (P, p, a, b, c) => ecCross(P, a, b, p) >= 0 && ecCross(P, b, c, p) >= 0 && ecCross(P, c, a, p) >= 0;
-  function earcut(P, n) {
-    const idx = ecIdx, out = ecOut;
-    idx.length = 0; out.length = 0;
-    for (let i = 0; i < n; i++) idx.push(i);
-    let area = 0;
-    for (let i = 0; i < n; i++) { const j = (i + 1) % n; area += P[2 * i] * P[2 * j + 1] - P[2 * j] * P[2 * i + 1]; }
-    const sgn = area > 0 ? 1 : -1;
-    ecSgn = sgn;
-    let guard = n * n;
-    while (idx.length > 3 && guard-- > 0) {
-      let cut = false;
-      for (let i = 0; i < idx.length; i++) {
-        const ia = idx[(i + idx.length - 1) % idx.length], ib = idx[i], ic = idx[(i + 1) % idx.length];
-        if (ecCross(P, ia, ib, ic) <= 0) continue;
-        let blocked = false;
-        for (let q = 0; q < idx.length; q++) { const j = idx[q]; if (j !== ia && j !== ib && j !== ic && ecInside(P, j, ia, ib, ic)) { blocked = true; break; } }
-        if (blocked) continue;
-        out.push(ia, ib, ic);
-        for (let q = i; q < idx.length - 1; q++) idx[q] = idx[q + 1];
-        idx.length--;
-        cut = true; break;
-      }
-      if (!cut) break;
-    }
-    if (idx.length === 3) out.push(idx[0], idx[1], idx[2]);
-    return sgn;
-  }
+  // Ear clipping (ear-clip.js): the triangles of a simple polygon, as indices of the points of P (flat, n points), in ecOut, three to a triangle; the winding's sign returned.
+  const ecOut = [];
+  const earcut = (P, n) => earClip(P, n, ecOut);
   // The marks' build: the vertices written into one kept list (mkV), the draws into a kept pool (two, taken in turn: the list the GPU
   // was last given keeps the draws of the build before until olStep writes it afresh), a stroke as a strip of mitred joins (as SVG, limit 4;
   // open ends with square or round caps), a disc as triangles.
   const mkV = [], mkDrawPool = [[], []], mkDrawLists = [[], []], mkDiscRing = { xy: [], closed: true };
+  // The product of the opacities of the groups from `e` up to the overlays' root (not it), or -1 when any is not displayed, or is clipped or masked: kept for a build (mkAbove).
+  const mkAbove = new Map(), mkMats = new Map();
+  function groupsAbove(e) {
+    if (!e || e === gOver) return 1;
+    let v = mkAbove.get(e);
+    if (v !== undefined) return v;
+    const up = groupsAbove(e.parentNode);
+    if (up < 0) v = -1;
+    else { const c = getComputedStyle(e); v = c.display === 'none' || e.getAttribute('clip-path') || e.getAttribute('mask') ? -1 : up * Number(c.opacity); }
+    mkAbove.set(e, v);
+    return v;
+  }
   const strokeP = [], nrm1 = [0, 0], nrm2 = [0, 0], mkFillP = [0, 0, 0, 0], mkSkP = [0, 0, 0, 0], mkDrawn = new Set();
   let mkSet = 0, mkDrawN = 0, mkFirst = 0, mkFade, mkDraws = null, mkPool = null;   // (mkFade: a narrowing's clamp, its id, whose fade olStep lays on the draw's alpha)
   function mkDraw(col, count, tri) {
@@ -219,22 +215,30 @@ export function createMarks(st) {
     // only the marks' visibility, which nothing here reads, so the reads are the same; the attributes end as before.)
     const drawn = mkDrawn;
     drawn.clear();
+    mkAbove.clear(); mkMats.clear();
+    const timing = gpuProbe.on, tBuild = timing ? performance.now() : 0;
+    let tRead = 0, tRings = 0, tTris = 0, nShapes = 0;
     for (const key in ov) {
       const g = ov[key];
       for (const el of g.querySelectorAll('path, circle, ellipse, rect')) {
         // (Nothing inside a <defs>, <clipPath> or <mask> is a mark: the stent's clip is a plain path with no class, so the painter drew it as a solid black rectangle at the
         // origin of the figure, stuck to it, 11 Nov 2026, Mohammad's TIPS shots.)
         if (el.closest('defs, clipPath, mask, pattern, marker')) continue;
-        let cs = getComputedStyle(el), op = 1, ok = cs.display !== 'none' && cs.strokeDasharray === 'none';
-        for (let e = el; ok && e && e !== gOver; e = e.parentNode) {
-          const c = e === el ? cs : getComputedStyle(e);
-          if (c.display === 'none' || (e !== el && (e.getAttribute('clip-path') || e.getAttribute('mask')))) ok = false;
-          op *= Number(c.opacity);
-        }
-        const M = markMatrix(el, gOver, cs);
-        if (!(ok && shapeRings(el))) continue;
+        nShapes++;
+        const t0 = timing ? performance.now() : 0;
+        const cs = getComputedStyle(el);
+        let op = Number(cs.opacity), ok = cs.display !== 'none' && cs.strokeDasharray === 'none';
+        // (The groups above, their opacities multiplied and any of them hidden, clipped or masked: worked out once for each group and kept for the build (an overlay's marks share
+        // a few groups, and each mark walked them all with a style read of its own: the deck start's 'outlines: marks' ran 25 to 29 ms, 18 Nov 2026).)
+        if (ok) { const up = groupsAbove(el.parentNode); if (up < 0) ok = false; else op *= up; }
+        const M = markMatrix(el, gOver, cs, mkMats);
+        if (timing) tRead += performance.now() - t0;
+        const tR0 = timing ? performance.now() : 0, hasRings = ok && shapeRings(el);
+        if (timing) tRings += performance.now() - tR0;
+        if (!hasRings) continue;
+        const tT0 = timing ? performance.now() : 0;
         const nR = mkRingN;
-        mkFade = el.classList.contains('clamp') || el.classList.contains('clamp-out') ? el.dataset.id : el.closest('[data-mk]')?.dataset.mk;
+        mkFade = el.classList.contains('clamp') || el.classList.contains('clamp-out') || el.classList.contains('clamp-span') || el.classList.contains('clamp-span-out') ? el.dataset.id : el.closest('[data-mk]')?.dataset.mk;
         if (M) for (let ri = 0; ri < nR; ri++) { const xy = mkRings[ri].xy; for (let i = 0; i < xy.length; i += 2) { const x = xy[i], y = xy[i + 1]; xy[i] = M[0] * x + M[2] * y + M[4]; xy[i + 1] = M[1] * x + M[3] * y + M[5]; } }
         for (let ri = 0; ri < nR; ri++) {
           // (A point within a thousandth of the one before it, as it was before this walk, is dropped; the list is closed up in place.)
@@ -270,11 +274,16 @@ export function createMarks(st) {
             if (cap === 'round' && !r.closed && xy.length > 2) { mkDraw(mkSkP, mkDisc(xy[0], xy[1], h), true); mkDraw(mkSkP, mkDisc(xy[xy.length - 2], xy[xy.length - 1], h), true); }
           }
         }
+        if (timing) tTris += performance.now() - tT0;
         drawn.add(el);
       }
     }
+    const tA0 = timing ? performance.now() : 0;
     for (const g of Object.values(ov)) for (const el of g.querySelectorAll('path, circle, ellipse, rect')) { if (drawn.has(el)) { if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', ''); } else if (el.hasAttribute('data-gl')) el.removeAttribute('data-gl'); }
     drawn.clear();   // (the shapes are not held on to once their attributes are written)
+    const tAttr = timing ? performance.now() - tA0 : 0;
+    mkAbove.clear(); mkMats.clear();
+    if (timing) gpuProbe.gauge('vessel marks: last build', `${nShapes} shapes, styles ${tRead.toFixed(1)} ms, outlines ${tRings.toFixed(1)} ms, triangles ${tTris.toFixed(1)} ms, attributes ${tAttr.toFixed(1)} ms, whole ${(performance.now() - tBuild).toFixed(1)} ms`);
     mk.verts = new Float32Array(mkV); mk.draws = mkDraws; mk.dirty = true;
   }
   return { marksStale, marksSync, mk };

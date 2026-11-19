@@ -26,7 +26,7 @@ export const ENDOSCOPY = {
     {
       id: 'size', preset: 'cirr-decomp', ...SAME, tool: SCOPE,
       vignette: 'A 61-year-old man with alcohol-associated cirrhosis has ascites that is controlled on spironolactone and furosemide. He is undergoing surveillance endoscopy, and his varices are to be sized.',
-      compare: [{ label: 'Small', preset: 'csph' }, { label: 'Large', own: true }],
+      compare: [{ label: 'Small', preset: 'csph', title: 'A small varix is narrower and straighter than a large one' }, { label: 'Large', own: true }],
       kicker: 'Size and signs',
       title: 'A large varix is wider and more tortuous than a small one',
       line: 'A varix <5 mm is small and one ≥5 mm is large; this one measures {varix}.',
@@ -71,8 +71,8 @@ export const ENDOSCOPY = {
       id: 'bridge', ...SAME, tool: PRESSURES,
       kicker: 'Pressure',
       title: 'Endoscopy shows the varix, not the portal pressure behind it',
-      line: 'Endoscopy grades the varix; how to lower the portal pressure behind it is taught in Preventing the next variceal bleed.',
-      notes: 'Endoscopy grades and treats the varix; it does not measure the portal pressure, which the HVPG does. Nonselective beta-blockers (NSBBs), endoscopic variceal ligation (EVL) and TIPS are taught in Lowering portal pressure and in Preventing the next variceal bleed.',
+      line: 'Endoscopy grades the varix; how to lower the portal pressure behind it is taught in Preventing the next bleed.',
+      notes: 'Endoscopy grades and treats the varix; it does not measure the portal pressure, which the HVPG does. Nonselective beta-blockers (NSBBs), endoscopic variceal ligation (EVL) and TIPS are taught in Lowering portal pressure and in Preventing the next bleed.',
       ask: ['What does the HVPG tell you that endoscopy does not?', 'The portal pressure behind the varix, which stays high however the varix looks.'],
     },
     {

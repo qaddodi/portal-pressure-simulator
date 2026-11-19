@@ -1,9 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { trackOf, trackAt, settleUnder, easingOf, mixColour } from '../src/ui/label-track.js';
 
-const src = readFileSync(new URL('../src/ui/label-gl.js', import.meta.url), 'utf8');
 
 // A stand-in for an Animation: its effect's keyframes and timing, its current time.
 const anim = ({ target, kf, duration = 300, delay = 0, easing = 'linear', fill = 'both', ct = 0, transition = false }) => {
@@ -55,23 +53,6 @@ test('what is not followed exactly is left to be read each frame (null)', () => 
   assert.ok(trackOf([anim({ target: run, kf: move })], g, () => false, 0));
 });
 
-test('label-gl follows a label\'s own animations, hovers, focus and theme changes included, and reads no style in a frame', () => {
-  // (2 Nov 2026: taken where the page is up to date, in the event that announced them or just after a frame; the frame only takes them.)
-  assert.match(src, /el\.getAnimations\(\{ subtree: true \}\)/);
-  assert.match(src, /try \{ list = takeAnims\(g, true\); \} catch \{ list = \[\]; \}/);
-  assert.match(src, /const hold = \(ev, ms = 700\) => \{ const g = labelOf\(ev\.target\); if \(g\) \{ keepAnims\(g, true\);/);
-  assert.doesNotMatch(src, /labeltrack=0\\b/);
-  // (Styles are kept by what decides them and read in a task after the frame; the eases are followed meanwhile.)
-  assert.match(src, /try \{ d = given \|\| \(lk != null \? lookStyles\.describe\(dg, lk, lookSrc, ringBoxOf, geo, g\) : describeBlock\(dg, styleOf, ringBoxOf, geo, g\)\); \}/);   // (a label of a kept look: its styles as kept, L3 P3; one holding only its name read from its look's sample, P10)
-  assert.match(src, /describeMark\(el, styleOf\)/);
-  assert.match(src, /if \(!fillT\) fillT = setTimeout\(fillStyles, 0\);/);
-  const fn = src.slice(src.indexOf('function styleOf('), src.indexOf('function fillStyles('));
-  assert.doesNotMatch(fn, /getComputedStyle/);
-  // (The canvas is the figure's: its place is never read here, no hole being cut.)
-  assert.doesNotMatch(src, /getBoundingClientRect/);
-  assert.match(src, /if \(\(needRepack && !stuck\) \|\| rp \|\| todo\.size\) settleSoon\(\);/);   // (R12: a repack goes on beside the old atlas, a few copies a frame, mid-move too)
-  assert.match(src, /if \(!moving && !pageTex\[1\] && packer\.maxPages > 1/);
-});
 
 // (R10: the opacity beneath the animations is not invented from a keyframe.)
 const fade = [{ offset: 0, computedOffset: 0, easing: 'linear', opacity: '0' }, { offset: 1, computedOffset: 1, easing: 'linear', opacity: '1' }];

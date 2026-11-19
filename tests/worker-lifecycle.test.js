@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createCore } from '../src/worker-core.js';
-import { Engine } from '../src/engine/portal/engine.js';
+import { createCore, atBedside } from '../src/worker-core.js';
+import { restingEngine } from '../src/engine/portal/bedside-rest.js';
 import { detectEvents } from '../src/engine/portal/events.js';
 
 test('paused and hidden engines are idle, but mutations and resume publish immediately', (t) => {
@@ -77,8 +77,9 @@ test('long jobs yield to the event loop and queued snapshots see the completed s
   const core = createCore((m) => messages.push(structuredClone(m)));
   t.after(() => core.dispose());
   await core.handle({ type: 'run', running: false });
-  const reference = new Engine();
+  const reference = restingEngine();   // (the worker's own starting engine, at the bedside's rest: the beat's phase carries through a load, as it does on a running one)
   reference.loadPreset('cirr-decomp');
+  atBedside(reference);   // (a patient opens at its bedside rest: worker-core.js 'preset')
   // Mirror the host's frame reads, including event hysteresis and the derived
   // diameter cache, so the complete snapshots can be compared exactly.
   const referenceFrame = () => {

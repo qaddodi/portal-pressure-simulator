@@ -3,8 +3,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const rule = (sel) => { const i = css.indexOf(sel); assert.ok(i >= 0, `missing rule ${sel}`); return css.slice(i, css.indexOf('}', i)); };
 
 test('Explore phone sheet: direction and mean are small, the spectrum bleeds to the edges', () => {
@@ -33,8 +34,8 @@ test('Present phone: the Doppler and FibroScan are not zoomed and the fit shorte
 
 test('a slide\'s Doppler strip reads signed as drawn and as a steady running mean', () => {
   const src = readFileSync(new URL('../src/ui/doppler.js', import.meta.url), 'utf8');
-  assert.match(src, /let mean = ovOn \? steadyMean\(r\.mean\) : r\.mean;/);
+  assert.match(src, /let mean = ovOn \? steadyMean\(r\.mean \* gf\) \/ gf : r\.mean;/);   // (a stent's steadied at its gate: gate-factors.js)
   assert.match(src, /const drawn = ovOn \? mean \* pol\(\) : mean;/);
   assert.match(src, /pinnedVel\(\)/);   // (and the slide's own velocity while it agrees)
-  assert.match(src, /sv\.v = Math\.abs\(mean\);[^\n]*\n\s+shownVel\.set\(probe, sv\);/);
+  assert.match(src, /sv\.v = Math\.abs\(mean\);[^\n]*\n(?:\s+sv\.fOk = [^\n]*\n)?\s+shownVel\.set\(probe, sv\);/);
 });

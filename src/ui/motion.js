@@ -3,8 +3,9 @@
 //   curves     EASE_ARRIVE, EASE_MOVE, EASE_IN as CSS text; easeArrive, easeMove, easeIn as functions; cssCurve(text) for any other
 //   reduced    reduceMotionMQ, the page's one MediaQueryList for prefers-reduced-motion, and reduced() for its current answer
 //   clocks     createReversible (a progress that turns round without a kink) and createStepClock (the one clock rule), below
-// Policy (docs/ACCESSIBILITY.md): with Reduce Motion a state change is instant and the figure still follows the hand (following is not an
-// animation). scripts/rules-lint.mjs keeps new code from reading the media query anywhere else or writing its own ease/lerp/cubic-bezier:
+// Policy (docs/ACCESSIBILITY.md): with Reduce Motion nothing travels, but nothing pops either (owner, 15 Nov 2026: "Nothing can pop in or
+// out"): whatever appears or disappears still cross-fades, over fadeMs / fadeStep below, never in one frame. The figure still follows the
+// hand (following is not an animation). scripts/rules-lint.mjs keeps new code from reading the media query anywhere else or writing its own ease/lerp/cubic-bezier:
 // import from here. (The scales themselves live in ease.js; this module is the name every other file imports.)
 //
 // Reduce Motion, the exceptions to "instant" (docs/ACCESSIBILITY.md says the same):
@@ -12,7 +13,9 @@
 //     whole figure is harder to follow than a short move. It is the one move allowed to run, and only that short.
 //   - The change between Anatomy and Circuit takes the same short form: the morph and its camera run REDUCED_MOVE_MS instead of 1.3 s, as a
 //     crossfade-and-move (22 of docs/recommendations/animation-and-transitions.md). Fades that stand in for a move last D_FLIP.
-//   - Everything else stays instant (the dive and the rise are skipped, the turn is set outright).
+//   - Everything that moves is skipped (the dive and the rise travel no distance, the turn is set outright), but what appears, disappears
+//     or changes look cross-fades: fadeMs(ms) is a fade's length (at least D_SMALL, never 0), fadeStep(dt, ms) a per-frame fade's step.
+//     tests/reduced-fade.test.js keeps new code from answering 0 ms or a step of 1 under Reduce Motion.
 //
 // One clock rule (item 19 of the same recommendations, 8 Nov 2026). A move runs on the honest wall clock (frame.js easeNow: a long frame
 // shows the move where the wall clock puts it, so a move ends when its own duration says), with one exception: the FIRST_FRAMES first
@@ -21,8 +24,8 @@
 // first third in one step. After them the move is on the wall clock for good. createStepClock and createReversible apply the rule; an
 // ease timed from a start time (t0) that is not one of these has no cap and is the plain wall clock. simTime (200 ms) and the blood's
 // clock (100 ms) are the model's own clocks, not moves, and keep their caps.
-import { STEP_MAX } from './glide-clock.js';
-import { D_FLIP, CAM_MS_MIN, settleAt } from './ease.js';
+import { STEP_MAX, STALL_MAX } from './glide-clock.js';
+import { D_FLIP, D_SMALL, D_SURFACE, CAM_MS_MIN, settleAt } from './ease.js';
 export {
   D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX, CAM_MS_MIN, CAM_MS_MAX, LOBULE_MS_MAX,
   easeMove, easeArrive, easeIn, easeOut3, cubicBezier, cssCurve, camMs, lobuleMs, settleAt,
@@ -65,10 +68,19 @@ export const REDUCED_MOVE_MS = 300;
 /** `ms` as Reduce Motion has it: the same, or at most REDUCED_MOVE_MS. (`on`: the answer to use, default reduced().) */
 export const reducedMs = (ms, on = reduced()) => (on ? Math.min(ms, REDUCED_MOVE_MS) : ms);
 
+/** A fade's length (ms) as Reduce Motion has it: a fade is not motion, so it stays, between D_SMALL and D_SURFACE; never 0 (owner, 15 Nov
+ *  2026: nothing pops in or out). Without Reduce Motion, `ms` itself. (`on`: the answer to use, default reduced().) */
+export const fadeMs = (ms, on = reduced()) => (on ? Math.max(D_SMALL, Math.min(ms, D_SURFACE)) : ms);
+/** One frame's step (0..1 of the way) of a fade that takes `ms`, `dt` ms after the last: under Reduce Motion the fadeMs length, never a jump
+ *  to the end. */
+export const fadeStep = (dt, ms, on = reduced()) => Math.max(0, dt) / Math.max(1, fadeMs(ms, on));
+
 /** How many frames at the start of a move are held to FIRST_STEP_MAX each (the clock rule above). */
 export const FIRST_FRAMES = 2;
 /** The most one of those first frames may advance a move, in ms. */
 export const FIRST_STEP_MAX = STEP_MAX;
+/** The most one frame advances a view change after its first frames, in ms (the camera's STALL_MAX): a stalled frame pauses the move, never skips part of it. */
+export const VIEW_STALL_MAX = STALL_MAX;
 
 /**
  * The clock rule for a move that does its own sums (a velocity, an integral): start() when the move begins, then dt(now) each frame answers
@@ -110,10 +122,13 @@ export function createStepClock() {
  * so a progress used raw, without a shape of its own, still arrives at rest. A turn that would run past a bound (min, max) stops at the
  * bound and slews back from rest. Written in place: nothing is allocated by aim, tick or step.
  *
+ *   stall (ms, default none): the most one frame advances the move once the first frames are by. A view change passes STALL_MAX (the camera's own rule, glide-clock.js): a
+ *   frame that took longer (a first draw, a layout pass, a solve) pauses the move and it goes on from there, so it never lands in one jump with nothing zooming out.
+ *
  *   x, v (per ms, signed), to, ms, moving (not landed), rest (at rest: the next move starts at full rate).
  *   set(x) jumps and lands there; stop() holds where it is; slewing at most 2 * rate / flip per ms per ms.
  */
-export function createReversible({ ms = 1000, flip = D_FLIP, min = 0, max = 1, land = true, x: x0 = min } = {}) {
+export function createReversible({ ms = 1000, flip = D_FLIP, min = 0, max = 1, land = true, stall = Infinity, x: x0 = min } = {}) {
   let x = x0, v = 0, to = x0, full = ms, rate = 1 / ms, rest = true;
   let brk = false, bx = 0, bd = 0, bT = 1, bt = 0;   // (the landing: from bx, by bd, over bT ms, bt of them gone)
   let last = -1, n = 0;                              // (the clock rule's frame count and last time)
@@ -161,6 +176,7 @@ export function createReversible({ ms = 1000, flip = D_FLIP, min = 0, max = 1, l
       last = now;
       if (!(dt > 0)) return x;
       if (n < FIRST_FRAMES) { n++; dt = Math.min(dt, FIRST_STEP_MAX); }
+      else if (dt > stall) dt = stall;   // (a stalled frame holds the move where it stood: it goes on from there, never lands its next part in one jump)
       return step(dt);
     },
     /** The target (and, if given, the time of a full run in ms). The same target again changes nothing; a new one turns the move round. */

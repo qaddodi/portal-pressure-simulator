@@ -3,9 +3,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss, presenterSource } from './split-src.js';
 
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-const presenter = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const css = appCss();
+const presenter = presenterSource();
 
 // Mohammad, 15 Oct: "on mac, put the legend on top of the zoom pill" (the nav pill at the lower right).
 test('on a wider screen the key stands right on top of the nav pill, right-aligned with it', () => {
@@ -45,9 +46,8 @@ test("the key's shell is the nav pill's: glass, outline, edge, shadow and corner
   const key = css.match(/\n\.pz-fk \{([^}]*)\}/)[1], bar = css.match(/\n\.pz\.stack \.pz-bar \{([^}]*)\}/)[1], barBase = css.match(/\n\.pz-bar \{([^}]*)\}/)[1];
   const prop = (r, p) => r.match(new RegExp(`(?:^|;)\\s*${p}: ([^;]+);`))?.[1];
   for (const p of ['background', 'backdrop-filter', '-webkit-backdrop-filter', 'border', 'border-radius', 'box-shadow']) assert.equal(prop(key, p), prop(bar, p), p);
-  for (const v of ['--pz-glass-edge', '--pz-glass-drop']) assert.equal(prop(key, v), prop(barBase, v), v);
-  assert.match(css, /:root\[data-theme="dark"\] :is\(\.pz-bar, \.pz-fk\) \{ --pz-glass-edge/);
-  assert.match(css, /:root:not\(\[data-theme="light"\]\):not\(\[data-theme="soft"\]\) :is\(\.pz-bar, \.pz-fk\) \{ --pz-glass-edge/);
+  // (the edge and shadow are the one glass's, --glass-edge, in every look: no per-card variables or dark overrides; LOOK-3)
+  assert.doesNotMatch(css, /--pz-glass-(edge|drop)/);
   assert.match(css, /\.app\.pz-hi \.pz-fk \{ background: color-mix\(in srgb, var\(--surface\) 92%, transparent\); border-color: color-mix\(in srgb, var\(--text\) 32%, transparent\); \}/);
   assert.doesNotMatch(css, /\.pz-fk[^{]*\{[^}]*border-radius: (?:calc\(var\(--r-card\)|var\(--r-pill\))/, 'one corner radius, the pill\'s');
   assert.doesNotMatch(css.match(/\n\.pz:not\(\.stack\) \.pz-fk \{([^}]*)\}/)[1], /background/, 'a wide screen keeps the same glass (and Blur off still reaches it)');

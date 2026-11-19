@@ -1,22 +1,29 @@
 // Lumped-parameter hemodynamic engine (blueprint §7).
 // Pure JS, no DOM: runs in a Web Worker, on the main thread, or in Node tests.
 
-import { NODES, EDGES, dopplerK, dMinOf, edgePresent, isOccluded, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js';
+import { NODES, EDGES, JUNCTIONS, JUNCTION_CHAINS, JUNCTION_HOST_ENDS, dopplerK, dMinOf, edgePresent, isOccluded, partOf, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES, stentReadsOf } from './topology.js';
 import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng, ARTERY, pulseOf,
 } from '../core/physiology.js';
 import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT, gastricUp } from './scenario.js';
 import { detectEvents } from './events.js';
+import { STENT_CLOSED_D } from './stent-ease.js';
+import { stentParts, geomOf, geomDefault, kindOf, benchFlow, BENCH_DP, endSiteOf, END_U } from './stent-geom.js';
+import { stentStillHeld } from './flow-cuts.js';
+import { LYMPH, tissueP, sinusoidPull, hepLymphOf } from './lymph.js';
+import { DisplayMean, holdAt, BREATH_S } from './display-mean.js';
+import { hvBlocked } from './pressure-cuts.js';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
 const EXT_OVERRIDE = { IVC_IS: 'abd', CAUD: 'none' };
 
 // The drugs that lower the portal pressure within seconds (holdVarices: they do not regrade a varix until it has remodelled).
+const JUNCTION_HAIR = 1e-6;   // (mmHg: how far a junction's pressure sits off the end of its vein it is joined at, so the order along the vein holds)
 const VASO_DRUGS = ['propranolol', 'carvedilol', 'terlipressin', 'octreotide'];
 const STRAIN_RISE = 1.5, STRAIN_FALL = 1.5, STRAIN_MAX = 30;   // (seconds: a strain builds, lets go and is held at most this long)
-export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 7.0, k: 0.35, kGV: 0.4, openGV: 5.0, mature: 0.3, tauRegress: 60, tauCut: 90, tauFall: 45 };
+export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 7.0, k: 0.35, kBlocked: 0.4, kGV: 0.4, openGV: 5.0, mature: 0.3, tauRegress: 60, tauCut: 90, tauFall: 45, tauReopen: 8 };
 // (tauRegress: days for a held grade size to remodel to the varix now, holdVarices; tauCut: days for the esophageal varices to shrink once a Warren shunt has cut their feeder, varixTarget.)
 // (tauFall: the time constant, in days of the disease clock, of the FALL of a varix's resting size. The size the pressure sets still
 // rises at once (a bleed's surge, a meal, a Valsalva strain, a worse scar), but a fall in the pressure, from a drug, a TIPS or a cured
@@ -30,29 +37,18 @@ export const BALLOON_SEAL_S = 3;
 const ruptureHazardPerDay = (x) => (x <= 1 ? 0 : 0.01 * Math.pow((x - 1) / 0.25, 3));
 const COLLATERAL = { open: 7.5, span: 14, tauGrow: 50, tauRegress: 120, acute: 0,
   acuteClot: 0.15 };   // acute: a clotted portal trunk opens the small pre-existing bypass veins this far (PV about 30 mmHg, not 46)
-const TIPS_R = { tract: 0.12, kin: 5.96 };   // PRU; kin: mmHg per (mL/s ÷ mm²)² (ρ·K/2 with K≈1.5)
-const DIPS_R = { tract: 0.07, kin: 5.96 };   // the caudate tract is a few centimetres, shorter than a TIPS tract
-// A stent in series with a parenchymal tract (which does not widen with the stent, so large stents plateau),
-// plus an entrance/exit loss ∝ Q² (lagged one step). Flow then splits against the sinusoids by resistance.
-// A narrowing s (of the diameter) is a short pinch, PINCH of the stent's length (about 1 cm of an 8 cm TIPS), not the
-// whole stent: that piece's own resistance rises by (1 − s)⁻⁴, and the jet leaving it loses its speed in the wider
-// stent beyond (Borda–Carnot, ½ρ(v_jet − v)², with ½ρ = kin / K). So a mild pinch costs little, and a tight one
-// throttles the stent while the jet through it runs fast, as on Doppler.
-const PINCH = 0.125;
-const stentConductance = (tract, d, q, visc, s = 0) => {
-  const A = Math.PI * d * d / 4, wall = 0.04 * Math.pow(10 / d, 4) * visc, kq = TIPS_R.kin * Math.abs(q) / (A * A);
-  return 1 / (tract * visc + wall + kq + pinchResistance(wall, kq, s));
-};
-// A stent drawn with the stent tool has no parenchymal tract or entrance loss of its own (only the pinch's jet).
-const customConductance = (d, q, visc, s = 0) => {
-  const A = Math.PI * d * d / 4, wall = 0.05 * Math.pow(10 / d, 4) * visc;
-  return 1 / (wall + pinchResistance(wall, TIPS_R.kin * Math.abs(q) / (A * A), s));
-};
-const pinchResistance = (wall, kq, s) => {
-  if (!(s > 0)) return 0;
-  const a = (1 - s) * (1 - s);
-  return wall * PINCH * (stenosisFactor(s) - 1) + (kq / 1.5) * (1 / a - 1) * (1 / a - 1);
-};
+// (The stents' hydraulics, the TIPS, the DIPS and a drawn stent, live in stent-geom.js: stentConductance below.)
+/** mmHg of hepatic venous rise the sinusoids still dilate with (a tense belly, a little fluid); only a congested outflow beyond it is taken off. */
+const CONGESTED_FROM = 4;
+/** The cirrhosis slider (0 to 1) from which the sinusoids no longer swell with congestion at all: a healthy liver's congested sinusoids do (congestive hepatopathy), a scarred one's do not, in between by degrees. */
+const SCARRED_FROM = 0.3;
+/** The part of a hepatic venous rise that is congestion: nothing under CONGESTED_FROM, then all of it from twice that, by a smooth step (no kink for the solver). */
+const congestedRise = (rise) => { const x = Math.min(1, Math.max(0, (rise - CONGESTED_FROM) / CONGESTED_FROM)); return rise * x * x * (3 - 2 * x); };
+// A stent's conductance from its geometry (stent-geom.js stentParts: the tract, the wall, the device's entrance and exit, the waist's jet and
+// inlet; the one calculation the Doppler, the figure and the cards read too). With no geometry set it is the stent the model always had.
+const PARTS = { tract: 0, wall: 0, waistWall: 0, entry: 0, jet: 0, inlet: 0, jetEnd: 0, jetWaist: 0, wallEnd: 0, wallWaist: 0, total: 0 };   // alloc-rare: made once (computeG's parts, read at once)
+const GEOM = { len: 0, waist: 0, trans: 0, red: 0 };   // alloc-rare: made once (computeG's geometry, read at once)
+const stentConductance = (kind, d, q, visc, s, p, id) => 1 / stentParts(kind, d, q, visc, s, geomOf(p, id, kind, GEOM), PARTS, END_U[endSiteOf(p, id)]).total;
 const BLOOD_BASE = 5000, HCT_BASE = 0.42;
 // How long the volumes a hidden relaxation moved take to come across to the live model (s): the worker's tick.
 const CARRY_S = 0.033;
@@ -63,7 +59,16 @@ const WF_BAND = 1;
 export const PARAM_EASE_S = 0.15;
 // Numbers that are choices, not amounts: they change at once.
 const NO_EASE = new Set(['seed', 'splenicRx', 'customShunts', 'catheter']);
+const STENT_SWITCH = ['tips', 'dips'];   // (the stents whose switch opens and closes through their width: easeParams)
+// The value a number missing from params stands for while it eases: 0, or a stent geometry's default length (stent-geom.js geomDefault).
+const GEOM_D = { len: 0, waist: 0, trans: 0, red: 0 };   // alloc-rare: made once (missingAs's default, read at once)
+const missingAs = (path, k) => {
+  if (path.length !== 2 || path[0] !== 'stentGeom') return 0;
+  const e = EDGES.find((x) => x.id === path[1]), kind = kindOf(e);
+  return kind ? geomDefault(kind, GEOM_D)[k] ?? 0 : 0;
+};
 const HR_REST = 60;   // resting heart rate (/min); the contractility reference is scaled to it so cardiac output is unchanged
+const PERICARDIAL_FILL = 0.6;   // constriction limits diastolic filling: the heart's pump capacity falls by this share at full constraint (as the tricuspid term below; 13 Nov 2026, constrictive pericarditis reaches RA 15+ with a low-normal output)
 // Compensation for blood loss, calibrated to the ATLS hemorrhage classes (ATLS 10th ed., 2018): under 15 % lost the
 // vital signs barely change, 15–30 % raises the heart rate with the pressure held, 30–40 % brings hypotension, and over
 // 40 % is severe shock. Two reflexes the arterial baroreflex alone misses:
@@ -84,15 +89,24 @@ export const RESERVOIR = { k: 0.72, max: 1700, tau: 20, cirr: 0.5, afferent: 1.5
 // constant is `base + advanced * extra`. These are model choices with no source figure, tuned to relax plausibly. Only the tone is
 // held: the plasma volume (slow.volExtra) still follows the pressure at the base pace, because holding it too would keep the flow
 // through a TIPS stent above the 190 cm/s that the TIPS Doppler talk calls a working stent (tests/tips-doppler.test.js).
+// Partial splenic artery embolization infarcts a share of the spleen's tissue (about 50 to 70 % of its volume is the usual aim) and the dead tissue is absorbed over weeks:
+// the length shrinks by the cube root of what is left and the platelets, which the spleen was pooling, climb with it (play-test, 16 Nov 2026: "embolization does not
+// change the spleen"). It moves on the disease clock like every other change of an organ's size, so it shows in a time-lapse, not in the first minute at the bedside.
+export const SPLEEN_INFARCT = { share: 0.6, tauDays: 14 };
 export const RELAX = { spleenBase: 45, spleenExtra: 165, toneBase: 30, toneExtra: 60, advLow: 0.6, advHigh: 0.85 };
-const LYMPH = { base: 2.5, max: 10, adapt: 0.03, kfHep: 0.45, kfSpl: 0.2, adaptFrac: 0.6 };
+// Lymph formation, its capacity and the belly's small brake: lymph.js (LYMPH, tissueP, sinusoidPull, hepLymphOf), shared with the fluid card.
+// The peritoneum takes ascites back (slow.ascites > 0): through the diaphragm's lymphatics and the peritoneal capillaries, up to `bulk` mL/min
+// as the first liters spread over it (`bulkL` per mL), and more as the belly's pressure rises (`kIap` per mmHg above rest), which drives
+// that uptake. With diuretics the kidneys draw more back (`water`, up to `waterMax`). Tense ascites settles where the take-back meets
+// the overflow.
+const PERIT = { bulk: 0.6, bulkL: 1 / 2000, kIap: 0.16, waterMax: 0.9, waterL: 1 / 1500 };
 // Protein in lymph and ascites (Kedem–Katchalsky sieving per bed, then a peritoneal mass balance).
 // From the literature: the sinusoidal reflection coefficient for albumin, low in a fenestrated liver (lymph
 // about 85 % of plasma) and about 0.55 once cirrhosis capillarizes it (lymph about 52 %, PMID 1214504);
 // the gut capillary's, high (0.9). Tuned so the textbook taps come out: PS (diffusive leak, mL/min), the
 // gut's basal lymph, the share of hepatic lymph that weeps off the liver into the peritoneum, and how much
 // protein the diuretic-driven peritoneal reabsorption holds back.
-const PROT = { sigHep0: 0.15, sigHepCirr: 0.45, sigGlob: 0.1, sigGut: 0.9, psHep: 0.8, psGut: 0.3, gutBase: 1, hepWeep: 0.5, sigPerit: 0.3 };
+const PROT = { sigHep0: 0.15, sigHepCirr: 0.45, sigGlob: 0.1, sigGut: 0.9, psHep: 0.8, psGut: 0.3, gutBase: 1, hepWeep: 0.25, sigPerit: 0.3 };
 /** Filtrate-to-plasma ratio across a membrane at steady state: (1 − σ) / (1 − σ·e^(−Pe)), Pe = Jv(1 − σ)/PS. */
 const sieve = (sig, jv, ps) => (1 - sig) / (1 - sig * Math.exp(-Math.max(0, jv) * (1 - sig) / ps));
 
@@ -126,13 +140,22 @@ const MAP_SET = 93, MAP_DROP = 14;
 // is the mass the marrow restores it to. The chronic anemia is the calibration's own (every preset was tuned at its hematocrit), so
 // the blood's viscosity reads rbc (hctEq): only a change from the patient's own (a bleed refilled, a transfusion) thins or thickens it.
 export const RED = { refillTau: 10 * 3600, cirr: 0.25, spleen: 0.01, spleenFrom: 12, min: 0.6, marrowDays: 60, upDays: 30, downDays: 60 };
-export const PREGNANCY = { spl: 0.25, sys: 0.3, contr: 0.2, hr: 15, stressed: 300, plasma: 1500, rbc: 0.2, iap: 4, tau: 5 };
+export const PREGNANCY = { spl: 0.25, sys: 0.3, contr: 0.2, hr: 15, stressed: 300, plasma: 1500, rbc: 0.2, iap: 4, tau: 5, mapDrop: 0 };
+// (mapDrop: how far the baroreflex's set point falls with the vasodilation of pregnancy, mmHg, by pregnancyLevel. 0 for now: 8 (Clapp & Capeless, Am J Cardiol 1997) lowered the portal pressure of the pregnancy preset by 0.7 mmHg and took its varices from Large back to Small, so it needs the preset's own retuning with the deck's numbers first, 16 Nov 2026.)
 /** How far pregnancy has changed the circulation, 0..1: fast in the first trimester, complete by about 30 weeks. */
 export const pregnancyLevel = (weeks) => { const x = clamp((weeks || 0) / 30, 0, 1); return x * (2 - x); };
 /** The uterus's share of the late rise in intra-abdominal pressure, 0 until 20 weeks, 1 at 40. */
 const uterusLevel = (weeks) => Math.pow(clamp(((weeks || 0) - 20) / 20, 0, 1), 1.5);
 
 export class Engine {
+  // (Declared for the type checker, never reset: the hidden copy relaxHidden() settles and the unbanded twin of the bands' ratio are made on first use and kept
+  // across a reset; _paramsOf and _V0 live on that copy: the params it was last set to, and its volumes before a relax.)
+  /** @type {Engine | undefined} */ _hidden;
+  /** @type {Engine | undefined} */ _nbTwin;
+  /** @type {object | null | undefined} */ _paramsOf;
+  /** @type {Float64Array | undefined} */ _V0;
+
+  /** @param {{ params?: object, seed?: number }} [opts] */
   constructor({ params, seed } = {}) {
     this.nodes = NODES;
     this.edges = EDGES;
@@ -166,16 +189,30 @@ export class Engine {
     this.edgeF = new Int32Array(this.E);
     this.edgeT = new Int32Array(this.E);
     EDGES.forEach((e, k) => {
-      const f = this.ni[e.from], t = this.ni[e.to];
+      // (A shunt drawn onto the middle of a vein is joined to the vein's own node here, whatever junction it is drawn at: topology.js JUNCTIONS.)
+      const f = this.ni[e.efrom ?? e.mfrom ?? e.from], t = this.ni[e.eto ?? e.mto ?? e.to];   // (efrom, eto: a shunt's hydraulic end where it is not its drawn one, topology.js TIPS)
       this.edgeF[k] = f; this.edgeT[k] = t;
       if (e.Q) this.Rbase[k] = (NODES[f].P - NODES[t].P) / e.Q;
       else if (e.R) this.Rbase[k] = e.R;
-      this.edgeExt[k] = EXT_OVERRIDE[e.id] || NODES[f].ext;
+      this.edgeExt[k] = EXT_OVERRIDE[partOf(e.id)] || NODES[f].ext;
       if ((e.Q || e.R) && !(this.Rbase[k] > 0)) throw new Error(`Non-positive baseline resistance on ${e.id}`);
     });
     this.collaterals = EDGES.map((e, k) => (e.kind === 'collateral' ? k : -1)).filter((k) => k >= 0);
-    this.veins = EDGES.map((e, k) => (e.kind === 'vein' || e.kind === 'diode' ? k : -1)).filter((k) => k >= 0);
+    this.veins = EDGES.map((e, k) => ((e.kind === 'vein' || e.kind === 'diode') && !e.virtual ? k : -1)).filter((k) => k >= 0);
+    // The veins split where a shunt joins them part-way (topology.js JUNCTIONS): the pieces' edges and the junction nodes between them, filled after each step.
+    this.jx = JUNCTION_CHAINS.map((c) => ({ ks: c.ids.map((id) => this.ei[id]), lead: c.lead, end: c.end, nodes: c.nodes.map((id) => this.ni[id]), at: c.at, taps: c.taps.map((l) => l.map(([id, sg]) => [this.ei[id], sg])) }));
     this.diodes = EDGES.map((e, k) => (e.kind === 'diode' ? k : -1)).filter((k) => k >= 0);
+    // A shunt the engine joins past the end of a vein it is drawn into (eto / efrom: the TIPS, drawn into the right hepatic vein, joined to the cava) still
+    // drains through that stretch of the vein: [the vein's solved edge, the stretch's share of its length], per shunt edge. A clot or a stenosis of the vein
+    // then narrows the shunt's outlet too (shuntOutlet), so a TIPS cannot drain a hepatic vein that is occluded (Budd–Chiari: 17 Nov 2026, the TIPS had
+    // drained to the cava past three occluded hepatic veins and lowered the portal pressure more than the DIPS did).
+    this.through = EDGES.map((e) => {
+      const j = (e.eto || e.efrom) && JUNCTIONS.find((x) => x[0] === e.junction);
+      if (!j) return null;
+      const [a, b] = JUNCTION_HOST_ENDS[j[1]], end = e.eto ?? e.efrom, chain = JUNCTION_CHAINS.find((c) => c.host === j[1]);
+      const share = end === b ? 1 - j[2] : end === a ? j[2] : 0;
+      return share > 0 && chain ? [this.ei[chain.ids[chain.lead]], share] : null;
+    });
 
     this.params = params ? structuredClone(params) : defaultParams();
     this.reset(seed ?? this.params.seed);
@@ -188,7 +225,7 @@ export class Engine {
     this.rng = makeRng(seed);
     this.baro = 1; this.MAPf = 93; this.habr = 1;
     // Display filters start over from the new state (a non-finite run must not leak into the next patient).
-    this.Pf = this.Qf = null; this.COf = this.pvQm = this.pvVm = undefined; this.vitM = null; this.qpm = null;
+    this.Pf = this.Qf = this.extf = null; this.iapf = undefined; this._held = null; this.COf = this.pvQm = this.pvVm = undefined; this.vitM = null; this.qpm = null;
     this._hiddenOn = false; this._carry = null; this._ease = null;
     this.hr = HR_REST;
     this.slow = {
@@ -217,6 +254,7 @@ export class Engine {
     this.pi = { vmax: -Infinity, vmin: Infinity, cycleStart: 0, value: 0, lastPh: 0 };
     this.flows = { ascitesRate: 0, hepLymph: 0, splLymph: 0 };
     this.evState = {}; this.evAvg = null;
+    this.vGrow = { VAR: 1, GV: 1 };   // (how far a varix has regrown since it was last closed off, 0 to 1: varixRegrow)
     this.newEvents = [];
     this.eventLog = [];
     this.eventCount = 0;   // every event ever pushed (the log keeps only the last 200)
@@ -247,6 +285,7 @@ export class Engine {
   }
 
   setParams(p) {
+    this.paramsRev = (this.paramsRev | 0) + 1;   // (counts the changes made to the patient: the History's events tell a patient's settling in from a change, events.js)
     const prev = this.params;
     if (prev && this.slow && this.refP) this.holdVarices(prev, p);
     this.params = structuredClone(p);
@@ -254,7 +293,7 @@ export class Engine {
     if (prev.seed !== p.seed) this.rng = makeRng(p.seed);
   }
   /** setParams with the numbers that changed eased in over about PARAM_EASE_S of model time (switches and choices at once).
-   *  A number missing on one side (a narrowing added or taken away) counts as 0 there. */
+   *  A number missing on one side (a narrowing added or taken away) counts as 0 there (a stent's geometry: its default, missingAs). */
   easeParams(p) {
     const from = this.params;
     this.setParams(p);
@@ -264,11 +303,25 @@ export class Engine {
         if (NO_EASE.has(k)) continue;
         const x = a?.[k], y = b?.[k];
         if (y && typeof y === 'object') { if (!x || typeof x === 'object') walk(x, y, [...path, k]); continue; }
-        if (!(typeof x === 'number' || x === undefined) || !(typeof y === 'number' || y === undefined) || (x ?? 0) === (y ?? 0)) continue;
-        legs.push({ path, key: k, from: x ?? 0, to: y ?? 0, drop: y === undefined });
+        // (A missing number is 0, except a stent geometry's length, which is its default: a stent given a waist length for the first time
+        // eases from the 8 cm and 1 cm it had, not from nothing, which would open it wide for a moment.)
+        const z = missingAs(path, k);
+        if (!(typeof x === 'number' || x === undefined) || !(typeof y === 'number' || y === undefined) || (x ?? z) === (y ?? z)) continue;
+        legs.push({ path, key: k, from: x ?? z, to: y ?? z, drop: y === undefined });
       }
     };
     walk(from, this.params, []);
+    // A stent that is put in or taken out opens or closes through its width, the way a number eases (its switch is not one): turned on,
+    // it opens from nothing to its width; turned off, it narrows to nothing and only then goes out (16 Nov 2026, Mohammad: "the TIPS
+    // comes in and out of existence, pops": the switch flipped the whole shunt's flow in one step). Its flow, its drawn width and the
+    // stent's mesh then all follow this one width.
+    for (const id of STENT_SWITCH) {
+      const x = from?.[id], y = this.params[id];
+      if (!x || !y || !!x.on === !!y.on) continue;
+      for (let i = legs.length - 1; i >= 0; i--) if (legs[i].path[0] === id && legs[i].key === 'd') legs.splice(i, 1);   // (its width is eased by this leg alone)
+      legs.push({ path: [id], key: 'd', from: x.on ? x.d : STENT_CLOSED_D, to: y.on ? y.d : STENT_CLOSED_D, drop: false, fin: { on: !!y.on, d: y.d } });
+      this.params[id].on = true;
+    }
     if (!legs.length) return;
     this._ease = { legs, left: 1, to: structuredClone(this.params) };
     this.easeStep(0);
@@ -278,7 +331,7 @@ export class Engine {
   paramsTarget() {
     if (!this._ease) return this.params;
     const p = structuredClone(this.params);
-    for (const l of this._ease.legs) { const o = l.path.reduce((q, k) => q[k], p); if (l.drop) delete o[l.key]; else o[l.key] = l.to; }
+    for (const l of this._ease.legs) { const o = l.path.reduce((q, k) => q[k], p); if (l.drop) delete o[l.key]; else o[l.key] = l.to; if (l.fin) Object.assign(o, l.fin); }
     return p;
   }
   easeStep(dt) {
@@ -291,20 +344,21 @@ export class Engine {
       if (!o) continue;
       if (done && l.drop) delete o[l.key];
       else o[l.key] = done ? l.to : l.to + (l.from - l.to) * e.left;
+      if (done && l.fin) Object.assign(o, l.fin);
     }
     if (done) this._ease = null;
   }
 
-  /** Load a preset: healthy reset, apply params, run the disease clock for its chronic days. */
-  loadPreset(id, { days } = {}) {
-    const steps = this.loadPresetSteps(id, { days });
+  /** Load a preset: healthy reset, apply params, run the disease clock for its chronic days. `preset` is a patient made at run time (scenario.js presetFromPatch) in place of the one `id` names. */
+  loadPreset(id, /** @type {{ days?: number, preset?: object }} */ { days, preset } = {}) {
+    const steps = this.loadPresetSteps(id, { days, preset });
     let next;
     do { next = steps.next(); } while (!next.done);
     return next.value;
   }
 
-  *loadPresetSteps(id, { days } = {}) {
-    const pr = PRESETS.find((x) => x.id === id) || PRESETS[0];
+  *loadPresetSteps(id, /** @type {{ days?: number, preset?: object }} */ { days, preset } = {}) {
+    const pr = preset || PRESETS.find((x) => x.id === id) || PRESETS[0];
     const params = pr.apply(defaultParams());
     params.seed = this.params.seed;
     this.params = defaultParams();
@@ -328,7 +382,7 @@ export class Engine {
     this.t = 0;
     this.eventLog = [];
     this.newEvents = [];
-    this.evState = {}; this.evAvg = null;
+    this.evState = {}; this.evAvg = null; this.vGrow = { VAR: 1, GV: 1 };
     detectEvents(this, true);
     this.newEvents = [];
     return params;
@@ -423,7 +477,7 @@ export class Engine {
     const pg = pregnancyLevel(p.gestation), add = PREGNANCY.hr * pg, rest = HR_REST * symp + add;
     const hr = clamp(HR_REST * d.hr * (reflex > 0 ? symp + reflex * blunt : symp * (1 + reflex)) + d.hr * add * (reflex > 0 ? 1 : 1 + reflex), 38, 170);
     const contr = p.contractility * (1 + PREGNANCY.contr * pg) * d.contr * clamp(1 + 0.35 * (b - 1), 0.6, 1.6);
-    const cap = contr * Math.pow(hr / rest, 0.6) * (1 - 0.3 * p.tr);
+    const cap = contr * Math.pow(hr / rest, 0.6) * (1 - 0.3 * p.tr) * (1 - PERICARDIAL_FILL * p.pericardial);
     return { hr, cap };
   }
 
@@ -442,7 +496,11 @@ export class Engine {
     const iapDev = this.iap - 5;
     const pplDev = ppl + vals;
     let raExt = pplDev + 12 * p.pericardial;
-    if (this.pulsing()) raExt += raWave(this.phase());
+    const raW = this.pulsing() ? raWave(this.phase()) : 0;
+    raExt += raW;
+    // (The breath's and the beat's share of the outside pressures, so the shown readings can start from the calm ones: calmExt.)
+    this._swing = this._swing || { ppl: 0, iap: 0, ra: 0 };
+    this._swing.ppl = ppl; this._swing.iap = iapResp; this._swing.ra = raW;
     for (let i = 0; i < this.N; i++) {
       const ext = NODES[i].ext;
       this.ext[i] = ext === 'abd' ? iapDev
@@ -459,10 +517,20 @@ export class Engine {
     return this.cyc - Math.floor(this.cyc);
   }
 
-  extFor(kind) {
-    const iapDev = this.iap - 5;
-    return kind === 'abd' ? iapDev : kind === 'thor' ? this.ext[this.ni.SVC] : kind === 'eso' ? this.ext[this.ni.VAR]
-      : kind === 'gas' ? this.ext[this.ni.GV] : 0;
+  extFor(kind, ext = this.ext, iap = this.iap) {
+    const iapDev = iap - 5;
+    return kind === 'abd' ? iapDev : kind === 'thor' ? ext[this.ni.SVC] : kind === 'eso' ? ext[this.ni.VAR]
+      : kind === 'gas' ? ext[this.ni.GV] : 0;
+  }
+  /** The outside pressures without this moment's breath and beat (computeExt's swing taken off): where the shown readings start. */
+  calmExt(out) {
+    const w = this._swing || { ppl: 0, iap: 0, ra: 0 };
+    for (let i = 0; i < this.N; i++) {
+      const k = NODES[i].ext;
+      out[i] = this.ext[i] - (k === 'abd' || k === 'gas' ? w.iap : k === 'thor' || k === 'eso' ? w.ppl : 0);
+    }
+    out[this.ni.RA] = this.ext[this.ni.RA] - w.ppl - w.ra;
+    return out;
   }
 
   // ───────────────────────── conductances ─────────────────────────
@@ -475,7 +543,7 @@ export class Engine {
     // (The lower arterial pressure of the hyperdynamic circulation (mapSetOf) drives the gut arteries less: their tone falls with
     // it, a little more than in proportion, so the splanchnic inflow, the portal pressures and the slow portal vein of a disease
     // stay those tuned at 93 mmHg: decompensated cirrhosis 0.76 L/min and 14.8 cm/s against 0.74 and 14.2 before.)
-    const spl = p.splanchnicTone * meal * (1 - PREGNANCY.spl * pg) * this.slow.splTone * d.spl * Math.pow(this.baro, 0.6) * (this.mapSetOf() / MAP_SET) ** 1.25;
+    const spl = p.splanchnicTone * meal * (1 - PREGNANCY.spl * pg) * this.slow.splTone * d.spl * Math.pow(this.baro, 0.6) * (this.mapSetOf(true) / MAP_SET) ** 1.25;   // (the hyperdynamic reset only: pregnancy's own lower set point does not feed the gut less, so the portal numbers of the pregnancy patient stay those tuned)
     // Chronic portal hypertension dilates systemic arterioles too (nitric oxide spill-over), not only the
     // splanchnic bed: SVR falls and, with the expanded plasma volume, cardiac output rises (hyperdynamic circulation).
     const sys = p.systemicTone * (1 - PREGNANCY.sys * pg) * d.sys * this.baro * (1 - SYS_DILATION * (1 - this.slow.splTone));
@@ -485,6 +553,7 @@ export class Engine {
     this.wf.fill(0);
     for (let k = 0; k < this.E; k++) {
       const e = EDGES[k];
+      if (e.virtual) { this.G[k] = 0; continue; }   // (a piece of a vein split by a junction that the engine does not solve: its flow is written after the step, fillJunctions)
       const f = this.edgeF[k], t = this.edgeT[k];
       let R = this.Rbase[k];
       switch (e.kind) {
@@ -523,9 +592,16 @@ export class Engine {
         case 'liver':
           R *= this.zoneMult(e.lobe, e.zone);
           if (e.zone === 'sin' || e.zone === 'post') {
-            // Congested sinusoids dilate; capillarized (cirrhotic) sinusoids cannot.
+            // Congested sinusoids dilate; capillarized (cirrhotic) sinusoids cannot. What dilates them is the pressure above the pressure the whole liver
+            // drains into: a rise of the central venous pressure above its baseline, read at the suprahepatic IVC (right heart failure, constriction, an IVC web; not a TIPS, which only raises the hepatic vein it joins, and not a hepatic vein block, where the catheter reads the shut vein) lifts
+            // every sinusoid together, and the liver, held by its capsule, does not swell with it (the varix above takes the same rise off its own wall).
+            // Without this a congested outflow wiped out the HVPG of a cirrhotic liver: 6.4 mmHg at 40% on the slider fell to 2 with the right atrium at 24,
+            // where in patients the gradient follows the sinusoidal resistance and dips only a little with the lower inflow.
             const kd = 0.08 * (1 - s);
-            if (kd > 0) R *= tubeResistanceFactor(P[f], P[t], this.Pbase[f], this.Pbase[t], kd);
+            if (kd > 0) {
+              const hv = this.ni.IVCS, rise = congestedRise(P[hv] - this.Pbase[hv]) * Math.min(1, s / SCARRED_FROM);
+              R *= tubeResistanceFactor(P[f] - rise, P[t] - rise, this.Pbase[f], this.Pbase[t], kd);
+            }
           }
           break;
         case 'wedge': {
@@ -551,15 +627,16 @@ export class Engine {
           if (stent && occ >= 0.995) g = 0;
           else if (e.shunt === 'ap') g = 0.5 * (0.05 * s * s * s + 0.1 * p.apShunt);
           // Diameter grades both the shunt fraction and the portosystemic gradient.
-          else if (e.shunt === 'tips' && p.tips.on) g = stentConductance(TIPS_R.tract, p.tips.d, this.Q[k], visc, occ);
-          else if (e.shunt === 'dips' && p.dips.on) g = stentConductance(DIPS_R.tract, p.dips.d, this.Q[k], visc, occ);
+          else if (e.shunt === 'tips' && p.tips.on) g = stentConductance('tips', p.tips.d, this.Q[k], visc, occ, p, e.id);
+          else if (e.shunt === 'dips' && p.dips.on) g = stentConductance('dips', p.dips.d, this.Q[k], visc, occ, p, e.id);
           else if (e.shunt === 'portocaval' && p.portocaval) g = 1 / (0.03 * visc);
           else if (e.shunt === 'dsrs' && p.dsrs) g = 1 / (0.08 * visc);
           else if (e.shunt === 'mesocaval' && p.mesocaval) g = 1 / (0.08 * visc);
           // The Meso-Rex graft: a vein of 8 mm (Poiseuille: the Warren shunt's resistance at 9 mm, scaled by (9/8)^4).
           else if (e.shunt === 'rex' && p.rex) g = 1 / (0.128 * visc);
-          else if (e.shunt === 'custom' && p.customShunts?.[e.id]) g = customConductance(p.customShunts[e.id], this.Q[k], visc, occ);
+          else if (e.shunt === 'custom' && p.customShunts?.[e.id]) g = stentConductance('custom', p.customShunts[e.id], this.Q[k], visc, occ, p, e.id);
           if (g > 0 && !stent) g /= Math.min(1e9, stenosisFactor(occ));
+          if (g > 0 && this.through[k]) g = this.shuntOutlet(g, this.through[k], visc);
           this.G[k] = g;
           continue;
         }
@@ -581,10 +658,55 @@ export class Engine {
     }
   }
 
+  /** A shunt's conductance with the stretch of vein it drains through (this.through) in series: unchanged while the vein is open (the open stretch is
+   *  in the shunt's own tract term, stent-geom.js), the stretch's extra resistance from a clot or a stenosis added, none when the vein is occluded. */
+  shuntOutlet(g, [kv, share], visc) {
+    const o = this.occlusion(EDGES[kv].id);
+    if (o <= 0) return g;
+    const sf = stenosisFactor(o);
+    return sf === Infinity ? 0 : 1 / (1 / g + share * this.Rbase[kv] * visc * (sf - 1));
+  }
+
   occlusion(id) {
-    const s1 = this.params.stenosis[id] || 0, s2 = this.params.thrombus[id] || 0;
+    const v = partOf(id);   // (a vein split in pieces by a shunt joining it part-way along: a clot or a stenosis on it is on every piece)
+    const s1 = this.params.stenosis[v] || 0, s2 = this.params.thrombus[v] || 0;
     return 1 - (1 - s1) * (1 - s2);
   }
+
+  /**
+   * The flow of each virtual piece of a split vein (topology.js JUNCTIONS), from the one the engine solved and the blood the shunts take from the
+   * junctions or give to them: the flow past a junction is the flow before it plus what the shunts joined there bring (net into the junction), so
+   * blood is conserved at every junction exactly. Written into Q (which the filtered flows follow) and nothing else.
+   */
+  fillJunctionFlows() {
+    const Q = this.Q;
+    for (const c of this.jx) {
+      const n = c.ks.length;
+      const net = (i) => { let s = 0; for (const [k, sg] of c.taps[i]) s += sg * Q[k]; return s; };
+      for (let i = c.lead; i < n - 1; i++) Q[c.ks[i + 1]] = Q[c.ks[i]] + net(i);
+      for (let i = c.lead - 1; i >= 0; i--) Q[c.ks[i]] = Q[c.ks[i + 1]] - net(i);
+    }
+  }
+  /** The pressure at each junction node: the model's pressure at the end of the vein its shunts are joined at, a hair off it on the side the stretch between
+   *  the two runs downhill (above it where blood runs from the junction to the end, below it where it runs from the end to the junction), so the stretch has no drop
+   *  of its own and blood runs downhill through it whichever way it runs: the order every blend and dye pass visits nodes in (blood.js byPressure). */
+  fillJunctionPressures(P = this.P, Q = this.Q) {
+    for (const c of this.jx) {
+      const toEnd = c.end === 'to', k = c.ks[c.lead], at = toEnd ? this.edgeT[k] : this.edgeF[k], n = c.nodes.length;
+      // Walk in from the model's end: each stretch's two ends differ by a hair on the side its flow runs from (a stretch's flow runs from its `from` end to its `to` end when positive).
+      if (toEnd) {
+        let p = P[at];
+        for (let i = n - 1; i >= 0; i--) { const q = Q[c.ks[i + 1]]; p += (q > 1e-9 ? 1 : q < -1e-9 ? -1 : 0) * JUNCTION_HAIR; P[c.nodes[i]] = p; }
+      } else {
+        let p = P[at];
+        for (let i = 0; i < n; i++) { const q = Q[c.ks[i]]; p -= (q > 1e-9 ? 1 : q < -1e-9 ? -1 : 0) * JUNCTION_HAIR; P[c.nodes[i]] = p; }
+      }
+    }
+  }
+  /** The same for the shown pressures (Pf) from the shown flows (Qf): a junction's shown pressure is set from the sign of the shown flow beside it, not
+   *  averaged from the instants' hairs (a stretch whose flow swings across zero with the beat averaged them to noise, so the order the lenses visit the
+   *  nodes in, by pressure, flipped from frame to frame against the shown flow's direction: the origin and first-pass colours flickered, 15 Nov 2026). */
+  fillShownJunctionPressures() { if (this.Pf && this.Qf) this.fillJunctionPressures(this.Pf, this.Qf); }
 
   // ───────────────────────── integration ─────────────────────────
   /** One implicit (backward-Euler, Picard-linearized) step of dt seconds. */
@@ -706,6 +828,7 @@ export class Engine {
       this.Q[k] = q;
       net[f] -= q; net[t] += q;
     }
+    this.fillJunctionFlows();
     const qh = a0 + dQh * Pn[RA];
     this.Qheart = qh;
     net[RA] -= qh;
@@ -720,6 +843,7 @@ export class Engine {
       const [Pk, Ps] = this.nodeK[i];
       P[i] = this.ext[i] + ptmOf(this.V[i], this.nodeC[i] * this.liverStiff(i), Pk, Ps);
     }
+    this.fillJunctionPressures();
 
     // Blood accounting
     // (In rbc's units, RED: whole blood leaves at the healthy-marrow hematocrit, and a unit's cells count over the marrow's share.)
@@ -745,12 +869,16 @@ export class Engine {
 
   /** Whether solved pressures Pn put any open vein on the other side of its collapse point (computeG's waterfall test). */
   collapseFlips(Pn) {
+    const EDGE_BAND = 1;
     for (const k of this.veins) {
       if (this.G[k] === 0) continue;
       const f = this.edgeF[k], t = this.edgeT[k], x = this.vx[k];
       const up = Pn[f] >= Pn[t] ? f : t, dn = up === f ? t : f;
       const w = Pn[dn] - x < 0 && Pn[up] - x > 0.5 ? (up === f ? 1 : -1) : 0;
       if (w !== this.wf[k] && w === this.wfPrev[k]) return true;
+      // (A vein that sits within a mmHg of its collapse point is at that edge whichever side the step left it: a long step carries it across and a
+      // shorter one back, three or four steps to the cycle, so the sos patient with 2 L of ascites never settled to one number. It is stepped by halves.)
+      if (Math.abs(Pn[dn] - x) < EDGE_BAND && Pn[up] - x > 0.5) return true;
     }
     return false;
   }
@@ -804,21 +932,89 @@ export class Engine {
     return pulseOf(this.MAPf, q * 60 / this.hr, this.hr, C, G, ARTERY.Zc, out);
   }
 
+  /** One bedside step of the shown readings (display-mean.js): the pressures, flows, outside pressures and the abdomen's pressure, each
+   *  the mean over the last breath and beat, into Pf, Qf, extf and iapf. (The dead band is on the readings as they print, holdShown, not
+   *  on Pf: two neighbouring nodes held at one rounding edge read no gradient between them, and the figure reads gradients from Pf.) Whenever something else wrote Pf or Qf since (a restore, a hidden copy's relax, the quiet steps' filters), the means start
+   *  over from what they hold, so a change of patient or a slider's relax shows at once, as it did. */
+  shownMean(dt) {
+    const N = this.N, E = this.E, n = 2 * N + E + 2;   // (P, Q, ext, the IAP, and the portal vein's Doppler velocity: pvVm)
+    let dm = this._dm;
+    if (!dm || dm.n !== n) {
+      dm = this._dm = new DisplayMean(n);
+      this._dmIn = new Float64Array(n); this._dmP = new Float64Array(N); this._dmQ = new Float64Array(E);
+    }
+    const v = this._dmIn, Pf = this.Pf, Qf = this.Qf;
+    const arrive = this._arrive; this._arrive = false;   // (a restored slide's state, at rest: restore)
+    let same = dm.seeded && this.extf?.length === N;
+    for (let i = 0; same && i < N; i++) same = Pf[i] === this._dmP[i];
+    for (let k = 0; same && k < E; k++) same = Qf[k] === this._dmQ[k];
+    if (!same) {
+      v.set(Pf, 0); v.set(Qf, N);
+      this.calmExt(v.subarray(N + E, N + E + N));
+      v[n - 2] = this.iap - (this._swing?.iap || 0);
+      v[n - 1] = this.pvVm ?? this.dopplerVelocity('PV_TRUNK');
+      dm.seed(v, arrive ? BREATH_S + 60 / (this.hr || HR_REST) + 0.1 : 0);
+      this.extf = Float64Array.from(v.subarray(N + E, N + E + N)); this.iapf = v[n - 2]; this._pvVshown = v[n - 1];
+    }
+    v.set(this.P, 0); v.set(this.Q, N); v.set(this.ext, N + E); v[n - 2] = this.iap; v[n - 1] = this.dopplerVelocity('PV_TRUNK');
+    // (The beat's window is one beat long, 60 / the heart rate. The rate the baroreflex gives dithers by a tenth of a beat a minute at rest, and a window that long
+    // changes by 0.15% with it, which on an aortic swing of ±25 mmHg is 0.05 mmHg of ripple in the shown mean: a rate with the dither filtered out, 5 s, keeps it still.)
+    const hr = this.hr || HR_REST;
+    this._hrw = !same || this._hrw == null ? hr : this._hrw + (hr - this._hrw) * Math.min(1, dt / 5);
+    if (dm.add(v, dt, 60 / this._hrw)) {
+      const o = dm.out;
+      for (let i = 0; i < N; i++) Pf[i] = o[i];
+      for (let k = 0; k < E; k++) Qf[k] = o[N + k];
+      for (let i = 0; i < N; i++) this.extf[i] = o[N + E + i];
+      this.iapf = o[n - 2];
+      this._pvVshown = o[n - 1];
+    }
+    this.fillShownJunctionPressures();
+    this._dmP.set(Pf); this._dmQ.set(Qf);
+  }
+
+  /** A reading as it prints, through the dead band at its precision (display-mean.js holdAt), kept by `key` between frames. Only while
+   *  the bedside means run (shownMean): a model settled in quiet steps, a scratch copy or a test reads the value as it is. */
+  holdShown(key, v, step = 0.1) {
+    if (!this._dm?.seeded || this.quiet) { if (this._held) this._held[key] = v; return v; }
+    const h = this._held ??= {};
+    return (h[key] = holdAt(h[key], v, step));
+  }
+
+  /** A vessel's diameter as the figure draws it: from the shown pressures (shownMean), not this instant's, so a vein does not
+   *  breathe on the screen. (diameter() itself, this instant's, is what the Doppler's velocity divides by.) */
+  diameterShown(id) {
+    return this.diameter(id, this.Pf || this.P, this.extf || this.ext, this.iapf ?? this.iap);
+  }
+
   controllers(dt) {
     const p = this.params;
-    const a = Math.min(1, dt / 1.5);
+    // The shown pressures and flows (Pf, Qf: every readout and the figure read them). At the bedside, the mean over exactly one breath
+    // and one beat (shownMean, display-mean.js); in the quiet steps of a settle, a relax or the disease
+    // clock, which have no breath or beat to average, the first-order filters they always had (2.5 s and 1.5 s), so the days the
+    // disease clock runs read the same as before.
     if (!this.Qf) this.Qf = Float64Array.from(this.Q);
-    for (let k = 0; k < this.E; k++) this.Qf[k] += (this.Q[k] - this.Qf[k]) * a;
+    if (!this.Pf) this.Pf = Float64Array.from(this.P);
+    if (this.quiet || !(dt > 0)) {
+      const a = Math.min(1, dt / 1.5), ap = Math.min(1, dt / 2.5);
+      for (let k = 0; k < this.E; k++) this.Qf[k] += (this.Q[k] - this.Qf[k]) * a;
+      for (let i = 0; i < this.N; i++) this.Pf[i] += (this.P[i] - this.Pf[i]) * ap;
+      if (this.extf?.length !== this.N) this.extf = new Float64Array(this.N);
+      this.extf.set(this.ext); this.iapf = this.iap;
+      this.fillShownJunctionPressures();
+    } else this.shownMean(dt);
+    this.varixRegrow(this.quiet ? Infinity : dt);
     // Portal flow and velocity averaged over a few breaths, so the readout's status does not
     // flicker as breathing swings the instantaneous velocity across a cut-off.
+    // (At the bedside, the breath and beat means of shownMean, which take the breath out exactly; the 6 s filter let a 4 s breath through at
+    // a tenth of its size, ±1 to 2 cm/s on the velocity tile. The quiet steps keep the filter.)
     const av = Math.min(1, dt / 6), kPV = this.ei.PV_TRUNK;
-    this.pvQm = (this.pvQm ?? this.Q[kPV]) + (this.Q[kPV] - (this.pvQm ?? this.Q[kPV])) * av;
-    const vPV = this.dopplerVelocity('PV_TRUNK');
-    this.pvVm = (this.pvVm ?? vPV) + (vPV - (this.pvVm ?? vPV)) * av;
-    // Display-filtered pressures (removes respiratory / cardiac ripple from readouts)
-    if (!this.Pf) this.Pf = Float64Array.from(this.P);
-    const ap = Math.min(1, dt / 2.5);
-    for (let i = 0; i < this.N; i++) this.Pf[i] += (this.P[i] - this.Pf[i]) * ap;
+    if (!this.quiet && dt > 0 && this._dm?.seeded && Number.isFinite(this._pvVshown)) { this.pvQm = this.Qf[kPV]; this.pvVm = this._pvVshown; }
+    else {
+      this.pvQm = (this.pvQm ?? this.Q[kPV]) + (this.Q[kPV] - (this.pvQm ?? this.Q[kPV])) * av;
+      const vPV = this.dopplerVelocity('PV_TRUNK');
+      this.pvVm = (this.pvVm ?? vPV) + (vPV - (this.pvVm ?? vPV)) * av;
+    }
     this.COf = (this.COf ?? this.Qheart) + (this.Qheart - (this.COf ?? this.Qheart)) * Math.min(1, dt / 2);
     this.MAPf += (this.P[this.ni.AO] - this.MAPf) * (dt / (2 + dt));
     // The vitals as the bar and Readouts show them, averaged over two breaths at every step: breathing swings the
@@ -933,6 +1129,16 @@ export class Engine {
     const sched = [[0.02, 10], [0.2, 15], [2, 20], [10, 30]];
     for (let r = 0; r < n; r++) for (const [dt, k] of sched) for (let i = 0; i < k; i++) this.step(dt);
     this.quiet = q; this.t = t; this.cyc = cyc;
+  }
+  /** A slide's state with a transfusion in it is the transfusion DONE: the units run in over 10 to 15 minutes of model time, which the settle's 343 s does
+   *  not cover, so a state handed to the page with units still dripping went on moving for minutes after it landed (eight units: the portal pressure
+   *  26 → 35 mmHg, the systolic pressure +10; ENG-1 of 19 Nov 2026). Quiet 10 s steps until every infusion has run out, then the settle again. */
+  finishInfusions() {
+    if (!this.infusions.length || this.bleed.active) return;   // (a bleed under way is a process: its slide shows it going on, and the quiet steps would run it on for ten more minutes)
+    const q = this.quiet, t = this.t, cyc = this.cyc; this.quiet = true;
+    for (let i = 0; i < 200 && this.infusions.length; i++) this.step(10);
+    this.quiet = q; this.t = t; this.cyc = cyc;
+    this.settle();
   }
   /** A few quiet relaxation steps that leave the clock alone, so a live change reaches its steady state in about a second
    *  while the Doppler and tracings keep sweeping at real time (the arterial buffer alone takes half a minute of model time). */
@@ -1096,6 +1302,7 @@ export class Engine {
     const advanced = clamp((p.cirrhosis - RELAX.advLow) / (RELAX.advHigh - RELAX.advLow), 0, 1);
     const spTarget = clamp(11 + 0.5 * Math.max(0, P[this.ni.SPL] - 12 - 0.6 * Math.max(0, P[this.ni.IVCS] - 5)), 9, 22);
     s.spleen += (spTarget - s.spleen) * (spTarget < s.spleen ? 1 - Math.exp(-days / (RELAX.spleenBase + RELAX.spleenExtra * advanced)) : Math.min(1, days / RELAX.spleenBase));   // (the slow fall by the exact exponential, so a long step and many short ones agree)
+    { const target = this.params.splenicRx === 1 ? SPLEEN_INFARCT.share : 0, was = s.spInf || 0; s.spInf = was + (target - was) * (1 - Math.exp(-days / SPLEEN_INFARCT.tauDays)); }   // (the infarcted share of the spleen: SPLEEN_INFARCT)
     // Chronic splanchnic vasodilation & plasma expansion (hyperdynamic circulation)
     const ppg = P[this.ni.CONF] - P[this.ni.IVCS];
     const x = clamp((ppg - 6) / 14, 0, 1);
@@ -1110,12 +1317,10 @@ export class Engine {
     const b = this.blood, own = this.ownRbc();
     if (b.rbc !== own) b.rbc += (own - b.rbc) * Math.min(1, days / (own > b.rbc ? RED.upDays * (1 + p.cirrhosis) : RED.downDays));
     this.plasmaRefill(days * 86400);
-    // Lymph capacity adapts toward demand
+    // The lymphatics remodel toward (but never fully match) the chronic demand, and level off at their most (LYMPH).
     const st = this.starling();
-    const demand = st.hep + st.spl;
-    // Lymphatics remodel toward (but never fully match) chronic demand.
-    const capT = Math.min(LYMPH.max, LYMPH.base + LYMPH.adaptFrac * Math.max(0, demand - LYMPH.base));
-    s.lymphCap += (capT - s.lymphCap) * Math.min(1, LYMPH.adapt * days);
+    const capT = Math.min(LYMPH.max, LYMPH.base + LYMPH.adaptFrac * Math.max(0, st.made - LYMPH.base));
+    s.lymphCap += (capT - s.lymphCap) * (1 - Math.exp(-LYMPH.adapt * days));   // (by the exact exponential, so a long step and many short ones agree)
     this.ascitesProtein(st, 1440 * days);
     // A day's step can carry the fluid past the volume where it balances (the net turns with the volume and the belly's
     // pressure: drained by diuretics, refilled when nearly empty), and the next step back past it, so the volume would
@@ -1149,12 +1354,15 @@ export class Engine {
    *  - full size for a spontaneous shunt that is present (an anatomical variant, not remodeled).
    * The result is recorded in slow.dEff so the figure draws what the model conducts.
    */
-  collateralD(e) {
+  // (P: the pressures the route's excess is read at. The physics step reads the instant's (this.P); a shown diameter (diameter(id, Pf)) reads the shown means,
+  // so a collateral that opens with the gradient (the acute clot's, which opens on a span of a few mmHg) holds still at rest instead of swinging with the beat:
+  // the acute PVT's C1a/C1b shown diameters swung 8% every 7 s, so the worker posted 6 states a second for ever, 17 Nov 2026.)
+  collateralD(e, P = this.P) {
     let d = this.slow.d[e.id];
     if (e.spontaneous) d = e.dMax;
     else if (this.refP) {
       const dMin = dMinOf(e);
-      const frac = clamp((this.routeExcess(e.route) - (e.open ?? COLLATERAL.open)) / COLLATERAL.span, 0, 1);
+      const frac = clamp((this.routeExcess(e.route, P) - (e.open ?? COLLATERAL.open)) / COLLATERAL.span, 0, 1);
       const acute = e.acute ?? (this.params.thrombus.PV_TRUNK > 0.5 ? COLLATERAL.acuteClot : COLLATERAL.acute);
       d = Math.max(d, dMin + (e.dMax - dMin) * acute * Math.sqrt(frac));
     }
@@ -1164,7 +1372,7 @@ export class Engine {
       const g = EDGES[this.ei.C5], gMin = dMinOf(g), gd = Math.max(this.slow.d.C5, (this.slow.dEff || {}).C5 ?? 0);
       d = Math.max(d, dMinOf(e) + (e.dMax - dMinOf(e)) * clamp((gd - gMin) / (g.dMax - gMin), 0, 1));
     }
-    (this.slow.dEff ||= {})[e.id] = d;
+    if (P === this.P) (this.slow.dEff ||= {})[e.id] = d;   // (what the C2 feeder reads: the step's own, not a shown reading's)
     return d;
   }
 
@@ -1174,23 +1382,28 @@ export class Engine {
     return (P[i] - P[j]) - (this.refP[i] - this.refP[j]);
   }
 
-  /** Starling filtration & lymph balance, mL/min; protein in g/dL. */
-  starling() {
-    const p = this.params, P = this.P, s = p.cirrhosis;
-    const iap = this.iap ?? 5;
+  /** Starling filtration & lymph balance, mL/min; protein in g/dL. `shown`: the screen's reading, from the pressures averaged over one
+   *  breath and beat (Pf, iapf: shownMean), so the lymph and its protein hold still at rest; the hemodynamic clock's integration of the
+   *  ascites (fastProcesses) reads this instant's, which its sum over time averages out. (The sinusoidal and abdominal pressures swing with
+   *  the breath, and the lymph was read off them as they swung: 0.5 to 1.1 mL/min in a healthy liver, the protein 86 to 91 %.) */
+  starling(shown = false) {
+    const p = this.params, P = shown && this.Pf ? this.Pf : this.P, s = p.cirrhosis;
+    const iap = (shown ? this.iapf : undefined) ?? this.iap ?? 5;
     const pic = 25 * (p.albumin / 4.0);
     // How capillarized the sinusoid wall is: as the cirrhosis has it, less the share of its closed pores opened again (fenestrae,
     // a what-if: the pores opened in the same liver, its scar and resistance unchanged). A number at both ends, so a change eases.
     const shut = s * (1 - clamp(p.fenestrae ?? 0, 0, 1));
     const sigH = 0.1 + 0.5 * shut;
-    const piH = pic * (1 - sigH) * 0.9;
     const pMid = 0.6 * (0.7 * P[this.ni.SIN_R] + 0.3 * P[this.ni.CV_R]) + 0.4 * (0.7 * P[this.ni.SIN_L] + 0.3 * P[this.ni.CV_L]);
-    // Hepatic lymph: 0.5 mL/min at baseline, rising with sinusoidal filtration pressure.
-    const hep = 0.5 + LYMPH.kfHep * Math.max(0, (pMid - iap) - sigH * (pic - piH) - 0.75);
-    const spl = LYMPH.kfSpl * Math.max(0, (P[this.ni.INT] - iap) - 0.9 * (pic - 10));
-    const excess = Math.max(0, hep + spl - this.slow.lymphCap);
-    const bulk = this.slow.ascites > 0 ? Math.min(0.6, this.slow.ascites / 2000) : 0;
-    const water = p.diuretics && this.slow.ascites > 0 ? Math.min(0.9, this.slow.ascites / 1500) : 0;
+    const pT = tissueP(iap);
+    // Formation (LYMPH): the liver's from the sinusoids' net filtration pressure, never below its healthy rate; the gut's beyond its basal lymph.
+    const pull = sinusoidPull(p.albumin, sigH), splOf = (t) => LYMPH.kfSpl * Math.max(0, (P[this.ni.INT] - t) - 0.9 * (pic - 10));
+    const hep = hepLymphOf(pMid - pT, pull), spl = splOf(pT);
+    const cap = this.slow.lymphCap, made = hep + spl, carried = Math.min(made, cap);
+    const excess = made - carried;
+    const V = this.slow.ascites;
+    const bulk = V > 0 ? Math.min(PERIT.bulk, V * PERIT.bulkL) + PERIT.kIap * (iapFromAscites(V) - 5) : 0;
+    const water = p.diuretics && V > 0 ? Math.min(PERIT.waterMax, V * PERIT.waterL) : 0;
     const reabs = bulk + water;
     const net = excess - reabs;
     // Protein: what crosses each bed (sieving by the wall's reflection coefficient, more complete the faster
@@ -1202,9 +1415,9 @@ export class Engine {
     const wH = PROT.hepWeep * hep, wS = jg;
     const inAlb = (wH * hA + wS * gA * alb) / (wH + wS), inGlob = (wH * hG + wS * gG * glob) / (wH + wS);
     const prot = { sigma: sA, alb, glob, hepAlb: hA, hepTP: hA + hG, lymphProt: (hA + hG) / (alb + glob), inAlb, inGlob };
-    this.flows = { hep, spl, excess, reabs, bulk, water, prot };
+    this.flows = { hep, spl, carried, excess, reabs, bulk, water, prot };
     const ascAlb = this.slow.ascAlb ?? inAlb, ascTP = ascAlb + (this.slow.ascGlob ?? inGlob);
-    return { hep, spl, net, excess, bulk, water, prot, ascAlb, ascTP, saag: alb - ascAlb, highProtein: ascTP >= 2.5 };
+    return { hep, spl, made, carried, cap, net, excess, bulk, water, prot, ascAlb, ascTP, saag: alb - ascAlb, highProtein: ascTP >= 2.5 };
   }
 
   /**
@@ -1322,13 +1535,13 @@ export class Engine {
   }
 
   // ───────────────────────── measurement helpers ─────────────────────────
-  diameter(id) {
+  diameter(id, P = this.P, ext = this.ext, iap = this.iap) {
     const k = this.ei[id], e = EDGES[k];
     if (e.kind === 'collateral') {
       const f = this.edgeF[k], t = this.edgeT[k];
-      const a = 0.5 * (tubeArea(this.P[f] - this.ext[f], 0.08) / tubeArea(this.refP[f], 0.08) + tubeArea(this.P[t] - this.ext[t], 0.08) / tubeArea(this.refP[t], 0.08));
+      const a = 0.5 * (tubeArea(P[f] - ext[f], 0.08) / tubeArea(this.refP[f], 0.08) + tubeArea(P[t] - ext[t], 0.08) / tubeArea(this.refP[t], 0.08));
       const present = edgePresent(e, this.params);
-      return present && !isOccluded(this.params, e.id) ? this.collateralD(e) * Math.sqrt(a) : 0;
+      return present && !isOccluded(this.params, e.id) ? this.collateralD(e, P) * Math.sqrt(a) : 0;
     }
     if (e.kind === 'shunt') {
       if (e.shunt === 'tips') return this.params.tips.on ? this.params.tips.d : 0;
@@ -1339,12 +1552,62 @@ export class Engine {
     const base = e.d || 3;
     if (e.kind !== 'vein' && e.kind !== 'diode') return base;
     const f = this.edgeF[k], t = this.edgeT[k];
-    const x = this.extFor(this.edgeExt[k]);
-    const a = 0.5 * (tubeArea(this.P[f] - x) / tubeArea(this.Pbase[f]) + tubeArea(this.P[t] - x) / tubeArea(this.Pbase[t]));
+    const x = this.extFor(this.edgeExt[k], ext, iap);
+    const a = 0.5 * (tubeArea(P[f] - x) / tubeArea(this.Pbase[f]) + tubeArea(P[t] - x) / tubeArea(this.Pbase[t]));
     return base * Math.sqrt(a) * Math.sqrt(1 - this.occlusion(id) * 0.9);
   }
 
   /** Mean velocity (cm/s), signed. */
+  /** A stent's hydraulics as they stand (stent-geom.js): its flow (mL/s, smoothed as the readouts are), the pressure across it (mmHg,
+   *  portal end less systemic end), its open and waist mean velocities (cm/s), and the pressure each part takes (mmHg: tract, wall with
+   *  waistWall its waist's share, entry, jet, inlet, total), written into `out`; null when the stent is not open. The sibling cards,
+   *  tiles and curves read this, so the model's split and theirs cannot differ. */
+  stentState(id, out = null) {
+    const k = this.ei[id], e = EDGES[k], kind = kindOf(e);
+    if (!kind || !(this.G[k] > 0)) return null;
+    const p = this.params, d = kind === 'tips' ? p.tips.d : kind === 'dips' ? p.dips.d : p.customShunts?.[id];
+    if (!(d > 0)) return null;
+    const o = out || { parts: {}, geom: {} };   // alloc-rare: a reader that brings no record (a test, the compare request); the tick brings its own
+    const q = this.Qf ? this.Qf[k] : this.Q[k], P = this.Pf || this.P, s = this.occlusion(id);
+    const g = geomOf(p, id, kind, o.geom || (o.geom = {})), su = END_U[endSiteOf(p, id)], r = stentParts(kind, d, q, this.viscosity(), s, g, o.parts || (o.parts = {}), su);   // alloc-rare: a record brought without them, once
+    for (const f of ['tract', 'wall', 'waistWall', 'entry', 'jet', 'inlet', 'jetEnd', 'jetWaist', 'wallEnd', 'wallWaist', 'total']) r[f] *= q;
+    const A = Math.PI * (d / 10) * (d / 10) / 4;
+    // (Its two narrowings, stent-geom.js: the end stenosis `end` at its end `site`, the waist `red` mid stent. s, dWaist and vWaist are the
+    // narrowest lumen of the two, as the Narrowest lumen tile and the jet read it.)
+    const n = Math.max(s, g.red || 0);
+    o.kind = kind; o.d = d; o.end = s; o.red = g.red || 0; o.site = endSiteOf(p, id); o.s = n; o.dWaist = d * (1 - n); o.q = q; o.flow = q * 0.06;
+    // The lesion kinds (17 Nov 2026, the external review's "intentional reduction"): the waist is a reduction made on purpose (against encephalopathy, a
+    // constrained stent), the end stenosis is dysfunction. o.lesion names what the stent has ('none', 'stenosis', 'reduction' or 'both'); o.gateKind
+    // what each Doppler gate (proximal, mid, distal) reads a jet from ('stenosis', 'reduction' or null), so a deliberate reduction's jet reads as intended.
+    const hasS = s > 0.004, hasR = o.red > 0.004, gk = o.gateKind || (o.gateKind = [null, null, null]);   // alloc-rare: made with the record
+    o.lesion = hasS && hasR ? 'both' : hasR ? 'reduction' : hasS ? 'stenosis' : 'none';
+    gk[0] = hasS && o.site === 'proximal' ? 'stenosis' : null; gk[1] = hasR ? 'reduction' : null; gk[2] = hasS && o.site === 'distal' ? 'stenosis' : null;
+    o.dp = P[this.edgeF[k]] - P[this.edgeT[k]];
+    o.vOpen = q / A; o.vWaist = n > 0 ? q / (A * (1 - n) * (1 - n)) : q / A;
+    // The three Doppler points as the scanner reads them (the card's own numbers, stentReadsOf: the open stent's mean × dopplerK at each gate, the
+    // narrowing's jet where the waist lies) and the highest of them, the stent's peak velocity: the tile and the Doppler cannot differ.
+    const peaks = o.peaks || (o.peaks = [0, 0, 0]);   // alloc-rare: made with the record
+    stentReadsOf(p, id, Math.abs(q) / (Math.PI * (this.diameter(id) / 10) * (this.diameter(id) / 10) / 4) * dopplerK(e), peaks);
+    // A stent that has almost stopped (flow-cuts.js stentStillHeld, with its memory in the record so a flow hovering at the cut-off does not flip it) is
+    // stopped everywhere: no flow, no velocity at any gate or at the waist, no friction or jet (the pressure across it, dp, is held by the blockage, not
+    // lost to flow). This record is the one rule: the vessel card's Stasis, the Doppler, the tiles, the side view, the trace and the loss bar read it
+    // (play-test 17 Nov 2026: 0 cm/s on the card, 29 at the waist on the Along view and "Stasis" turning "Patent" at an 88 % stenosis).
+    o.still = stentStillHeld(q, o.still === true);
+    if (o.still) {
+      peaks[0] = 0; peaks[1] = 0; peaks[2] = 0; o.vOpen = 0; o.vWaist = 0; o.q = 0; o.flow = 0;
+      for (const f of ['tract', 'wall', 'waistWall', 'entry', 'jet', 'inlet', 'jetEnd', 'jetWaist', 'wallEnd', 'wallWaist', 'total']) r[f] = 0;
+    }
+    o.vPeak = Math.max(peaks[0], peaks[1], peaks[2]);
+    // (The record is one descriptor of one moment, for a card to pin whole (external review, 17 Nov 2026): its geometry (geom, d, end, red, site), its
+    // readings, the direction of its flow (dir: 1 portal to systemic, −1 reversed, 0 stopped; the parts are signed with the flow, so a reversed
+    // stent's parts and dp are both negative), the raw residual of its pressure split (resid: dp less the parts' sum, mmHg, signed; the smoothed
+    // pressures and flow are not one instant, so it is small but not 0 while the patient moves, and 0 once settled) and the patient's revision.)
+    o.dir = o.still ? 0 : q < 0 ? -1 : 1; o.resid = o.still ? 0 : o.dp - r.total; o.rev = this.paramsRev | 0;
+    // The same stent on a bench: the flow (L/min) it would carry with a fixed BENCH_DP across it and no patient behind it (the tube-alone line of the Tests card's curves).
+    o.bench = benchFlow(kind, d, this.viscosity(), s, g, BENCH_DP, su) * 0.06;
+    return o;
+  }
+
   velocity(id) {
     const k = this.ei[id], e = EDGES[k];
     const q = e.lobar ? this.lobarFlow(k) : this.Q[k];
@@ -1375,6 +1638,14 @@ export class Engine {
     return this.velocity(id) * dopplerK(EDGES[this.ei[id]]);
   }
 
+  /** A varix that was obliterated (BRTO or coils) and is open again regrows to the size the pressure sets over about VARIX.tauReopen
+   *  seconds of model time, instead of taking it in one frame (16 Nov 2026: BRTO switched off took the fundal varices from none to Large with red wale
+   *  signs at once). It is 0 while closed and 1 once regrown; the quiet steps of a settle and the disease clock take it at once. */
+  varixRegrow(dt) {
+    const g = this.vGrow || (this.vGrow = { VAR: 1, GV: 1 });
+    for (const site of ['VAR', 'GV']) g[site] = this.varixObliterated(site) ? 0 : Math.min(1, g[site] + dt / VARIX.tauReopen);
+  }
+
   /** The radius (mm) of a varix at the current gradient. It follows the gradient as it changes (smoothed over a few
    *  seconds by the display-filtered pressures), up to a ceiling that grows over weeks with the coronary vein; banding shrinks it until the bands slough.
    *  A rise is at once; a fall waits for the wall to remodel (VARIX.tauFall, slow.vRest). */
@@ -1401,7 +1672,9 @@ export class Engine {
     // A fall in the pressure waits for the wall (VARIX.tauFall); a varix that has been closed off does not.
     const held = this.varixCut(site) ? null : this.slow.vRest?.[site];
     const rest = held != null && held > grown ? held : grown;
-    const r = site === 'VAR' ? VARIX.r0Healthy + (rest - VARIX.r0Healthy) * Math.pow(0.6, this.bands) : rest;
+    const open = this.vGrow ? this.vGrow[site] : 1;   // (regrowing after a closure: varixRegrow; a smoothstep, so it starts and lands without a corner)
+    const regrown = open >= 1 ? rest : VARIX.r0Healthy + (rest - VARIX.r0Healthy) * open * open * (3 - 2 * open);
+    const r = site === 'VAR' ? VARIX.r0Healthy + (regrown - VARIX.r0Healthy) * Math.pow(0.6, this.bands) : regrown;
     // A Warren shunt drops the pressure in them at once, but the wall took weeks to build and takes months to go: they stay as they were,
     // slack under the low pressure (varix: the radius follows the pressure across the wall), and shrink over about three months (vCutStep).
     // Most are small or gone by a year; shunt failure or a stenosis puts the pressure back and they swell again at once.
@@ -1424,7 +1697,9 @@ export class Engine {
     const p = this.params;
     const ex = site === 'VAR' ? this.routeExcess([p.dsrs ? 'LGV' : 'CONF', 'RA'], P) : this.routeExcess(['SV', 'IVCI'], P);
     const ex0 = this.varixObliterated(site) ? -1e9 : ex;
-    return clamp(VARIX.r0Healthy + (site === 'GV' ? VARIX.kGV : VARIX.k) * Math.max(0, ex0 - (site === 'GV' ? VARIX.openGV : VARIX.open)), VARIX.r0Healthy, VARIX.r0Healthy + this.varixMature(site) * (VARIX.rMax - VARIX.r0Healthy));
+    // (Hepatic veins blocked, Budd–Chiari: the portal bed has outlets cirrhosis lacks, the caval, capsular and intrahepatic collaterals, so the gradient from the portal vein to the right atrium sizes an esophageal varix less than it does there: VARIX.kBlocked. Left whole, the cirrhosis rule gave an 11 mm varix and a wall stress three times the tear point, 16 Nov 2026.)
+    const k = (site === 'GV' ? VARIX.kGV : VARIX.k) * (hvBlocked(p) ? VARIX.kBlocked : 1);
+    return clamp(VARIX.r0Healthy + k * Math.max(0, ex0 - (site === 'GV' ? VARIX.openGV : VARIX.open)), VARIX.r0Healthy, VARIX.r0Healthy + this.varixMature(site) * (VARIX.rMax - VARIX.r0Healthy));
   }
 
   /** A vasoactive drug that lowers the portal pressure (a beta-blocker, terlipressin, octreotide) drops the varix's distending pressure within
@@ -1440,7 +1715,7 @@ export class Engine {
     if (!on(p)) { h.VAR = h.GV = null; return; }
     const started = VASO_DRUGS.some((k) => !!p.drugs?.[k] && !prev.drugs?.[k]);
     if (!started) return;
-    for (const site of ['VAR', 'GV']) { const d = 2 * this.varix(site, this.Pf || this.P).r; if (h[site] == null || d > h[site]) h[site] = d; }   // (with the params before the drug: its pressures are still those)
+    for (const site of ['VAR', 'GV']) { const d = 2 * this.varix(site, this.Pf || this.P, 0, undefined, this.extf || this.ext).r; if (h[site] == null || d > h[site]) h[site] = d; }   // (with the params before the drug: its pressures are still those)
   }
   /** The diameter (mm) a varix is graded at: its diameter d now, or the size held since a drug was started, whichever is larger (holdVarices). */
   varixGraded(site, d) {
@@ -1448,8 +1723,8 @@ export class Engine {
     return h != null && h > d ? h : d;
   }
 
-  /** The arterial pressure the baroreflex defends in this patient: 93 mmHg, less the reset of the hyperdynamic circulation. */
-  mapSetOf() { return MAP_SET - MAP_DROP * clamp((1 - this.slow.splTone) / 0.45, 0, 1); }
+  /** The arterial pressure the baroreflex defends in this patient: 93 mmHg, less the reset of the hyperdynamic circulation and of pregnancy (tone: the first only, which sets the gut's tone). */
+  mapSetOf(tone = false) { return MAP_SET - MAP_DROP * clamp((1 - this.slow.splTone) / 0.45, 0, 1) - (tone ? 0 : PREGNANCY.mapDrop * pregnancyLevel(this.params.gestation)); }
 
   /** How far the channel feeding a varix has remodeled (0 at the onset of a block, 1 once established). */
   varixMature(site) {
@@ -1462,9 +1737,11 @@ export class Engine {
   /** The varix at the pressures P. air (mmHg) is the pressure of the air in the lumen round it, read view-only: it is taken off the pressure
    *  across the wall and so off the radius seen, and nothing else moves. It is never sent through the solver, which would collapse the varix
    *  and choke its own collateral (the balloon's way; HVPG 16.5 → 18.0 at 20 mmHg). r0: the resting radius, when a caller has it already. */
-  varix(site, P = this.P, air = 0, r0 = this.varixTarget(site)) {
+  varix(site, P = this.P, air = 0, r0 = this.varixTarget(site), ext = this.ext) {
     const i = this.ni[site];
-    const ptm = P[i] - this.ext[i] - air;
+    // (`ext` goes with `P`: the shown means of pressure and of the outside pressure, or this instant's of both. Pressure held at its mean under the breath's
+    // swing of the intrathoracic and abdominal pressure made the drawn and printed diameter swing with every breath, 16 Nov 2026.)
+    const ptm = P[i] - ext[i] - air;
     const ref = this.refP ? this.refP[i] : this.Pbase[i];
     // The vein swells with the pressure above its own resting level, not with a rise shared by the whole venous
     // bed: central venous pressure above its baseline (right heart failure, constriction) lifts every vein
@@ -1480,9 +1757,9 @@ export class Engine {
   }
 
   /** The diameter (mm) a varix is seen at with 0, 1, … n − 1 mmHg of air in the lumen round it (varix above). The pressures are held. */
-  varixAir(site, P = this.P, n = 21) {
+  varixAir(site, P = this.P, n = 21, ext = this.ext) {
     const r0 = this.varixTarget(site);
-    return Array.from({ length: n }, (_, a) => 2 * this.varix(site, P, a, r0).r);
+    return Array.from({ length: n }, (_, a) => 2 * this.varix(site, P, a, r0, ext).r);
   }
 
   hvpgTrue(P = this.P) {
@@ -1520,7 +1797,9 @@ export class Engine {
   }
 
   // ───────────────────────── snapshot ─────────────────────────
-  snapshot() {
+  /** `rest`: the state is a settled patient whose shown means have converged (a slide's), so the page's restore holds its readings still while the
+   *  display windows refill (display-mean.js seed) instead of reading the first seconds' partial windows. */
+  snapshot({ rest = false } = {}) {
     return structuredClone({
       params: this.paramsTarget(), V: Array.from(this.V), P: Array.from(this.P), Q: Array.from(this.Q), t: this.t, day: this.day,
       baro: this.baro, MAPf: this.MAPf, habr: this.habr, hr: this.hr, slow: this.slow, blood: this.blood,
@@ -1528,6 +1807,11 @@ export class Engine {
       lv: this.lv,   // (the lungs' and ventricle's share of the beat, lvStep)
       bleed: this.bleed, infusions: this.infusions, bands: this.bands, rng: this.rng.state(), iap: this.iap,
       valsalva: this.valsalva, evState: this.evState,
+      // (The shown readings, the means over the last breath and beat: a restored moment reads as it did, not as this instant's swing.)
+      Pf: this.Pf ? Array.from(this.Pf) : null, Qf: this.Qf ? Array.from(this.Qf) : null, iapf: this.iapf,
+      // (and the slow means the vitals and the portal flow read, with the shown ones: a restore that started them over from this instant's beat put 1 to 4 s of swing on the MAP, the pressures and the portal flow)
+      vitM: this.vitM ? [...this.vitM] : null, vitM1: this.vitM1 ? [...this.vitM1] : null, pvQm: this.pvQm, pvVm: this.pvVm,
+      ...(rest ? { rest: true } : {}),
     });
   }
   restore(s) {
@@ -1540,16 +1824,21 @@ export class Engine {
     // at phase 0 and the filter at the first step's output, not the later moment's values this engine happened to hold.
     this.cyc = Number.isFinite(c.cyc) ? c.cyc : 0; this.COf = Number.isFinite(c.COf) ? c.COf : undefined;
     this.lv = c.lv || null;
-    this.evAvg = null;   // (the events' breath average, events.js, starts over from the restored state)
+    this.evAvg = null; this.evStart = null;   // (the events' breath average, events.js, starts over from the restored state, which is not a patient settling in)
+    this.vGrow = { VAR: 1, GV: 1 };   // (a restored state shows its varices as they were: varixRegrow)
     this.rng.setState(c.rng);
     // A snapshot from before the bleeding reflexes: the volume it holds is the patient's own.
     if (!(this.blood.ref > 0)) Object.assign(this.blood, { ref: this.bloodVolume(), inf0: this.blood.infused || 0, shift: 0 });
     // (One from before the red cells' clocks (RED): its patient's own red cell mass, worked out as it was then.)
     if (this.blood.own == null) this.blood.own = this.ownRbc();
     this.slow.vRest ||= { VAR: null, GV: null };   // (one from before the varix's lag on its fall (VARIX.tauFall) starts it at the size the pressure gives)
-    this.Pf = Float64Array.from(this.P);
-    this.Qf = Float64Array.from(this.Q);
-    this.pvQm = this.pvVm = undefined; this.vitM = null;
+    this.Pf = Float64Array.from(c.Pf?.length === this.N ? c.Pf : this.P);
+    this.Qf = Float64Array.from(c.Qf?.length === this.E ? c.Qf : this.Q);
+    this.iapf = Number.isFinite(c.iapf) && c.Pf?.length === this.N ? c.iapf : undefined;
+    this._held = null;   // (the readings' dead band, holdShown, starts over with the shown means)
+    this.pvQm = Number.isFinite(c.pvQm) ? c.pvQm : undefined; this.pvVm = Number.isFinite(c.pvVm) ? c.pvVm : undefined;
+    this.vitM = Array.isArray(c.vitM) && Array.isArray(c.vitM1) ? [...c.vitM] : null; this.vitM1 = this.vitM ? [...c.vitM1] : undefined;
+    this._arrive = !!c.rest;
     this.qpm = Array.isArray(c.qpm) ? [...c.qpm] : null;   // (one from before it was kept starts it at this moment's inflow)
     this._hiddenOn = false; this._carry = null; this._ease = null;   // (a hidden copy being relaxed, and what it moved, belonged to the state before)
     this._drug = this.drugEffects();

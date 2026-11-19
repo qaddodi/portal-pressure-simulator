@@ -11,10 +11,12 @@ import { h, fmt, cssVar } from './util.js';
 import { createTraceGL, fitPen } from './trace-gl.js';
 import { cssColor } from './css-color.js';
 import { onTheme } from './theme-epoch.js';
+import { withPieces } from './part-names.js';
 
 const AWAY = new Set(['RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'IVCS_RA']);
 const NAME = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SMV_CONF: 'superior mesenteric vein', SV_CONF: 'splenic vein',
   RHV_IVC: 'right hepatic vein', MHV_IVC: 'middle hepatic vein', LHV_IVC: 'left hepatic vein', IVCS_RA: 'IVC', A_HEP: 'hepatic artery', TIPS: 'stent' };
+withPieces(NAME);
 export const WAVE_SECS = 2, WAVE_MAX = 50;
 const W = 120, H = 36, MID = H / 2, PAD = 3;
 

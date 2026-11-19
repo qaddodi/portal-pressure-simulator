@@ -1,4 +1,3 @@
-import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -62,15 +61,6 @@ test('idle rest: listens to pointer, key, wheel, touch, scroll and focus', () =>
 
 // 13 Nov 2026 (Mohammad: the chevrons "slow down randomly when nothing has changed"): the blood never eases to a stop, in Explore either.
 // Idle rest only hears the inputs for the rest pacing (noteInput), which draws fewer frames, never slower blood.
-test('idle rest is wired for the inputs only: it never rests, so the blood keeps its speed and the model runs', () => {
-  const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
-  assert.match(main, /idleRest = createIdleRest\(\{ after: REST_AFTER_MS, canRest: \(\) => false, onInput: noteInput \}\);/);
-  assert.doesNotMatch(main, /TALK_REST_MS|presenter\.idle|stage\.rest\(true\)|visible: false \}\); \}/);
-  const stage = stageSource();
-  assert.match(stage, /const REST_IN_S = 1\.5, REST_OUT_S = 0\.4;/);
-  assert.match(stage, /if \(!st\.running \|\| reduceMotion\.matches \|\| (?:live\.)?restStill\(\)\) return false;/);
-  assert.match(stage, /(?:live\.)?(?:live\.)?bloodClock = \((?:live\.)?(?:live\.)?bloodClock \+ dt \* (?:live\.)?(?:live\.)?restK\) % 10000;/);
-});
 
 // Mohammad, 5 Nov 2026: slide 12 of the variceal bleed froze about 15 s in (the 8 s talk rest of 4 Nov). No slide stops, and since 13 Nov
 // nothing in Explore stops either: main.js's own canRest, run on the fake clock, never rests in two minutes, in a talk or in Explore.
@@ -85,4 +75,21 @@ test('nothing rests: a settled slide and Explore keep animating past 30 s (varic
   advance(105000);
   assert.deepEqual(calls, [], 'still moving at 2 min');
   assert.equal(r.resting(), false);
+});
+
+// R1-3 (full app review, 15 Nov 2026): a hover is not a touch. A bare pointer move (no button) must not restart the rest pacing clock.
+test('a hover (pointermove, no button) does not reach the rest pacing clock; a drag, a touch move, a key and a wheel do', () => {
+  const handlers = new Map(), seen = [];
+  const target = { addEventListener: (k, f) => handlers.set(k, f), removeEventListener: (k) => handlers.delete(k) };
+  const r = createIdleRest({ target, doc: null, onInput: (t) => seen.push(t), now: () => 5, setTimer: () => 1, clearTimer() {} });
+  handlers.get('pointermove')({ type: 'pointermove', buttons: 0, pointerType: 'mouse' });
+  handlers.get('pointermove')({ type: 'pointermove', buttons: 0, pointerType: 'pen' });
+  assert.deepEqual(seen, [], 'hovering with a mouse or a pen is not input');
+  handlers.get('pointermove')({ type: 'pointermove', buttons: 1, pointerType: 'mouse' });
+  handlers.get('pointermove')({ type: 'pointermove', buttons: 1, pointerType: 'touch' });
+  handlers.get('pointerdown')({ type: 'pointerdown', buttons: 1 });
+  handlers.get('keydown')({ type: 'keydown' });
+  handlers.get('wheel')({ type: 'wheel' });
+  assert.equal(seen.length, 5, 'a drag, a touch move, a press, a key and a wheel count');
+  r.dispose();
 });

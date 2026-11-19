@@ -1,3 +1,4 @@
+import { labelCourse } from './label-course.js';
 // The placement rules every label layer shares (Mohammad, 3 Nov 2026: "Same engine for labels everywhere"): the boxes a label may not
 // overlap, may not leave, and the lines that may not cross it. Boxes are { x0, y0, x1, y1 } in the layer's px. Circuit's and Anatomy's layout
 // (stage.js layoutLabels) and the lobule's and sinusoid's (lobule-zoom.js) ask these, so one rule decides a clash on every figure.
@@ -86,7 +87,7 @@ const VIS_STEPS = 100, VIS_INSET = 18;
 export function createSlideInView({ geo, worldToLocalInto, arcMid, LABEL_VESSEL }) {
   const P0 = [0, 0];
   return function slideInView(it, id, view) {
-    const eid = it.vw > 0 && LABEL_VESSEL[id], P = eid && geo[eid]?.cur;
+    const eid = it.vw > 0 && LABEL_VESSEL[id], P = eid && labelCourse(geo, eid);
     if (!(P?.length > 1)) return;
     const inside = (x, y) => x >= view.x0 + VIS_INSET && x <= view.x1 - VIS_INSET && y >= view.y0 + VIS_INSET && y <= view.y1 - VIS_INSET;
     if (inside(it.ax, it.ay)) return;
@@ -107,6 +108,17 @@ export function createSlideInView({ geo, worldToLocalInto, arcMid, LABEL_VESSEL 
     worldToLocalInto(P0, m[0], m[1]);
     it.ax = P0[0]; it.ay = P0[1]; it.au = au;
   };
+}
+
+// Whether the box r stands in the lane the slide's mark leaves along from its narrowing (ox, oy; unit direction ux, uy): 10 to 150 px along it, within 46 px of its line.
+export function inLaneBox(lane, r) {
+  if (!lane) return false;
+  const { ox, oy, ux, uy } = lane, sx = Math.max(1, (r.x1 - r.x0) / 8), sy = Math.max(1, (r.y1 - r.y0) / 4);
+  for (let x = r.x0; x <= r.x1 + 0.01; x += sx) for (let y = r.y0; y <= r.y1 + 0.01; y += sy) {
+    const a = (x - ox) * ux + (y - oy) * uy;
+    if (a > 10 && a < 150 && Math.abs((y - oy) * ux - (x - ox) * uy) < 46) return true;
+  }
+  return false;
 }
 
 // The spots a label may be tried at around its station, as the offset of the label's centre, nearest ring first and each ring round from east (a station

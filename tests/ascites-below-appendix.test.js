@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { APPENDIX_D, APPENDIX_TIP, APPENDIX_HALF_W, CAVITY_LOW, ORGANS, pathLowest } from '../src/ui/anatomy.js';
 import { fluidLevel, fluidBase, POOL_MIN, FLUID_TOP } from '../src/ui/fluid-step.js';
+import { appCss } from './split-src.js';
 
 // The first pool lies wholly under the appendix (Mohammad, 29 Oct: "The ascites is still above the appendix!!"). The cavity's
 // floor used to bottom out at y 997.5, above the appendix's drawn tip (about 999.8), so no pool could sit under it.
@@ -18,7 +19,7 @@ const topAt = (v) => {
 
 test('the appendix tip is read from the path the stage draws, with its widest stroke', () => {
   assert.equal(ORGANS.find((o) => o.id === 'appendix').d, APPENDIX_D);
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   assert.match(css, /\.org-appendix\.band-ao \{ stroke-width: 11; \}/);
   assert.equal(APPENDIX_HALF_W, 11 / 2);
   assert.ok(APPENDIX_TIP > pathLowest(APPENDIX_D) && APPENDIX_TIP > 990, `${APPENDIX_TIP}`);

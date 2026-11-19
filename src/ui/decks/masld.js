@@ -7,7 +7,8 @@
 
 const SCAN = { kind: 'fibroscan' };
 const PROFILE = { kind: 'profile' };
-const CAUSES = { kind: 'causes', metric: 'ppg' };
+// (The PPG against the HVPG as the scarring grows, her liver beside the same liver with no presinusoidal fibrosis: the gap is the part the wedge leaves out.)
+const GAP = { kind: 'curve', x: 'hvpg', xCuts: [10], param: 'cirrhosis', from: 0.3, to: 1, step: 0.05, lines: ['ppg'], against: { label: 'No presinusoidal fibrosis', params: { fibrosis: { R: { pre: 1 }, L: { pre: 1 } } }, own: 'Her liver' } };
 // (The two gradients on one plane, with the line where the wedge reads the portal pressure: a dot above it is the HVPG under-reading.)
 const PLANE = { kind: 'plane', plane: { base: 'hvpg-ppg', diag: { label: 'HVPG = PPG' } } };
 const GAPS = 'The two gradients', STIFF = 'Liver stiffness and weight', MORE = 'Drugs and alcohol';
@@ -15,16 +16,11 @@ const GAPS = 'The two gradients', STIFF = 'Liver stiffness and weight', MORE = '
 export const MASLD = {
   id: 'masld', level: 'advanced', title: 'MASLD and portal hypertension', minutes: 9,
   sections: [[GAPS, [GAPS]], [STIFF, [STIFF]], [MORE, [MORE]]],
-  objectives: [
-    'Explain why the HVPG can underestimate the portal pressure gradient in MASLD cirrhosis with obesity, and why an HVPG ≥10 mmHg still counts',
-    'Use ANTICIPATE-NASH instead of the 25 kPa rule at a BMI ≥30',
-    'State when a fall in liver stiffness after weight loss may indicate fibrosis regression',
-    'State which drugs are safe in MASLD cirrhosis, which are approved for it, and what to advise a patient who also drinks alcohol',
-  ],
+  objectives: ['Explain why the HVPG can underestimate the PPG in MASLD with obesity, and why ≥10 mmHg still counts', 'Use ANTICIPATE-NASH instead of the 25 kPa rule at a BMI ≥30', 'State which drugs are safe in MASLD cirrhosis, and what a falling LSM after weight loss means'],
   summary: 'MASLD cirrhosis with obesity, where part of the resistance is presinusoidal and the HVPG underestimates the portal pressure gradient: what to measure, how a BMI ≥30 changes the liver stiffness rule, what weight loss may do, and which drugs and alcohol advice apply.',
   checks: [
     ['A woman with MASLD cirrhosis and a BMI of 35 has an HVPG of 11 mmHg and a PPG of 14 mmHg. Which measurement better reflects the true gradient, and does the HVPG still count?', 'The PPG: in MASLD cirrhosis the HVPG can underestimate the gradient. An HVPG ≥10 mmHg still goes with a higher risk of decompensation.'],
-    ['Why is an LSM of 27 kPa not enough to rule CSPH in at a BMI of 34?', 'The 25 kPa rule is for viral, alcohol-related and non-obese (BMI <30) MASLD cirrhosis. At a BMI ≥30, ANTICIPATE-NASH decides: a probability ≥75% means CSPH.'],
+    ['Why is an LSM of 27 kPa not enough to rule CSPH in at a BMI of 34?', 'The 25 kPa rule is for viral, alcohol-associated and non-obese (BMI <30) MASLD cirrhosis. At a BMI ≥30, ANTICIPATE-NASH decides: a probability ≥75% means CSPH.'],
     ['A man with MASLD cirrhosis and no CSPH loses 12% of his weight, and two measurements show his LSM falling from 15 to 10 kPa. What may that mean?', 'A confirmed fall ≥30% may mean the fibrosis has regressed by ≥1 stage. The statement is for patients without CSPH.'],
     ['A man with MASLD cirrhosis and type 2 diabetes asks about a GLP-1-based therapy or an SGLT2 inhibitor. Can he take one, and does either treat the cirrhosis?', 'Yes, for their approved indications (diabetes; obesity for GLP-1-based therapies). No drug is approved for MASLD cirrhosis itself.'],
   ],
@@ -39,11 +35,11 @@ export const MASLD = {
       ask: ['Her HVPG is 11 mmHg and the PPG, measured directly in the portal vein, is 14 mmHg. Why do they differ?', 'Part of the resistance is presinusoidal, which the WHVP does not reflect, so the HVPG underestimates the portal pressure gradient.'],
     },
     {
-      // (Her PPG split into its causes, as the Why? panel works them out: the step for resistance before the sinusoids is the part the wedge leaves out.)
-      id: 'parts', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV'], tool: CAUSES, data: 'tiles', tiles: ['ppg', 'hvpg'], key: ['ppg', 'hvpg'],
+      // (Her PPG against her HVPG: the gap above the line for a liver with no presinusoidal fibrosis is the part the wedge leaves out.)
+      id: 'parts', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV'], tool: GAP, data: 'tiles', tiles: ['ppg', 'hvpg'], key: ['ppg', 'hvpg'],
       kicker: GAPS, site: 'sin', title: 'Part of her PPG comes from resistance the WHVP does not capture', cite: 'Baveno VIII 2.5',
-      line: 'Most of her PPG of {ppg} comes from sinusoidal resistance. The presinusoidal component lies upstream of the sinusoids, so her HVPG of {hvpg} omits it.',
-      notes: 'Each bar is one contributor to her PPG, calculated by the model by removing that contributor. The largest is the cirrhosis, the sinusoidal resistance that the WHVP reflects. Baveno VIII (2.5) says that in MASLD-related cACLD the HVPG may underestimate the true portal pressure gradient. The model represents that as presinusoidal fibrosis in the portal venules and periportal tissue: it adds to the PPG, and the WHVP does not reflect it. That component is small beside the cirrhosis, and its placement is the model\'s reading of the statement, not a proven mechanism. The sizes of the components are the model\'s own, not published figures.',
+      line: 'At the same HVPG her PPG is higher. Presinusoidal resistance lies upstream of the sinusoids, so her HVPG of {hvpg} omits part of her PPG of {ppg}.',
+      notes: 'Each line is a liver with more or less fibrosis, the HVPG across and the PPG up. In the lower line there is no presinusoidal fibrosis, so the PPG rises with the HVPG. The upper line is her liver: Baveno VIII (2.5) says that in MASLD-related cACLD the HVPG may underestimate the true portal pressure gradient, and the model represents that as presinusoidal fibrosis in the portal venules and periportal tissue. It adds to the PPG and the WHVP does not reflect it, so the gap between the lines is the part the HVPG leaves out. The ring is her. That placement is the model\'s reading of the statement, not a proven mechanism, and the size of the gap is the model\'s own, not a published figure.',
       ask: ['Which component of her PPG does the HVPG omit?', 'The presinusoidal resistance, in the portal venules and periportal fibrosis. The WHVP reflects the sinusoids and everything downstream of them.'],
     },
     {
@@ -51,31 +47,38 @@ export const MASLD = {
       cam: 'route', labels: ['CONF', 'SIN_R', 'RHV'], tool: PLANE, key: ['hvpg', 'ppg'],
       kicker: GAPS, site: 'sin', title: 'An HVPG ≥10 mmHg still carries the risk', cite: 'Baveno VIII 2.5',
       line: 'An HVPG of {hvpg} is {>=10 mmHg}, which carries a significantly higher risk of decompensation. A lower HVPG carries a lower risk, but not none.',
-      notes: 'Baveno VIII (2.5) adds that an HVPG of 10 mmHg or more remains associated with a significantly higher risk of decompensation than the lower, though still present, risk seen below 10 mmHg. Because the HVPG can underestimate the gradient in MASLD, a measured value is a lower bound for the portal pressure gradient, so a value just <10 mmHg does not exclude CSPH. In milder cirrhosis the HVPG can be <10 mmHg while the PPG remains high. On the plane, a dot above the dashed line is a PPG higher than the HVPG, and a dot to the right of the HVPG 10 line is CSPH whatever the PPG.',
+      notes: 'Baveno VIII (2.5) adds that an HVPG of 10 mmHg or more remains associated with a significantly higher risk of decompensation than the lower, though still present, risk seen below 10 mmHg. Because the HVPG can underestimate the gradient in MASLD, a value just <10 mmHg does not exclude CSPH. In milder cirrhosis the HVPG can be <10 mmHg while the PPG remains high. On the plane, a dot above the dashed line is a PPG higher than the HVPG, and a dot to the right of the HVPG 10 line is CSPH whatever the PPG.',
       ask: ['In MASLD cirrhosis with obesity the HVPG is 8 mmHg. Does that exclude an elevated portal pressure gradient?', 'No. The HVPG can underestimate the gradient, and the risk at an HVPG <10 mmHg is lower but still present.'],
     },
     {
       id: 'bmi', cam: 'liver', tool: SCAN, data: 'tiles', tiles: ['plt', 'ssm'], key: ['plt', 'ssm'],
       kicker: STIFF, site: 'sin', title: 'At a BMI ≥30, a model that includes the BMI decides, not the 25 kPa rule', cite: 'Baveno VIII 1.14, 1.16',
       line: 'Her liver stiffness (LSM) is {lsm} and her platelets {plt}. The 25 kPa rule needs a BMI <30; a model that includes the BMI estimates the probability: ≥75% means CSPH.',
-      notes: 'The 25 kPa rule-in covers viral and alcohol-related disease and non-obese (BMI <30) MASLD. In MASLD with obesity (BMI ≥30), Baveno VIII uses ANTICIPATE-NASH, built on LSM, platelet count and BMI, or NICER, to estimate the probability of CSPH, and calls it present at ≥75%. The model has no BMI, so it shows the LSM and platelets and leaves the probability to the calculator. An LSM of 15 to 25 kPa is the indeterminate zone, where a model or spleen stiffness measurement (SSM) decides: an SSM >55 kPa rules CSPH in (1.16). Hers is below that cut-off, so the SSM tile does not decide her case.',
+      notes: 'The 25 kPa rule-in covers viral and alcohol-associated disease and non-obese (BMI <30) MASLD. In MASLD with obesity (BMI ≥30), Baveno VIII uses ANTICIPATE-NASH, built on LSM, platelet count and BMI, or NICER, to estimate the probability of CSPH, and calls it present at ≥75%. The model has no BMI, so it shows the LSM and platelets and leaves the probability to the calculator. An LSM of 15 to 25 kPa is the indeterminate zone, where a model or spleen stiffness measurement (SSM) decides: an SSM >55 kPa rules CSPH in (1.16). Hers is below that cut-off, so the SSM tile does not decide her case.',
       ask: ['A man with MASH, a BMI of 36 and an LSM of 27 kPa. Is CSPH ruled in?', 'Not by the 25 kPa rule, which is for a BMI <30. ANTICIPATE-NASH decides: ≥75% means CSPH.'],
     },
     {
-      id: 'start', preset: 'cirr-comp', params: { cirrhosis: 0.45 }, cam: 'liver', tool: SCAN, data: 'tiles', tiles: ['plt', 'ssm'], key: ['plt'],
-      vignette: 'A 50-year-old man with MASH cirrhosis and a BMI of 34 has an LSM of 15 kPa and platelets of 160,000/µL. He has never had ascites or bleeding, and begins a diet and exercise program.',
+      id: 'start', preset: 'cirr-comp', params: { cirrhosis: 0.42 }, relax: 365, cam: 'liver', tool: SCAN, data: 'tiles', tiles: ['plt', 'ssm'], key: ['plt'],
+      vignette: 'A 50-year-old man with MASH cirrhosis and a BMI of 34 has an LSM of 14 kPa and platelets of 151,000/µL. He has never had ascites or bleeding, and begins a diet and exercise program.',
       kicker: STIFF, site: 'sin', title: 'Without CSPH, a falling LSM can be followed', cite: 'Baveno VIII 1.15, 2.6',
       line: 'In another patient, an LSM of {lsm} with platelets of {plt} rules CSPH out. Without CSPH, Baveno VIII reads a large, confirmed fall in LSM as possible fibrosis regression.',
       notes: 'An LSM ≤15 kPa with platelets ≥150,000/µL rules CSPH out (Baveno VIII 1.15). The statement on regression applies only to patients without CSPH: with CSPH, a falling LSM is not interpreted this way. LSM is measured fasting and confirmed on repeat measurement (1.4).',
       ask: ['Which patients does the regression statement cover?', 'Patients with MASLD-related cACLD without CSPH.'],
     },
     {
-      id: 'regress', cutouts: ['lobule', 'sinusoid'], days: 365, ramp: { cirrhosis: [0.45, 0.35] }, lapse: { seconds: 8, from: 'Diet starts', to: 'One year later' }, cam: 'liver',
+      id: 'regress', days: 365, ramp: { cirrhosis: [0.42, 0.32] }, lapse: { seconds: 8, from: 'Diet starts', to: 'One year later' }, cam: 'liver',
       tool: { kind: 'flowtime', clock: 'days', lines: ['wt', 'lsm'], given: { wt: 12 }, title: 'Body weight and LSM over the year' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'],
       kicker: STIFF, site: 'sin', title: 'A 12% weight loss can lower the LSM by 30%', cite: 'Baveno VIII 2.13, 2.6',
       line: 'After 1 year, his LSM has fallen from {lsm@start} to {lsm}. A confirmed fall of ≥30% may mean the fibrosis has regressed by ≥1 stage.',
       notes: 'In MASLD-related cACLD, a weight loss of ≥10% is associated with a fall in LSM of ≥30% (Baveno VIII 2.13). In patients without CSPH, a confirmed relative fall of ≥30% may indicate fibrosis regression of ≥1 stage (2.6), and combining it with an improving second test such as the ELF score improves accuracy (2.7). Baveno VIII prefers to read these changes as a change in the risk of liver-related events, not as a fibrosis stage (2.8, 2.9). In the model fibrosis regresses evenly over the year; in patients the course is less regular. The 12% is the slide\'s own figure.',
       ask: ['His LSM falls from 15 to 10 kPa on two measurements, and he has no CSPH. What may that mean?', 'A confirmed fall of ≥30% may mean the fibrosis has regressed by ≥1 stage.'],
+    },
+    {
+      id: 'regress-lobule', cam: 'lobule', data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'],
+      kicker: STIFF, site: 'sin', title: 'A year on, the septa in the lobule are thinner',
+      line: 'In the model, a year of weight loss thins the septa and his LSM is {lsm}. In patients the change is slower and less even.',
+      notes: 'The same patient, one year on, inside the lobule. In the model fibrosis regresses evenly over the year, so the septa are thinner; in patients the course is less regular. A fall in LSM is not the same as regressed fibrosis: it also follows resolving steatosis and inflammation. In patients without CSPH, Baveno VIII reads a confirmed fall of ≥30% as possible fibrosis regression of ≥1 stage (2.6), and a second test such as the ELF score improves accuracy (2.7). It prefers to read these changes as a change in the risk of liver-related events, not as a fibrosis stage (2.8, 2.9).',
+      ask: ['Does a fall in LSM prove the fibrosis has regressed?', 'No. LSM also falls as steatosis and inflammation settle, so a confirmed fall of ≥30% only suggests regression, best read with a second test such as the ELF score.'],
     },
     {
       // (Baveno VIII 2.14 to 2.16 on the flow-and-pressure plane: three of the model's patients, as they stand, from no CSPH to decompensated.)
@@ -98,9 +101,9 @@ export const MASLD = {
     {
       id: 'alcohol', preset: 'csph', params: { cirrhosis: 0.62 }, cam: 'liver', data: 'tiles', tiles: ['hvpg', 'lsm'], key: ['hvpg'],
       vignette: 'A 52-year-old man with MASH, type 2 diabetes and a BMI of 31 drinks four beers most evenings. He has compensated cirrhosis with small varices, no ascites and no history of bleeding.',
-      kicker: MORE, site: 'sin', title: 'With alcohol on top, the advice is to stop, not to cut down', cite: 'Baveno VIII 2.1, 2.2, Table 3',
-      line: 'In another patient with CSPH, alcohol use adds to the liver injury of MASLD. In alcohol-related disease Baveno VIII favors complete abstinence over reduction, and encourages it in all cirrhosis.',
-      notes: 'Return to or continuation of alcohol use is a major driver of liver-related events in alcohol-related cACLD (Baveno VIII 2.1), and in that setting complete abstinence is favored over reduction (2.2). The statement is written for alcohol-related disease. For cirrhosis of any cause, a consensus statement that still stands from earlier Baveno meetings encourages abstinence (Table 3), so a man with MASH who drinks heavily is advised to stop. The model has no alcohol, so the numbers show his cirrhosis only.',
+      kicker: MORE, site: 'sin', title: 'With alcohol use, advise abstinence, not cutting down', cite: 'Baveno VIII 2.1, 2.2, Table 3',
+      line: 'In another patient with CSPH, alcohol use adds to the liver injury of MASLD. In alcohol-associated disease Baveno VIII favors complete abstinence over reduction, and encourages it in all cirrhosis.',
+      notes: 'Return to or continuation of alcohol use is a major driver of liver-related events in alcohol-associated cACLD (Baveno VIII 2.1), and in that setting complete abstinence is favored over reduction (2.2). The statement is written for alcohol-associated disease. For cirrhosis of any cause, a consensus statement that still stands from earlier Baveno meetings encourages abstinence (Table 3), so a man with MASH who drinks heavily is advised to stop. The model has no alcohol, so the numbers show his cirrhosis only.',
       ask: ['A man with MASH cirrhosis drinks four beers a night. Is cutting down enough?', 'No. Complete abstinence is favored over reduction, and encouraged in all cirrhosis.'],
     },
     {

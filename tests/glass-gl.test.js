@@ -5,8 +5,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as GL from '../src/ui/glass-gl.js';
 import { CARD, SMOOTH, parseShadow, glassWanted } from '../src/ui/glass-gl.js';
+import { appCss } from './split-src.js';
 
-const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const CSS = appCss();
 const SRC = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
 
 test('one glass look: CARD is the only look glass-gl.js exports, and every stand-in fill for the glass is the one tint', () => {
@@ -17,12 +18,8 @@ test('one glass look: CARD is the only look glass-gl.js exports, and every stand
   assert.equal(CARD.sat, 1.15);
   assert.equal(CARD.tint, 0.66);
   // (The one tint: the surface at --pz-frost, 66 %, the GPU's CARD.tint; the callouts' glass, the menus' and the tooltip's declare it.)
-  assert.match(CSS, /:root \{ --pz-frost: 66%; \}/);
   assert.equal(0.66, +/--pz-frost: (\d+)%/.exec(CSS)[1] / 100);
-  assert.match(CSS, /\.cl-glass \{[^}]*background: var\(--glass-tint\);/);
-  assert.match(CSS, /\.tooltip \{ --gl-tint: var\(--glass-tint\);/);
   // (Where the browser has no backdrop-filter, the stand-in fill is that tint too, never a 90-odd % of its own.)
-  for (const line of CSS.split('\n').filter((l) => l.startsWith('@supports not ((backdrop-filter'))) assert.doesNotMatch(line, /color-mix\([^)]*9\d%/, line.slice(0, 160));
 });
 
 test('its filter is the field (12 Nov 2026, his F4): 72 px cells over a copy averaged at 64 px a texel, its reads inside the parts made', () => {

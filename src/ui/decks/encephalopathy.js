@@ -9,16 +9,11 @@ const FLOWS = { kind: 'flows' };
 
 export const ENCEPHALOPATHY = {
   id: 'encephalopathy', level: 'core', title: 'Encephalopathy and shunting', minutes: 9,
-  objectives: [
-    'Explain how portosystemic shunting lets splanchnic venous blood bypass hepatic clearance and reach the brain',
-    'Recognize when to look for a large spontaneous portosystemic shunt, and the consequences of closing it',
-    'Choose the stent diameter and the drug that lower the risk of hepatic encephalopathy (HE) after a TIPS',
-    'Identify and treat the precipitant and the HE first, and reduce the stent diameter only if HE persists',
-  ],
+  objectives: ['Explain how shunting lets splanchnic blood bypass hepatic clearance and reach the brain', 'Recognize when to look for a large spontaneous shunt, and the consequences of closing it', 'Lower HE risk after a TIPS: choose the stent diameter and drug, and treat precipitants first'],
   checks: [
     ['How is covert HE diagnosed and treated?', 'With a single test, such as animal naming, and lactulose if the test is abnormal.'],
     ['Who needs a CT or MRI to look for a large spontaneous shunt, and what are the consequences of closing it?', 'A patient whose HE recurs despite lactulose, rifaximin and treatment of every precipitant. Closing the shunt raises the portal pressure, so varices and ascites can develop or worsen.'],
-    ['Name the two choices that lower the risk of HE after an elective TIPS.', 'The narrowest stent that reaches the target gradient, and rifaximin started about 2 weeks before.'],
+    ['Name the two choices that lower the risk of HE after an elective TIPS.', 'The narrowest stent that controls the indication, and rifaximin started about 2 weeks before.'],
     ['After an 8 mm TIPS, most of the portal blood bypasses the liver and the patient develops overt HE. What do you do first, and what is the last resort?', 'Identify and treat the precipitant, give lactulose and add rifaximin. Reduce the stent diameter only if the HE persists.'],
   ],
   summary: 'How shunted splanchnic blood reaches the brain: covert HE, a large splenorenal shunt and the consequences of closing it, and the stent diameter and rifaximin that lower the risk of HE after a TIPS.',
@@ -33,7 +28,7 @@ export const ENCEPHALOPATHY = {
     {
       id: 'collat', preset: 'cirr-decomp', cam: 'fit', lens: 'firstpass', sites: ['split'], tool: FLOWS, data: 'tiles', tiles: ['he', 'ppg'], key: ['he'], delta: 'firstpass',
       kicker: 'Collaterals', site: 'sin', title: 'Portosystemic collaterals divert portal blood around the cirrhotic liver',
-      vignette: 'A 69-year-old taxi driver with hepatitis C cirrhosis, cured 2 years ago, has had two minor car crashes this year. His wife notices that he is slower, and EGD shows large varices.',
+      vignette: 'A 69-year-old taxi driver with cirrhosis from hepatitis C, cured 2 years ago, has had two minor car crashes this year. His wife notices that he is slower, and EGD shows large varices.',
       line: 'Collaterals now carry {shunt} of the portal blood around the liver, and the cirrhotic liver clears less of what still reaches it.',
       notes: 'Covert HE is detectable only on testing, as psychomotor slowing and longer reaction times. It does not count as decompensation, but it predicts overt HE and motor vehicle crashes. A single test, such as animal naming, is enough to detect it, and lactulose treats it. Ask about driving, and look for a precipitant.',
       ask: ['He drives a taxi. What do you test, and what do you start?', 'One test for covert HE, such as animal naming; lactulose if it is abnormal; and advice not to drive until it improves.'],
@@ -73,7 +68,7 @@ export const ENCEPHALOPATHY = {
       ask: ['From which vein is the splenorenal shunt occluded?', 'The left renal vein, with coils, a vascular plug or a sclerosant, at the junction of the shunt with the renal vein (Baveno VIII 6.12).'],
     },
     {
-      id: 'embolize', params: { occluded: { C6: true } }, days: 60, lapse: { seconds: 7, from: 'Shunt closed', to: 'Two months later' }, cam: 'fit', lens: 'flow', mark: { edges: ['C6'], label: 'Splenorenal shunt', kind: 'note' }, tool: { kind: 'flowtime', clock: 'days', lines: ['ppg', 'he'], keepTiles: true, title: 'PPG and encephalopathy risk over two months' }, data: 'tiles', tiles: ['he', 'ppg'], key: ['ppg'], delta: 'srs',
+      id: 'embolize', params: { occluded: { C6: true } }, days: 60, lapse: { seconds: 7, from: 'Shunt closed', to: 'Two months later' }, cam: 'fit', lens: 'flow', mark: { edges: ['C6'], label: 'Splenorenal shunt', kind: 'note' }, tool: { kind: 'flowtime', clock: 'days', lines: ['ppg', 'he'], keepTiles: true, title: 'PPG and encephalopathy risk over two months', view: { since: 'srs', scales: { ppg: [0, 25, 5], he: [0, 1, 0.2] } } }, data: 'tiles', tiles: ['he', 'ppg'], key: ['ppg'], delta: 'srs',
       kicker: 'Spontaneous shunts', site: 'sin', title: 'Closing the shunt raises the portal pressure again',
       line: 'Once the shunt is embolized, portal blood returns to the liver. Ascites or varices can develop; here, two months later, the PPG is {ppg} and {asc} of ascites has formed.',
       notes: 'In the model the varices enlarge as soon as the shunt closes and ascites accumulates within days; in patients varices enlarge over weeks to months and ascites accumulates more slowly. Embolization occludes the shunt via the left renal vein with coils, a vascular plug or a sclerosant. Source: Baveno VIII 6.12 (strong): in recurrent or persistent HE despite optimal drug treatment, embolization of large portosystemic shunts should be considered, along with a discussion of liver transplantation, particularly when liver function is preserved. Closing a large shunt raises the portal pressure. In some patients new or larger varices or ascites develop, and some bleed. EGD and abdominal ultrasound follow the embolization, and enlarging varices are treated as in any cirrhosis.',
@@ -89,12 +84,12 @@ export const ENCEPHALOPATHY = {
     {
       id: 'tips', preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, cam: 'liver', lens: 'firstpass', sites: ['split'], mark: STENT, tool: FLOWS,
       compare: [{ label: '8 mm', own: true, params: { tips: { on: true, d: 8 } } }, { label: '10 mm', params: { tips: { on: true, d: 10 } } }],
-      data: 'tiles', tiles: ['he', 'ppg'], key: ['he'], cite: 'Baveno VIII 6.14 to 6.16; Bureau, Gastroenterology 2021',
+      data: 'tiles', tiles: ['he', 'ppg'], key: ['he'], cite: 'Baveno VIII 6.14 to 6.16; Bureau, Ann Intern Med 2021',
       kicker: 'After TIPS', site: 'sin', title: 'A wider stent diverts more portal blood from the liver',
       vignette: 'A 70-year-old man with alcohol-associated cirrhosis, abstinent for 2 years, has recurrent variceal bleeding despite EVL and carvedilol and is scheduled for TIPS. He has no history of hepatic encephalopathy.',
-      line: 'The 8 mm stent lowers the PPG to {ppg}, meeting the {<12 mmHg} target, and sinusoidal flow falls to {liver} of normal, now mostly arterial.',
-      notes: 'The model\'s encephalopathy risk tile is High at both diameters and rises with the stent diameter; the wider stent also leaves the liver less sinusoidal flow. Overt HE follows a TIPS in about a third of patients; older age, prior HE, a wider stent and poorer liver function raise the risk. In a randomized trial, 8 mm stents caused less HE than 10 mm stents without more rebleeding, so the narrowest stent that reaches the target gradient is preferred. In another trial (Bureau, Gastroenterology 2021, 197 patients), rifaximin started 14 days before a TIPS lowered the incidence of overt HE within 168 days from 53% to 34%, and Baveno VIII advises considering it before an elective TIPS (6.16). Before the TIPS, the history of overt HE and its treatment are carefully assessed (6.14); a prior episode is not an absolute contraindication, and the decision is individualized (6.15). In the US rifaximin is available as 550 mg, and this use is off-label.',
-      ask: ['He has no history of HE. What lowers his risk of HE after the TIPS?', 'The narrowest stent that reaches the target gradient, and rifaximin started about 2 weeks before.'],
+      line: 'The 8 mm stent lowers the PPG to {ppg}, {<12 mmHg}, the variceal reference, and sinusoidal flow falls to {liver} of normal, now mostly arterial.',
+      notes: 'The model\'s encephalopathy risk tile is High at both diameters and rises with the stent diameter; the wider stent also leaves the liver less sinusoidal flow. Overt HE follows a TIPS in about a third of patients; older age, prior HE, a wider stent and poorer liver function raise the risk. In a randomized trial, 8 mm stents caused less HE than 10 mm stents without more rebleeding, so the narrowest stent that controls the bleeding or the ascites is preferred (Baveno VIII 6.5). In another trial (Bureau, Ann Intern Med 2021, 197 patients), rifaximin started 14 days before a TIPS lowered the incidence of overt HE within 168 days from 53% to 34%, and Baveno VIII advises considering it before an elective TIPS (6.16). Before the TIPS, the history of overt HE and its treatment are carefully assessed (6.14); a prior episode is not an absolute contraindication, and the decision is individualized (6.15). In the US rifaximin is available as 550 mg, and this use is off-label.',
+      ask: ['He has no history of HE. What lowers his risk of HE after the TIPS?', 'The narrowest stent that controls the indication, and rifaximin started about 2 weeks before.'],
     },
     {
       id: 'narrow', question: 'Will a narrower stent reduce the HE?', params: { tips: { on: true, d: 6 } }, cam: 'liver', mark: STENT, tool: FLOWS, data: 'tiles', tiles: ['he', 'ppg'], key: ['he'], delta: 'tips',
@@ -109,18 +104,18 @@ export const ENCEPHALOPATHY = {
       id: 'menu', preset: 'cirr-decomp', cam: 'fit', tool: { kind: 'menu' }, data: 'tiles', tiles: ['he', 'ppg'], key: ['he'],
       kicker: 'Summary', site: 'sin', title: 'Every option lowers the PPG at the cost of hepatic flow',
       line: 'The drugs reduce hepatic flow little, and the PPG falls little. The stents and the surgical shunts lower the PPG, and hepatic sinusoidal flow with it.',
-      notes: 'Each dot is the same patient after one treatment, calculated by the model from the state on screen; the ring is his current state. Hepatic flow is the link to HE: the less portal blood reaches the liver, the more of what the intestine absorbs reaches the brain without first-pass clearance. A 10 mm stent lowers the PPG further than an 8 mm stent and diverts more hepatic flow, which is why the narrowest stent that reaches the target is chosen. Dot size increases with the fraction of portal blood that bypasses the liver.',
-      ask: ['Why is the narrowest stent that reaches the target gradient the one to choose?', 'A wider stent lowers the PPG further but diverts more portal blood around the liver, and HE follows the blood that bypasses it.'],
+      notes: 'Each dot is the same patient after one treatment, calculated by the model from the state on screen; the ring is his current state. Hepatic flow is the link to HE: the less portal blood reaches the liver, the more of what the intestine absorbs reaches the brain without first-pass clearance. A 10 mm stent lowers the PPG further than an 8 mm stent and diverts more hepatic flow, which is why the narrowest stent that controls the indication is chosen. Dot size increases with the fraction of portal blood that bypasses the liver.',
+      ask: ['Why is the narrowest stent that controls the indication the one to choose?', 'A wider stent lowers the PPG further but diverts more portal blood around the liver, and HE follows the blood that bypasses it.'],
     },
     {
       // (The relation chart before the summary: the same TIPS patient with a stent from 6 to 12 mm, the PPG and the liver's share of flow read against
       // the width. The model's encephalopathy index is High at every width and rises only a little, so the liver's flow is charted. The ring is 8 mm.)
       id: 'relation', preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, cam: 'liver', mark: STENT,
       tool: { kind: 'curve', param: 'tips.d', from: 6, to: 12, step: 1, lines: ['ppg', 'liver'], cuts: [12] },
-      kicker: 'Summary', site: 'sin', title: 'A wider stent lowers the PPG and takes more sinusoidal flow',
-      line: 'At 8 mm the PPG is {ppg}, meeting the {<12 mmHg} target, and sinusoidal flow is {liver} of normal.',
+      kicker: 'Summary', site: 'sin', title: 'A wider stent lowers the PPG and diverts more sinusoidal flow',
+      line: 'At 8 mm the PPG is {ppg}, {<12 mmHg}, the variceal reference, and sinusoidal flow is {liver} of normal.',
       notes: 'Each point is the same patient with a stent of that diameter: the PPG and the hepatic sinusoidal flow fall as the diameter increases. Baveno VIII advises the smallest diameter that works, to limit overshunting (HE, heart failure). The model\'s encephalopathy index rises with the diameter too, though it is High at every diameter here, so this chart shows the sinusoidal flow, which shows the change more clearly. The ring is the 8 mm stent. (Baveno VIII 6.5.)',
-      ask: ['An 8 mm stent brings the PPG <12 mmHg. Why not dilate it to 12 mm?', 'The PPG is already at target. A wider stent lowers it slightly more and diverts more hepatic flow, with more HE.'],
+      ask: ['An 8 mm stent brings the PPG <12 mmHg. Why not dilate it to 12 mm?', 'The PPG is already under the 12 mmHg reference. A wider stent lowers it slightly more and diverts more hepatic flow, with more HE.'],
     },
     {
       id: 'summary', visual: 'table', cols: ['he', 'shunt', 'liver', 'ppg'], asc: false, rowHead: 'Patient',

@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { ringClipped } from '../src/ui/focus-ring.js';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const box = (l, t, r, b) => ({ left: l, top: t, right: r, bottom: b });
@@ -35,7 +36,7 @@ test('the file is wired in once, eases with the app\'s own curve, and leaves hig
 });
 
 test('the stylesheet\'s ring colours and offsets alike are behind html.fr', () => {
-  const css = read('styles/app.css');
+  const css = appCss();
   assert.match(css, /html\.fr :is\([^)]*\.ps-btn[^)]*\):focus-visible \{ outline-offset: 2px; \}/);
   assert.match(css, /html\.fr :is\([^)]*\.nb-tab[^)]*\):focus-visible \{ outline-color: var\(--focus\); \}/);
 });

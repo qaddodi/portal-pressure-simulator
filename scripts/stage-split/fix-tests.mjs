@@ -1,17 +1,20 @@
 // After a move: a source-regex test that asserts a name which is now read as live.x fails on the prefix. This loosens exactly the regexes that
 // failed with "did not match the regular expression /…/": each live name in them may carry `live.` (same assertion otherwise). Prints what it changed.
-//   node scripts/stage-split/fix-tests.mjs
+//   node scripts/stage-split/fix-tests.mjs [--host presenter] [--log <tap output of an earlier run>]
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { HOSTS } from './hosts.mjs';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const stage = readFileSync(join(ROOT, 'src/ui/stage.js'), 'utf8');
+const arg = (k) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : null; };
+const stage = readFileSync(join(ROOT, 'src/ui', HOSTS[arg('--host') || 'stage'].file), 'utf8');
 const block = stage.slice(stage.indexOf('// <stage-split live>'), stage.indexOf('// </stage-split live>'));
 const names = [...new Set([...block.matchAll(/get (\w+)\(\)/g)].map((m) => m[1]))];
 const tests = readdirSync(join(ROOT, 'tests')).filter((f) => f.endsWith('.test.js'));
 let out;
-try { out = execFileSync('node', ['--test', '--test-concurrency=4', ...tests.map((f) => join('tests', f))], { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 28 }); } catch (e) { out = (e.stdout || '') + (e.stderr || ''); }
+if (arg('--log')) out = readFileSync(arg('--log'), 'utf8');   // (a run's output kept: the whole suite takes a quarter of an hour)
+else try { out = execFileSync('node', ['--test', '--test-concurrency=4', ...tests.map((f) => join('tests', f))], { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 28 }); } catch (e) { out = (e.stdout || '') + (e.stderr || ''); }
 const regs = new Set([...out.matchAll(/did not match the regular expression (\/.+\/[a-z]*)\. Input:/g)].map((m) => m[1]));
 let changed = 0;
 for (const reg of regs) {

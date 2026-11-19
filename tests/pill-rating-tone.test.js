@@ -5,9 +5,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { rateShown, tileShown, tipsGoal, RATE } from '../src/ui/table-marks.js';
 import { TOKEN_OF_RATE } from '../src/engine/portal/pressure-cuts.js';
+import { appCss, presenterSource } from './split-src.js';
 
-const SRC = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const SRC = presenterSource();
+const CSS = appCss();
 const line = (re) => SRC.match(re)[0];
 const code = [line(/const VAL_TONE = .*/), line(/const BY_RATE = .*/), line(/const PILL_TONE = .*/), line(/const pillRate = .*/), line(/const valTone = .*/)].join('\n');
 const { valTone, pillRate } = new Function('rateShown', 'tileShown', 'tipsGoal', 'TOKEN_OF_RATE', `${code}\nreturn { valTone, pillRate };`)(rateShown, tileShown, tipsGoal, TOKEN_OF_RATE);
@@ -53,7 +54,7 @@ test('an unrated value keeps its station colour; no reading, no rating colour', 
 test('the pill carries its rating, its colour taken at once', () => {
   assert.match(SRC, /'data-rate': PILL_TONE\[rate\] \? rate : null/);
   assert.match(SRC, /valTone\(mk, fp, tips\), pillRate\(mk, fp, tips\)/);
-  assert.match(SRC, /rich\(s\.line, s, st\?\.fp, !!st\?\.params\?\.tips\?\.on\)/);
+  assert.match(SRC, /rich\(s\.line, s, w?st\?\.fp, !!st\?\.params\?\.tips\?\.on\)/);
   assert.match(CSS, /\.pz-val\.tone \{ transition: none; \}/, '(1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
   // (Rules stay outlined and plain.)
   assert.match(CSS, /\.pz-val\.cut \{ background: transparent;/);

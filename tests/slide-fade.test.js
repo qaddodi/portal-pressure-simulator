@@ -2,9 +2,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss, presenterSource } from './split-src.js';
 
-const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const src = presenterSource();
+const css = appCss();
 const run = src.slice(src.indexOf('async function transitionRun('), src.indexOf('const reFit = '));
 
 test('the cards start fading out, and are painted fading, before the figure changes', () => {
@@ -18,21 +19,20 @@ test('the cards start fading out, and are painted fading, before the figure chan
 });
 
 test('the cards fade in only once the figure paints smoothly (after a new patient, once its organs are redrawn)', () => {
-  const settle = run.indexOf('if (swap) { await until(() => cut() || stage.organsSettled(), 1500)');
+  const settle = run.indexOf('if (swap && !under) { await until(() => cut() || stage.organsSettled(), 1500)');
   const quiet = run.indexOf('else await unseen(cut);'), inn = run.indexOf('bare = false; cardsIn({ i: to, gen: g });');
   assert.ok(settle > 0 && quiet > settle && inn > quiet);
   // (Two frames in a row under 40 ms apart, at most 700 ms: paging is never held long; a hidden tab still moves on.)
-  assert.match(src, /async function smooth\(cut, ms = 700\)[\s\S]*?t - last < 40/);
-  assert.match(src, /const painted = \(\) => new Promise\(\(done\) => \{ const t = setTimeout\(done, 100\);/);
+  // (The two gates are cover-lift.js's createFrameGates: tests/deck-open-handoff.test.js runs them.)
 });
 
 test('with reduced motion the cards still fade (opacity only, no slide)', () => {
-  const rm = css.slice(css.indexOf('.pz *, .pz, .app.presenting #stageView { animation: none !important; transition: none !important; }'));
+  const rm = css.slice(css.indexOf('.pz *, .pz, .app.presenting #stageView { transition-property: opacity, visibility !important; }'));   // (15 Nov 2026: fades kept, nothing pops)
   const block = rm.slice(0, rm.indexOf('\n}'));
   assert.match(block, /\.pz > :is\(\.pz-text, \.pz-data, \.pz-panel\), \.pz-text > \*, \.pz-shade \{ transition: opacity var\(--d-small\) var\(--ease\) !important; \}/);
   assert.match(block, /\.pz > :is\(\.pz-text, \.pz-data, \.pz-panel\), \.pz-text > \.pz-leave, \.pz-shade \{ transform: none !important; \}/);
   // (The data card waits out its fade before it is hidden, reduced motion or not.)
-  assert.match(src, /data\.hidden = true; ui\?\.tools\.hide\(\); \} \}, D_SMALL \+ 20\);/);
+  assert.match(src, /data\.hidden = true; (?:live\.)?ui\?\.tools\.hide\(\); \} \}, D_SMALL \+ 20\);/);
 });
 
 test('the cards are refitted and laid out at their final size while still unseen, then fade in', () => {

@@ -8,6 +8,7 @@ import { DECKS } from '../src/ui/decks.js';
 import { abChoice } from '../src/ui/presenter.js';
 import { SSM_CUTS } from '../src/engine/portal/ssm-cuts.js';
 import { deckStates, runSteps } from './deck-states.js';
+import { SHIFT_KEYS } from '../src/ui/tool-shift.js';
 
 const MINE = ['circulation', 'circuit', 'two-inflows', 'hyperdynamic', 'sites', 'hvpg', 'stiffness'];
 const deck = (id) => DECKS.find((d) => d.id === id);
@@ -59,7 +60,7 @@ test('Circuit: the meal plays on the bedside clock and leaves the slow organs wh
   assert.ok(prop.pvFlow < carv.pvFlow && prop.pvFlow < own.pvFlow - 0.1, 'propranolol cuts the flow most');
   assert.ok(carv.hvpg < prop.hvpg && prop.hvpg < own.hvpg, 'carvedilol lowers the HVPG further: it relaxes the resistance as well');
   const t = slide('circuit', 'tips');
-  assert.deepEqual([t.tool.kind, t.tool.metric, t.whatIf.param], ['causes', 'ppg', 'tips.d']);
+  assert.deepEqual([t.tool.kind, t.tool.param, t.whatIf.param], ['curve', 'tips.d', 'tips.d']);
 });
 
 test('The circulation in cirrhosis: the large-varices row is not called decompensated, and the eight units show where the hemoglobin and the volume end', async () => {
@@ -67,7 +68,9 @@ test('The circulation in cirrhosis: the large-varices row is not called decompen
   assert.ok(!/Decompensated/.test(slide('hyperdynamic', 'dilate').lapse.to), 'the time-lapse');
   assert.ok(!h.slides.find((s) => s.id === 'summary').of.some((o) => o.id === 'dilate' && /Decompensated/.test(o.title)), 'the summary row');
   const over = slide('hyperdynamic', 'over');
-  assert.deepEqual(over.tiles, ['pv', 'hb', 'bv']);
+  // (the hemoglobin in its tile; the volume and the portal pressure on the chart that holds across the talk, tool-shift.js, which the slide lights)
+  assert.ok(over.tiles.includes('hb') && over.tool.kind === 'shift');
+  assert.ok(['bv', 'pv'].every((k) => SHIFT_KEYS.includes(k) && over.key.includes(k)));
   const st = await at('hyperdynamic');
   assert.ok(st.over.hb > 12 && st.over.bv > st.full.bv, `the eight units end at ${st.over.hb.toFixed(1)} g/dL and ${st.over.bv.toFixed(0)} mL`);
   assert.match(over.notes, /deliberately more than anyone would give/);
@@ -96,7 +99,8 @@ test('Stiffness: every case shows its spleen stiffness beside the HVPG, and the 
   assert.ok(st.a1.ssm < SSM_CUTS.spareScope, `case 1 ${st.a1.ssm}`);
   assert.ok(st.a2.ssm > SSM_CUTS.ruleIn, `case 2 ${st.a2.ssm}`);
   assert.ok(st.a3.ssm > SSM_CUTS.spareScope && st.a3.ssm < SSM_CUTS.ruleIn, `case 3 ${st.a3.ssm}`);
-  assert.ok(Math.abs(st.a4.ssm - SSM_CUTS.ruleIn) < 5, `case 4 sits close to the 55 kPa line (${st.a4.ssm})`);
+  // (Just above the line, by more than the rounding and the model's wander: 55.9 until 15 Nov 2026, C2b-5.)
+  assert.ok(st.a4.ssm > SSM_CUTS.ruleIn * 1.05 && st.a4.ssm < SSM_CUTS.ruleIn + 8, `case 4 sits just above the 55 kPa line (${st.a4.ssm})`);
   assert.ok(st.a5.ssm > SSM_CUTS.ruleIn && st.a5.lsm < 10, `case 5 ${st.a5.ssm} with a soft liver ${st.a5.lsm}`);
   assert.match(slide('stiffness', 'a4').ask[0], /≥25 kPa/);
 });

@@ -3,8 +3,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 
 test('the hover tip rows line up their numbers in one column and their units in another', () => {
   assert.match(css, /\.hover-tip \.rows \{ display: grid; grid-template-columns: 1fr minmax\(5ch, auto\) auto;/);

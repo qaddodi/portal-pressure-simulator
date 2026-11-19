@@ -1,8 +1,8 @@
 // Presenter talk: what tips a compensated patient with CSPH into decompensation. One man follows the talk: a second liver injury,
 // an infection, surgery, the mouth and, after the first decompensation, the antibiotic question.
 //
-// Sources, checked against guidelines/baveno-viii-2026.pdf on 11 Nov 2026:
-// - 3.7: superimposed acute liver injury (alcohol-related hepatitis, acute viral hepatitis HEV/HAV/HBV, HBV flares, autoimmune hepatitis,
+// Sources, checked against guidelines/baveno-viii-2026.pdf on 11 Nov 2026 (the SBP prophylaxis row of the antibiotic card: guidelines/aasld-2021-ascites.pdf, 15 Nov 2026):
+// - 3.7: superimposed acute liver injury (alcohol-associated hepatitis, acute viral hepatitis HEV/HAV/HBV, HBV flares, autoimmune hepatitis,
 //   drug-induced liver injury) can precipitate decompensation and/or ACLF in compensated cirrhosis/cACLD (LoE 2).
 // - 3.10: bacterial infections in compensated cirrhosis/cACLD with CSPH can precipitate decompensation and/or ACLF (LoE 2);
 //   3.11: the prognostic impact of infections without CSPH is unclear (LoE 5).
@@ -25,15 +25,10 @@ const TILES = ['hvpg', 'asc'];
 export const TIPPING = {
   id: 'tipping', level: 'advanced', title: 'What precipitates decompensation in compensated cirrhosis', minutes: 8,
   sections: [['Starting point', ['Starting point']], ['Second hits', ['Second hit', 'Infection', 'Surgery']], ['Prevention', ['Oral health', 'After the first']]],
-  objectives: [
-    'Name the second hits that push a compensated patient with CSPH into decompensation',
-    'Say why infection matters in CSPH and where its effect is unclear',
-    'State the HVPG at which abdominal surgery carries a higher risk',
-    'Explain what dental care and long-term antibiotics can and cannot prevent',
-  ],
-  summary: 'A man with CSPH stays compensated until a second hit occurs: a liver injury, an infection or surgery. What each does, what dental care may prevent, and why long-term antibiotics are not given after the first decompensation.',
+  objectives: ['Name the second hits that push a compensated patient with CSPH into decompensation', 'Say why infection matters in CSPH, and the HVPG at which abdominal surgery carries a higher risk', 'Explain what dental care and long-term antibiotics can and cannot prevent'],
+  summary: 'A man with CSPH can stay compensated for years, until a second hit precipitates decompensation: a liver injury, an infection or surgery. What each does, what dental care may prevent, and why no long-term antibiotic is started after the first decompensation only to prevent the next.',
   checks: [
-    ['Which events can precipitate decompensation in a compensated patient with CSPH?', 'A second liver injury (alcohol-related hepatitis, acute viral hepatitis, an HBV flare, autoimmune hepatitis or drug-induced injury), a bacterial infection, and surgery, especially major surgery (Baveno VIII 3.7, 3.10, 3.13).'],
+    ['Which events can precipitate decompensation in a compensated patient with CSPH?', 'A second liver injury (alcohol-associated hepatitis, acute viral hepatitis, an HBV flare, autoimmune hepatitis or drug-induced injury), a bacterial infection, and surgery, especially major surgery (Baveno VIII 3.7, 3.10, 3.13).'],
     ['What HVPG is associated with a higher short-term mortality after abdominal surgery, and what may be considered before major surgery?', 'An HVPG ≥16 mmHg in a candidate for non-hepatic abdominal surgery (Baveno VIII Table 3). A preoperative TIPS may be considered before major surgery, on weak evidence (3.20).'],
     ['A man with cirrhosis has just had his first episode of ascites. Should he start a long-term antibiotic to prevent the next decompensation?', 'No. Long-term primary antibiotic prophylaxis is not recommended after the first decompensating event (Baveno VIII 4.12, strong).'],
     ['A man with CSPH has an HVPG of 12 mmHg and no ascites. After a flare of hepatitis B his HVPG is 17 mmHg and he has ascites. Which lever moved?', 'Intrahepatic resistance. The flare added acute injury to a fibrotic liver, and the same portal inflow meeting a higher resistance gave a higher gradient.'],
@@ -41,10 +36,10 @@ export const TIPPING = {
   slides: [
     {
       id: 'stable', preset: 'csph', cam: 'fit', data: 'tiles', tiles: TILES, key: ['hvpg'],
-      vignette: 'A 56-year-old man has cirrhosis from hepatitis C, cured two years ago. He has had no ascites, variceal bleeding or hepatic encephalopathy. His platelets are 90,000/µL and he has small esophageal varices.',
-      kicker: 'Starting point', site: 'sin', title: 'With CSPH, a compensated patient stays stable only until a second hit',
+      vignette: 'A 56-year-old man has cirrhosis from hepatitis C, cured two years ago, and chronic hepatitis B. He has had no ascites, variceal bleeding or HE. His platelets are 90,000/µL and he has small esophageal varices.',
+      kicker: 'Starting point', site: 'sin', title: 'With CSPH, a second hit can precipitate decompensation',
       line: 'His HVPG is {hvpg}, which is {>=10 mmHg}. He has no ascites today, but a second hit can precipitate ascites, variceal bleeding or overt hepatic encephalopathy.',
-      notes: 'CSPH means the portal pressure is high enough for varices and decompensation to develop: an HVPG ≥10 mmHg. This man is compensated: no ascites, no variceal bleeding, no overt hepatic encephalopathy. Compensated cirrhosis with CSPH is stable until a further insult to the liver or the circulation. The next slides cover what Baveno VIII names: a second liver injury, an infection and surgery, then the mouth and the antibiotic question.',
+      notes: 'CSPH means the portal pressure is high enough for varices and decompensation to develop: an HVPG ≥10 mmHg. This man is compensated: no ascites, no variceal bleeding, no overt hepatic encephalopathy. Compensated cirrhosis with CSPH can stay stable for years; a further insult to the liver or the circulation often precipitates decompensation. The next slides cover what Baveno VIII names: a second liver injury, an infection and surgery, then the mouth and the antibiotic question.',
       ask: ['What does an HVPG of 11 mmHg tell you about a man with no ascites?', 'He has CSPH, so he is at risk of decompensation, but he is still compensated today.'],
     },
     {
@@ -53,22 +48,22 @@ export const TIPPING = {
       tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'asc'], keepTiles: true, title: 'HVPG and ascites over two weeks' },
       kicker: 'Second hit', site: 'sin', title: 'A second liver injury raises the HVPG and brings on ascites',
       line: 'A hepatitis B flare raises resistance in his already fibrotic sinusoids. Two weeks later, his HVPG is {hvpg} and {asc} of ascites has formed.',
-      notes: 'Baveno VIII 3.7: a superimposed acute liver injury (alcohol-related hepatitis, acute viral hepatitis, an HBV flare, autoimmune hepatitis or drug-induced liver injury) can precipitate decompensation or acute-on-chronic liver failure in compensated cirrhosis. In the model the injury is more fibrosis and a falling serum albumin over two weeks. Sinusoidal resistance rises, the same portal inflow meets it at a higher pressure, and with a lower oncotic pressure, fluid leaves the sinusoids and accumulates as ascites. The model does not distinguish a viral flare from alcohol-related or drug-induced injury.',
+      notes: 'Baveno VIII 3.7: a superimposed acute liver injury (alcohol-associated hepatitis, acute viral hepatitis, an HBV flare, autoimmune hepatitis or drug-induced liver injury) can precipitate decompensation or acute-on-chronic liver failure in compensated cirrhosis. In the model the injury is more fibrosis and a falling serum albumin over two weeks. Sinusoidal resistance rises, the same portal inflow meets it at a higher pressure, and with a lower oncotic pressure, fluid leaves the sinusoids and accumulates as ascites. The model does not distinguish a viral flare from alcohol-associated or drug-induced injury.',
       ask: ['A compensated man with CSPH has a flare of hepatitis B. Why can he develop ascites within weeks?', 'The injury raises sinusoidal resistance and lowers the serum albumin, so the portal pressure rises and ascites accumulates.'],
     },
     {
       id: 'injury-card', cam: 'fit', terms: ['sin'], tool: { kind: 'criteria', title: 'A second liver injury', short: 'Second injury', ticks: false, lead: 'Any one of these.', rule: 'Baveno VIII 3.7',
-        rows: ['**Alcohol-related hepatitis**', '**Acute viral hepatitis** (HEV, HAV, HBV) or an **HBV flare**', '**Autoimmune hepatitis**', '**Drug-induced** liver injury'],
+        rows: ['**Alcohol-associated hepatitis**', '**Acute viral hepatitis** (HEV, HAV, HBV) or an **HBV flare**', '**Autoimmune hepatitis**', '**Drug-induced** liver injury'],
         verdict: 'Each can precipitate decompensation or ACLF.' }, data: 'tiles', tiles: TILES, key: ['hvpg'], delta: 'stable',
       kicker: 'Second hit', site: 'sin', title: 'A second liver injury can precipitate decompensation in compensated cirrhosis',
       line: 'Any one of these injuries can precipitate decompensation or ACLF in a man with compensated cirrhosis.',
-      notes: 'Baveno VIII 3.7. The same man as the slide before, two weeks after the flare. The card lists the second injuries the guideline names: alcohol-related hepatitis, acute viral hepatitis or an HBV flare, autoimmune hepatitis and drug-induced liver injury.',
-      ask: ['Name two second liver injuries that can precipitate decompensation in compensated cirrhosis.', 'Two of these: alcohol-related hepatitis, acute viral hepatitis or an HBV flare, autoimmune hepatitis, drug-induced liver injury (Baveno VIII 3.7).'],
+      notes: 'Baveno VIII 3.7. The same man as the slide before, two weeks after the flare. The card lists the second injuries the guideline names: alcohol-associated hepatitis, acute viral hepatitis or an HBV flare, autoimmune hepatitis and drug-induced liver injury.',
+      ask: ['Name two second liver injuries that can precipitate decompensation in compensated cirrhosis.', 'Two of these: alcohol-associated hepatitis, acute viral hepatitis or an HBV flare, autoimmune hepatitis, drug-induced liver injury (Baveno VIII 3.7).'],
     },
     {
       id: 'infection', preset: 'csph', params: { splanchnicTone: 0.6, systemicTone: 0.6 }, cam: 'fit', tool: VITALS, data: 'tiles', tiles: ['hvpg', 'map'], key: ['map'], delta: 'stable',
       kicker: 'Infection', site: 'sin', title: 'Bacterial infection causes vasodilation and raises the portal pressure', cite: 'Baveno VIII 3.10',
-      line: 'Back in the first patient, a bacterial infection causes arterial vasodilation. His heart rate rises to {hr}, his blood pressure falls to {map} and the HVPG rises to {hvpg}.',
+      line: 'In the same man, before the flare, a bacterial infection causes vasodilation. His heart rate rises to {hr}, his blood pressure falls to {map} and the HVPG rises to {hvpg}.',
       notes: 'Baveno VIII 3.10: a bacterial infection in compensated cirrhosis with CSPH can precipitate decompensation or ACLF, and so worsen the natural history. Infection dilates the splanchnic and systemic arteries. Splanchnic inflow into the portal vein increases, the heart rate rises to maintain the blood pressure, and the HVPG rises. The model has no infection and no inflammation: it shows only the vasodilation, as a lower arterial tone, and the model\'s reflexes keep the MAP >65 mmHg. A real infection can take the MAP lower and cause AKI, which the model does not show.',
       ask: ['What does a bacterial infection do to the circulation of a man with CSPH?', 'It causes arterial vasodilation, so the heart rate rises, the MAP falls, and the portal inflow and the HVPG rise.'],
     },
@@ -106,25 +101,26 @@ export const TIPPING = {
       id: 'antibiotic', preset: 'csph', params: {}, days: 150, ramp: { cirrhosis: [0.6, 0.85], albumin: [4, 2.8] }, lapse: { seconds: 8, from: 'Compensated', to: 'Five months on' },
       cam: 'fit', data: 'tiles', tiles: TILES, key: ['asc'], delta: 'stable',
       tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'asc'], keepTiles: true, title: 'HVPG and ascites over five months' },
-      kicker: 'After the first', site: 'sin', title: 'After the first decompensation, long-term antibiotics do not prevent the next',
-      line: 'Five months later, {asc} of ascites has formed. The next slide gives the Baveno VIII advice for him now.',
-      notes: 'Baveno VIII 4.12: after the first decompensating event, long-term primary antibiotic prophylaxis is not recommended to prevent further decompensation (LoE 2, strong recommendation, new). The statement is about a long-term antibiotic given to prevent further decompensation. It does not stop the usual treatment of an infection when one occurs. In the model fibrosis progresses and the serum albumin falls over five months, and the first ascites forms.',
+      kicker: 'After the first', site: 'sin', title: 'After the first decompensation, long-term antibiotics are not given to prevent the next',
+      line: 'Five months later, {asc} of ascites has formed, with a protein of {tp}. The next slide gives the Baveno VIII advice, and the AASLD 2021 question his protein raises.',
+      notes: 'Baveno VIII 4.12: after the first decompensating event, long-term primary antibiotic prophylaxis is not recommended to prevent further decompensation (LoE 2, strong recommendation, new). The statement is about a long-term antibiotic given to prevent further decompensation. It does not stop the usual treatment of an infection when one occurs. In the model fibrosis progresses and the serum albumin falls over five months, and the first ascites forms, with a low ascitic protein: that is a separate question from 4.12, taken up on the next slide.',
       ask: ['A man has had his first ascites. Should he start a long-term antibiotic to prevent further decompensation?', 'No. Long-term primary antibiotic prophylaxis is not recommended after the first decompensating event (Baveno VIII 4.12, strong).'],
     },
     {
-      id: 'antibiotic-card', cam: 'fit', tool: { kind: 'criteria', title: 'After the first decompensation', short: 'After the first', ticks: false, lead: 'To prevent further decompensation.', rule: 'Baveno VIII 4.12',
-        rows: ['Long-term **primary antibiotic prophylaxis**: not recommended'] }, data: 'tiles', tiles: TILES, key: ['asc'], delta: 'stable',
-      kicker: 'After the first', site: 'sin', title: 'Long-term antibiotics are not recommended after the first decompensation',
-      line: 'A long-term antibiotic does not prevent the next decompensation, so Baveno VIII does not recommend one. An infection is still treated when it occurs.',
-      notes: 'Baveno VIII 4.12: after the first decompensating event, long-term primary antibiotic prophylaxis is not recommended to prevent further decompensation (LoE 2, strong recommendation). The same man as the slide before, five months on. The statement does not stop the usual treatment of an infection.',
+      id: 'antibiotic-card', cam: 'fit', tool: { kind: 'criteria', title: 'After the first decompensation', short: 'After the first', lead: 'Two different questions.', rule: 'Baveno VIII 4.12',
+        rows: ['No long-term **antibiotic** against further decompensation', { text: 'May consider **primary SBP prophylaxis**: protein **<1.5 g/dL**', key: 'tp', op: '<', value: 1.5 }, 'with **Child–Pugh >9** and **bilirubin >3 mg/dL**', 'or **creatinine >1.2 mg/dL**, **BUN >25 mg/dL** or **sodium <130 mEq/L**'],
+        verdict: 'Two questions: decompensation (4.12), and a first SBP.' }, data: 'tiles', tiles: ['asc', 'tp'], key: ['tp'], delta: 'stable',
+      kicker: 'After the first', site: 'sin', title: 'No long-term antibiotic to prevent further decompensation',
+      line: 'Baveno VIII advises against long-term antibiotics to prevent further decompensation. His ascitic protein is {tp}, {<1.5 g/dL}: AASLD 2021 considers primary SBP prophylaxis if liver or kidney function is poor.',
+      notes: 'Baveno VIII 4.12: after the first decompensating event, long-term primary antibiotic prophylaxis is not recommended to prevent further decompensation (LoE 2, strong recommendation). The same man as the slide before, five months on. The statement covers only that preventive use: it does not stop the treatment of an infection, and it leaves other indications for prophylaxis, such as secondary prophylaxis after an episode of SBP, as they are. His ascitic protein, from the model, is below 1.5 g/dL. AASLD 2021 (SBP prophylaxis) says that without a prior SBP or gastrointestinal bleed, antibiotic prophylaxis may be considered in selected patients with low-protein ascites (<1.5 g/dL) and advanced liver failure (Child–Pugh score >9 with bilirubin >3 mg/dL) or impaired renal function (creatinine >1.2 mg/dL, BUN >25 mg/dL or sodium <130 mEq/L); in the trial behind this, norfloxacin cut first SBP at one year from 60% to 7%. That is a different question from 4.12: whether this ascites puts him at high risk of a first SBP. Norfloxacin is not sold in the US, where ciprofloxacin is the reasonable alternative (AASLD 2021). The model has no bilirubin or kidney function, so it cannot say whether he meets the second part.',
       ask: ['Does a man with his first ascites start a long-term antibiotic to prevent the next decompensation?', 'No. It is not recommended (Baveno VIII 4.12, strong). An infection is still treated when it occurs.'],
     },
     {
       id: 'summary', visual: 'table', cols: ['hvpg', 'asc', 'map', 'hr'], asc: false, vs: 'first', rowHead: 'State',
       of: [{ id: 'stable', kicker: 'Start', title: 'Compensated, CSPH' }, { id: 'injury', kicker: 'Second hit', title: 'Two weeks after a hepatitis B flare' }, { id: 'infection', kicker: 'Infection', title: 'Vasodilation' }, { id: 'antibiotic', kicker: 'First decompensation', title: 'Five months on' }],
       kicker: 'Summary', title: 'What precipitates decompensation',
-      line: 'A second liver injury, an infection and surgery can precipitate decompensation in a patient with CSPH. Dental care may help, and long-term antibiotics are not given after the first decompensation.',
-      notes: 'Compensated cirrhosis with CSPH is stable until a second hit occurs. Baveno VIII names a superimposed liver injury (3.7), a bacterial infection (3.10) and surgery, especially major surgery (3.13). The risk of surgery rises with the HVPG, and an HVPG ≥16 mmHg carries a higher short-term mortality (Table 3). Regular dental care may lower the risk (3.12, 3.23). After the first decompensating event, long-term antibiotic prophylaxis is not recommended (4.12).',
+      line: 'A second liver injury, an infection or surgery can precipitate decompensation with CSPH. Dental care may help. No long-term antibiotic is started just to prevent the next decompensation.',
+      notes: 'Decompensation in compensated cirrhosis with CSPH often follows a second hit. Baveno VIII names a superimposed liver injury (3.7), a bacterial infection (3.10) and surgery, especially major surgery (3.13). The risk of surgery rises with the HVPG, and an HVPG ≥16 mmHg carries a higher short-term mortality (Table 3). Regular dental care may lower the risk (3.12, 3.23). After the first decompensating event, long-term primary antibiotic prophylaxis is not recommended to prevent further decompensation (4.12); other indications are unchanged.',
       ask: ['Name three events that can precipitate decompensation in a compensated patient with CSPH.', 'A second liver injury, a bacterial infection and surgery, especially major surgery.'],
     },
   ],

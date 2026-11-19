@@ -20,7 +20,8 @@ export const D_FLIP = 120, D_SMALL = 240, D_SURFACE = 420;   // (a state change;
 export const EASE_ARRIVE = 'cubic-bezier(.2, .8, .2, 1)', EASE_MOVE = 'cubic-bezier(.5, 0, .5, 1)', EASE_IN = 'cubic-bezier(.4, 0, 1, 1)';
 export const RISE_PX = 6;   // (fade-rise: how far a word, row or chip rises into place; its CSS twin is --rise-y in app.css, motion-scale.test.js keeps the two equal)
 
-export const easeMove = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * t * (t * (6 * t - 15) + 10));
+export { easeMove } from '../engine/core/ease-move.js';   // (defined with the engine: the simulation worker takes it from there)
+import { easeMove } from '../engine/core/ease-move.js';
 
 // (The curve's polynomial and its slope at t, for coefficients a, b, c: plain functions, so a curve makes no closure but its own.)
 const poly = (a, b, c, t) => ((a * t + b) * t + c) * t, slope = (a, b, c, t) => (3 * a * t + 2 * b) * t + c;
@@ -71,16 +72,24 @@ export function cssCurveOf(easing) {
 }
 export const cssCurve = (easing) => cssCurveOf(easing) || LINEAR;
 
-export const CAM_MS_MIN = 480, CAM_MS_MAX = 900, LOBULE_MS_MAX = 1500;
+export const CAM_MS_MIN = 480, CAM_MS_MAX = 900, CAM_MS_FAR = 1300, LOBULE_MS_MAX = 1500;
+/** A glide's reach on screen: the pan in screen widths and the zoom (a doubling counts as half a screen) together. */
+const reach = (a, b, w) => Math.hypot(Math.hypot(b.x - a.x, b.y - a.y) / Math.max(1e-6, w), Math.abs(Math.log(Math.max(1e-6, b.k) / Math.max(1e-6, a.k))) / (2 * Math.LN2));
 /**
  * A camera glide's time, from `a` to `b` (views { k, x, y }: the screen at k times, offset by x, y in units of a screen `w` wide).
- * Its reach on screen is the pan in screen widths and the zoom (a doubling counts as half a screen), together. `max`: the longest it takes.
+ * 480 ms up to half a screen of reach, then in proportion. `max`: the longest it takes.
  */
 export function camMs(a, b, w, max = CAM_MS_MAX) {
-  const pan = Math.hypot(b.x - a.x, b.y - a.y) / Math.max(1e-6, w);
-  const zoom = Math.abs(Math.log(Math.max(1e-6, b.k) / Math.max(1e-6, a.k))) / (2 * Math.LN2);
-  const d = Math.hypot(pan, zoom);
-  return Math.round(Math.min(max, CAM_MS_MIN * Math.max(1, d / 0.5)));
+  return Math.round(Math.min(max, CAM_MS_MIN * Math.max(1, reach(a, b, w) / 0.5)));
+}
+/**
+ * A slide's glide: camMs to 900 ms (the reach 0.9375 of a screen), and beyond it on slowing toward CAM_MS_FAR instead of stopping. A move over
+ * several screens at 900 ms peaked at four screens a second (the quintic's top speed is 1.875 times its mean), a rush; the tail gives the eye
+ * the time (15 Nov 2026). A hand's glide (the zoom pill, a spring-back) keeps camMs and its ceiling.
+ */
+export function slideMs(a, b, w) {
+  const d = reach(a, b, w), knee = (CAM_MS_MAX / CAM_MS_MIN) * 0.5;
+  return Math.round(d <= knee ? CAM_MS_MIN * Math.max(1, d / 0.5) : CAM_MS_MAX + (CAM_MS_FAR - CAM_MS_MAX) * (1 - Math.exp(-(d - knee) / 1.5)));
 }
 /** The lobule view's glide time (camMs on its own ceiling): `a` and `b` are its views, in the host's px, `w` its width. */
 export const lobuleMs = (a, b, w) => camMs(a, b, w, LOBULE_MS_MAX);
@@ -130,16 +139,26 @@ export function createGlideTracker() {
  * sheet's settle takes the finger's (settleSlope), so a pan let go while still coming back keeps going at its speed. 0 when it is still
  * or going away.
  */
-export function springSlope(v, from, to, w, ms) {
+export function springSlope(v, from, to, w, ms, max = CARRY_MAX) {
   if (!v || !(ms > 0)) return 0;
   if (Math.abs(Math.log(to.k / from.k)) < 1e-6) {
     const dx = to.x - from.x, dy = to.y - from.y, dist = Math.hypot(dx, dy);
-    return dist > 1e-9 ? settleSlope((v.x * dx + v.y * dy) / dist, dist, ms, CARRY_MAX) : 0;
+    return dist > 1e-9 ? settleSlope((v.x * dx + v.y * dy) / dist, dist, ms, max) : 0;
   }
   return carryRate(v, from, to, w) * ms;
 }
 /** The glide's progress at its clock `raw` (0..1), its eased value `eased`, with the old speed (carryRate × ms) as `c`. */
 export const carried = (eased, raw, c) => (c > 0 ? Math.min(1, eased + Math.min(c, CARRY_MAX) * raw * (1 - raw) * (1 - raw)) : eased);
+
+/**
+ * The camera's own carried progress: the glide's eased value with the old speed `c` (carryRate × ms) added, as a quintic Hermite term
+ * t(1−t)³(1+3t): slope c at the start and, like the glide's own curve, no acceleration at either end and none at the finish. The older
+ * term t(1−t)² carried at most 0.8 of the glide per glide (a faster view was cut to a fifth of its speed at the hand-over, a stop and a
+ * start: 15 Nov 2026) and hit 1 early beyond it; this one stays monotone and under 1 up to CAM_CARRY_MAX. Wheels, hands, cards and the
+ * lobule keep `carried`.
+ */
+export const CAM_CARRY_MAX = 2.5;
+export const carriedCam = (eased, raw, c) => (c > 0 ? eased + Math.min(c, CAM_CARRY_MAX) * raw * (1 - raw) ** 3 * (1 + 3 * raw) : eased);
 
 /**
  * How fast a finger was moving down the screen when it lifted, in px per ms (negative: up): over the last 100 ms of its trail

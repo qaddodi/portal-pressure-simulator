@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fieldFS } from '../src/ui/field-gl.js';
 import { tissueFS } from '../src/ui/tissue-gl.js';
+import { lobuleSource } from './split-src.js';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
@@ -21,10 +22,10 @@ test('the shaders lay the neighbour tiles over the page, so a blank tile is neve
 });
 
 test('a blank tile is not kept: it is drawn again, at most every TILE_RETRY ms', () => {
-  const lz = src('src/ui/lobule-zoom.js');
+  const lz = lobuleSource();
   // (Since 1 Nov a tile is a picture recorded for the GPU, never a canvas the browser can leave blank; the retry stays for any marked so.)
   assert.match(lz, /const TILE_RETRY = 250;\n\s+const tileDue = \(q\) => !!q && !!q\.blank && performance\.now\(\) >= q\.blankAt \+ TILE_RETRY;/);
-  assert.match(lz, /cv: gpuPicture\(rec, \+\+texVer\), blank: false, blankAt: 0 \}\);/);
+  assert.match(lz, /cv: gpuPicture\(rec, \+\+(?:live\.)?texVer\), blank: false, blankAt: 0 \}\);/);
   assert.match(lz, /if \(t\.cv && tileDue\(t\)\) \{ free\(t\.cv\); t\.cv = null;/);
   assert.match(lz, /const blank = !t\.cv \|\| !t\.cv\.width \|\| t\.blank;/, 'a copy of a missing tile is clear, never black');
 });
@@ -95,7 +96,7 @@ test('showing, a frame whose texture did not go keeps the last picture: no black
 });
 
 test('the GPU canvas taking over leaves the 2D canvas whole under it for a moment', () => {
-  const lz = src('src/ui/lobule-zoom.js');
+  const lz = lobuleSource();
   assert.match(lz, /const HANDOFF_MS = 160;/);
   assert.match(lz, /if \(on && !rimDrawn\) \{\n\s+tissueOnGL = true;\n/);
   assert.doesNotMatch(lz, /HANDOFF &&|handoff=0/);
@@ -105,7 +106,7 @@ test('the GPU canvas taking over leaves the 2D canvas whole under it for a momen
 });
 
 test('the zoom into and out of a sinusoid keeps the tissue on the GPU (the only painter since 1 Nov)', () => {
-  const lz = src('src/ui/lobule-zoom.js');
+  const lz = lobuleSource();
   assert.doesNotMatch(lz, /SIN_GPU|singpu|keep2D/);
   assert.match(lz, /showTissueGL\(paintTissue\(W, H, dpr, dark, cs, !g, g \? tissueGLOn\(\) : null\)\)\);/);
   assert.match(lz, /fxOnGPU\(W, H, dpr, dark, dt, g && !g\.lost\);/);

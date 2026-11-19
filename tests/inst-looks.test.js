@@ -5,8 +5,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { LOOKS } from '../src/ui/chart-looks/index.js';
-import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
+import { makeCtx, withCtx, resolveProps, withVarsResolved } from '../src/ui/chart-looks/resolve.js';
 import { tokensOfLook } from '../src/ui/theme-tokens.js';
+import { appCss } from './split-src.js';
 
 const ctx = (over = {}) => withCtx(makeCtx({ host: 'dock' }), { theme: 'light', dark: false, palette: 'navy', view: 'anatomic', ...over });
 const P = (k, st = {}, c = ctx()) => resolveProps(LOOKS[k], c, st, {});
@@ -28,9 +29,9 @@ test('the ratings colour the ring, the knob and the word as app.css had them', (
   assert.equal(P('inst.dial.live', { sev: 'caution' }).opacity, undefined, 'the lit part is at full strength');
   assert.equal(P('inst.dial.knob.dot').stroke, T.ok, 'the knob\'s ring is green until a rating says otherwise');
   assert.equal(P('inst.dial.knob.dot', { sev: 'caution' }).stroke, T.caution);
-  assert.equal(P('inst.dial.w').fill, T.ok);
-  assert.equal(P('inst.dial.w', { sev: 'danger' }).fill, T.danger);
-  assert.deepEqual([P('inst.dial.n').size, P('inst.dial.n').weight, P('inst.dial.n').letterSpacing], [25, 650, '-0.02em']);
+  assert.equal(P('inst.dial.w').fill, withVarsResolved(T)['ok-ink'], 'the word wears the status ink (LOOK-1)');
+  assert.equal(P('inst.dial.w', { sev: 'danger' }).fill, withVarsResolved(T)['danger-ink']);
+  assert.deepEqual([P('inst.dial.n').size, P('inst.dial.n').weight, P('inst.dial.n').letterSpacing], [25, 600, '-0.02em']);
   assert.equal(P('inst.dial.k').letterSpacing, '0.12em');
   for (const k of ['inst.dial.tl', 'inst.dial.k', 'inst.dial.n', 'inst.dial.u', 'inst.dial.w']) assert.equal(P(k).anchor, 'middle', k);
   for (const k of ['inst.dial.tl', 'inst.dial.k', 'inst.dial.u', 'inst.dial.w']) assert.equal(P(k).size, undefined, `${k}: its size is the font-size attribute fit() writes`);
@@ -54,5 +55,5 @@ test('every piece instruments.js builds names a look that exists, and the sheet 
   for (const n of names) assert.ok(LOOKS[n], `look ${n}`);
   assert.match(src, /createSvgGL\(el, \{ host: 'dock' \}\)/);
   assert.doesNotMatch(src, /\.style\.fontSize/, 'a model piece\'s size is an attribute');
-  assert.doesNotMatch(read('styles/app.css'), /\.ab-dial(?!-box)\b|\.ab-dial-(band|live|tick|tl|knob|k|n|u|w)\b/, 'the dial\'s model rules are gone (the box that holds it stays)');
+  assert.doesNotMatch(appCss(), /\.ab-dial(?!-box)\b|\.ab-dial-(band|live|tick|tl|knob|k|n|u|w)\b/, 'the dial\'s model rules are gone (the box that holds it stays)');
 });

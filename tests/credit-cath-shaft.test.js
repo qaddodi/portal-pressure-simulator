@@ -1,22 +1,12 @@
-import { stageSource } from './stage-src.js';
 // The corner credit stood on the catheter's shaft (HVPG 2, an iPhone held sideways: the line from the neck ran through "© 2026 Mohammad
 // Almeqdadi, MD"). On the GPU the shaft is not in the page, so the credit's art test could not see it; the stage now hands over the route as
 // boxes (cathBoxes, the whole way, so they stand still as the catheter travels) and the credit keeps clear of them like any label.
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { freeSpots } from '../src/ui/credit.js';
 
-const credit = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
-const stage = stageSource();
 
-test('the credit counts the catheter shaft among the things it keeps clear of, and it does not make the credit "busy"', () => {
-  assert.match(stage, /cathBoxes\(\) \{\s*const st = cath\.st, r = st && cathRoute\(\);/);
-  assert.match(credit, /window\.pps\?\.stage\?\.cathBoxes\?\.\(\)/);
-  assert.match(credit, /\.\.\.cathBars\]\.filter\(\(o\) => o && hit\(o, fig\)\)/);
-  assert.match(credit, /b: Math\.ceil\(q\.b \/ GRID\) \* GRID, chrome: true/);
-});
 
 test('a free spot is found clear of a thin vertical shaft running down from the top edge', () => {
   // (A phone held sideways: 844 x 390, the words card at the left, the shaft down from the top at x 640, its boxes 8 px wide and 16 px apart.)

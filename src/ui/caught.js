@@ -2,7 +2,8 @@
 // GL call refused, storage full, a deck that would not read): each now names itself here. Nothing is shown to the person; under ?perf
 // the first of each kind is written to the console, and pps.caught() lists them all (counts and the last message) for a device report.
 
-const PERF = typeof location !== 'undefined' && /[?&]perf\b/.test(location.search || '');
+import { flagOn } from './flags.js';
+const PERF = flagOn('perf');
 const log = new Map();   // tag -> { n, last }
 
 /** Counts a caught error under `tag` (its file and place). Cheap: no stack, no allocation after the first of a tag. */
@@ -14,4 +15,4 @@ export function caught(tag, e) {
 }
 /** What has been caught since the page opened, by tag. */
 export const caughtNow = () => Object.fromEntries([...log].map(([k, v]) => [k, { ...v }]));
-if (typeof window !== 'undefined') { window.pps = window.pps || {}; window.pps.caught = caughtNow; }
+if (typeof window !== 'undefined') { const w = /** @type {Window & { pps?: Record<string, any> }} */ (window); w.pps = w.pps || {}; w.pps.caught = caughtNow; }

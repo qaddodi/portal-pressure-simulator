@@ -1,0 +1,792 @@
+[data-site="post"] { --site: color-mix(in srgb, var(--tour-portal) 20%, var(--tour-sys)); }
+[data-site="cardiac"] { --site: var(--tour-sys); }
+.stage-view.in-lobule .big-overlay { display: none; }
+
+/* ── 2.1 visual language: quiet anatomy, vivid vessels ──────────────────────────
+   Organs are calm, flat silhouettes: a light tint of their own hue and a hairline, lit only by a
+   faint form gradient. No cast shadows, blurred rims or decorative tissue textures: depth comes
+   from layering. Texture appears only as a sign of disease (nodular cirrhosis, nutmeg congestion,
+   the congested vignette), so a healthy patient looks clean and a sick one visibly changes. */
+.org-form { opacity: .55; }
+#labels .lb.inline.bare text { stroke: var(--label-halo); stroke-width: max(2.5px, calc(4px * var(--lbk, 1))); }
+/* A reading with no clear spot near its station sits on its vessel (stage.js layoutLabels, onVessel): a wide halo in the stage's
+   own colour round each glyph, 7 px as the stent callouts below, knocks the vessel out behind the words with no box, and no flow
+   arrowhead runs under it. Circuit only (.cmap). Never an SVG filter: the grown-glyph filter (#lb-onv) drew dark rectangles behind
+   the readings on iPhone, over the liver in Anatomy and over the zone bands in the Circuit, and was redrawn on every frame (16 Oct). */
+.cmap #labels .lb.on-vessel text { stroke: var(--stage-bg); stroke-width: 7px; stroke-linejoin: round; paint-order: stroke; }
+/* A stent's three point callouts stay level beside their dots, over whatever vessel runs there: a solid halo in the stage's colour,
+   7 px wide, knocks the vessel out behind and between the glyphs, so they read as the Circuit readings do, with no box (Review 16 Oct). */
+#labels .lb.inline:is([data-key^="n:TIPS:"], [data-key^="n:DIPS:"]) text { stroke: var(--stage-bg); stroke-width: 7px; stroke-linejoin: round; }
+
+/* ── Home: a map of the disease ───────────────────────────────────────────────── */
+.hp-prof { position: relative; width: 100%; height: 56px; display: block; margin: 2px 0 0; }
+.hp-prof > canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }   /* (the box the GPU's picture is laid in, and the GPU's canvas over it, trace-gl.js) */
+.hp-facts { display: flex; flex-wrap: wrap; gap: 4px; }
+.hp-chip { display: inline-flex; align-items: baseline; gap: 4px; padding: 1px 8px; border-radius: var(--r-pill); font-size: var(--fs-12); font-weight: 500; color: var(--text-2); background: var(--surface-2); font-variant-numeric: tabular-nums; }
+.hp-chip b { font-weight: 600; color: var(--text); }
+.hp-chip.ok b { color: var(--ok-ink); }
+.hp-chip.low b { color: var(--caution-ink); }
+.hp-chip.mid b, .hp-chip.high b { color: var(--danger-ink); }
+.hp-chip.high { background: color-mix(in srgb, var(--danger) 10%, var(--surface)); }
+.hp-chip.rev { color: var(--flow-reversed-ink); background: color-mix(in srgb, var(--flow-reversed) 12%, var(--surface)); font-weight: 600; }
+
+/* Phones: the figure fits the width with a 12 px margin, centered between the top bar and the
+   transport; the readouts are a carousel of whole cards that snaps card by card, with the next
+   card peeking in at the edge; the full patient name heads the side-panel sheet. */
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
+  .stage-view svg#stage, .stage-view svg#stageOver { left: 12px; width: calc(100% - 24px); overflow: visible; }
+}
+
+/* Motion: things arrive, they do not pop. (Reduced motion turns all of it off, above.) */
+.dock-pane.active { animation: fade-rise var(--d-small) var(--ease); }
+
+/* ── Anatomy plate (2.1): tissue tones, volume, rim light, surface anatomy ─────────
+   Each organ group carries its tissue's three tones (--o1 light face, --o2 shaded face, --o3
+   outline); every layer below reads them, so one rule set draws every organ. */
+.tone-liver { --o1: var(--og-liver-1); --o2: var(--og-liver-2); --o3: var(--og-liver-3); }
+.tone-liver .org-fill { fill: url(#og-liver); stroke: none; }
+.tone-stomach { --o1: var(--og-stomach-1); --o2: var(--og-stomach-2); --o3: var(--og-stomach-3); }
+.tone-stomach .org-fill { fill: url(#og-stomach); stroke: none; }
+.tone-eso { --o1: var(--og-eso-1); --o2: var(--og-eso-2); --o3: var(--og-eso-3); }
+.tone-eso .org-fill { fill: url(#og-eso); stroke: none; }
+.tone-spleen { --o1: var(--og-spleen-1); --o2: var(--og-spleen-2); --o3: var(--og-spleen-3); }
+.tone-spleen .org-fill { fill: url(#og-spleen); stroke: none; }
+.tone-panc { --o1: var(--og-panc-1); --o2: var(--og-panc-2); --o3: var(--og-panc-3); }
+.tone-panc .org-fill { fill: url(#og-panc); stroke: none; }
+.tone-kidney { --o1: var(--og-kidney-1); --o2: var(--og-kidney-2); --o3: var(--og-kidney-3); }
+.tone-kidney .org-fill { fill: url(#og-kidney); stroke: none; }
+.tone-gb { --o1: var(--og-gb-1); --o2: var(--og-gb-2); --o3: var(--og-gb-3); }
+.tone-gb .org-fill { fill: url(#og-gb); stroke: none; }
+.tone-gut { --o1: var(--og-gut-1); --o2: var(--og-gut-2); --o3: var(--og-gut-3); }
+.tone-gut .org-fill { fill: url(#og-gut); stroke: none; }
+.tone-heart { --o1: var(--og-heart-1); --o2: var(--og-heart-2); --o3: var(--og-heart-3); }
+.tone-heart .org-fill { fill: url(#og-heart); stroke: none; }
+.tone-ra { --o1: var(--og-ra-1); --o2: var(--og-ra-2); --o3: var(--og-ra-3); }
+.tone-ra .org-fill { fill: url(#og-ra); stroke: none; }
+.organ .org-ao { fill: none; stroke: var(--og-ao); stroke-width: 9; stroke-linejoin: round; }
+.organ .org-form { opacity: 1; stroke: none; }
+.organ .org-shade { fill: none; stroke: var(--og-dark); stroke-width: 11; stroke-linejoin: round; }
+.organ .org-rimlight { fill: none; stroke: var(--og-light); stroke-width: 4.5; stroke-linejoin: round; }
+.organ .org-line { fill: none; stroke: var(--o3); stroke-width: 1.15; stroke-opacity: .8; stroke-linejoin: round; }
+.org-detail path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+/* The caudate lobe and its veins (stage.js caud): only on a slide about them, eased in and out; never in the circuit. */
+.caud { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity var(--d-surface) var(--ease), transform 1.6s var(--ease) /*own pace*/, visibility 0s var(--d-surface); }   /* (hidden once faded: not drawn when off) */
+.caud.on { opacity: 1; visibility: visible; transition-delay: 0s; }
+.caud.gone .caud-veins { mask: none; }   /* (faded out and hidden, .7 s after .on comes off: stage.js caud.show) */
+.caud-veins { transition: opacity var(--d-surface) var(--ease); }
+.caud.lobe-only .caud-veins { opacity: 0; }
+#stageOver.circuit .caud { opacity: 0; visibility: hidden; transition-delay: 0s, 0s, var(--d-surface); }   /* (hidden once faded, so the veins' mask is not built there) */
+.caud-norm { fill: none; stroke: var(--caution); stroke-width: 1.2; stroke-dasharray: 3.5 2.8; stroke-linejoin: round; }
+.caud-arw { fill: none; stroke: var(--caution); stroke-width: 1.5; stroke-linecap: round; }
+.caud-arwh { fill: var(--caution); stroke: none; }
+.caud-fill { stroke: none; fill-opacity: .55; }   /* (the lobe drawn as the organs are, stage.js caud: tissue gradient, volume, lit edge, one thin outline) */
+.caud-form { stroke: none; }
+.caud-lobe .org-rimlight { fill: none; stroke: var(--og-light); stroke-width: 4.5; stroke-linejoin: round; }
+.caud-line { fill: none; stroke: color-mix(in srgb, var(--og-liver-3) 80%, var(--shade-ink)); stroke-width: 1.2; stroke-opacity: .6; stroke-linejoin: round; }
+.caud-d0 { stop-color: var(--og-liver-1); stop-opacity: .5; }
+.caud-d1 { stop-color: var(--og-liver-1); stop-opacity: .26; }
+.caud-d2 { stop-color: var(--og-liver-1); stop-opacity: 0; }
+.caud-wall { fill: var(--tube-shade-ink); fill-opacity: .4; }
+.caud-lumen { fill-opacity: .82; }
+.caud-sheen { fill: none; stroke: var(--light-ink); stroke-opacity: .28; stroke-linecap: round; }
+.org-detail .od-fine { stroke: var(--o3); stroke-width: .9; stroke-opacity: .55; }
+.org-detail .od-soft { stroke: var(--o3); stroke-width: 6; stroke-opacity: .1; }
+.org-detail .od-sheen { stroke: var(--og-light); stroke-width: 5; stroke-opacity: .75; }
+/* The embolized spleen's infarcted lower part fades toward the stage as the removed spleen does; a hairline marks where the live tissue ends. */
+.org-detail .pse-dead { fill: var(--stage-bg); fill-opacity: .8; stroke: none; }
+.org-detail .pse-edge { stroke: var(--o3); stroke-width: 1; stroke-opacity: .7; }
+.org-detail .org-lobules { stroke: none; opacity: .5; }
+#texLobules { color: var(--og-panc-3); }
+.org-heart-groove { stroke: var(--og-heart-3); stroke-opacity: .45; }
+/* Tubes */
+.band-ao { fill: none; stroke: var(--og-ao); stroke-linecap: round; stroke-linejoin: round; }
+.band-under { fill: none; stroke: var(--o2); stroke-opacity: .75; stroke-linecap: round; stroke-linejoin: round; }
+/* The gut as picked in the organ mock-ups (20 Oct; stage.js draws organ-art.js, made by scripts/organ-art.mjs): the folded
+   colon (.oc-*), the small bowel's pile of loops (.ob-*) and the duodenum (.du-*), in the organ's own tones. One see-through
+   group holds all three (--gut-a), so the colon covers the loops under it instead of showing them through. The organs' own
+   paths stay, unpainted, as the target a highlight, a hit test and the vessels' cover read (.org-key-path). */
+#organs > .organ.organ-gut { opacity: var(--gut-a); }   /* (.organ.: over the organs' .55 below) */
+.org-key-path { fill: none; stroke: none; }
+/* The stomach's outline traced over the cirrhotic liver (stage.js): a line in the stomach's own tone, never a fill (unstyled,
+   it filled black and read as a dark patch on the liver: Mohammad, 20 Oct). */
+.org-ghost-line { fill: none; stroke: var(--og-stomach-3); stroke-width: 1.5; stroke-linejoin: round; }
+.oc-ao { fill: var(--og-ao); stroke: var(--og-ao); stroke-width: 8; stroke-linejoin: round; stroke-linecap: round; }
+.oc-o1 { fill: var(--o1); }
+.oc-wall, .oc-pouch { fill: var(--o2); fill-opacity: .49; stroke: var(--o3); stroke-width: .84; stroke-opacity: .42; stroke-linejoin: round; stroke-linecap: round; }
+.oc-pouch { fill-opacity: .42; }
+.oc-tail { fill: var(--o2); fill-opacity: .5; }
+.oc-line { fill: none; stroke: var(--o3); stroke-width: .84; stroke-opacity: .42; stroke-linejoin: round; stroke-linecap: round; }
+.oc-valve { fill: none; stroke: var(--o3); stroke-width: 1; stroke-opacity: .35; stroke-linejoin: round; stroke-linecap: round; }
+.oc-band { fill: var(--o1); stroke: var(--o3); stroke-width: .9; stroke-opacity: .45; stroke-linejoin: round; stroke-linecap: round; }
+.oc-band-lit { fill: var(--og-light); fill-opacity: .32; }
+.oc-shade { fill: var(--o3); stroke: var(--o3); stroke-width: 16; stroke-linejoin: round; stroke-linecap: round; }
+.oc-fold { fill: none; stroke: var(--o3); stroke-width: 1.6; stroke-opacity: .7; stroke-linejoin: round; stroke-linecap: round; }
+/* A rounded turn along the colon's scalloped silhouette, with the same upper-left light as the other organs. */
+.oc-rim-shade, .oc-rim-light { fill: none; stroke-linejoin: round; stroke-linecap: round; }
+.oc-rim-shade { stroke: var(--o3); }
+.oc-rim-shade.s1 { stroke-width: 24; stroke-opacity: .08; }
+.oc-rim-shade.s2 { stroke-width: 14; stroke-opacity: .12; }
+.oc-rim-shade.s3 { stroke-width: 6; stroke-opacity: .18; }
+.oc-rim-light { stroke: var(--og-light); stroke-width: 4; stroke-opacity: .22; }
+/* The loops in the app's tube shading, mixed to solid tones so overlapping pieces join without seams. */
+:is(.ob-ao, .ob-deep, .ob-rim, .ob-edge, .ob-wall, .ob-shade, .ob-hi) { fill: none; stroke-linecap: butt; stroke-linejoin: round; }
+.ob-ao { stroke: var(--og-ao); }
+.ob-deep, .ob-space { stroke: color-mix(in srgb, var(--o1) 40%, var(--o2)); }
+.ob-space { fill: color-mix(in srgb, var(--o1) 40%, var(--o2)); stroke-linejoin: round; }
+.ob-rim { stroke: color-mix(in srgb, var(--o1) var(--gut-rim-k), var(--o3)); }
+.ob-edge { stroke: color-mix(in srgb, var(--o1) 58%, var(--o3)); }
+.ob-wall { stroke: var(--o1); }
+.ob-shade { stroke: color-mix(in srgb, var(--o1) 50%, var(--o2)); }
+.ob-hi { stroke: color-mix(in srgb, var(--o1), var(--og-hi) var(--og-hi-k)); }
+/* Soft only: the small bowel's lightest tone leans toward the middle one, so the loops are not so white on the cream paper (Mohammad, 20 Oct). The colon (.oc-*) and the other themes keep the organ's own tones. */
+:root[data-theme="soft"] :is(.ob-deep, .ob-space, .ob-rim, .ob-edge, .ob-wall, .ob-shade, .ob-hi) { --o1: color-mix(in srgb, var(--og-gut-1) 65%, var(--og-gut-2)); }
+.du-ao { fill: var(--og-ao); stroke: var(--og-ao); stroke-width: 8; stroke-linejoin: round; }
+.du-wall { fill: var(--o1); stroke: color-mix(in srgb, var(--o1) 58%, var(--o3)); stroke-width: 2; stroke-linejoin: round; }
+
+.org-detail .org-lobules { fill: url(#texLobules); opacity: .55; }
+.org-detail .od-fold { stroke: var(--o3); stroke-width: 1.4; stroke-opacity: .16; }
+/* Disease and tissue textures sit in the surface, not on it. */
+.org-detail .org-lobules { opacity: .28; }
+/* Matte tissue: soft form, no gloss. */
+.organ .org-shade { stroke-width: 16; stroke-opacity: .45; }
+.organ .org-rimlight { stroke-width: 3; stroke-opacity: .45; }
+.organ .org-line { stroke-width: 1; stroke-opacity: .7; }
+.org-appendix.band-ao { stroke-width: 11; } .org-appendix.band-edge { stroke: var(--o3); stroke-width: 7.5; stroke-opacity: .6; } .org-appendix.band-body { stroke: var(--o1); stroke-width: 6; } .org-appendix.band-under { stroke-width: 2; }
+.band-body, .band-edge, .band-ao, .band-under { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.organ .org-shade { stroke-opacity: 1; }
+.organ .org-shade.s1 { stroke-width: 30; stroke-opacity: .16; }
+.organ .org-shade.s2 { stroke-width: 18; stroke-opacity: .22; }
+.organ .org-shade.s3 { stroke-width: 8; stroke-opacity: .3; }
+.org-diaphragm.band-edge { stroke-opacity: .12; }
+.org-diaphragm.band-body { stroke-opacity: .45; stroke-width: 1.1; }
+.tone-ra { --o1: var(--og-heart-1); --o2: color-mix(in srgb, var(--og-heart-2) 80%, var(--og-ra-2)); }
+.tone-ra .org-fill { fill: url(#og-heart); }
+.organ-heart-ra .org-line { stroke-opacity: .35; }
+.organ-heart-ra .org-rimlight { stroke-opacity: .2; }
+/* The atrium is part of the heart: no dark halo or inner shade of its own on the ventricles it overlaps. */
+.organ-heart-ra .org-ao { display: none; }
+.organ-heart-ra .org-shade.s1, .organ-heart-ra .org-shade.s2, .organ-heart-ra .org-shade.s3 { stroke-opacity: .05; }
+/* Organs recede behind the vessels: the plate is context, the circulation is the subject. */
+#organs > .organ { opacity: .55; }
+#organs > .organ.organ-kidney-l { opacity: .85; }   /* the kidney in plum, fuller and outlined so it reads against the warm gut (Mohammad, 21 Oct) */
+/* Soft's organs are a little firmer (Deep clay, softened, 18 Nov 2026): the plate's layer at .72, the kidney .88; the gut keeps --gut-a (.70 in Soft). */
+:root[data-theme="soft"] #organs > .organ:not(.organ-gut) { opacity: .72; }
+:root[data-theme="soft"] #organs > .organ.organ-kidney-l { opacity: .88; }
+.organ-kidney-l .org-line { stroke-width: 1.4; stroke-opacity: .95; }
+#backdrop { opacity: .7; }
+/* Organ form (organ drawings pass, 1 Nov): the inner shade is a graded turn, faint and wide at the edge's far side and closer
+   and firmer at the rim, so each organ reads as a rounded mass and not a flat cut-out; the outline is a little crisper and
+   the upper-left rim light a little brighter. Still matte: no gloss, no glow, the same paths and clips. */
+.organ .org-shade.s1 { stroke-opacity: .09; }
+.organ .org-shade.s2 { stroke-opacity: .15; }
+.organ .org-shade.s3 { stroke-opacity: .24; }
+.organ .org-rimlight { stroke-opacity: .58; }
+.organ .org-line { stroke-opacity: .62; stroke-width: 1.1; }
+/* (The organs with a look of their own keep it over the general turn above, as they did before it: the right atrium's faint rim and line, no
+   inner shade of its own, and the kidney's heavier outline, Mohammad's 21 Oct request. Same specificity, so they come after it.) */
+.organ-heart-ra .org-line { stroke-opacity: .35; }
+.organ-heart-ra .org-rimlight { stroke-opacity: .2; }
+.organ-heart-ra .org-shade.s1, .organ-heart-ra .org-shade.s2, .organ-heart-ra .org-shade.s3 { stroke-opacity: .05; }
+.organ-kidney-l .org-line { stroke-width: 1.4; stroke-opacity: .95; }
+/* Every live number uses tabular figures, so digits hold still as the model runs. */
+.metric,
+.vital,
+.kv dd,
+.tl-time,
+.stage-clock,
+.big-overlay,
+.cmp-table,
+.cut-table,
+.hp-chip,
+.ctl-val,
+#labels text,
+.tl-pop .when { font-variant-numeric: tabular-nums; }
+
+/* ── Live instrument workspace ─────────────────────
+   Instruments share the figure column, independent of the patient panel. No floating windows
+   or mobile scrim; container queries adapt each instrument to its own available width. */
+.measure-launch { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; padding: 0 11px; border: 1px solid var(--hairline); border-radius: var(--r-control); background: var(--surface); color: var(--text-2); cursor: pointer; font: 600 var(--fs-14) var(--font-ui); position: relative; }
+.measure-launch :is(svg, .ic) { width: var(--ic-m); height: var(--ic-m); fill: none; stroke: currentColor; stroke-width: 1.6; } .measure-launch .ic { -webkit-mask-image: url("../brand/icons/icons-r.png"); mask-image: url("../brand/icons/icons-r.png"); background-color: currentColor; }
+.measure-launch[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-ink); border-color: transparent; }
+/* A vessel tapped while the Tests card is shut: the button takes the accent colour until it is opened (no badge dot). */
+.measure-launch.ping { color: var(--accent-ink); }
+.instrument-workspace { --instrument-h: 340px; --plot-h: 240px; --square-size: 260px; position: relative; flex: none; height: var(--instrument-h); min-height: 0; width: 100%; overflow: hidden; border-top: 1px solid var(--hairline); background: var(--surface); box-shadow: 0 -5px 24px rgb(var(--black-rgb) / .035); z-index: 2; }
+.app.dock-open .instrument-workspace { display: flex; }
+.workspace-divider { height: 12px; flex: none; display: grid; place-items: center; cursor: ns-resize; touch-action: none; background: var(--surface); }
+.workspace-divider span { width: 42px; height: 3px; background: var(--border-strong); border-radius: 4px; transition: scale var(--d-flip) var(--ease); }   /* (it widens by a stretch on the compositor, not a width laid out again) */
+.workspace-divider:focus-visible span { scale: 1.5238 1; background: var(--accent); }
+@media (hover: hover) { .workspace-divider:hover span { scale: 1.5238 1; background: var(--accent); } }
+.instrument-workspace .dock-head { height: 48px; flex: none; padding: 0 12px; gap: 8px; }
+.instrument-workspace .dock-title { min-width: 0; font-size: var(--fs-14); flex: none; }
+.instrument-workspace .dock-title .dt-l { max-width: 210px; overflow: hidden; text-overflow: ellipsis; }
+.workspace-live { flex: 1; min-width: 0; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; font: 500 var(--fs-12) var(--font-ui); color: var(--text-3); display: inline-flex; align-items: center; gap: 6px; }
+.workspace-live[data-state="summary"] { color: var(--text-2); }
+/* Run and Compare repeat the play bar right above; they are only needed when the instrument
+   has the whole screen. */
+.instrument-workspace .dock-head .ib { display: inline-flex; flex: none; width: 34px; height: 34px; }
+.instrument-workspace[data-state="peek"] { height: 52px; }
+.instrument-workspace[data-state="peek"] .dock-head { height: 52px; }
+.instrument-workspace .dock-body { display: grid; grid-template-columns: minmax(0, 1fr); flex: 1; min-height: 0; overflow: hidden; }
+.instrument-workspace .dock-body.split { grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: hidden; }
+.instrument-workspace .dock-pane { position: relative; inset: auto; display: none; min-height: 0; min-width: 0; overflow: hidden auto; touch-action: pan-y; overscroll-behavior: contain; padding: 16px 20px 20px; container-type: inline-size; }
+.instrument-workspace .dock-pane.active { display: flex; flex-direction: column; gap: 12px; animation: none; }
+.instrument-workspace .dock-body.split .dock-pane + .dock-pane { border-top: 0; border-left: 1px solid var(--hairline); }
+.instrument-view { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 20px; min-width: 0; }
+.instrument-workspace .instrument-view .chart-box { flex: none; height: var(--plot-h); min-height: 190px; max-width: none; min-width: 0; }
+.instrument-workspace .instrument-view .chart-box.square { width: min(100%, var(--square-size)); height: auto; aspect-ratio: 1; min-height: 0; justify-self: center; }
+.instrument-workspace .instrument-view .chart-side { width: auto !important; min-width: 0; overflow: visible; padding: 0; gap: 10px; }
+.instrument-view .kv { margin: 0; }
+.instrument-view .ctl-sub { line-height: 1.5; }
+/* The HVPG catheter on the anatomy (stage.js): a fine radiopaque line, its balloon and tip, and the still
+   column in front of the balloon in the wedged pressure's colour. Labels are screen-sized pills at the tip. */
+.cath { pointer-events: none; transition: opacity var(--d-surface) var(--ease); }
+.cath-shadow { fill: none; stroke: var(--cath-shadow); stroke-linecap: round; stroke-linejoin: round; }
+.cath-body { fill: none; stroke: var(--dev-poly); stroke-linecap: round; stroke-linejoin: round; }
+.cath-tip { fill: var(--dev-poly); stroke: none; }
+.cath-ring { fill: none; stroke-width: .8; stroke-opacity: .85; stroke-linejoin: round; }
+.cath-balloon { fill: var(--dev-nylon); fill-opacity: .78; stroke: var(--cath-shadow); stroke-width: .5; stroke-linejoin: round; }
+.cath-column { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-opacity: .9; }
+/* While the catheter is in, the figure's own readouts are hidden so its labels read clearly. */
+.stage-view #labels { transition: opacity var(--d-surface) var(--ease); }
+.cath-on #labels { opacity: 0; visibility: hidden; transition: opacity var(--d-small) var(--ease-in), visibility 0s linear var(--d-small); }
+.cath-labels { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+.cath-labels[hidden] { display: none; }
+.cath-label { position: absolute; left: 0; top: 0; isolation: isolate; display: inline-flex; flex-direction: column; align-items: center; gap: 1px; padding: 7px 16px 8px; border: 2px solid transparent; border-radius: 14px; white-space: nowrap;
+  --c: var(--text); --rg: color-mix(in srgb, var(--c) 70%, transparent); --lo: 1;
+  color: var(--text); font: 500 12px var(--font-ui);
+  translate: -50% calc(-100% - 18px + var(--pre, 0px)); transition: translate var(--d-surface) var(--ease); }   /* (--pre: the arrival's rise, cath-pre, eased by translate on the compositor, not by top) */
+/* The label's drop shadow is its own layer, so it fades as opacity on the compositor (a box-shadow transition repaints every frame; recs 17,
+   8 Nov 2026). It covers the label's border box (its 2 px border is outside the padding box an inset is measured from). It stays a plain shadow of the label's box, behind the glass; the states below set its opacity to 0 where they hid the shadow. */
+.cath-label::before { content: ''; position: absolute; inset: -2px; z-index: -2; border-radius: inherit; box-shadow: var(--glass-shadow); opacity: 1; pointer-events: none; transition: opacity var(--d-surface) var(--ease); }
+/* The body is frosted glass like the panels (the data card's tint and blur), drawn by callout.js as one shape: the card and
+   its pointer (down to the tip, or up to the wedged vein, for the reading ahead of it) with its 2 px outline.
+   The fades run on the label's children, not the label: a faded ancestor would stop the glass seeing the figure behind it. */
+.cath-label > * { opacity: var(--lo); transition: opacity var(--d-surface) var(--ease); }
+.cl-glass { position: absolute; z-index: -1; pointer-events: none; background: var(--glass-tint); }
+/* The callouts keep no drop (19 Nov 2026, the card shadow is for cards): the one glass's lift (--glass-shadow) is cleared here for the label, its glass and its ::before, so a small
+   reading is not smudged by a 24 px lift. Remove this rule to give the callouts the lift too. */
+.cath-label { --glass-shadow: none; }
+.cl-glass path { fill: none; stroke: var(--rg); stroke-width: 4; stroke-linejoin: miter; }
+/* The printed tag (callout.js): the path is stroked 2 px and clipped to its inside, so 1 px shows; the border
+   colour carries a fifth of the reading's colour, enough to tell a free tag from a wedged one at the edge without a ring. */
+.cl-glass.cl-hair path { stroke: var(--glass-edge); stroke-width: 2; }   /* (the one glass's edge, 13 Nov 2026; it had a fifth of the reading's colour) */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .cl-glass { background: var(--glass-tint); } }
+@media (prefers-reduced-transparency: reduce) { .cl-glass { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
+/* (Its blur and tint drawn on the GPU under the callout layers instead, glass-gl.js: the outline above stays the DOM's) */
+.cl-glass[data-gl] { background: none; }
+/* (The Present cards likewise, recs A2: their blur and tint in the figure's canvas under them (presenter.js build, stage.cardGlass), each card's border,
+   edge and shadow still the DOM's. Specific enough to win over every glass rule above, the stacked and the phone's bar included.) */
+.pz-shade.pz-shade.pz-shade.pz-shade[data-gl], .pz .pz-data.pz-data.pz-data.pz-data.pz-data[data-gl], .pz .pz-fk.pz-fk.pz-fk.pz-fk.pz-fk[data-gl], .pz .pz-case.pz-case.pz-case.pz-case.pz-case[data-gl], .pz .pz-bar.pz-bar.pz-bar.pz-bar.pz-bar[data-gl], .pz .pz-scales.pz-scales.pz-scales.pz-scales.pz-scales[data-gl] { background: none; }
+/* The phone's Details, Treat and Tests sheets: their paper (the plate, sheet-move.js) is frosted GPU glass like every card (main.js sheetGlass;
+   Mohammad, 2 Nov 2026, "CARDS ARE GLASS"), cut at the sheet's still foot as the sheet's own clip cuts the page. */
+.has-plate.has-plate > .sheet-plate.sheet-plate.sheet-plate[data-gl] { background: none; }
+@media (prefers-reduced-transparency: reduce) { .has-plate > .sheet-plate { --gl-glass: 0; } }
+/* (The split readings sheet's two cards likewise, its glass being theirs (presenter.js sheetPanes): their borders, edges and shadows the DOM's.) */
+.pz.pz.pz .pz-data.pz-data.pz-sheet.pz-sheet[data-gl]::before, .pz.pz.pz .pz-data.pz-data.pz-sheet.pz-sheet[data-gl]::after { background: none; }
+.cath-label[data-at="ahead"] { translate: -50% calc(18px + var(--pre, 0px)); }
+.cath-label[data-at="ahead"].above { translate: -50% calc(-100% - 18px + var(--pre, 0px)); }
+/* (The HVPG catheter's own readings: their side of the point is in their transform, placed and eased with their glass (stage.js
+   cathLabels, cath-pill.js), so a flip glides instead of switching here.) */
+.cath-label.cath-js, .cath-label.cath-js[data-at="ahead"], .cath-label.cath-js[data-at="ahead"].above { translate: -50% var(--pre, 0px); }
+.cath-label small { color: var(--c-ink, var(--c)); font-weight: 700; font-size: 12px; letter-spacing: .06em; }
+.cath-label b { font-size: 26px; line-height: 1.1; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--c-ink, var(--c)); }
+.cath-label b + span { color: var(--text-3); font-size: 12px; font-weight: 600; margin-top: -2px; }
+.cath-label.free { --c: var(--tr-hv); --c-ink: var(--tr-hv-ink); }   /* (--c-ink: the colour of the words; --c stays the trace's, for rings and glows) */
+.cath-label.wedge { --c: var(--tr-wedge); --c-ink: var(--tr-wedge-ink); } .cath-label.pv { --c: var(--tr-pv); --c-ink: var(--tr-pv-ink); }   /* (pv: EUS-PPG's portal vein reading) */
+.cath-label.ivc { --c: var(--tr-ivc); --c-ink: var(--tr-ivc-ink); }   /* (ivc: the TIPS gradient's IVC reading) */
+.cath-label.ghost { --lo: .5; }
+/* The presenter's measuring sites (PPG: portal vein and IVC), in the tracing colours; one off the free space waits hidden. */
+.cath-label.site { transition: scale var(--d-surface) var(--ease) .35s, translate var(--d-surface) var(--ease); } .cath-label.site::before, .cath-label.site > * { transition: opacity var(--d-surface) var(--ease) .35s; }
+/* One leaving fades out whole and at once (no entrance pause), its glass and shadow with it; the glass is hidden outright only once
+   faded (stage.js siteLeave removes it after). */
+.cath-label.site.cath-leave { --lo: 0; } .cath-label.site.cath-leave::before { opacity: 0; }
+.cath-label.site.cath-leave, .cath-label.site.cath-leave::before, .cath-label.site.cath-leave > * { transition-delay: 0s; transition-duration: var(--d-small); transition-timing-function: var(--ease-in); }   /* (a leave takes the step below its entrance, on the leaving curve; stage.js siteLeave waits D_SMALL + slack) */
+.cath-label.site.cath-leave > .cl-glass { visibility: hidden; transition: opacity var(--d-small) var(--ease-in), visibility 0s linear var(--d-small); }
+.cath-label.site.pv { --c: var(--tr-pv); --c-ink: var(--tr-pv-ink); } .cath-label.site.ivc { --c: var(--tr-ivc); --c-ink: var(--tr-ivc-ink); }
+/* The FibroScan probe on the skin over the liver; its shear wave eases out into the right lobe and fades. */
+.scan-probe { --scan: var(--fibroscan); /* the orange of the FibroScan card's readout (ORANGE in fibroscan.js) */ position: absolute; left: 0; top: 0; width: 220px; height: 96px; translate: 0 -50%; transition: opacity var(--d-surface) var(--ease); pointer-events: none; }
+.scan-probe.cath-pre, .scan-probe.off { opacity: 0; }
+.scan-probe .sp-svg { position: absolute; left: 0; top: 0; width: 220px; height: 96px; overflow: visible; transform: rotate(var(--sp-turn, 45deg)); transform-origin: 66px 48px; transition: transform var(--d-surface) var(--ease); }
+.scan-probe > .sp-svg { visibility: hidden; }   /* (a model only: drawn on the labels' GPU layer, label-gl.js; nothing of it is painted by the page) */
+.scan-probe .sp-svg i { display: block; position: absolute; left: 0; top: 0; font-style: normal; }
+.scan-probe .sp-svg .sp-read { left: 24px; top: 52.3px; translate: -50% -80%; white-space: nowrap; line-height: 1; }   /* (its box, for what keeps clear of it: the baseline at y, centred on x) */
+.scan-probe .sp-svg .sp-read i { display: inline; position: static; }
+.scan-probe .sp-beam-svg { will-change: transform; }   /* (the beam's blur kept as drawn: the waves over it change every frame, it does not) */   /* probe and beam turned 45° about the tip, pointing down-right (steeper beside the screen's left edge: stage.js scanPaint) */
+.scan-probe .sp-body { fill: var(--surface); stroke: var(--text-2); stroke-width: 1.6; }
+.scan-probe .sp-tip { fill: var(--text-2); }
+.scan-probe .sp-screen { fill: var(--fibroscan); }   /* the probe's own display: the live stiffness, along its 45° axis */
+.scan-probe .sp-read { font: 700 12px Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-variant-numeric: tabular-nums; fill: color-mix(in srgb, var(--fibroscan) 12%, black); }
+.scan-probe .sp-unit { font-size: 12px; font-weight: 600; fill: color-mix(in srgb, var(--fibroscan) 30%, black); }
+.scan-probe :is(.sp-head, .sp-cable) { transition: opacity var(--d-small) var(--ease); }
+.scan-probe.head-off :is(.sp-head, .sp-cable) { opacity: 0; }   /* (a card over the probe's body: its waves stay, no stub pokes out from under the card) */
+.scan-probe .sp-cable { fill: none; stroke: var(--text-3); stroke-width: 3; stroke-linecap: round; }
+.scan-probe .sp-beam { fill: url(#sp-beam); --sp-soft: 5px; }   /* (its softness drawn once into the labels' GPU atlas, label-gl.js; no CSS blur) */
+.scan-probe .sp-waves > .sp-pk { opacity: 0; }
+.scan-probe .sp-waves .sp-pk > i { fill: none; stroke: var(--scan); stroke-linecap: round; }
+.scan-probe .sp-rip { stroke-width: 1.4; stroke-opacity: .35; }
+.scan-probe .sp-front { stroke-width: 2.2; stroke-opacity: .95; }
+.scan-probe.tap .sp-tip { animation: sp-tap var(--d-surface) var(--ease-move); }
+.scan-probe.tap2 .sp-tip { animation: sp-tap2 var(--d-surface) var(--ease-move); }   /* (the same tap: turning between the two restarts it without a style read) */   /* only the tip vibrates, a little, along the probe's own 45° axis, once a second */
+@keyframes sp-tap { 0% { transform: none; } 20% { transform: translateX(2px); } 45% { transform: translateX(-1.2px); } 70% { transform: translateX(.6px); } 100% { transform: none; } }
+@keyframes sp-tap2 { 0% { transform: none; } 20% { transform: translateX(2px); } 45% { transform: translateX(-1.2px); } 70% { transform: translateX(.6px); } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .scan-probe.tap .sp-tip, .scan-probe.tap2 .sp-tip { animation: none; } }
+/* The Doppler probe (dop-probe.js, stage.js dprobePaint), drawn as a scanner marks it: placed at the sample volume, turned toward the probe; the line of sight, the flow axis, the sample volume's bars and the probe are white-lined on a black rim, so they read on every vessel colour and theme. */
+.dop-probe { position: absolute; left: 0; top: 0; width: 0; height: 0; visibility: hidden; pointer-events: none; }   /* (a model of styled nodes the labels' GPU layer reads the probe's look from, label-gl.js: never placed, shown or changed; the probe itself is the stage's record of numbers, drawn on the GPU, with its draw back and fades on its own clock, dop-probe.js probeFade) */
+.dop-probe > .dpr-svg { position: absolute; left: 0; top: 0; visibility: hidden; }   /* (a model only: drawn on the labels' GPU layer, label-gl.js; its fades still run here, and are read) */
+.dop-probe .dpr-svg i { display: block; position: absolute; left: 0; top: 0; }   /* (the wedge, the faded ultrasound beam under every mark, takes #dpr-wedge's stops) */
+.dop-probe .dpr-rim-l { fill: none; stroke: var(--dop-rim); stroke-width: 4.4; stroke-linecap: round; stroke-linejoin: round; }
+.dop-probe .dpr-line { fill: none; stroke: var(--dop-mark); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.dop-probe .dpr-gate-rim { fill: none; stroke: var(--dop-rim); stroke-width: 5.6; stroke-linecap: round; }
+.dop-probe .dpr-gate { fill: none; stroke: var(--dop-mark); stroke-width: 3; stroke-linecap: round; }   /* (a bit thicker than the 2 px axis line (both thickened, Mohammad, 20 Oct); drawn on top of the axis and the line of sight) */
+.dop-probe .dpr-rim { fill: none; stroke: var(--dop-head-rim); stroke-width: 4; stroke-linejoin: round; }
+.dop-probe .dpr-body { fill: var(--surface); stroke: var(--dop-head-ink); stroke-width: 1.6; stroke-linejoin: round; }
+.dop-probe .dpr-face { fill: var(--dop-face); stroke: var(--dop-head-ink); stroke-width: 1.4; stroke-linejoin: round; }   /* (the transducer band across the front, the face that touches the skin: the inverse of the body, dark on the light looks and light on the dark ones, --dop-face; white-lined like the rest) */
+.dop-probe .dpr-light { fill: var(--dop-glow); }
+/* Where portal blood goes: the share that bypasses the liver as the headline, over one bar split into the liver's share
+   (portal pink) and the shunts' (plain, amber from the shunt tile's moderate cut, red from its large one), each share
+   named under its end. Fixed sizes (the headline reserves room for 100 %), so the callout never resizes; it stays stacked on phones. */
+.cath-label.site.split, .app.presenting .cath-label.site.split { --c: var(--tr-pv); --sp-c: var(--text-3); --sp-t: var(--text); --leader: var(--text-2); flex-direction: column; align-items: stretch; gap: 3px; padding: 0; border-radius: 0; }
+.cath-label.site.split[data-rate="mid"] { --sp-c: var(--caution); --sp-t: var(--caution-ink); }
+.cath-label.site.split[data-rate="hi"] { --sp-c: var(--danger); --sp-t: var(--danger-ink); }
+/* No card (Mohammad, 17 Nov 2026, "Build D"): the number, a caption and a hairline bar stand on the figure in its own label look (the theme's
+   --label-halo under the words), with a 1 px leader to the vein. Its glass is only that leader (callout.js bare), never frosted (stage.js). */
+.cath-label.site.split::before { display: none; }
+.cath-label.site.split small { display: none; }
+.cath-label.site.split b, .app.presenting .cath-label.site.split b { display: flex; flex-direction: column; gap: 2px; font-size: calc(12px * min(var(--label-scale, 1), 1.7)); line-height: 1.2; color: var(--text); }
+.cath-label.site.split .sp-h { width: 12.6em; font-weight: 700; display: flex; align-items: baseline; }
+.cath-label.site.split em { font-style: normal; }
+.cath-label.site.split .sp-n, .cath-label.site.split .sp-pc { font-size: 1.5em; font-weight: 600; letter-spacing: -.02em; line-height: 1.1; }
+.cath-label.site.split .sp-n { color: var(--sp-t); transition: none; }
+.cath-label.site.split .sp-pc { color: var(--sp-t); -webkit-text-stroke: 4px var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; }
+.cath-label.site.split .sp-w { margin-left: 4px; font-size: 1em; font-weight: 500; color: var(--text-2); -webkit-text-stroke: 3px var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; }
+.cath-label.site.split .sp-cap { display: flex; align-items: baseline; gap: 6px; font-size: 1em; font-weight: 600; }
+.cath-label.site.split .sp-k { font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); -webkit-text-stroke: 2px var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; }
+.cath-label.site.split .sp-lt { color: var(--tr-pv-ink); } .cath-label.site.split .sp-st { display: none; }
+.cath-label.site.split .sp-bar { display: flex; gap: 2px; height: 2px; width: 6.4em; margin: 1px 0 0; }
+.cath-label.site.split .sp-bar i { border-radius: 1px; flex-basis: 0; flex-shrink: 1; }
+.cath-label.site.split .sp-l { flex-grow: var(--sp-lf, .5); min-width: var(--sp-lm, 4px); background: var(--tr-pv); }
+.cath-label.site.split .sp-s { flex-grow: var(--sp-sf, .5); min-width: var(--sp-sm, 4px); background: var(--sp-c); transition: none; }
+.cath-label.site.split b + span { display: none; }
+/* The bare callout's leader (callout.js bare): a child that only carries the line's picture, over nothing: never a .cl-glass, so no tint, fill or
+   frost rule of the glass reaches it, and it has no background of its own. It fades with the words (--lo, every callout child's opacity). */
+.cl-leader { position: absolute; z-index: -1; pointer-events: none; background: none; }
+/* A resistor's reading is a faded figure label, not a callout: its name and the ratio on one line, no box. */
+.cath-label.site.res, .app.presenting .cath-label.site.res { --c: var(--text-2); flex-direction: row; align-items: baseline; gap: 5px; padding: 0; background: none; border: 0; box-shadow: none;
+  translate: -50% calc(-100% - 12px); }   /* (no CSS halo: the figure's words are outlined one way, by the GPU label path; review CSS-16, owner 15 Nov 2026) */
+.app .cath-label.site.res.coll { translate: -50% calc(-200% - 18px + var(--pre, 0px)); }
+.app .cath-label.site.res.gut { translate: -50% calc(-300% - 24px + var(--pre, 0px)); }
+/* Under an upright circuit (a phone) the two readings share one line, without the unit, so both clear the data card. */
+.app .cath-label.site.res.low { translate: calc(-100% - 10px) calc(10px + var(--pre, 0px)); } .app .cath-label.site.res.coll.low { translate: 10px calc(10px + var(--pre, 0px)); } .app .cath-label.site.res.gut.low { translate: -50% calc(100% + 18px + var(--pre, 0px)); }
+.app .cath-label.site.res.low b + span { display: none; }
+
+.cath-label.site.res small, .app.presenting .cath-label.site.res small { color: var(--text-3); font-size: calc(var(--t-cap) * var(--label-scale, 1)); letter-spacing: .02em; font-weight: 600; }
+.cath-label.site.res b, .app.presenting .cath-label.site.res b { color: var(--text); font-size: calc(var(--t-val) * var(--label-scale, 1)); }
+.cath-label.site.res b + span, .app.presenting .cath-label.site.res b + span { color: var(--text-3); font-size: calc(var(--t-cap) * var(--label-scale, 1)); margin: 0; }
+.cath-label.site.res b + span:empty { display: none; }
+/* The resistors' key ("× healthy liver's resistance"), said once for the group (17 Oct design review): above the outermost reading of a
+   level circuit, under the readings of an upright one, centred on the group either way (stage.js calloutBox keeps labels off it). */
+.cath-label.site.res .res-k { display: none; } .cath-label.site.res::before { display: none; }
+.cath-label.site.res.keyed .res-k { display: block; position: absolute; left: 50%; bottom: calc(100% + 4px); translate: -50% 0; font-style: normal; white-space: nowrap; color: var(--text-3); font-size: calc(var(--t-cap) * var(--label-scale, 1)); font-weight: 600; letter-spacing: .02em; }
+.app .cath-label.site.res.low.keyed .res-k { bottom: auto; top: calc(100% + 4px); }
+.app .cath-label.site.res.low.keyed:not(.coll, .gut) .res-k { left: calc(100% + 10px); }
+.app .cath-label.site.res.coll.low.keyed .res-k { left: -10px; }
+.cath-label.site.off { --lo: 0; } .cath-label.site.off, .cath-label.site.off::before, .cath-label.site.off > * { transition-delay: 0s; transition-duration: var(--d-small); transition-timing-function: var(--ease-in); }
+/* (A hidden callout's frosted glass is hidden outright once it has faded, and its shadow fades with it: the shadow left behind
+   drew a ghost rectangle over the figure on a phone.) */
+.cath-label.site.off > .cl-glass { visibility: hidden; transition: opacity var(--d-small) var(--ease-in), visibility 0s linear var(--d-small); }
+.cath-label.site.cath-pre > .cl-glass { visibility: hidden; }
+.cath-label.site.off::before { opacity: 0; }   /* (its shadow goes with it, else the shadow alone drew the ghost) */
+.cath-label.site { padding: 5px 12px 6px; } .cath-label.site b { font-size: 20px; }
+/* A phone keeps each site to one line (name, value, unit) so two fit in the small figure. */
+@media (max-width: 600px) { .cath-label.site { flex-direction: row; align-items: baseline; gap: 5px; padding: 4px 10px; border-radius: 11px; } .cath-label.site b { font-size: 16px; } .cath-label.site b + span { margin-top: 0; } }
+.cath-label.result small { color: var(--text-3); letter-spacing: .02em; }
+.cath-label.ok { --c: var(--ok); --c-ink: var(--ok-ink); } .cath-label.caution { --c: var(--caution); --c-ink: var(--caution-ink); } .cath-label.danger { --c: var(--danger); --c-ink: var(--danger-ink); }
+@media (max-width: 600px) { .cath-label { padding: 5px 12px 6px; } .cath-label b { font-size: 21px; } .cath-label small, .cath-label b + span { font-size: 12px; } }
+/* The result: both readings stacked, a bracket joining them and the difference worked out beside it. */
+.cath-sum { position: absolute; inset: 0; }
+.cath-leads { position: absolute; left: 0; top: 0; overflow: visible; }
+.cath-leads .lead { fill: none; stroke-width: 1.6; stroke: var(--text-3); stroke-linejoin: round; }
+.cath-leads .lead-dot { stroke: var(--surface); stroke-width: 1.5; fill: var(--text-3); }
+.cath-leads .free { stroke: var(--tr-hv); } .cath-leads .lead-dot.free { fill: var(--tr-hv); stroke: var(--surface); }
+.cath-leads .wedge { stroke: var(--tr-wedge); } .cath-leads .lead-dot.wedge { fill: var(--tr-wedge); stroke: var(--surface); } .cath-leads .pv { stroke: var(--tr-pv); } .cath-leads .lead-dot.pv { fill: var(--tr-pv); stroke: var(--surface); }
+.cath-sum-box { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 4px; translate: 0 var(--pre, 0px); transition: translate var(--d-surface) var(--ease); }
+.cath-sum-col { display: flex; flex-direction: column; gap: 10px; }
+.cath-label.in-sum { position: relative; translate: none; transition: none; } .cath-label.in-sum::before { transition: none; }
+.cath-label.in-sum > * { transition: opacity var(--d-surface) var(--ease); }
+.cath-sum-box.swap .cath-sum-col > :first-child { order: 1; }   /* (the readings stack in the order of their points: the lower point's reading is the lower row, stage-cath.js) */
+/* A short free band (a phone's, between the cards) keeps each reading to one line (name, value, unit), so the stack fits beside the vein. */
+.cath-sum-box.tight .cath-sum-col { gap: 6px; }
+.cath-sum-box.tight .cath-label.in-sum { flex-direction: row; align-items: baseline; gap: 5px; padding: 4px 10px 5px; border-radius: 11px; }
+.cath-sum-box.tight .cath-label.in-sum b { font-size: 17px; }
+.cath-sum-box.tight .cath-label.in-sum b + span { margin-top: 0; }
+.cath-brace { flex: none; overflow: visible; }
+.cath-brace path { fill: none; stroke: var(--text-3); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+/* The shadow fades with the body (the label's own shadow is not under the children's fade). */
+.cath-label.cath-pre::before, .cath-sum.cath-pre .cath-label::before, .cath-sum.cath-travel .cath-label.in-sum.calc::before { opacity: 0; }
+/* Going: everything fades at once and quickly, no staggered delays. */
+.cath-out .cath-label, .cath-label.cath-out, .cath-out .cath-label::before, .cath-label.cath-out::before, .cath-out .cath-label > *, .cath-label.cath-out > *, .cath-out .cath-brace, .cath-out .cath-leads { transition-duration: var(--d-small) !important; transition-delay: 0s !important; }
+/* A reading fades in when it appears and out when it goes (opacity and a few pixels of rise only). */
+.cath-label.cath-pre { --lo: 0; }
+.cath-sum.cath-pre .cath-label { --lo: 0; } .cath-sum.cath-pre .cath-brace, .cath-sum.cath-pre .cath-leads { opacity: 0; transition-delay: 0s; }
+/* The summary after the readings travel in: the bracket and leaders follow, then the HVPG fades and rises in. */
+.cath-sum .cath-brace, .cath-sum .cath-leads { transition: opacity var(--d-surface) var(--ease) .65s; }
+.cath-sum .cath-label.in-sum.calc { transition: translate var(--d-surface) var(--ease) .75s; } .cath-sum .cath-label.in-sum.calc::before, .cath-sum .cath-label.in-sum.calc > * { transition: opacity var(--d-surface) var(--ease) .75s; }
+.cath-sum.cath-travel .cath-brace, .cath-sum.cath-travel .cath-leads { opacity: 0; transition: none; }
+.cath-sum.cath-travel .cath-label.in-sum.calc { --lo: 0; transition: none; } .cath-sum.cath-travel .cath-label.in-sum.calc::before, .cath-sum.cath-travel .cath-label.in-sum.calc > * { transition: none; }
+.cath-sum.cath-travel .cath-label.in-sum.calc { translate: 0 6px; }
+.hvpg-kv dd.in { animation: fade-rise var(--d-surface) var(--ease); }
+@media (prefers-reduced-motion: reduce) { .hvpg-kv dd.in { animation-name: crossfade; } }
+/* A small rise from just below, never a scale: scale composes with the positioning transform and would slide the box in from the corner. */
+.cath-label.cath-pre:not(.in-sum), .cath-sum.cath-pre .cath-sum-box { --pre: 6px; }
+/* The HVPG readings (cath-js) come in with no rise: their place is their transform's alone, so the glass and the shadow drawn on the GPU and the body in the page never differ by an eased translate (a percentage the glass cannot follow). */
+.cath-label.cath-js.cath-pre { --pre: 0px; }
+@media (prefers-reduced-motion: reduce) { .cath-label, .cath-label.site, .cath-sum-box { transition-property: opacity; } .cath-label.cath-pre:not(.in-sum), .cath-sum.cath-pre .cath-sum-box { --pre: 0px; } }
+/* HVPG procedure (Measure › HVPG): the monitor canvas, the readings and the four steps. */
+.instrument-view[data-pane="hvpg"] { gap: 10px; }
+.instrument-view[data-pane="hvpg"] > .hvpg-bar { grid-column: 1 / -1; }
+/* Tests › IR (ir-tips.js): one view at a time. The Measure view's parts and the TIPS view are children of the one pane; the switch in its head row sets data-view. */
+.instrument-view[data-pane="hvpg"][data-view="tips"] > :not(.ir-tips, .lf-ghost) { display: none; }
+.instrument-view[data-pane="hvpg"]:not([data-view="tips"]) > .ir-tips { display: none; }
+.ir-switch { margin: 0 0 8px; }
+.ir-switch .ps-btn { transition: opacity var(--d-small) var(--ease); }
+.ir-switch .ps-btn.off { opacity: .42; }   /* (no stent: dimmed, never hidden, so nothing pops in when one is placed; a tap says why) */
+.ir-tips { display: flex; flex-direction: column; gap: 8px; min-width: 0; container-type: inline-size; overflow: hidden auto; touch-action: pan-y; overscroll-behavior: contain; scrollbar-width: thin; }   /* (scrolls only as a last resort: the pictures never shrink below a readable size to avoid it) */
+/* The TIPS view fills the card as it stands and never scrolls (Mohammad, 17 Nov 2026: "fit the TIPS card, no need to scroll, compact but beautiful"): the card's pane is a flex column, the
+   view takes what the switch rows leave, and the figures take what the rows above them leave (the tiles in one row, the chips and the sub-switch slim). */
+.instrument-view[data-pane="hvpg"][data-view="tips"] { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; align-items: stretch; gap: 0; }
+.instrument-view[data-pane="hvpg"][data-view="tips"] > .ir-tips { flex: 1 1 0; min-height: 0; }
+/* The TIPS view (ir-tips.js; 17 Nov 2026, the approved mock tips-cards-elegant.html): a title row, one line of numbers, the stent and its chart, three rows. */
+.ir-top { position: relative; display: flex; align-items: center; gap: 4px 10px; min-height: 36px; flex: none; }
+.ir-chips { display: flex; gap: 2px; }
+.ir-chip { min-height: 32px; padding: 0 10px; border: 0; border-radius: 8px; background: none; color: var(--text-2); cursor: pointer; font: 600 var(--fs-16) var(--font-ui); letter-spacing: -.01em; animation: crossfade var(--d-small) var(--ease); }
+.ir-chip[aria-pressed="true"] { color: var(--text); background: color-mix(in srgb, var(--text) 7%, transparent); }
+.ir-chips[data-n="0"] .ir-chip, .ir-chips[data-n="1"] .ir-chip { padding: 0; background: none; color: var(--text); pointer-events: none; }   /* (one stent: its name is the title) */
+.ir-chip:focus-visible, .ir-more:focus-visible, .ir-mi:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ir-status { display: inline-flex; align-items: center; gap: 6px; font: 500 var(--fs-12) var(--font-ui); color: var(--text-2); white-space: nowrap; }
+.ir-status[data-sev="caution"] { color: var(--caution-ink); }   /* (no status dot, 15 Oct: the state shows in the colour of its own words) */
+.ir-lens { margin: 0 0 0 auto; flex: none; transition: opacity var(--d-small) var(--ease); }
+.ir-tips:not([data-sub="inside"]) .ir-lens { opacity: 0; pointer-events: none; }   /* (it colours the stent: no stent drawn, no switch; faded, never popped) */
+.ir-more { flex: none; display: grid; place-items: center; width: 36px; height: 36px; margin-right: -8px; border: 0; border-radius: 8px; background: none; color: var(--text-2); cursor: pointer; }
+.ir-more[aria-expanded="true"] { color: var(--text); background: color-mix(in srgb, var(--text) 7%, transparent); }
+.ir-menu { position: absolute; top: 40px; right: 0; z-index: 6; display: grid; min-width: 200px; padding: 4px; border-radius: 12px; background: var(--surface); box-shadow: var(--shadow-menu), inset 0 0 0 1px var(--hairline);
+  opacity: 0; transform: translateY(-4px) scale(.98); transform-origin: 100% 0; pointer-events: none; transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
+.ir-menu[data-open="true"] { opacity: 1; transform: none; pointer-events: auto; }
+.ir-mi { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px 0 8px; border: 0; border-radius: 8px; background: none; color: var(--text); cursor: pointer; text-align: left; font: 500 var(--fs-14) var(--font-ui); }
+@media (hover: hover) { .ir-mi:hover { background: color-mix(in srgb, var(--text) 7%, transparent); } }
+.ir-mi .ir-mi-ic { width: 16px; height: 16px; color: var(--accent-ink); opacity: 0; }
+.ir-mi[aria-checked="true"] .ir-mi-ic { opacity: 1; }
+/* The one line of numbers never wraps, at any value or width (play-test 17 Nov 2026: "PPG 18.3 mmHg  1.0 L/min  580 cm/s" broke in a 240 px card and pushed the tiles down).
+   Each number has a width of its own (so a changing digit moves nothing) and the type scales with the line's width (cqi), up to its usual size. */
+.ir-keys { display: flex; flex-wrap: nowrap; align-items: baseline; column-gap: clamp(6px, 3cqi, 16px); row-gap: 0; flex: none; container-type: inline-size; min-width: 0; }
+.ir-kv { white-space: nowrap; min-width: 0; font: 500 min(var(--fs-12), 3.2cqi) var(--font-ui); color: var(--text-3); }
+.ir-kv em { font-style: normal; color: var(--text-2); }
+.ir-kv b { display: inline-block; margin: 0 3px; font-size: 1.33em; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--text); text-align: right; }
+.ir-kv[data-k="ppg"] b { min-width: 4.2ch; }   /* (18.3, up to 100.0) */
+.ir-kv[data-k="dp"] b { min-width: 3.4ch; }
+.ir-kv[data-k="flow"] b { min-width: 3.2ch; }   /* (1.0 to 9.9) */
+.ir-kv[data-k="peak"] b { min-width: 3.4ch; }   /* (580, up to 1241) */
+.ir-kv u { text-decoration: none; }
+.ir-zone { flex: none; }
+.tf { min-width: 0; }
+/* The TIPS and DIPS vessel card (tips-vessel.js): the stent to scale, one line of numbers, the three tiles. An open tile's tray unrolls under them and the
+   card's Doppler, Dye and Remove fold away while it is open (option A, 17 Nov); nothing covers the stent. */
+.tv { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.tv > .tf { margin-top: 4px; }   /* (the mock: 10 px under the name, 8 px over the numbers, 10 px over the rows) */
+.tv-keys { padding: 0 2px; column-gap: 4px; }   /* (the vessel card's three readings: 12 px, the standing floor, on one line in a 240 px card: 243 px of content with the line's own 7 px gap, 237 with this) */
+.tv-keys .ir-kv { font-size: var(--fs-12); }   /* (the line's own type scaled with its width, min(12px, 3.2cqi): 7.6 px words and 8.8 px numbers in a 240 px card, on Mac, iPad and iPhone; the layout sweep, 18 Nov) */
+.tv-keys .ir-kv b { font-size: 1.17em; }   /* (the three on one line in a 240 px card) */
+.ac-panel:has(> .tv) { position: relative; z-index: 4; }
+.ac-panel:has(> .tv) + .ac-as { transition: opacity var(--d-small) var(--ease); flex-wrap: wrap; gap: 0 12px; align-content: center; min-height: 48px; border-top: 1px solid var(--hairline); }
+:is(.ac-body, .ac-ghost) > .ac-panel:has(> .tv) + .ac-as { margin-top: 6px; animation: crossfade var(--d-small) var(--ease); }   /* (right under the tiles; back in by a fade when a tray closes) */
+.tv .ir-keys { margin-bottom: 2px; }
+.ac-panel:has(> .tv .se-panel:not([data-open=""])) + .ac-as { position: absolute; top: var(--as-top, 0px); left: var(--as-left, 0px); width: var(--as-w, 100%); box-sizing: border-box; margin: 0; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity var(--d-small) var(--ease), visibility 0s linear var(--d-small); animation: none; }   /* (the open tray's room: the actions leave the flow at once and fade where they stood, under the tray as it unrolls, never popping off, 17 Nov 2026; stent-editor.js holdActions writes where; back in by the fade above when the tray has gone) */
+.tf-stage { width: 100%; height: 60px; }   /* (its height is the figure's own, written when its width changes: tips-figure.js fit) */
+/* The stent editor (stent-editor.js; option A, the tab tray, 17 Nov 2026: /mnt/project-files/stent-tile-mocks/stent-tiles-three-ways.html). Three tiles side by
+   side, 64 px: the name and a chevron, the value, one small line. The open tile fills in (its own fill, faded, square at the foot) and the tray unrolls from
+   under it (stent-editor.js roll: transforms only); a patch the tile's width squares the tray's corner under it and glides to the next tile. */
+.stent-editor { position: relative; min-width: 0; max-width: 100%; container-type: inline-size; animation: crossfade var(--d-small) var(--ease); }
+.se-zone { position: relative; min-width: 0; container-type: inline-size; }
+.stent-editor .se-rows { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; position: relative; z-index: 1; }
+.stent-editor .se-row { position: relative; display: flex; flex-direction: column; justify-content: center; min-width: 0; min-height: 64px; padding: 9px 10px 9px 12px; border: 0; border-radius: 12px; background: var(--surface-2); color: var(--text); cursor: pointer; text-align: left; font: inherit; isolation: isolate; -webkit-tap-highlight-color: transparent; }
+.stent-editor .se-row:active { opacity: .6; transition-duration: 0s; }
+.stent-editor .se-row:focus-visible, .se-panel .se-done:focus-visible, .stent-editor .se-summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 12px; }
+.stent-editor .se-tfill { position: absolute; inset: 0; z-index: -1; border-radius: 12px 12px 0 0; background: var(--surface-3); opacity: 0; transition: opacity var(--d-small) var(--ease); pointer-events: none; }
+.stent-editor .se-row[aria-expanded="true"] .se-tfill { opacity: 1; }
+.stent-editor .se-tc { display: flex; align-items: center; justify-content: space-between; gap: 4px; min-width: 0; }
+.stent-editor .se-row-n { font: 500 var(--fs-12)/16px var(--font-ui); color: var(--text-3); white-space: nowrap; }
+.stent-editor .se-row[aria-expanded="true"] .se-row-n { color: var(--accent-ink); }
+.stent-editor .se-row-c { flex: none; width: 12px; height: 12px; color: var(--text-3); transition: transform var(--d-surface) var(--ease); }
+.stent-editor .se-row[aria-expanded="true"] .se-row-c { transform: rotate(180deg); color: var(--accent-ink); }
+.stent-editor .se-row-v { min-width: 0; font: 500 var(--fs-12)/22px var(--font-ui); color: var(--text-2); white-space: nowrap; }
+.stent-editor .se-row-v b { font: 500 var(--fs-16)/22px var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text); }
+.stent-editor .se-row-v u { text-decoration: none; }
+.stent-editor .se-row-v.se-none b { color: var(--text-3); font-weight: 400; }
+.stent-editor .se-ts { min-width: 0; font: 500 var(--fs-12)/16px var(--font-ui); color: var(--text-3); white-space: nowrap; }
+/* (A narrow card, the shelf's 240 px: the tiles' padding and the number a size down, and the small line may take two lines, so nothing is ever cut.) */
+@container (max-width: 299px) {
+  .stent-editor .se-rows { gap: 6px; }
+  .stent-editor .se-row { padding: 8px 8px; }
+  .stent-editor .se-row-v b { font-size: var(--fs-14); }
+  .stent-editor .se-ts { white-space: normal; }
+}
+@media (hover: hover) { .stent-editor .se-row:not([aria-expanded="true"]):hover .se-row-c { color: var(--text-2); } }
+/* The tray: in the card's flow under the tiles (never over the stent or its chart), shown while a tile is open; it clips its paper as it unrolls. */
+.se-panel { position: relative; overflow: hidden; container-type: inline-size; }
+.se-panel[data-open=""] { display: none; }
+.se-panel .se-tin { position: relative; }
+.se-panel .se-paper { position: absolute; inset: 0; pointer-events: none; }
+.se-panel .se-bg { position: absolute; left: 0; right: 0; background: var(--surface-3); }
+.se-panel .se-bg-t { top: 0; height: 12px; border-radius: 12px 12px 0 0; }
+.se-panel .se-bg-m { top: 12px; bottom: 12px; transform-origin: 0 0; }
+.se-panel .se-bg-b { bottom: 0; height: 12px; border-radius: 0 0 12px 12px; }
+.se-panel .se-join { position: absolute; top: 0; left: 0; width: 0; height: 12px; background: var(--surface-3); transform-origin: 0 0; }
+.se-panel .se-leave { pointer-events: none; }   /* (what a closing tile showed, fading where it stood while the next tile's fade in: stent-editor.js leave) */
+.se-panel .se-pb.se-leave { position: absolute; left: 0; right: 0; top: 0; }
+.se-panel .se-fl.se-leave { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); }   /* (centred as the foot centres its line, and no display of its own: its choice keeps the width it had) */
+.se-panel .se-pb { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 22px; row-gap: 2px; padding: 10px 14px 0; }
+@container (min-width: 460px) { .se-panel .se-pb { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); } }
+.se-panel .se-foot { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 0 0 0 14px; }
+.se-panel .se-fl { min-width: 0; }
+.se-panel .se-hint { font: 500 var(--fs-12)/16px var(--font-ui); color: var(--text-3); white-space: nowrap; }
+.se-panel .se-done { flex: none; min-height: 44px; min-width: 58px; padding: 0 14px; border: 0; background: none; color: var(--accent-ink); cursor: pointer; font: 600 var(--fs-14) var(--font-ui); transition: transform var(--d-flip) var(--ease); }
+.se-panel .se-done:active { transform: scale(.96); }
+.se-panel .se-ctl { display: grid; grid-template-columns: minmax(0, 1fr); align-content: center; min-width: 0; min-height: 48px; }
+.se-panel .se-ctl.se-dim { opacity: .45; }
+.se-panel .se-cap { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0 6px;   /* (6 px under the words: the thumb at the end of its track no longer covers 'No waist' or 'Open', play-test 17 Nov 2026) */ font: 500 var(--fs-12)/16px var(--font-ui); color: var(--text-3); }
+.se-panel .se-cap b { font-weight: 500; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.se-panel .se-ctl input[type="range"] { width: 100%; min-width: 0; height: 32px; margin: 0; }   /* (the app's 32 px thumb fits inside it, clear of the caption above) */
+.se-panel .se-ctl-seg { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.se-panel .se-ctl-seg .se-cap { padding: 0; white-space: nowrap; }
+.se-panel .se-seg { position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); padding: 2px; border-radius: 9px; background: var(--surface-2); isolation: isolate; }
+.se-panel .se-thumb { position: absolute; top: 2px; bottom: 2px; left: 2px; width: calc(50% - 2px); border-radius: 7px; background: var(--border-strong); box-shadow: var(--shadow-1); z-index: -1; transition: transform var(--d-small) var(--ease); }
+.se-panel .se-seg[data-at="1"] .se-thumb { transform: translateX(100%); }   /* (two choices, equal widths: the thumb slides by a transform, never a width) */
+.se-panel .se-seg button { min-height: 28px; padding: 0 10px; border: 0; border-radius: 7px; background: none; color: var(--text-2); font: 500 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; }
+.se-panel .se-seg button { position: relative; } .se-panel .se-seg button::after { content: ''; position: absolute; inset: -8px 0; }   /* (28 px to see, 44 px to tap, F33) */
+.se-panel .se-seg button[aria-pressed="true"] { color: var(--text); }
+/* The folded line (F39): the Tests view's editor is on screen, so a vessel card shows the stent's narrowings where its rows were, a button into that view. */
+.stent-editor .se-summary { display: none; width: 100%; align-items: center; gap: 4px; min-height: 44px; padding: 4px 2px; border: 0; border-top: 1px solid var(--hairline); background: none; text-align: left; cursor: pointer; font: 500 var(--fs-12)/1.4 var(--font-ui); color: var(--text-2); font-variant-numeric: tabular-nums; -webkit-tap-highlight-color: transparent; }
+.stent-editor .se-sum-t { flex: 1 1 auto; min-width: 0; }
+.stent-editor .se-sum-ic { flex: none; width: 14px; height: 14px; color: var(--text-3); }
+.stent-editor[data-fold="true"] > .se-rows { display: none; }   /* (a child rule: the rows going out are in the leaving view's ghost, leave-fade.js, which stays) */
+.stent-editor[data-fold="true"] > .se-summary { display: flex; animation: crossfade var(--d-small) var(--ease); }
+.stent-editor .lf-ghost .se-summary { display: flex; }   /* (the line going out fades in the ghost where it stood, leave-fade.js) */
+.lf-ghost { position: relative; flex: none; display: flex; flex-direction: column; pointer-events: none; }   /* (a leaving view's ghost: it stands where the view stood and takes no room, leave-fade.js) */
+.ir-inside { flex: none; display: flex; flex-direction: column; gap: 8px; }
+.ir-tips:is([data-sub="compare"], [data-sub="curves"]) > .ir-inside { display: none; }   /* (one sub-view at a time; the one that comes in fades up, ir-tips.js setSub) */
+.ir-tips:not([data-sub="compare"]) > .ir-compare { display: none; }
+.ir-tips:not([data-sub="curves"]) > .ir-curves { display: none; }
+.ir-compare, .ir-curves { display: flex; flex-direction: column; gap: 8px; }
+.ir-curves { flex: 1 1 0; min-height: 0; }
+/* The curves (ir-curves.js): the deck's own chart, given a height here (its deck sizes come from the slide card); the note about a stent with no narrowing fades, never pops. */
+.ir-chart { flex: 1 1 0; min-height: 150px; display: grid; }
+.ir-chart .pz-curve { height: 100%; min-height: 0; --pz-fit: 1; }
+.ir-sweep { align-self: flex-start; flex-wrap: wrap; }
+.ir-work { margin: 0; opacity: 0; transition: opacity var(--d-small) var(--ease); }
+.ir-curves[data-state="working"] .ir-work { opacity: 1; }
+.ir-chart { transition: opacity var(--d-surface, .42s) var(--ease); }
+.ir-curves[data-state="working"] .ir-chart { opacity: .25; }   /* (the lines are worked out for 10 s or more: the chart rests faded, says so beneath, and fades up when they are drawn) */
+.ir-warn { margin: 0; opacity: 0; transition: opacity var(--d-small) var(--ease); }
+.ir-curves[data-flat="1"] .ir-warn { opacity: 1; }
+.ir-note { margin: 0; }
+.hvpg-bar { display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; }
+.hvpg-bar .btn { flex: none; }
+.hvpg-kv { flex: 1; display: grid; grid-template-columns: repeat(3, minmax(56px, auto)); justify-content: start; gap: 18px; margin: 0; }
+/* (The unit on the name's own line, never wrapped: "FHVP ·" over "mmHg" read as a break, sweep batch 03, shot 30; a line of its
+   own instead cost the monitor 19 px on an iPad and cut the words under it sideways, sweep 2 review items 6 and 7.) */
+.hvpg-kv dt { font-size: 12px; font-weight: 600; letter-spacing: .05em; color: var(--text-3); white-space: nowrap; }
+.hvpg-kv dd { margin: 0; font-size: 17px; line-height: 1.2; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; transition: none; }
+.hvpg-kv dt::after { content: '\00a0· mmHg'; font-weight: 500; letter-spacing: 0; }
+.hvpg-box { border-radius: var(--r-card); background: var(--mon-bg); }
+.hvpg-kv dd[data-sev="ok"] { color: var(--ok-ink); }
+.hvpg-kv dd[data-sev="caution"] { color: var(--caution-ink); }
+.hvpg-kv dd[data-sev="danger"] { color: var(--danger-ink); }
+/* (A vein that cannot be catheterized, Budd–Chiari: each reading says "Not measurable" in the small grey word, on two lines in its column, never a dash.) */
+.hvpg-kv dd[data-nm="1"] { font-size: 12px; font-weight: 600; color: var(--text-3); white-space: normal; max-width: 9ch; line-height: 1.2; }
+/* The four steps, in one row: a numbered dot and a word each. */
+.hvpg-steps { margin: 0; padding: 0; list-style: none; counter-reset: hs; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--text-3); }
+.hvpg-steps li { counter-increment: hs; display: flex; align-items: center; gap: 6px; }
+.hvpg-steps li::before { content: counter(hs); flex: none; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 600; border: 1px solid var(--border); }
+.hvpg-steps li[data-state="now"] { color: var(--text); font-weight: 600; }
+.hvpg-steps li[data-state="now"]::before { border-color: var(--accent); color: var(--accent-ink); }
+.hvpg-steps li[data-state="done"] { color: var(--text-2); }
+.hvpg-steps li[data-state="done"]::before { content: '✓'; background: var(--accent-soft); border-color: transparent; color: var(--accent-ink); }
+.hvpg-caption { min-height: 3em; margin: 0; }
+.hvpg-note { margin: 0; font-size: 12px; }
+/* The treatments played on the same anatomy (proc-anim.js): a row of small buttons under the caption; one the patient cannot
+   have is dimmed (a tap says why), the one playing is pressed. */
+.hvpg-procs { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
+.hvpg-procs-k { font-size: 12px; font-weight: 600; letter-spacing: .05em; color: var(--text-3); }
+.hvpg-proc-btn { gap: 6px; }
+.hvpg-proc-btn[hidden] { display: none; }   /* (BRTO and BATO: only with gastric varices) */
+.hvpg-proc-btn:not([hidden]) { animation: crossfade var(--d-small) var(--ease); }   /* (BRTO and BATO come in with gastric varices: they fade up, they do not pop) */
+.hvpg-proc-btn :is(svg, .ic) { width: 12px; height: 12px; }
+.hvpg-proc-btn.off:not(:disabled) { opacity: .55; }
+/* The PPG by IR (ir-ppg.js): the one monitor takes the HVPG tracing's place, its box a direct item of the pane, so every rule for the tracing's box holds for it. */
+.hvpg-ir, .hvpg-ir .pz-reading { display: contents; }
+.hvpg-ir[hidden], .hvpg-steps[hidden] { display: none; }
+.hvpg-proc-btn[aria-pressed="true"]:disabled { opacity: 1; cursor: default; }
+/* A phone held sideways (a short side card): the rows sit a little closer, so the monitor keeps its least height and the
+   description under it ends at least 8 px above the card's foot (sweep 2 review item 6: cut after its second line). */
+@container (max-height: 300px) {
+  .instrument-workspace.side .dock-pane > .instrument-view[data-pane="hvpg"] { gap: 4px; }
+  .instrument-workspace.side .instrument-view[data-pane="hvpg"] > .hvpg-bar { row-gap: 6px; }
+  .instrument-workspace.side .instrument-view[data-pane="hvpg"] > .chart-side { gap: 4px; }
+  .instrument-workspace.side .instrument-view[data-pane="hvpg"] .hvpg-caption { min-height: 0; line-height: 16px; }
+  .instrument-workspace.side .instrument-view[data-pane="hvpg"] .hvpg-note { display: none; }   /* (its room goes to the procedure buttons) */
+}
+@media (max-width: 600px) {
+  .instrument-view[data-pane="hvpg"] .chart-box { height: clamp(170px, 26vh, 220px); }
+  .hvpg-bar { gap: 8px 12px; }
+  .hvpg-bar .btn { padding-inline: 12px; }
+  .hvpg-kv { gap: 12px; }
+  .hvpg-kv dd { font-size: 15px; }
+  .hvpg-kv dt::after { content: none; }
+  .hvpg-caption { min-height: 0; }
+}
+.workspace-comparison { display: flex; gap: 20px; flex: none; padding: 8px 20px; background: var(--accent-soft); font-size: var(--fs-12); color: var(--text-2); overflow-x: auto; white-space: nowrap; }
+.workspace-comparison > span { display: inline-flex; gap: 8px; }
+.workspace-comparison b { color: var(--text); font-variant-numeric: tabular-nums; }
+.workspace-comparison .comparison-label { color: var(--accent-ink); font-weight: 600; }
+.app.instrument-focus .stage-view, .app.instrument-focus #stageTop { display: none; }
+.app.instrument-focus .instrument-workspace { height: auto; flex: 1; }
+.app.instrument-focus .panel { display: none; }
+.app.instrument-focus { grid-template-columns: minmax(0, 1fr) 0; }
+@container (min-width: 650px) {
+  .instrument-view { grid-template-columns: minmax(0, 1fr) 260px; }
+  .instrument-view[data-pane="perfusion"] { grid-template-columns: minmax(0, .75fr) minmax(0, 1fr); }
+  .instrument-view[data-pane="perfusion"] > .chart-side { grid-column: 1 / -1; }
+}
+@container (min-width: 1050px) {
+  .instrument-view[data-pane="perfusion"] { grid-template-columns: minmax(220px, .55fr) minmax(0, 1.2fr) 240px; }
+  .instrument-view[data-pane="perfusion"] > .chart-side { grid-column: auto; }
+}
+@media (max-width: 1279px) {
+  .app.instrument-focus { grid-template-columns: minmax(0, 1fr); }
+  .instrument-workspace .dock-head { padding-inline: 12px; }
+}
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
+  .measure-launch { width: 36px; min-height: 36px; padding: 0; }
+  .measure-launch > span { display: none; }
+  .instrument-workspace .dock-head { height: 48px; gap: 4px; flex-wrap: wrap; padding-inline: 8px; }
+  .instrument-workspace .dock-title { flex: 1; font-size: var(--fs-14); }
+  .instrument-workspace .dock-title .dt-l { max-width: 175px; }
+  .instrument-workspace .dock-title { flex: 0 1 auto; }
+  .instrument-workspace .dock-head .ib { width: 30px; height: 34px; }
+  .instrument-workspace[data-state="peek"] { height: 70px; }
+  .instrument-workspace[data-state="peek"] .dock-head { height: 70px; }
+  .instrument-workspace .dock-pane { padding: 12px 14px calc(16px + env(safe-area-inset-bottom)); }
+  .instrument-workspace .instrument-view .chart-box { min-height: 190px; }
+  .workspace-comparison { gap: 14px; padding: 7px 14px; }
+  .workspace-comparison .comparison-label { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .workspace-divider span { transition: none; }
+}
+
+/* ── Pressure over time ─────────────────────────── */
+.instrument-view.pt { display: flex; flex-direction: column; align-items: stretch; gap: 10px; min-height: 100%; }
+/* The header is one row on every screen: HVPG, its number, and the status over its trend. Smooth and the range switch
+   sit with the trace pills under the chart, together at the right end of the pills' last line (they wrap, never scroll). */
+.pt-head { display: flex; align-items: center; gap: 8px; }
+.pt-hero { display: flex; align-items: baseline; gap: 6px 8px; flex-wrap: wrap; min-width: 0; }
+.pt-st { display: flex; flex-direction: column; align-self: center; gap: 2px; }
+.pt-ctl { display: flex; align-items: center; gap: 6px; flex: none; margin-left: auto; }
+.pt-k { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); letter-spacing: .02em; }
+.pt-v { display: inline-flex; align-items: baseline; gap: 4px; }
+.pt-num { font-size: var(--fs-28); font-weight: 600; letter-spacing: -.02em; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
+.pt-v small { font-size: var(--fs-12); color: var(--text-3); font-weight: 500; }
+.pt-sev { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-12); font-weight: 600; color: var(--text-2); }
+.pt-sev[data-sev="caution"] { color: var(--caution-ink); }
+.pt-sev[data-sev="danger"] { color: var(--danger-ink); }
+.pt-delta { font-size: var(--fs-12); line-height: 1.2; color: var(--text-3); font-variant-numeric: tabular-nums; min-width: min-content; min-height: 1.2em; }   /* (never cut with an ellipsis; its line is kept while it is empty, so the header never jumps) */
+.pt-delta[data-dir="up"] { color: var(--danger-ink); }
+.pt-delta[data-dir="down"] { color: var(--ok-ink); }
+.pt-range { flex: none; height: 28px; padding-block: 2px; }
+.pt-smooth { flex: none; }
+.pt-range button { min-height: 0; padding-block: 0; padding-inline: 10px; font-size: var(--fs-12); }   /* (the pill fills the track at the pills' height; a touch screen's 36 px button floor would push it below them) */
+.instrument-workspace .instrument-view.pt .pt-box { flex: 1 1 0; height: auto; min-height: 180px; }
+.pt-box canvas { touch-action: pan-y; cursor: crosshair; }
+.pt-chips { display: flex; gap: 6px; flex-wrap: wrap; flex: none; }
+.pt-chips::-webkit-scrollbar { display: none; }
+.pt-chip { --chip: var(--text-3); display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 11px 0 9px; border-radius: var(--r-pill); border: 1px solid var(--border); background: transparent; color: var(--text-3); font: 500 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; transition: scale var(--d-flip) var(--ease); }
+.pt-chip i { width: 12px; height: 3px; border-radius: 2px; background: color-mix(in srgb, var(--chip) 35%, transparent); }
+.pt-chip[aria-pressed="true"] { color: var(--text); background: var(--surface-2); border-color: transparent; }
+.pt-chip[aria-pressed="true"] i { background: var(--chip); }
+.pt-chip:disabled { opacity: 0.4; cursor: default; }   /* (the EKG pill outside the last-beats range) */
+@media (hover: hover) { .pt-chip:hover { border-color: var(--border-strong); } }
+/* (Pills and small buttons: a finger's tap area reaches 4 px past their top and bottom and 2 px past their sides, over no neighbour: they are 28 to 36 px high.) */
+@media (pointer: coarse) {
+  .pt-chip, .ab-drain, .dop-tint, .ac-btn, .ac-toggle { position: relative; }
+  .pt-chip::before, .ab-drain::before, .dop-tint::before, .ac-btn::before, .ac-toggle::before { content: ''; position: absolute; inset: -4px -2px; }   /* (::before: a verb's number key is its ::after) */
+}
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
+  .pt-num { font-size: var(--fs-28); }
+}
+
+/* ── Doppler ────────────────────────────────────── */
+.instrument-view.dop { display: flex; flex-direction: column; align-items: stretch; gap: 10px; min-height: 100%; }
+.dop-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex: none; min-width: 0; }
+.dop-tint:disabled { opacity: .4; cursor: default; }
+.dop-vessel { min-width: 0; max-width: 220px; flex: 0 1 220px; height: 34px; font-weight: 600; }
+/* A stent segment's tile is a button: its name is the button, stretched (::after) over the whole tile. */
+.dop-stats > div:has(> dt > .dop-seg) { position: relative; cursor: pointer; }
+.dop-seg { all: unset; box-sizing: border-box; touch-action: manipulation; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; cursor: pointer; }
+.dop-seg::after { content: ''; position: absolute; inset: 0; border-radius: inherit; }
+.dop-seg:focus-visible { outline: none; }
+.dop-seg:focus-visible::after { outline: 2px solid var(--focus, var(--accent)); outline-offset: 2px; }
+.dop-tint { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px 0 10px; border-radius: var(--r-pill); border: 1px solid var(--border); background: transparent; color: var(--text-2); font: 500 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; }
+.dop-tint i { width: 14px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, var(--dop-chip-toward) 50%, var(--dop-chip-away) 50%); opacity: .35; transition: opacity var(--d-flip) var(--ease); }
+.dop-tint[aria-pressed="true"] { color: var(--text); background: var(--surface-2); border-color: transparent; }
+.dop-tint[aria-pressed="true"] i { opacity: 1; }
+.dop-inv i { width: auto; height: auto; background: none; font-style: normal; line-height: 1; }
+.dop-sweep { justify-content: flex-start; gap: 8px; width: 68px; flex: 0 0 68px; padding-inline: 10px; font-variant-numeric: tabular-nums; }
+.dop-sweep :is(svg, .ic) { width: 14px; height: 14px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; opacity: .8; } .dop-sweep .ic { -webkit-mask-image: url("../brand/icons/icons-r.png"); mask-image: url("../brand/icons/icons-r.png"); background-color: currentColor; }
+.dop-sweep-label { flex: 0 0 24px; text-align: left; }
+.dop-btns { display: flex; gap: 4px; flex: none; }
+.dop-main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; flex: 1 1 0; min-height: 0; }
+.instrument-workspace .instrument-view.dop .dop-box { height: auto; min-height: 200px; border-radius: var(--r-card); overflow: hidden; }
+.dop-report > * { transition: opacity var(--d-small) var(--ease); }
+.dop-report { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.dop-dir { font-size: var(--fs-20); font-weight: 600; letter-spacing: -.01em; line-height: 1.2; color: var(--text); display: inline-flex; align-items: center; gap: 8px; }
+.dop-dir[data-sev="caution"] { color: var(--caution-ink); }
+.dop-dir[data-sev="danger"], .dop-dir[data-sev="critical"] { color: var(--danger-ink); }
+.dop-velrow { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin-top: 6px; }
+.dop-vel { display: inline-flex; align-items: baseline; gap: 6px; }
+.dop-vel b { font-size: var(--fs-28); font-weight: 600; letter-spacing: -.02em; line-height: 1; font-variant-numeric: tabular-nums; min-width: 3.4ch; }   /* (room for a minus and two digits: the unit beside it stays put as a reading crosses -10 or -100) */
+.dop-vel small { font-size: var(--fs-12); color: var(--text-3); }
+.dop-range { font-size: var(--fs-12); color: var(--text-3); }
+.dop-pattern { margin-top: 6px; font-size: var(--fs-14); font-weight: 600; color: var(--text); }
+.dop-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; margin: 8px 0 0; padding-top: 8px; border-top: 1px solid var(--hairline); }
+.dop-stats > div[hidden] { display: none; }
+.dop-stats dt { font-size: var(--fs-12); color: var(--text-3); font-weight: 500; }
+.dop-stats dd { margin: 0; font-size: var(--fs-14); font-weight: 600; font-variant-numeric: tabular-nums; }
+.dop-note { margin: 8px 0 0; font-size: var(--fs-12); line-height: 1.5; color: var(--text-2); }
+@container (min-width: 620px) {
+  .dop-main { grid-template-columns: minmax(0, 1fr) 232px; }
+}
+@container (max-width: 619px) or style(--one-col: 1) {
+  .dop-main { flex: none; gap: 12px; }
+  .instrument-workspace .instrument-view.dop .dop-box { height: clamp(180px, 30vh, 260px); flex: none; }
+  .dop-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .dop-vessel { flex: 0 1 180px; max-width: 180px; }
+}
+@container (max-width: 480px) {
+  .dop-head { gap: 6px; }
+  .dop-tint:not(.dop-sweep) { gap: 6px; padding-inline: 8px; }
+  .dop-sweep { gap: 6px; padding-inline: 8px; }
+}
+
+/* ── HVPG ───────────────────────────────────────── */
+.instrument-view.hv { display: flex; flex-direction: column; align-items: stretch; gap: 10px; min-height: 100%; }
+
+
+/* Moving blood: the Blood menu beside the lens, and the origin key in the figure. */
+/* Moving blood is off until asked for (the first screen), so off is the button unlit: its icon and word in the quiet ink, nothing struck through. Lit, in full ink. */
+#btnBlood.off :is(svg, .ic):first-child, #btnBlood.off span { color: var(--text-3); }
+#btnBlood:not(.off) :is(svg, .ic):first-child, #btnBlood:not(.off) span { color: var(--text); }
+.blood-pop { width: min(340px, calc(100vw - 24px)); }
+.blood-pop .menu-item small { display: block; color: var(--text-2); font-size: var(--fs-12); line-height: 1.4; margin-top: 2px; font-weight: 400; }
+@media (max-width: 600px) { #btnBlood > span, #btnBlood .chev { display: none; } }
+
+/* A stent's vessel card holds the same editor as the TIPS view (actions.js STENT_PANEL, card.js panel): one row, its own container so the chips take their narrow form. */
+.ac-panel { container-type: inline-size; min-width: 0; max-width: 100%; overflow-x: clip; margin-top: 6px; }

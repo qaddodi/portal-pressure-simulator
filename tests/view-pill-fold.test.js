@@ -6,11 +6,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { foldPlan, faceClip, coverFade, easeIO3, FOLD_MS, FOLD_EASE } from '../src/ui/pill-motion.js';
+import { appCss, lobuleSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const main = read('../src/ui/main.js');
 const motion = read('../src/ui/pill-motion.js');
-const css = read('../styles/app.css');
+const css = appCss();
 
 // The pill's buttons in their order, with a 2 px gap and 6 px of face around them, centred on the pill (px from its centre).
 const ORDER = ['circuit', 'anatomic', 'lobule', 'sinusoid'];
@@ -93,8 +94,8 @@ test('the row is cut to the face, which at rest is the pill itself', () => {
 test('the fold is wired to every change of the pill\'s buttons, on the zoom\'s clock', () => {
   // (17 Oct, Mohammad: the folding "should be faster and eased".) Quicker than the zoom out (950 ms) and the dive, on the app's ease.
   assert.ok(FOLD_MS >= 300 && FOLD_MS <= 500, `${FOLD_MS} ms`);
-  assert.ok(FOLD_MS < +read('../src/ui/lobule-zoom.js').match(/ms = \(reduce\.matches \? 280 : on \? \d+ : (\d+)\)/)[1] / 2 && FOLD_MS < +read('../src/ui/motion.js').match(/RISE_MS = (\d+)/)[1] / 2);
-  assert.equal(FOLD_EASE, read('../styles/tokens.css').match(/--ease-arrive: (cubic-bezier\([^)]*\))/)[1]);
+  assert.ok(FOLD_MS < +lobuleSource().match(/ms = \(reduce\.matches \? 280 : on \? \d+ : (\d+)\)/)[1] / 2 && FOLD_MS < +read('../src/ui/motion.js').match(/RISE_MS = (\d+)/)[1] / 2);
+  assert.equal(FOLD_EASE, read('../styles/tokens.css').match(/--ease-move: (cubic-bezier\([^)]*\))/)[1]);   // (ANI-2: the move curve, as the top bar's displaced items)
   assert.match(read('../styles/tokens.css'), /--ease: var\(--ease-arrive\);/);
   assert.match(motion, /const opt = \{ duration: ms, easing: FOLD_EASE \}/);
   assert.match(main, /if \(before && box1\) foldPill\(seg, box1, before\);/);

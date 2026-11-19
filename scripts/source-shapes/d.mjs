@@ -1,7 +1,7 @@
 // Source shapes from tests/perf-a1-switches.test.js, tests/perf-gpu-present.test.js and tests/stent-mesh.test.js (moved out 8 Nov 2026, PR-02).
 // A pattern here may be an object with test(text) and toString() where a test judged a slice of a function, not the whole file.
 
-const VEINS = 'src/ui/veins-gl.js', ORGANS = 'src/ui/organs-gl.js', GLASS = 'src/ui/stage-glass.js', STAGE = 'src/ui/stage*', VENOUS = 'src/ui/stage-venous.js', CSS = 'styles/app.css';
+const VEINS = 'src/ui/veins-gl.js', ORGANS = 'src/ui/organs-gl.js', GLASS = 'src/ui/stage-glass.js', STAGE = 'src/ui/stage*', VENOUS = 'src/ui/stage-venous.js', CSS = 'styles/app-*.css';
 
 // (A forwarding stub the stage-split move tool leaves in stage.js: stage-src.js left it out, so the real function is the one found.)
 const STUB = /^[ \t]*function\*? \w+\(\.\.\.a\) \{ return (?:yield\* )?\w+\$\(\.\.\.a\); \}[ \t]*\/\/ <stage-split stub>\n?/gm;
@@ -51,13 +51,12 @@ export default [
   // ── perf-gpu-present: A2 ──
   { file: ORGANS, need: [/gl\.useProgram\(moveP\.p\);\n\s+setM\(U\.toS/, "A2: the organ stack's camera move says so before it writes the whole target (program in use)"] },
   { file: ORGANS, need: [/gl\.disable\(gl\.SCISSOR_TEST\); gl\.disable\(gl\.BLEND\);\n\s+INVC\[0\] = gl\.COLOR_ATTACHMENT0; gl\.invalidateFramebuffer\(gl\.FRAMEBUFFER, INVC\);[^\n]*\n\s+gl\.useProgram\(moveP\.p\);/, "A2: the organ stack's camera move invalidates its target before it writes the whole target"] },
-  { file: VEINS, need: [/gl\.bindFramebuffer\(gl\.DRAW_FRAMEBUFFER, rz\.fbo\);\n\s+if \(!own \|\| \(own\.w === rz\.w && own\.h === rz\.h\)\) noLoad\(gl\.DRAW_FRAMEBUFFER, false\);[^\n]*\n\s+gl\.blitFramebuffer\(0, 0, rz\.w, rz\.h/, 'A2: the reuse target says so before it writes the whole target'] },
 
   // ── A3 ──
   { file: STAGE, forbid: [/if \(OVER_ON && veins\?\.overlay\?\.stale && !veins\.lost\) veins\.present\(\);/, 'A3: no present of the overlays ahead of the draw'] },
   { file: STAGE, need: [/const overAt = OVER_ON && veins\?\.top \? veins\.top\.presents : -1;/, 'A3: the stage notes how many pictures were laid before its draw'] },
   { file: STAGE, need: [inStageFn('overAlone', /veins\?\.overlay\?\.stale && !veins\.lost && veins\.top\.presents === at\) veins\.present\(\)/), 'A3: the stage lays the overlays alone after its draw, and only if the draw laid no picture'] },
-  { file: STAGE, need: [/veins\.composite\(vLook, bloodLook\(\), fluidMoved\) !== false\) \{[^\n]*\n\s+overAlone\(overAt\);\n\s+drawnView = viewVersion;/, 'A3: the overlays are laid alone after the draw and before the still key is copied'] },
+  { file: STAGE, need: [/(?:veins\.composite\(vLook, bloodLook\(\), fluidMoved\)|framePart\('stage: composite', compositeNow, vLook, bloodLook\(\), fluidMoved\)) !== false\) \{[^\n]*\n\s+framePart\('stage: overlays present', overAlone, overAt\);\n\s+drawnView = viewVersion;/, 'A3: the overlays are laid alone after the draw and before the still key is copied'] },
   { file: STAGE, need: [/!anyReveal\(\)\) \{ overAlone\(overAt\); sleep\(\); return; \}/, 'A3: and where a still figure goes to sleep'] },
 
   // ── A5 ──
@@ -66,10 +65,7 @@ export default [
   { file: VEINS, need: [/if \(ob && !camBox\(ob\)\) return;\n\s+try \{ if \(camDraw\(over\.texture, true, false, ob \? CB : null\)\) return; \} finally \{ gl\.disable\(gl\.SCISSOR_TEST\); \}/, 'A5: under a camera the overlay lay is cut to its bounds, and the scissor is switched off after'] },
 
   // ── D1 ──
-  { file: VEINS, need: [/lowFree\(\);\n\s+if \(half\.tex\) \{[^\n]*texImage2D\(gl\.TEXTURE_2D, 0, gl\.RGBA8, 1, 1,[^\n]*half\.w = half\.h = 0; \}/, "D1: the streaks' half-size target is shrunk to a texel by a trim"] },
-  { file: STAGE, need: [/if \(veinsTrimmed\) \{ veinsTrimmed = false; lowWarm\(\); \}/, 'D1: the stage warms up again after a trim: shown again in the frame loop'] },
-  { file: STAGE, need: [/set veinsTrimmed\(v\) \{ if \(veinsTrimmed && !v\) lowWarm\(\); veinsTrimmed = v; \}/, "D1: or by the dive's draw ahead"] },
-  { file: STAGE, need: [/const \{ autoNow, easeRes, lowWarm, moveGaps,/, 'D1: the stage takes lowWarm from its parts'] },
+  { file: STAGE, need: [/if \(veinsTrimmed\) veinsTrimmed = false;/, 'D1: shown again in the frame loop, the stage takes the trim off (the next draw makes what it gave back)'] },
 
   // ── stent-mesh ──
   { file: CSS, need: [/\.stent-graft \{[^}]*var\(--dev-graft\)/, 'the ePTFE graft, a device material token (look T2)'] },

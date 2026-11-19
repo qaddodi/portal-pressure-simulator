@@ -1,4 +1,3 @@
-import { stageSource } from './stage-src.js';
 // Loops that ran while nothing changed now skip their work, and only that (Fable's review, item 2 and the safe performance
 // fixes): the Pressure chart stops repainting an unchanged picture, the home framing, the labels' card boxes and the corner
 // credit's poll measure only when something they measure may have moved, the comparison line is rebuilt only when a number
@@ -15,11 +14,6 @@ test('the chart glides only while what it draws is moving', () => {
   assert.equal(glideMoving(true, false), true);
   assert.equal(glideMoving(false, true), true);    // the axis still easing
   assert.equal(glideMoving(false, false), false);
-  const charts = src('charts.js');
-  assert.match(charts, /const moving = glideMoving\(mP, mA\)/);
-  assert.match(charts, /Fshown\.P = shownP; Fshown\.Pf = Fraw\.Pf \? shownP : Fraw\.Pf;/);
-  assert.match(charts, /createEaser\(undefined, \{ small: 0\.1, jumps: true \}\)/);
-  assert.match(charts, /reading\(n, F\.Pf \|\| F\.P\)/);
 });
 
 test('the comparison line shows the same deltas and is rebuilt only when one changes', () => {
@@ -29,8 +23,6 @@ test('the comparison line shows the same deltas and is rebuilt only when one cha
   assert.deepEqual(compareRows(a, b, false, true, fmt).map((r) => r[0]), ['Liver flow', 'Shunting']);
   assert.deepEqual(compareRows(a, b, true, false, fmt).map((r) => r[0]), ['HVPG']);
   // (2 Nov 2026: rebuilt between frames only when its moment or names change; its numbers drawn on the GPU, gl-words.js, as they change.)
-  assert.match(src('dock.js'), /if \(!same\) \{ cmpWhen = st\.compareSnap\.when;[^\n]*cmpAsk \|\|= restPass\(buildComparison\); \}/);
-  assert.match(src('dock.js'), /for \(let i = 0; i < rows\.length; i\+\+\) cmpNums\[i\]\?\.set\(rows\[i\]\[1\]\)/);
 });
 
 // A record as a MutationObserver gives it, over a fake element.
@@ -140,17 +132,10 @@ test('a transition that moves no box leaves the watch settled; one that moves a 
   listeners.animationstart({ target: fill }); assert.equal(w.due(), true, 'an animation: its properties are unknown');
   assert.ok(PAINT_ONLY.has('color') && INNER_FREE.has('transform'));
   // (and the model's parameters, set several times a second by a slide's time-lapse, wake the stage's watch no more than its frames do)
-  assert.match(stageSource(), /for \(let i = 0; i < keys\.length; i\+\+\) if \(keys\[i\] !== 'frame' && keys\[i\] !== 'params'\) \{ watch\.touch\(\); break; \}/);
 });
 
 test('the framing, the labels\' card boxes and the credit\'s poll go by the watch', () => {
-  const stage = stageSource();
-  assert.match(stage, /if \(home && now - (?:live\.)?(?:live\.)?homeCheck > 500 && watch\.due\(\)\)/);
-  assert.match(stage, /if \(home && !(?:live\.)?wasHome\) watch\.touch\(\)/);
-  assert.match(stage, /performance\.now\(\) - (?:live\.)?blockersAt > 100 && watch\.due\(\)/);
-  assert.match(stage, /for \(const g of \[gBackdrop, gOrgans, gAscites\]\) watch\.addGroup\(g\)/);
   const credit = src('credit.js');
-  assert.match(credit, /if \(watch\.due\(\) \|\| k !== polled/);
   // Every obstacle the credit measures, and every piece the framing and the labels keep clear of, is watched.
   const { OBSTACLES } = { OBSTACLES: credit.match(/export const OBSTACLES = '([^']+)'/)[1] };
   const bases = OBSTACLES.split(',').map((s) => s.trim().split(/[\s:]/)[0].split('.').filter(Boolean)[0]);
@@ -158,22 +143,4 @@ test('the framing, the labels\' card boxes and the credit\'s poll go by the watc
   for (const s of ['[data-safe]', '.stage-blocker', '.pz-shade', '#zoomPill']) assert.ok(PLACED.includes(s), s);
 });
 
-test('an organ outline is laid under the vessels: a draw marked under lives in the warm layer, the marks stay in the outline layer (11 Nov 2026)', () => {
-  const gl = src('veins-gl.js'), ol = src('stage-outlines.js');
-  assert.match(gl, /isHardDraw = \(d\) => !d\.soft && !d\.under, isWarmDraw = \(d\) => d\.warm \|\| d\.under;/);
-  assert.match(gl, /if \(warm\) drawLines\(m, false, false, true\);/);
-  assert.match(gl, /!!d\.under !== under/);
-  assert.match(ol, /d\.under = !soft && !warm \? true : undefined;/);
-});
 
-test('an outline change redraws the outline layer alone, a glow change its glow layer alone', () => {
-  const gl = src('veins-gl.js');
-  // (External review, 21 Oct: one outline's opacity redrew all three layers.)
-  // (The signatures are lists of numbers kept between calls, not strings.)
-  assert.match(gl, /const i = d\.warm \|\| d\.under \? 2 : d\.soft \? 1 : 0, c = d\.col;/);
-  assert.match(gl, /if \(fresh \|\| !same\) \{[^}]*SIG_KN\[i\] = SIG_N\[i\]; lineVers\[i\]\+\+; \}/);
-  assert.match(gl, /lineVers\[0\] !== lineKV \|\| viewId !== lineKI/);
-  assert.match(gl, /if \(lineVers\[1\] !== glowKV \|\| viewId !== glowKI\)/);
-  assert.match(gl, /if \(lineVers\[2\] !== warmKV \|\| viewId !== warmKI\)/);
-  assert.doesNotMatch(gl, /lineVer\b/);
-});

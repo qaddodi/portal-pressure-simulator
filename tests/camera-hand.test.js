@@ -190,15 +190,15 @@ test('the scene-camera follow scales by the log-space zoom too', () => {
   assert.ok(Math.abs(scene.at(-1)[0] - 2) < 1e-12, `S at half way is 2, not 2.5 (${scene.at(-1)[0]})`);
 });
 
-// An arc glide retargeted to a far framing carries the old speed. animateVT is run with a clock the test moves and stand-ins for its parts.
+// A glide retargeted to a far framing carries the old speed. animateVT is run with a clock the test moves and stand-ins for its parts.
 function glideRig({ carry = true } = {}) {
   let clock = 0, frames = [];
   const realNow = performance.now;
-  const live = { aiming: false, vtAnim: 0, arcRun: null, drifting: false, vtTarget: null, vt: { k: 3, x: -1000, y: -600 }, vtGliding: false, cath: {}, sites: {}, scan: {}, camMove: false, dprLet() {}, dprobePaint() {}, gestureOn: () => false, following: false, rideCTM: null };
+  const live = { aiming: false, vtAnim: 0, drifting: false, vtTarget: null, vt: { k: 3, x: -1000, y: -600 }, vtGliding: false, cath: {}, sites: {}, scan: {}, camMove: false, dprLet() {}, dprobePaint() {}, gestureOn: () => false, following: false, rideCTM: null };
   const tr = createGlideTracker();
   const vtTrack = carry ? tr : { take: () => null, begin() {}, sample() {} };
   const st = {
-    CIRC_C: [0, 0], applyVT() {}, arcRoom: () => ({ vb: { w: 1000, h: 600, cx: 500, cy: 300 }, wMax: 1000 }), camSettle() {}, camSettleIdle() {}, circVB: () => [0, 0, 1000, 600], dpr: {}, driftEnd() {},
+    CIRC_C: [0, 0], applyVT() {}, screenW: () => VIEW.w, camSettle() {}, camSettleIdle() {}, circVB: () => [0, 0, 1000, 600], dpr: {}, driftEnd() {},
     glideXfStart() {}, glideXfStep() {}, logMove() {}, nextFrame: (cb) => { frames.push(cb); return frames.length; }, refreshCTM() {}, rideStep() {}, safeInsets: () => ({ l: 0, t: 0, r: 0, b: 0 }),
     sameView: (a, b) => a && b && Math.abs(a.k - b.k) < 0.001 && Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1, sitesPaint() {}, svg: {}, vbCenter: () => [500, 300], vtTrack,
   };
@@ -210,19 +210,17 @@ function glideRig({ carry = true } = {}) {
     done() { performance.now = realNow; },
   };
 }
-test('an arc glide retargeted to a far framing starts at the speed it has instead of from rest (item 14)', () => {
-  // (B first: the arc pulls back toward the middle of the figure; the retarget C goes on in that direction, so there is speed to carry.)
-  const B = { k: 3, x: -3500, y: -600 }, C = { k: 1.2, x: 800, y: 300 };
+test('a glide retargeted to a far framing starts at the speed it has instead of from rest (item 14), on the straight path', () => {
+  // (B first, then the retarget C on the way on in the same direction, so there is speed to carry. No arc since 19 Nov 2026, STG-4.)
+  const B = { k: 3, x: -3500, y: -600 }, C = { k: 2.4, x: -5600, y: -900 };
   const firstStep = (carry) => {
     const r = glideRig({ carry });
     try {
-      r.now(0); r.g.animateVT(B, 900, { arc: true, scale: true });
-      assert.ok(r.live.arcRun, 'the first glide is an arc');
+      r.now(0); r.g.animateVT(B, 900, { scale: true });
       for (let t = 16; t <= 320; t += 16) r.run(t);
       assert.ok(r.live.vtGliding, 'still moving');
       const before = { ...r.live.vt };
-      r.now(320); r.g.animateVT(C, 900, { arc: true, scale: true });
-      assert.ok(r.live.arcRun, 'the retarget is an arc of its own, not a blend (the two framings do not overlap)');
+      r.now(320); r.g.animateVT(C, 900, { scale: true });
       r.run(336);
       const after = r.live.vt;
       return Math.hypot(after.x - before.x, after.y - before.y, (Math.log(after.k / before.k)) * 300);
@@ -231,23 +229,6 @@ test('an arc glide retargeted to a far framing starts at the speed it has instea
   const withCarry = firstStep(true), fromRest = firstStep(false);
   assert.ok(fromRest < 3, `from rest the first frame hardly moves (${fromRest.toFixed(2)})`);
   assert.ok(withCarry > fromRest * 2, `with the old speed it moves at once (${withCarry.toFixed(2)} against ${fromRest.toFixed(2)})`);
-});
-
-test('a carried arc that a refit blends away is read by its eased progress alone, without a jump', () => {
-  const r = glideRig();
-  try {
-    const B = { k: 3, x: -3500, y: -600 }, C = { k: 1.2, x: 800, y: 300 };
-    r.now(0); r.g.animateVT(B, 900, { arc: true, scale: true });
-    for (let t = 16; t <= 320; t += 16) r.run(t);
-    r.now(320); r.g.animateVT(C, 900, { arc: true, scale: true });
-    const arc = r.live.arcRun;
-    for (let t = 336; t <= 448; t += 16) r.run(t);
-    const at = { ...r.live.vt }, e = (448 - arc.t0) / arc.ms;
-    assert.ok(Number.isFinite(at.k) && Number.isFinite(at.x));
-    // the older arc, asked for its view by the eased progress alone (as a blend does), is where the glide stands
-    const u = easeMove(e), v = arc.at(u);
-    assert.ok(Math.abs(v.k - at.k) < 1e-6 && Math.abs(v.x - at.x) < 1e-3 && Math.abs(v.y - at.y) < 1e-3, 'u alone gives the same view');
-  } finally { r.done(); }
 });
 
 test('a card zoom turned back mid-way takes the share of the time that is left, and starts on the speed it carries (520 and 440 stay)', () => {

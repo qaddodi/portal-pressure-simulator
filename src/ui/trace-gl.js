@@ -19,7 +19,7 @@
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js';
 import { canvasSize, fitCanvas, onCanvasSized, onCanvasResized, noteDrawer, redrawSized } from './util.js';
 import { sdfAtlas, displayCovers, DISPLAY_FROM } from './text-gl.js';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
-import { notePass, hold } from './gpu-budget.js';
+import { notePass, hold, pictureHold } from './gpu-budget.js';
 import { fontOf, measure } from './glyph-measure.js';
 import { fbComplete } from './gl-state.js';
 import { ucOf } from './uniform-cache.js';
@@ -33,6 +33,7 @@ const DG = DISPLAY.GLYPHS, DBASE = DISPLAY.BASE, DY0 = DISPLAY.Y0, DK = DISPLAY.
 // A chart off the screen for PARK_MS gives back its WebGL context (WEBGL_lose_context), and takes it again as it nears the screen:
 // a browser keeps 16 or so contexts a page and drops the oldest past that, which was the figure's (a FibroScan slide held about 20).
 const PARK_MS = 4000;
+const GIVE_UP_MS = 1500;   // (GPU-2: how long a lost chart context is waited for before the page's own drawing shows)
 // (2 Nov 2026, the review's "a deck opens 12 contexts": every chart draws in ONE WebGL2 context, an OffscreenCanvas the charts share. A
 // chart's frame is drawn there at the chart's own size and handed whole to the chart's own canvas (transferToImageBitmap into its
 // 'bitmaprenderer' context: the picture moves on the GPU, nothing is copied by the CPU). Its programs are compiled and its glyph field
@@ -48,14 +49,18 @@ export function keepLayer(ctx, name, sig, draw) {
 // steps to the largest chart drawn lately (shrunk again after a quiet SHRINK_MS, see begin), so charts of different sizes never resize it. Each chart draws in the
 // buffer's lower left W x H (viewport and scissor), and its card canvas, given the buffer's size by the hand-over, is shown at that size
 // and clipped to the chart's own box (place), so pixels still map 1:1 and nothing is copied or resized.)
-const pools = [];
+const pools = [null, null, null];   // (the card pool, the screen-size pool, the readouts' pool: each made when first asked for)
 /** Size reallocations of the shared buffer and pictures handed over, since the page opened (the ?perf readout, audit R04). */
 // (P2, perf review 4 Nov 2026: the pool hands over its WHOLE buffer per chart, so a layer over a quarter of the screen, like the lobule's leaders once did,
 // slows every chart. It is noted once in pps.caught() and the ?perf paste, to find the next one.)
 let bigNoted = false;
+// (Never a picture that fits the screen's card floor (poolFloor): on a 390 px phone a card's chart is 1000 to 1200 px wide at three device px to the CSS px, over a quarter of that small screen,
+// and each was drawn in a buffer of its own size, the shared one cut back and grown again around it; the tester, 17 Nov 2026: 1 to 11 resizes after the first pick, svg-gl begin stalls 122 to 758 ms.)
 const bigLayer = (Wd, Hd) => {
   const px = typeof screen !== 'undefined' && screen.width > 0 ? screen.width * screen.height * (devicePixelRatio || 1) ** 2 : 0;
-  return px > 0 && Wd * Hd > px / 4;
+  if (!(px > 0 && Wd * Hd > px / 4)) return false;
+  const f = screenFloor();
+  return !(Wd <= f.w && Hd <= f.h);
 };
 // (Pictures handed over by who drew them, in the last second, with the size of the last one: the ?perf readout's charts line names the busiest. Cleared by the readout.)
 export const transfersBy = new Map();
@@ -63,9 +68,36 @@ export const sharedStats = { covRemade: 0, resizes: 0, transfers: 0, moves: 0, c
 const CAP_STEP = 256;
 const WASTE_PX = 2e6;   // (the most a hand-over moves beyond the chart's own buffer: past it, the chart takes a buffer of its own size)
 const SHRINK_MS = 1000;   // (the shared buffer is cut back to the largest chart drawn in the last one to two seconds)
+// (The least the shared buffer is, device px: every card-size picture draws in it without a resize. 17 Nov 2026, the tester, a lobule pick: 13 to 21 resizes in 6.5 s with pictures of 256, 512 and 768 px
+// stepping the buffer up and down, and each resize of the pool's canvas cost 55 to 435 ms here (a resize of an OffscreenCanvas with a context waits on the GPU), more as more cards held a picture of the size.
+// A pool that never goes under what a card's pictures need resizes only for a chart larger than that.)
+const MIN_BUF_W = 1024, MIN_BUF_H = 768;
+// (And it grows in steps of 512, not 256: a phone's card pictures are 1000 to 1300 device px wide at three pixels to the CSS px, and each 256 between made another resize; the tester, 390 px: 1 to 7 resizes after the first pick.)
+const POOL_STEP = 512;
+const poolCap = (n, step = POOL_STEP) => Math.ceil(Math.max(1, n) / step) * step;
+// (GPU-1, 19 Nov 2026: size classes. Every hand-over gives the picture's canvas the pool's WHOLE buffer, and the canvas holds it until the next one, so a readout the size of a
+// number held a card's 1536 x 1536 (9.4 MB on a phone), and a slide has twenty of them. Readouts (gl-words.js) have a pool of their own, a buffer of a readout's size: its floor below
+// holds the pictures a readout makes at three device px to the CSS px with their room round them, and it grows in steps of 256 for the odd taller one.)
+const SMALL_W = 1024, SMALL_H = 512, SMALL_STEP = 256;
+const SMALL_FLOOR = { w: SMALL_W, h: SMALL_H };
+// (And the floor is the card pictures of THIS screen, not a fixed 1024 x 768: a card is as wide as the screen up to 620 css px and as tall as half of it up to 460, at the screen's own
+// pixel ratio. 17 Nov 2026, the tester, a 390 px phone (three device px to the CSS px, so a card's picture is 1170 px wide): the buffer still grew twice after the first pick, 9 resizes cold and
+// 2 warmed, and one frame waited 602 ms for the GPU. Read from the window, never from the pictures that happen to be drawn: a screen's floor is whole before its first chart.)
+export function poolFloor(innerW, innerH, dpr) {
+  if (!(innerW > 0) || !(innerH > 0)) return [MIN_BUF_W, MIN_BUF_H];
+  const k = Math.max(1, dpr || 1);
+  return [Math.max(MIN_BUF_W, poolCap(Math.min(innerW, 620) * k)), Math.max(MIN_BUF_H, poolCap(Math.min(innerH * 0.5, 460) * k))];
+}
+const floorNow = { w: MIN_BUF_W, h: MIN_BUF_H, key: '' };
+function screenFloor() {
+  const w = globalThis.innerWidth, h = globalThis.innerHeight, d = globalThis.devicePixelRatio;
+  const key = w + 'x' + h + '@' + d;   // alloc-rare: three reads and a short string a chart's frame, never a layout
+  if (key !== floorNow.key) { floorNow.key = key; [floorNow.w, floorNow.h] = poolFloor(w, h, d); }
+  return floorNow;
+}
 export const capOf = (n) => Math.ceil(Math.max(1, n) / CAP_STEP) * CAP_STEP;
-function makePool() {
-  const pool = { dead: true, users: 0 };   // alloc-rare: a drawing pool (a GL context) is made once, a timer ahead of the first chart that needs it
+function makePool(kind) {
+  const pool = { dead: true, users: 0, kind };   // alloc-rare: a drawing pool (a GL context) is made once, a timer ahead of the first chart that needs it
   if (typeof OffscreenCanvas !== 'function') return pool;
   let gl;
   const canvas = new OffscreenCanvas(1, 1);
@@ -86,11 +118,18 @@ const progList = (started) => {
 const NO_OPTS = Object.freeze({});   // (a stroke asked for with no options: nothing is made for it)
 const LS_TEXT = new Map();
 const lsText = (n) => LS_TEXT.get(n) ?? (LS_TEXT.size >= 400 && LS_TEXT.clear(), LS_TEXT.set(n, `${n}px`).get(n));   // alloc-rare: the text of a letter spacing is made the first time that spacing is set, then looked up
-function sharedGL() {
-  if (!pools.length) { const first = makePool(); pools.push(first); if (first.dead) return null; }
-  if (pools[0].dead) return null;
-  pools[0].users++;
-  return pools[0];
+// A layer the size of the screen (the lobule's leaders) has a pool of its own (17 Nov 2026, the tester, the lobule view at rest: the shared buffer resized every one to two seconds, 10 to 16 times in 6.5 s,
+// each dearer than the last, 285, 416, 599, 858 ms, every one in the first frame of a card's picture): the screen-size layer grew the one buffer and the small pictures between its frames cut it back,
+// a grow and a shrink in turn. A pool of its own keeps the small charts' buffer at card size and the layer's at the screen's, and neither resizes the other's. Where a second context cannot be made, the
+// layer takes the shared pool as before.)
+function sharedGL(kind = 'card') {
+  pools[0] ||= makePool('card');
+  const i = kind === 'big' ? 1 : kind === 'small' ? 2 : 0;
+  if (i) pools[i] ||= makePool(kind);
+  const p = i && !pools[i].dead ? pools[i] : pools[0];
+  if (p.dead) return null;
+  p.users++;
+  return p;
 }
 const startPool = (p) => (p.started ||= Object.fromEntries(Object.entries(SRC).map(([k, [vs, fs]]) => [k, startProgram(p.gl, vs, fs)])));   // alloc-rare: a pool's programs are started once
 // Paint (a colour or a linear gradient of up to sixteen stops: the profile's curve has a stop per station), shared by the fills and the strokes' laying down. Positions in CSS px.
@@ -372,7 +411,15 @@ const premulInto = (out, o, c, alpha = 1) => { const v = rgba(c), a = v[3] * alp
 
 /** The GPU drawer for one chart, over `host` (the chart's 2D canvas), or null where it cannot be (the 2D canvas draws the chart). */
 // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
-export function createTraceGL(host, { redraw = null, under = null, lose = null, keep = false, name = '' } = {}) {   // (keep: a widget's picture is never taken down by a frame the GPU could not draw: the last completed picture stays until the retry draws it again)
+// (GPU-3, 19 Nov 2026: where the shared pool cannot be made (Safari 16.4 to 16.7 has OffscreenCanvas without WebGL on it), each drawer had a context of its own, with no limit, and a slide of
+// readouts and charts made a dozen: WebKit keeps about 16 and drops the oldest, which is the figure's, so the vessels went blank. At most OWN_MAX such drawers are live at once (a parked one,
+// off the screen, gave its context back and does not count); a chart past that is drawn by its 2D canvas, as where WebGL2 is missing.)
+const OWN_MAX = 6;
+const ownLive = new Set();
+/** Own contexts live now (tests and ?perf). */
+export const ownContexts = () => ownLive.size;
+// alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
+export function createTraceGL(host, { redraw = null, under = null, lose = null, keep = false, name = '', big = false, small = false } = {}) {   // (keep: a widget's picture is never taken down by a frame the GPU could not draw: the last completed picture stays until the retry draws it again)
   // (canvasSize never measures: a chart drawn before the observer reported its box drew nothing, and draws again once it has one,
   // with or without this drawer)
   let unsized = null;   // (the size subscription's release, called by dispose)
@@ -385,22 +432,45 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
   canvas.className = 'trace-gl';
   canvas.style.pointerEvents = 'none';
   let gl = null, glCanvas = canvas, shown = null;
-  let shared = sharedGL();
+  let shared = sharedGL(big ? 'big' : small ? 'small' : 'card');   // (big: a layer the size of the screen, a pool of its own; small: a readout, a pool whose buffer is a readout's size)
   if (shared) {
     try { shown = canvas.getContext('bitmaprenderer'); } catch { shown = null; }
     if (shown) { gl = shared.gl; glCanvas = shared.canvas; }
   }
+  // (GPU-1: the picture this drawer's canvas holds, in the registry: every hand-over gives the canvas the pool's whole buffer, held until the next one, a clear or dispose.)
+  const pic = shown ? pictureHold() : null;
+  const ownTok = {};   // alloc-rare: once per chart
   // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
+  if (!gl && ownLive.size >= OWN_MAX) return null;   // (GPU-3: the contexts a page may hold are few; past this the chart is the 2D canvas's)
   if (!gl) try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: true, preserveDrawingBuffer: false, powerPreference: 'low-power', failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
   if (!gl || typeof gl.createShader !== 'function' || typeof host?.after !== 'function') return null;
   const loser = shown ? null : gl.getExtension('WEBGL_lose_context');   // (the shared context is never given back: every chart draws in it)   // (kept now: a lost context gives no extensions)
   // (A software renderer draws it too: a chart is a few hundred small shapes, well within one.)
 
+  if (!shown) ownLive.add(ownTok);
   let lost = false, dead = false, failed = false, missed = false, parked = false, back = false, gen = 0;   // (missed: a frame asked for the GPU while it could not draw)
+  let gaveUp = false, giveT = 0;   // (GPU-2: a context lost and not back within GIVE_UP_MS: the chart shows the page's own drawing, never the last picture)
   // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
   // (lose: told when the context is lost, so a surface that was showing this picture can show its fallback again; the redraw asked for
   // when the context is built again is the one that shows it again.)
-  const onLost = (e) => { e.preventDefault(); lost = true; if (redraw) missed = true; if (lose) { try { lose(); } catch (e2) { caught('trace-gl:lose', e2); } } };
+  const onLost = (e) => {
+    e.preventDefault(); lost = true; if (redraw) missed = true;
+    if (lose) { try { lose(); } catch (e2) { caught('trace-gl:lose', e2); } }
+    // (GPU-2, 19 Nov 2026: a pool whose context is lost and never restored left every chart on the last picture it had drawn, over the page's own drawing: a stale HVPG. A surface that
+    // cannot draw shows the page's drawing within one deadline, never an old picture. A restore inside the deadline takes the picture again as it did.)
+    clearTimeout(giveT);
+    giveT = parked ? 0 : setTimeout(giveUp, GIVE_UP_MS);   // alloc-rare: once per lost context, never in a frame
+  };
+  // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
+  function giveUp() {
+    giveT = 0;
+    if (dead || !lost || parked || back) return;
+    gaveUp = true;
+    if (shown && !inFrame) { try { shown.transferFromImageBitmap(null); } catch (e) { caught('trace-gl:giveUp', e); } pic?.clear(); }
+    if (host.style.opacity) host.style.opacity = '';
+    if (canvas.style.visibility !== 'hidden') canvas.style.visibility = 'hidden';
+    if (redraw) { try { redraw(); } catch (e) { caught('trace-gl:giveUp-redraw', e); } }   // (the chart draws on the page's canvas now: its GPU draw returns nothing)
+  }
   glCanvas.addEventListener?.('webglcontextlost', onLost);
   let P = null, started = null, stopPoll = null;
   let quad = null, quadVao = null, segBuf = null, segVao = null, fillBuf = null, fillVao = null, boxBuf = null, boxVao = null, textBuf = null, textVao = null;
@@ -517,10 +587,11 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
       failed = true; console.warn('Charts on the GPU: shader failed; the chart is not drawn.', e);
     }
   }
-  try { build(); } catch (e) { console.warn('Charts on the GPU: could not start; the chart is not drawn.', e); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
+  try { build(); } catch (e) { console.warn('Charts on the GPU: could not start; the chart is not drawn.', e); ownLive.delete(ownTok); pic?.release(); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
   // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
   const onRestored = () => {
     if (dead) return;
+    clearTimeout(giveT); giveT = 0; gaveUp = false;
     try { build(); } catch (e) { failed = true; console.warn('Charts on the GPU: could not be rebuilt; the chart is not drawn.', e); }
   };
   glCanvas.addEventListener?.('webglcontextrestored', onRestored);
@@ -548,9 +619,9 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
       if (dead) return;
       const on = es[es.length - 1].isIntersecting;
       clearTimeout(parkT); parkT = 0;
-      if (on) { if (parked) { parked = false; back = true; loser.restoreContext(); } }
+      if (on) { if (parked) { parked = false; back = true; ownLive.add(ownTok); loser.restoreContext(); } }
       // alloc-rare: made when the chart leaves the view (the observer's callback), not in a frame
-      else if (!parked) parkT = setTimeout(() => { parkT = 0; if (dead || parked) return; parked = true; stopPoll?.(); loser.loseContext(); }, PARK_MS);
+      else if (!parked) parkT = setTimeout(() => { parkT = 0; if (dead || parked) return; parked = true; ownLive.delete(ownTok); stopPoll?.(); loser.loseContext(); }, PARK_MS);
     // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
     }, { rootMargin: '50%' });
     seen.observe(host);
@@ -743,13 +814,18 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
   function coverTarget() {
     // alloc-rare: the coverage target is made the first time one is needed and kept (the shared one, or the chart's own)
     const c = shown ? (shared.cov ||= { tex: gl.createTexture(), fb: gl.createFramebuffer(), w: 0, h: 0 }) : ownCov;
+    // (GPU-6, 19 Nov 2026: whether the target is still the driver's was asked with gl.isTexture and gl.isFramebuffer, on the first stroke of every chart frame. In WebKit's
+    // GPU process an is* query is a synchronous round trip that waits for the queued work, the class of the 8 Nov isEnabled stall (7.6 of 10.9 s of a Safari recording). A
+    // WebGL object lives until its context is lost, so what the target needs is the context's generation, kept by the pool (restored: gen) and the drawer (build: gen), never a query.)
+    const cg = shown ? shared.gen : gen;
     if (!covOk) {
       covOk = true;
-      if (c.w && (gl.isTexture(c.tex) === false || gl.isFramebuffer(c.fb) === false)) {
-        // alloc-rare: only when the target was lost
+      if (c.w && c.gen !== cg) {
+        // alloc-rare: only when the context was made again
         c.tex = gl.createTexture(); c.fb = gl.createFramebuffer(); c.w = c.h = 0; sharedStats.covRemade++;
       }
     }
+    c.gen = cg;
     if (c.w < W || c.h < H) {
       const nw = Math.max(c.w, capOf(W)), nh = Math.max(c.h, capOf(H));
       gl.bindTexture(gl.TEXTURE_2D, c.tex);
@@ -825,7 +901,7 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
     /** Starts a frame over a chart w × h CSS px, drawn at Wd × Hd device px. False: the GPU cannot draw now (the 2D canvas draws the chart). */
     begin(w, h, Wd, Hd) {
       if (!api.ready || w < 1 || h < 1) { api.hide(); return false; }
-      if (!bigNoted && bigLayer(Wd, Hd)) { bigNoted = true; caught('trace-gl:big-layer', new Error(`a chart layer of ${Wd} x ${Hd} device px went through the shared pool: every hand-over copies the whole buffer`)); }   // alloc-rare: once per page
+      if (!bigNoted && !big && bigLayer(Wd, Hd)) { bigNoted = true; caught('trace-gl:big-layer', new Error(`a chart layer of ${Wd} x ${Hd} device px (${name || host.parentElement?.className?.split?.(' ')[0] || '?'}) went through the shared pool: every hand-over copies the whole buffer`)); }   // alloc-rare: once per page
       if (shown) {
         // (Another chart's frame still open in the shared context is finished first: its picture handed over before this one starts.)
         if (shared.active && shared.active !== api) shared.active.end();
@@ -848,9 +924,15 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
         // than 2 MP beyond its own area draws in a buffer of its own size instead: a hand-over never moves megapixels it does not need. Charts
         // of card sizes keep sharing one steady buffer (U2), as their window is never that much larger than any of them.)
         const ownW = capOf(Wd), ownH = capOf(Hd);
-        let fitW = capOf(Math.max(shared.lastW, shared.winW, Wd)), fitH = capOf(Math.max(shared.lastH, shared.winH, Hd));
+        // (What the window asks for beyond the floor is what the waste rule weighs: the floor is the screen's card pictures, held whatever the chart in hand.)
+        const step = shared.kind === 'small' ? SMALL_STEP : POOL_STEP;
+        const askW = poolCap(Math.max(shared.lastW, shared.winW, Wd), step), askH = poolCap(Math.max(shared.lastH, shared.winH, Hd), step);
+        const floor = shared.kind === 'small' ? SMALL_FLOOR : screenFloor();
+        let fitW = Math.max(floor.w, askW), fitH = Math.max(floor.h, askH);
         if (big) shared.bigAt = t;
-        if (big || fitW * fitH > ownW * ownH + WASTE_PX) { fitW = ownW; fitH = ownH; }
+        // (The floor's own area is never waste: it is held whatever is drawn in it, and a chart that fits it draws there, however small beside the window's biggest.)
+        const inFloor = askW <= floor.w && askH <= floor.h;
+        if (big || (!inFloor && askW * askH > ownW * ownH + WASTE_PX)) { fitW = ownW; fitH = ownH; }
         // (While a big layer draws frame after frame (a slide's Doppler card over a quarter of a small screen: its trace scrolls every frame),
         // a small chart between two of its frames draws in the buffer as it is, when it fits there and that costs at most WASTE_PX beyond its
         // own: cut back to the window's size and grown again for every small picture, the buffer was made again 14 times a second beside 34
@@ -896,7 +978,7 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
         sharedStats.transfers++; notePass('transfer', W * H);
         { const who = name || host.parentElement?.className?.split?.(' ')[0] || '?', r = transfersBy.get(who); if (r) { r.n++; r.w = glCanvas.width; r.h = glCanvas.height; } else if (transfersBy.size < 32) transfersBy.set(who, { n: 1, w: glCanvas.width, h: glCanvas.height }); }   // alloc-rare: a record for each drawer that hands over, cleared once a second
         let bmp = null;
-        try { bmp = glCanvas.transferToImageBitmap(); shown.transferFromImageBitmap(bmp); bmp = null; place(glCanvas.width, glCanvas.height); } catch (e) { ok = false; console.warn('Charts on the GPU: the picture could not be handed over.', e); }
+        try { bmp = glCanvas.transferToImageBitmap(); shown.transferFromImageBitmap(bmp); bmp = null; place(glCanvas.width, glCanvas.height); pic.set(glCanvas.width * glCanvas.height * 4); } catch (e) { ok = false; console.warn('Charts on the GPU: the picture could not be handed over.', e); }
         if (bmp) { try { bmp.close?.(); } catch { /* already gone */ } }
       }
       if (ok) {
@@ -910,6 +992,7 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
     clearShown() {
       if (!shown || dead || inFrame) return false;
       try { shown.transferFromImageBitmap(null); } catch (e) { caught('trace-gl:clearShown', e); return false; }
+      pic.clear();
       return true;
     },
     /** The 2D canvas draws the chart (shown again); the GPU's picture is hidden. */
@@ -917,7 +1000,7 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
       // (A completed GPU picture stays through a frame the GPU cannot draw (a program still compiling, a pool move, a restore): its page look is out of
       // the way, so a hidden picture would leave a hole, and the retry (missed/redraw) draws it again. A widget always keeps it; any other chart keeps it
       // while the GPU can still come back. Only a chart whose GPU is gone for good (failed or dead) shows the page's own drawing.)
-      if ((keep || (!failed && !dead)) && host.style.opacity === '0') return;
+      if (!gaveUp && (keep || (!failed && !dead)) && host.style.opacity === '0') return;
       if (canvas.style.visibility !== 'hidden') canvas.style.visibility = 'hidden';
       if (host.style.opacity) host.style.opacity = '';
     },
@@ -1260,8 +1343,11 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
         // alloc-rare: teardown, when the chart is let go, never in a frame
         if (P && !shown) for (const k of Object.keys(P)) gl.deleteProgram(P[k].p);   // (shared: the programs and the field stay for the others)
       } catch (e) { caught('trace-gl:1029', e); /* a lost context holds nothing */ }
+      ownLive.delete(ownTok); clearTimeout(giveT); giveT = 0;
       if (shown && shared.active === api) shared.active = null;
       if (shown) shared.users = Math.max(0, shared.users - 1);
+      // (GPU-1: the canvas holds its last picture, the pool's whole buffer, until it is collected, and iOS does not collect by GPU memory: given back now.)
+      if (shown) { try { shown.transferFromImageBitmap(null); } catch { /* the canvas is gone with its context */ } pic.release(); }
       canvas.width = canvas.height = 0;
       if (!gl.isContextLost()) loser?.loseContext();
       canvas.remove();

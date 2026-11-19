@@ -40,7 +40,6 @@ test('the explainer line shows the same numbers as the tiles', () => {
 
 test('the Wall mechanics tiles read their numbers from wallRead', () => {
   const s = readFileSync(new URL('../src/ui/instruments.js', import.meta.url), 'utf8');
-  assert.match(s, /const wr = wallRead\(v\)/);
   assert.ok(!/fmt\(v\.w, 1\)/.test(s));
 });
 
@@ -64,12 +63,20 @@ test('every percentage of the tear point is the shown index over 150, so it neve
 test('the headline, the "above the tear point" switch, the Tests row, Compare, the explainer and the inspector read ratioShown', () => {
   const ui = (p) => readFileSync(new URL(`../src/ui/${p}`, import.meta.url), 'utf8');
   const wall = ui('instruments.js').slice(ui('instruments.js').indexOf('export function createVarixWall'));
-  assert.match(wall, /v\.ratioShown > 1 \? 'above the rupture point'/);
-  assert.match(wall, /wMean = v\.ratioShown/);
   assert.ok(!/ratio \* 100\)\} % of the tear point/.test(wall.replace(/ratioShown/g, 'S')));
-  assert.match(ui('dock.js'), /m\.varix\.ratioShown \* 100/);
-  assert.match(ui('compare.js'), /m\.varix\.ratioShown \* 100/);
-  assert.match(ui('inspector.js'), /metrics\.varix\.ratioShown \* 100/);
-  assert.match(ui('inspector.js'), /metrics\.gastricVarix\.ratioShown \* 100/);
-  assert.match(readFileSync(new URL('../src/engine/portal/explain.js', import.meta.url), 'utf8'), /m\.varix\.ratioShown \* 100/);
+});
+
+test('one wall-stress number on every screen: the Wall mechanics card, the Readouts tile, Compare, the explainer and the details inside a card all read wallShare (A6, 16 Nov 2026: 139% on one tab, 153% on the other)', async () => {
+  const { wallShare, WALL_WORDS, WALL_MEANING } = await import('../src/engine/portal/wall-read.js');
+  assert.equal(wallShare({ ratioMean: 1.1, ratioShown: 1.4 }), 1.1, 'the two-breath mean when there is one');
+  assert.equal(wallShare({ ratioShown: 1.4 }), 1.4, 'the shown index when there is none');
+  const ui = (p) => readFileSync(new URL(`../src/ui/${p}`, import.meta.url), 'utf8');
+  for (const f of ['dock.js', 'compare.js', 'instruments.js', 'card-details.js']) assert.match(ui(f), /wallShare\(/, f);
+  assert.match(readFileSync(new URL('../src/engine/portal/explain.js', import.meta.url), 'utf8'), /wallShare\(m\.varix\)/);
+  // the Scope card keeps no mean of its own on top of the engine's (the second smoothing made it read differently from the tile)
+  assert.ok(!/wMean \+= /.test(ui('instruments.js')));
+  // >100% is named once, in words that do not claim a bleed
+  assert.equal(WALL_WORDS.critical, 'Past rupture threshold');
+  assert.match(WALL_MEANING, /tears a varix only when spontaneous bleeding is switched on/);
+  for (const w of Object.values(WALL_WORDS)) assert.ok(!/risk/i.test(w), w);
 });

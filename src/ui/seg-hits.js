@@ -52,7 +52,7 @@ export function gridHits(grid, cell, r, margin, stamp, any = false) {
  *  The index is built in one of two kept buffers (segments, buckets and their lists reused, written in place: a rebuild allocates only
  *  when the picture has more segments or buckets than ever before), so the one a caller holds stays whole while the next is built in the
  *  other; an index older than the one before it has been written over. */
-const newIdx = () => ({ segs: [], grid: new Map(), cell: 64, stamp: 0, pool: [] });
+const newIdx = () => ({ segs: [], grid: new Map(), cell: 64, stamp: 0, pool: [], ver: 0, near: [], nearVer: -1, nearX: NaN, nearY: NaN });
 const BUFS = [newIdx(), newIdx()];
 /** A buffer of one's own for lineIndex's `into`: an index a caller keeps across the two shared buffers' rebuilds (the labels' ahead-of-time
  *  solve, which runs in slices between the live layouts, each of which builds the shared index again). */
@@ -63,7 +63,7 @@ export function lineIndex(lines, toLocal, sc, cell = 64, into = null) {
   const idx = into || BUFS[bufAt];
   if (!into) bufAt ^= 1;
   const { segs, grid, pool } = idx;
-  idx.cell = cell; idx.stamp = 0;
+  idx.cell = cell; idx.stamp = 0; idx.ver++;   // (ver: what leaderVesselHits' kept list of the vessels under an anchor was made for)
   for (const c of grid.values()) c.length = 0;   // (the buckets keep their lists)
   if (grid.size > 20000) grid.clear();   // (buckets of places the picture has left, never visited again)
   let n = 0;
@@ -133,11 +133,39 @@ const ptSegDist = (px, py, x0, y0, x1, y1) => {
   const t = L2 ? Math.max(0, Math.min(1, ((px - x0) * dx + (py - y0) * dy) / L2)) : 0;
   return Math.hypot(px - x0 - dx * t, py - y0 - dy * t);
 };
+const ptSegD2 = (px, py, x0, y0, x1, y1) => {
+  const dx = x1 - x0, dy = y1 - y0, L2 = dx * dx + dy * dy;
+  const t = L2 ? Math.max(0, Math.min(1, ((px - x0) * dx + (py - y0) * dy) / L2)) : 0;
+  const ex = px - x0 - dx * t, ey = py - y0 - dy * t;
+  return ex * ex + ey * ey;
+};
 const side = (px, py, qx, qy, rx, ry) => Math.sign((qx - px) * (ry - py) - (qy - py) * (rx - px));
 /** The least distance between segment a (a0 → a1) and segment b (b0 → b1): 0 when they cross. */
 export function segSegDist(ax0, ay0, ax1, ay1, bx0, by0, bx1, by1) {
   if (side(ax0, ay0, ax1, ay1, bx0, by0) !== side(ax0, ay0, ax1, ay1, bx1, by1) && side(bx0, by0, bx1, by1, ax0, ay0) !== side(bx0, by0, bx1, by1, ax1, ay1)) return 0;
   return Math.min(ptSegDist(ax0, ay0, bx0, by0, bx1, by1), ptSegDist(ax1, ay1, bx0, by0, bx1, by1), ptSegDist(bx0, by0, ax0, ay0, ax1, ay1), ptSegDist(bx1, by1, ax0, ay0, ax1, ay1));
+}
+
+/** segSegDist(...) < m, without the square roots (a leader's every spot asks it of every vessel near it). */
+function segSegNear(ax0, ay0, ax1, ay1, bx0, by0, bx1, by1, m) {
+  if (side(ax0, ay0, ax1, ay1, bx0, by0) !== side(ax0, ay0, ax1, ay1, bx1, by1) && side(bx0, by0, bx1, by1, ax0, ay0) !== side(bx0, by0, bx1, by1, ax1, ay1)) return 0 < m;
+  const m2 = m * m;
+  return ptSegD2(ax0, ay0, bx0, by0, bx1, by1) < m2 || ptSegD2(ax1, ay1, bx0, by0, bx1, by1) < m2 || ptSegD2(bx0, by0, ax0, ay0, ax1, ay1) < m2 || ptSegD2(bx1, by1, ax0, ay0, ax1, ay1) < m2;
+}
+
+/** The index's segments the anchor (ax, ay) lies on, within a half width and 3 px, in the index's order; kept for the last anchor of an index. */
+function nearAnchor(idx, ax, ay) {
+  if (idx.nearVer === idx.ver && idx.nearX === ax && idx.nearY === ay) return idx.near;
+  const segs = idx.segs, out = idx.near;
+  out.length = 0;
+  for (let i = 0; i < segs.length; i++) {
+    const sg = segs[i], m = sg.hw + 3;
+    if (ax < Math.min(sg.x0, sg.x1) - m || ax > Math.max(sg.x0, sg.x1) + m || ay < Math.min(sg.y0, sg.y1) - m || ay > Math.max(sg.y0, sg.y1) + m) continue;
+    if (ptSegDist(ax, ay, sg.x0, sg.y0, sg.x1, sg.y1) > m) continue;
+    out.push(sg);
+  }
+  idx.nearVer = idx.ver; idx.nearX = ax; idx.nearY = ay;
+  return out;
 }
 
 /**
@@ -153,9 +181,11 @@ export function leaderVesselHits(idx, ax, ay, ex, ey, air = 1, any = false) {
   // an angle (over 20° to the run it starts on). Leaving at an angle, it may brush the rest of a bent vessel; along it, only its first
   // half width and 4 px are its own.
   let o1 = null, o2 = null, o3 = null, a1 = false, a2 = false, a3 = false;
-  for (let i = 0; i < segs.length; i++) {
-    const sg = segs[i];
-    if (ptSegDist(ax, ay, sg.x0, sg.y0, sg.x1, sg.y1) > sg.hw + 3) continue;
+  // (The segments under the anchor are found once for an anchor and an index, however many spots and ends a label tries from it: every spot tried walked every
+  // segment of the picture to find them again, and was most of a label solve, 18 Nov 2026.)
+  const under = nearAnchor(idx, ax, ay);
+  for (let i = 0; i < under.length; i++) {
+    const sg = under[i];
     const gx = sg.x1 - sg.x0, gy = sg.y1 - sg.y0, angled = Math.abs(dx * gy - dy * gx) / (L * (Math.hypot(gx, gy) || 1)) > 0.34;
     if (sg.id === o1) a1 = a1 || angled; else if (sg.id === o2) a2 = a2 || angled; else if (sg.id === o3) a3 = a3 || angled;
     else if (o1 === null) { o1 = sg.id; a1 = angled; } else if (o2 === null) { o2 = sg.id; a2 = angled; } else if (o3 === null) { o3 = sg.id; a3 = angled; }
@@ -173,7 +203,7 @@ export function leaderVesselHits(idx, ax, ay, ex, ey, air = 1, any = false) {
       if (L <= off) continue;
       sx = ax + (dx / L) * off; sy = ay + (dy / L) * off;
     }
-    if (segSegDist(sx, sy, ex, ey, sg.x0, sg.y0, sg.x1, sg.y1) < m) { n++; if (any) return n; }
+    if (segSegNear(sx, sy, ex, ey, sg.x0, sg.y0, sg.x1, sg.y1, m)) { n++; if (any) return n; }
   }
   return n;
 }

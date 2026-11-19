@@ -63,12 +63,14 @@ test('the numbers are the model’s: the recs’ table for the decompensated pat
   const { pts, fp0 } = run('cirr-decomp');
   assert.equal(pts.length, 8);
   const at = (id) => pts.find((q) => q.id === id);
-  const want = { propranolol: [15.1, 52], carvedilol: [14.1, 58], pse: [16.3, 56], warren: [16.1, 55], tips8: [9.2, 29], tips10: [7.9, 24], mesocaval: [6.6, 23], portocaval: [3.0, 36] };
+  // (17 Nov 2026: the TIPS drains to the cava past the right hepatic vein, its outlet stretch in its tract: 8 mm reads 9.2, not 9.4; 10 mm stays 7.9.)
+  // (16 Nov 2026, the lymph model: the decompensated patient's ascites is 1.2 L, not 1.0, and its belly pressure lifts the PPG by about a tenth to two tenths.)
+  const want = { propranolol: [15.3, 52.3], carvedilol: [14.1, 58.6], pse: [16.4, 56], warren: [16.2, 55.5], tips8: [9.2, 30.1], tips10: [7.9, 25.4], mesocaval: [6.6, 23.3], portocaval: [3.0, 36.1] };
   for (const [id, [ppg, liver]] of Object.entries(want)) {
     assert.ok(Math.abs(at(id).ppg - ppg) < 0.06, `${id} PPG ${at(id).ppg}`);
     assert.ok(Math.abs(at(id).liver - liver) < 0.6, `${id} liver ${at(id).liver}`);
   }
-  assert.ok(Math.abs(fp0.ppg - 17.4) < 0.06 && Math.abs(fp0.liver - 59) < 0.6);
+  assert.ok(Math.abs(fp0.ppg - 17.4) < 0.06 && Math.abs(fp0.liver - 59.7) < 0.6);
   // (Every shunt trades a lower gradient for less sinusoidal flow: no treatment here lowers the PPG and raises the liver's flow.)
   for (const q of pts) assert.ok(q.ppg < fp0.ppg && q.liver <= fp0.liver + 1e-6, `${q.id} trades`);
   assert.ok(at('portocaval').shunt > 0.99 && at('mesocaval').shunt > 0.99, 'the surgical shunts take it all');
@@ -124,4 +126,31 @@ test('the chronic clot’s dots run past 100%, and the axis reaches them', () =>
   const { G, svg } = M.build(420, 300, 12, pts, fp0, 'No treatment');
   assert.ok(G.x1 >= Math.max(...pts.map((q) => q.liver)), `${G.x1}`);
   assert.equal(walk(svg, (n) => n.attrs?.class === 'pcv-dot').length, pts.length);
+});
+
+// (Play-test 16 Nov 2026, Choose the treatment 11: crammed dots, leaders crossing, seven names for eight dots, the carvedilol dot unidentifiable.)
+test('every dot is named or numbered, no two names overlap and no two leaders cross, at phone to Mac sizes', () => {
+  const { pts, fp0 } = run('cirr-decomp');
+  const segsCross = (a, b) => {
+    const o = (p, q, r) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
+    const A = [[a.x1, a.y1], [a.x2, a.y2]], B = [[b.x1, b.y1], [b.x2, b.y2]];
+    return o(A[0], A[1], B[0]) * o(A[0], A[1], B[1]) < 0 && o(B[0], B[1], A[0]) * o(B[0], B[1], A[1]) < 0;
+  };
+  const bad = [];
+  for (const [w, h, f] of [[300, 220, 11], [320, 250, 11], [340, 260, 12], [380, 280, 12], [420, 300, 12], [480, 320, 12], [560, 340, 12]]) {
+    // (As the card draws it: names first, numbers and a key when the names are a crowd and the plot keeps its height.)
+    let b = M.build(w, h, f, pts, fp0, 'No treatment');
+    if (b.crowded) { const b2 = M.build(w, h, f, pts, fp0, 'No treatment', true); if (b2.G.B - b2.G.T >= 5 * f) b = b2; }
+    const svg = b.svg;
+    const names = walk(svg, (n) => n.attrs?.class?.startsWith('pcv-dname')), keyed = walk(svg, (n) => n.attrs?.class === 'pcv-steps').length > 0;
+    if (names.length < pts.length) bad.push(`${w}x${h}: ${names.length} ${keyed ? 'numbers' : 'names'} for ${pts.length} dots`);
+    const leads = walk(svg, (n) => n.attrs?.class === 'pcv-lead').map((n) => ({ x1: +n.attrs.x1, y1: +n.attrs.y1, x2: +n.attrs.x2, y2: +n.attrs.y2 }));
+    for (let i = 0; i < leads.length; i++) for (let j = i + 1; j < leads.length; j++) if (segsCross(leads[i], leads[j])) bad.push(`${w}x${h}: leaders ${i} and ${j} cross`);
+    const boxes = names.map((n) => { const t = words(n), tw = t.length * f * 0.56, x = +n.attrs.x, y = +n.attrs.y, a = n.attrs['text-anchor']; const x0 = a === 'end' ? x - tw : a === 'middle' ? x - tw / 2 : x; return [x0, y - f * 0.8, x0 + tw, y + f * 0.2, t]; });
+    for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+      const p = boxes[i], q = boxes[j];
+      if (p[0] < q[2] - 1 && q[0] < p[2] - 1 && p[1] < q[3] - 1 && q[1] < p[3] - 1) bad.push(`${w}x${h}: "${p[4]}" overlaps "${q[4]}"`);
+    }
+  }
+  assert.deepEqual(bad, []);
 });

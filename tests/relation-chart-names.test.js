@@ -58,7 +58,7 @@ function workOut(deck) {
     let from = i;
     while (from > 0 && !d.slides[from].preset) from--;
     const st = (await seq(d.slides.slice(from, i + 1).filter((x, k) => k === 0 || changes(x)).map(stepOf))).at(-1);
-    return { states: await seq(curveSteps(s.tool), patientOf(s.tool) ? null : st.snap), fp: (await deckStates(d))[i] };
+    return { states: await seq(curveSteps(s.tool), patientOf(s.tool) ? null : st.base), fp: (await deckStates(d))[i] };
   })());
   return worked.get(deck);
 }
@@ -195,8 +195,9 @@ test('a key of three lines starts on the reading\'s own row, so the plot keeps t
   const words = [read, ...names].map((t) => ({ t, b: boxOf(t, f) }));
   words.forEach(({ t, b }) => assert.ok(b[0] >= 0 && b[2] <= W, `"${t.txt}" inside the card`));
   for (let i = 0; i < words.length; i++) for (let j = i + 1; j < words.length; j++) assert.ok(!hit(words[i].b, words[j].b), `"${words[i].t.txt}" clear of "${words[j].t.txt}"`);
-  const y0 = r.texts.find((t) => t.txt === '0' && t.x < 40).y, y40 = r.texts.find((t) => t.txt === '40').y;
-  assert.ok(y0 - y40 >= 50, `the plot's 0 to 40 is ${(y0 - y40).toFixed(0)} px, not a strip`);
+  // (The left scale's top number is 20 since the deck's states are the bedside's (afac0bc0, 16 Nov 2026), it was 40: the plot from 0 to that top number is most of the card, not a strip.)
+  const left = r.texts.filter((t) => t.cls === '' && t.x < 40 && /^\d+$/.test(t.txt)), y0 = left.find((t) => t.txt === '0').y, yTop = left.reduce((a, t) => (+t.txt > +a.txt ? t : a)).y;
+  assert.ok(y0 - yTop >= 50, `the plot's 0 to its top number is ${(y0 - yTop).toFixed(0)} px, not a strip`);
 });
 
 // (A phone's relation charts whose cut-offs stand a line or two apart: "Liver flow 55" over "Liver flow 75" on Two inflows, "HVPG 5" on "HVPG 10" on
@@ -212,8 +213,9 @@ test('phone relation charts: no word is printed over another, cut-off names incl
   }
 });
 
+// (19 Nov: the slide now lands where the live model rests, a little left of where it was drawn, so 346 wide found room for "Liver flow 75"; 310 wide is the width with none.)
 test('a cut-off whose name has no clear spot stands as its number (Two inflows, 55 and 75 a line\'s width apart), clear of the other', async () => {
-  const r = await draw('two-inflows', 346, 170, 13.5), cuts = r.texts.filter((t) => /pcv-cut/.test(t.cls));
+  const r = await draw('two-inflows', 310, 170, 13.5), cuts = r.texts.filter((t) => /pcv-cut/.test(t.cls));
   assert.deepEqual(cuts.map((t) => t.txt).sort(), ['55', '75'], 'the two cut-offs, as numbers');
   assert.ok(!hit(boxOf(cuts[0], 13.5), boxOf(cuts[1], 13.5)), 'clear of each other');
 });

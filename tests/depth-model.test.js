@@ -4,9 +4,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { LIGHT } from '../src/ui/light.js';
+import { appCss } from './split-src.js';
 
 const tokens = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
-const app = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const app = appCss();
 
 test('R8 the shadows lean the way the figure\'s light does', () => {
   const slant = +tokens.match(/--light-slant: ([.\d]+);/)[1];

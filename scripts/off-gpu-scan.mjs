@@ -273,6 +273,7 @@ function fnName(f) {
   if (p?.type === 'AssignmentExpression') return p.left.type === 'Identifier' ? p.left.name : p.left.property?.name;
   return null;
 }
+const returnsOf = (f) => f.__returns || [];
 const enclosing = (n) => { for (let p = n.parent; p; p = p.parent) if (isFn(p)) return p; return null; };
 function label(f) {
   if (!f) return '(module top level)';
@@ -332,7 +333,7 @@ export function scan({ root = ROOT } = {}) {
     }
     if (!file.endsWith('.js')) continue;
     const ast = parseJs(file, text);
-    const mod = { file, text, motionProps: [], fns: new Map(), origins: new Map(), calls: new Map(), imports: new Map(), exports: new Map(), seeds: new Set(), obsSeeds: new Set(), softSeeds: new Set(), late: [], regs: [], alias: new Map(), decls: new Map(), shapes: new Map() };
+    const mod = { file, text, motionProps: [], fns: new Map(), origins: new Map(), factoryBinds: new Map(), calls: new Map(), imports: new Map(), exports: new Map(), seeds: new Set(), obsSeeds: new Set(), softSeeds: new Set(), late: [], regs: [], alias: new Map(), decls: new Map(), shapes: new Map() };
     mods.set(file, mod);
     const frameCallers = new Set(['requestAnimationFrame', 'frame', 'readFrame', 'lateFrame', 'finalFrame']);
     // (raf = frameFor('x'), and imported scheduler names under any local alias)
@@ -403,6 +404,16 @@ export function scan({ root = ROOT } = {}) {
       if (n.type === 'AssignmentExpression' && n.operator === '=' && n.left.type === 'Identifier') shape(n.left.name, enclosing(n), shapeOf(n.right), true);
       // Receivers made by an imported factory: R = createX(…), { R: createX(…) }, this.R = createX(…).
       const madeBy = (v) => v?.type === 'CallExpression' && v.callee.type === 'Identifier' && mod.imports.get(v.callee.name)?.[0];
+      if (n.type === 'ReturnStatement' && n.argument) { const rf = enclosing(n); if (rf) (rf.__returns ||= []).push(n.argument); }
+      // (SF-1, 15 Nov 2026) Names taken from what a factory returned: const { olStep, fxSync } = createTransitions(…). Followed in resolveBare to the
+      // function the factory's return object holds under that key, so a call of olStep(…) is a call of that function, not "no such function here".
+      if (n.type === 'VariableDeclarator' && n.id.type === 'ObjectPattern' && n.init?.type === 'CallExpression' && n.init.callee.type === 'Identifier') {
+        for (const pr of n.id.properties) {
+          if (pr.type !== 'Property' || pr.computed) continue;
+          const key = pr.key.name ?? pr.key.value, v = pr.value.type === 'AssignmentPattern' ? pr.value.left : pr.value;
+          if (v.type === 'Identifier') mod.factoryBinds.set(v.name, { callee: n.init.callee.name, key, at: n });
+        }
+      }
       if (n.type === 'VariableDeclarator' && n.id.type === 'Identifier' && madeBy(n.init)) mod.origins.set(n.id.name, madeBy(n.init));
       if (n.type === 'AssignmentExpression' && madeBy(n.right)) { const l = n.left; const nm = l.type === 'Identifier' ? l.name : !l.computed ? l.property?.name : null; if (nm) mod.origins.set(nm, madeBy(n.right)); }
       if (n.type === 'Property' && !n.computed && madeBy(n.value)) mod.origins.set(n.key.name ?? n.key.value, madeBy(n.value));
@@ -670,7 +681,7 @@ export function scan({ root = ROOT } = {}) {
     return obj;
   };
   // The function a bare name means at a call inside `at`: the innermost binding in scope, else the import of that name.
-  function resolveBare(mod, name, at) {
+  function resolveBare(mod, name, at, depth = 0) {
     const binds = (mod.byName?.get(name) || []).filter((g) => declKind(g) === 'binding');
     if (binds.length) {
       const chain = chainOf(at);
@@ -686,7 +697,22 @@ export function scan({ root = ROOT } = {}) {
     if (imp) {
       const other = mods.get(imp[0]);
       const local = other?.exports.get(imp[1]);
-      return local ? resolveBare(other, local, null) : [];
+      return local ? resolveBare(other, local, null, depth + 1) : [];
+    }
+    const fb = mod.factoryBinds.get(name);
+    if (fb && depth < 6) {
+      const out = [];
+      for (const [fm, F] of resolveBare(mod, fb.callee, fb.at, depth + 1)) {
+        for (const ret of returnsOf(F)) {
+          if (ret.type !== 'ObjectExpression') continue;
+          for (const pr of ret.properties) {
+            if (pr.type !== 'Property' || pr.computed || (pr.key.name ?? pr.key.value) !== fb.key) continue;
+            if (isFn(pr.value)) out.push([fm, pr.value]);
+            else if (pr.value.type === 'Identifier') out.push(...resolveBare(fm, pr.value.name, ret, depth + 1));
+          }
+        }
+      }
+      if (out.length) return out;
     }
     // (Not a binding in scope nor an import: a parameter or a variable holding some function. Every function of that name in the
     // file is followed, so a callback handed in under its own name, opts.onClose as onClose, is never missed.)
@@ -698,9 +724,11 @@ export function scan({ root = ROOT } = {}) {
   // (Conservative: an unknown receiver may be any of them, so every one is followed.)
   function resolveCall(mod, call) {
     if (!call.member) return resolveBare(mod, call.name, call.at);
-    if (call.recv && call.recv !== 'this' && mod.containers.has(call.recv)) return [];
+    // (`live` is the stage's shared object, the parameter every stage-*.js factory takes. A local `let live = 1` elsewhere in a file does not make it a number, SF-1.)
+    const isLive = call.recv === 'live';
+    if (call.recv && call.recv !== 'this' && !isLive && mod.containers.has(call.recv)) return [];
     // (A receiver that is a built-in value where the call is made: the innermost function around it that declares the name decides.)
-    if (call.recv && call.recv !== 'this' && mod.decls.has(call.recv)) {
+    if (call.recv && call.recv !== 'this' && !isLive && mod.decls.has(call.recv)) {
       const ds = mod.decls.get(call.recv);
       for (const sc of [...chainOf(call.at), null]) {
         const here = ds.filter((d) => d.scope === sc);
@@ -717,6 +745,11 @@ export function scan({ root = ROOT } = {}) {
     if (imp && mods.get(imp[0]) && !mods.get(imp[0]).containers.has(mods.get(imp[0]).exports.get(imp[1]) ?? imp[1])) {
       const m = mods.get(imp[0]);
       for (const g of m.byName?.get(call.name) || []) if (declKind(g) === 'method') out.push([m, g]);
+    }
+    // (SF-1) live.fxSync(…): the shared object's getter, get fxSync() { return fxSync; }, hands out what a factory made. That function is called.
+    if (isLive) for (const m of mods.values()) for (const g of m.byName?.get(call.name) || []) {
+      if (g.parent?.type !== 'Property' || g.parent.kind !== 'get') continue;
+      for (const r of returnsOf(g)) { if (r.type === 'Identifier') out.push(...resolveBare(m, r.name, r)); else if (isFn(r)) out.push([m, r]); }
     }
     const origin = call.recv && mod.origins.get(call.recv);
     for (const m of origin ? [mods.get(origin)].filter(Boolean) : []) {

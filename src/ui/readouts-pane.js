@@ -4,8 +4,10 @@
 // comes from there (TILES, GROUPS, VITALS, readoutValue), passed in so this file does not import the dock.
 
 import { store, hiddenNow } from './store.js';
-import { hvBlocked, SEV_OF_RATE, NOT_MEASURABLE } from '../engine/portal/pressure-cuts.js';
-import { h, fmt, clamp, shownOf, countTo, swapText, fadeIn, putText } from './util.js';
+import { hvBlocked, SEV_OF_RATE, NOT_MEASURABLE, NOT_SHOWN } from '../engine/portal/pressure-cuts.js';
+import { h, svgIcon, fmt, clamp, shownOf, countTo, setNone, swapText, fadeIn, putText, numberMoving, bandSwap } from './util.js';
+import { bandStepFor, BAND_RECHECK_MS, BAND_LONG_MS } from './band-settle.js';
+import { reduceMotionMQ } from './motion.js';
 import { vitalReading, bpText } from './vital-read.js';
 import { SCALE, RATE } from './table-marks.js';
 import { shownState, shownOr, FILL_SMALL, fillQ } from './shown.js';
@@ -25,7 +27,7 @@ const SYSTEMIC = [
   ['map', 'Blood pressure', 'BP'], ['hr', 'Heart rate', 'Heart rate'], ['co', 'Cardiac output', 'Cardiac output'], ['ra', 'Right atrial pressure', 'RA pressure'], ['hb', 'Hemoglobin', 'Hb'],
 ];
 
-export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy, show }) {
+export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy, show, onFromReadings = null }) {
   const pos = (t, v) => clamp((v - t.scale[0]) / (t.scale[1] - t.scale[0]), 0, 1) * 100;
   const els = {};
   const vitEls = [];
@@ -35,7 +37,7 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
     const { el, val, tr, st, cmp, fill } = tileEl(t, { names: false, type: 'button' });
     if (t.pane) el.addEventListener('click', () => show(t.pane, { reveal: true }));
     else if (t.why) el.addEventListener('click', () => (t.id === 'hvpg' && readoutValue(t, {}, hiddenNow()) == null ? show('hvpg', { reveal: true }) : onWhy(t.why, el)));
-    els[t.id] = { el, t, val, tr, st, cmp, fill, hist: [], sev: null, trend: '', ariaTxt: '' };
+    els[t.id] = { el, t, val, tr, st, cmp, fill, hist: [], sev: null, waitT: 0, trend: '', ariaTxt: '' };
     return el;
   }
 
@@ -53,7 +55,7 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
     el.title = `${v.title}${v.why ? '\nClick for what is driving it.' : ''}`;
     if (v.why) el.addEventListener('click', () => onWhy(v.why, el));
     else el.style.cursor = 'default';
-    vitEls.push({ v, S, el, val, pre, open, post, preT: null, st, fill, sev: null, ariaTxt: '' });
+    vitEls.push({ v, S, el, val, pre, open, post, preT: null, st, fill, sev: null, waitT: 0, ariaTxt: '' });
     return el;
   }
 
@@ -62,7 +64,20 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
   const byId = Object.fromEntries(vitals.map((v) => [v.id, v]));
   const el = h('div', { class: 'dock-pane', 'data-pane': 'readouts' },
     groups.map(([g, label]) => section(g, label, tiles.filter((t) => t.group === g).map(tile))),
-    section('systemic', 'Systemic', SYSTEMIC.map(([id, name, short]) => vital(byId[id], name, short))));
+    section('systemic', 'Systemic', SYSTEMIC.map(([id, name, short]) => vital(byId[id], name, short))),
+    // (A second door to From readings, where readings live: the patient menu's top row is the first. Review U13.)
+    onFromReadings ? h('section', { class: 'rp-group rp-fr', 'aria-label': 'From readings' }, h('h3', { class: 'rp-cap' }, 'Have a patient’s numbers?'),
+      h('button', { type: 'button', class: 'btn sm rp-fr-btn', onclick: (e) => onFromReadings(e.currentTarget) }, svgIcon('rewind', 'rp-fr-ic'), h('span', {}, 'Work backward from readings'))) : null);
+
+  // The number a tile prints: its shown value, and HVPG and PPG as the bar beside them prints them (the difference of their two readings as shown,
+  // dock.js paintStrip, shown.js), so this tab never says 11.7 where the bar says 11.6. A measured HVPG, or a number far from the bar's (a step
+  // still gliding), keeps its own.
+  function tileShown(x, hidden) {
+    const t = x.t;
+    let v = x.shown ?? null;
+    if (v != null && (t.id === 'hvpg' || t.id === 'ppg') && !hidden?.has(t.hideKey)) { const g = shownOr(t.id, v); if (Math.abs(g - v) < 0.25) v = g; }
+    return v;
+  }
 
   function trendOf(x, v, now) {
     const hs = x.hist;
@@ -86,6 +101,9 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
   };
   // (Followed only while the pane is being drawn: the dock draws it from each model frame only while it is open and on screen.)
   let lastF = null, lastAt = 0;
+  // (A band waiting for its number to land looks again on one timer for the pane, band-settle.js: a paused model sends no frame to look with.)
+  let bandAsk = 0;
+  const bandCheck = () => { bandAsk = 0; if (lastF && el.isConnected) update(lastF); };
   shownState.on(() => { if (lastF && el.isConnected && performance.now() - lastAt < 400) update(lastF, true); });
   function update(f, follow = false) {
     if (!follow) { lastF = f; lastAt = performance.now(); }
@@ -102,19 +120,16 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
         x.shown = v == null ? null : shownState.set('rp:' + t.id, v, followOpts(t.d, !eased));
         fillTo('rpfill:' + t.id, t.scale[0], t.scale[1], v, x.fillSeen); x.fillSeen = v != null;
       } else if (x.target != null) x.shown = shownState.or('rp:' + t.id, x.target);
-      let v = x.shown ?? null;
+      const v = tileShown(x, hidden);
       const eased = follow || x.eased;
-      // HVPG and PPG read as the bar beside them prints them: the difference of their two readings as shown (dock.js paintStrip, shown.js),
-      // so this tab never says 11.7 where the bar says 11.6. A measured HVPG, or a number far from the bar's (a step still gliding), keeps its own.
-      if (v != null && (t.id === 'hvpg' || t.id === 'ppg') && !hidden?.has(t.hideKey)) { const g = shownOr(t.id, v); if (Math.abs(g - v) < 0.25) v = g; }
       // (A display frame between model frames repaints only the tiles whose shown number or bar moved since they were last painted.)
       if (follow) { const fk = `${v}|${shownState.or('rpfill:' + t.id, '')}`; if (fk === x.followKey) continue; x.followKey = fk; } else x.followKey = null;
       if (v != null && !Number.isFinite(v)) { countTo(x.val, v, t.d); continue; }   // (being worked out again: the last number stays, dimmed, with its word, band and bar: util.js countTo)
       const measured = v != null && hidden?.has(t.hideKey);
       let sev, s;
-      if (v == null) { if (!follow) countTo(x.val, null); s = t.id === 'hvpg' && hvBlocked(store.get().params) ? NOT_MEASURABLE : 'Not measured'; sev = 'none'; x.hist.length = 0; }
+      if (v == null) { const nm = t.id === 'hvpg' && hvBlocked(store.get().params); x.nm = nm; setNone(x.val, nm ? NOT_SHOWN : '?'); if (!follow) countTo(x.val, null); s = nm ? NOT_MEASURABLE : 'Not measured'; sev = 'none'; x.hist.length = 0; }
       else {
-        countTo(x.val, v, t.d, { eased });   // (a paused edit or a treatment rolls to the new number: P17)
+        countTo(x.val, v, t.d, { eased, g: !!t.g });   // (a paused edit or a treatment rolls to the new number: P17)
         const vs = shownOf(v, t.d);   // (the word judges the number shown)
         s = measured ? 'Measured' : t.s(vs, m);
         sev = t.st(vs, m);
@@ -135,15 +150,22 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
         if (x.cmp.className !== cc) x.cmp.className = cc;
         if (!x.st.hidden) { x.st.hidden = true; fadeIn(x.cmp); }
       } else if (x.cmp.textContent) { x.cmp.textContent = ''; x.st.hidden = false; fadeIn(x.st); }
-      // A new band must hold for a moment before the tile takes it, so a value on a cut-off does not flicker (paused: at once).
-      if (sev !== x.sev) {
-        if (x.sevNext !== sev) { x.sevNext = sev; x.sevSince = now; }
-        if (!x.sev || sev === 'none' || !st0.running || now - x.sevSince > 1500) {
+      // A reading crossing a cut-off rolls in its old colour; its colour and word change once the number has landed (A1, band-settle.js, as
+      // the bar's tiles). Reduce Motion: all three at once.
+      // (A number that keeps moving past a roll, a live strain, never lands: its band is taken once the number on show has itself entered it, band-settle.js.)
+      const reduce = reduceMotionMQ.matches, waited = x.waitT ? now - x.waitT : 0;
+      const shownSev = waited >= BAND_LONG_MS && v != null ? t.st(shownOf(shownState.or('rpfill:' + t.id, v), t.d), m) : null;
+      const step = bandStepFor(x.sev, sev, numberMoving(x.val) || shownState.isMoving('rp:' + t.id), reduce, waited, shownSev);
+      if (step === 'wait') { if (!x.waitT) x.waitT = now; if (!bandAsk) bandAsk = setTimeout(bandCheck, BAND_RECHECK_MS); }
+      else {
+        x.waitT = 0;
+        if (step !== 'same') {
           if (x.sev && RANKS[sev] > RANKS[x.sev]) { tileEl.classList.remove('flash'); void tileEl.offsetWidth; tileEl.classList.add('flash'); }
-          tileEl.dataset.sev = sev; x.sev = sev;
+          const was = x.sev; x.sev = sev;
+          if (!was || was === 'none' || sev === 'none') { tileEl.dataset.sev = sev; bandSwap([], () => {}, [x.val]); } else bandSwap([x.val], () => { tileEl.dataset.sev = sev; });   // (the number fades out and back under its band's colour: bandSwap)
         }
-      } else x.sevNext = null;
-      if (sev === x.sev) { const un = v == null; swapText(x.st, s, () => x.st.classList.toggle('unmeas', un)); }
+      }
+      if (sev === x.sev) { const un = v == null && !x.nm; if (step === 'now' && reduce) { putText(x.st, s); x.st.classList.toggle('unmeas', un); } else swapText(x.st, s, () => x.st.classList.toggle('unmeas', un)); }
       const aria = `${t.title || t.k}: ${v == null ? s.toLowerCase() : `${fmt(v, t.d)} ${t.u}${t.ux || ''}, ${s}`}${x.trend ? `, ${x.trend === 'up' ? 'rising' : 'falling'}` : ''}`;
       if (aria !== x.ariaTxt) { x.ariaTxt = aria; tileEl.setAttribute('aria-label', aria); }
     }
@@ -166,14 +188,19 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
       const none = hid || !Number.isFinite(r.v), [cls, word] = none ? [null, 'Not measured'] : RATE[x.v.id](shownOf(r.v, x.v.d), x.v.s ? { sbp: x.r?.s } : {}), sev = SEV[cls] ?? 'none';
       const w = none ? 0 : fillQ(clamp((shownState.or('rpfill:' + x.v.id, r.v) - x.S[0]) / (x.S[1] - x.S[0]), 0, 1));
       if (x.fillW !== w) { x.fillW = w; x.fill.style.setProperty('--fl', 0); x.fill.style.setProperty('--fw', w); }
-      if (sev !== x.sev) {
-        if (x.sevNext !== sev) { x.sevNext = sev; x.sevSince = now; }
-        if (!x.sev || sev === 'none' || !st0.running || now - x.sevSince > 1500) {
+      const reduce = reduceMotionMQ.matches, waited = x.waitT ? now - x.waitT : 0;
+      const shownSev = waited >= BAND_LONG_MS && !none ? SEV[RATE[x.v.id](shownOf(shownState.or('rpfill:' + x.v.id, r.v), x.v.d), x.v.s ? { sbp: x.r?.s } : {})[0]] ?? 'none' : null;
+      const step = bandStepFor(x.sev, sev, numberMoving(x.val) || shownState.isMoving('rp:' + x.v.id), reduce, waited, shownSev);
+      if (step === 'wait') { if (!x.waitT) x.waitT = now; if (!bandAsk) bandAsk = setTimeout(bandCheck, BAND_RECHECK_MS); }
+      else {
+        x.waitT = 0;
+        if (step !== 'same') {
           if (x.sev && RANKS[sev] > RANKS[x.sev]) { x.el.classList.remove('flash'); void x.el.offsetWidth; x.el.classList.add('flash'); }
-          x.el.dataset.sev = sev; x.sev = sev;
+          const was = x.sev; x.sev = sev;
+          if (!was || was === 'none' || sev === 'none') { x.el.dataset.sev = sev; bandSwap([], () => {}, [x.val]); } else bandSwap([x.val], () => { x.el.dataset.sev = sev; });
         }
-      } else x.sevNext = null;
-      if (sev === x.sev) swapText(x.st, word, () => x.st.classList.toggle('unmeas', none));
+      }
+      if (sev === x.sev) { if (step === 'now' && reduce) { putText(x.st, word); x.st.classList.toggle('unmeas', none); } else swapText(x.st, word, () => x.st.classList.toggle('unmeas', none)); }
       const aria = `${x.v.title}: ${none ? 'not measured' : `${x.v.s ? bpText(x.r?.s, x.r?.d, r.v) : fmt(r.v, x.v.d)} ${x.v.u}, ${word}`}`;
       if (aria !== x.ariaTxt) { x.ariaTxt = aria; x.el.setAttribute('aria-label', aria); }
     }

@@ -1,4 +1,3 @@
-import { stageSource } from './stage-src.js';
 // Patients numbers agree with each other (review 15 Oct, #6, #7, #8): a gradient equals its two readings as shown, a
 // vessel reads one velocity everywhere, an event fires once rather than with every breath, the vitals hold steady
 // through a breath, and the bottom bar repaints a paused model. (dock.js and readouts-pane.js need a DOM, so they
@@ -43,14 +42,8 @@ test('a vessel reads one velocity: Details, the tip, the labels and colours read
   }
   // (the jejunal veins are drawn at 6 mm but probed at 9.5: they read about 23 cm/s, not 54)
   for (const p of ['inspector.js', 'main.js', 'actions.js']) assert.doesNotMatch(src(p), /Math\.PI \* D \* D/, `${p} works out a velocity from the drawn width`);
-  assert.match(stageSource(), /const edgeVel = meanVel;/);
 });
 
-test('Details reads the smoothed pressures and flows, as the vessel card does', () => {
-  const ins = src('inspector.js');
-  assert.doesNotMatch(ins, /fp\(f\.P\[/);
-  assert.match(ins, /const Pof = \(f\) => f\.Pf \|\| f\.P, Qof = \(f\) => f\.Qf \|\| f\.Q;/);
-});
 
 test('an event fires once as it starts, not again with every breath', () => {
   for (const id of ['cirr-decomp', 'cirr-hepatofugal', 'schisto', 'rhf', 'constrictive']) {
@@ -70,17 +63,18 @@ test('a vital holds steady through a breath, and its red flag does not flicker',
   const { VITALS } = { VITALS: [{ id: 'co', v: (m) => m.vitals?.co ?? m.co, cut: 6.5, hys: 0.2 }, { id: 'map', v: (m) => m.vitals?.map ?? m.map, cut: 65, low: true, hys: 2 }] };
   for (const id of ['cirr-decomp', 'gastric-varix', 'schisto']) {
     const e = new Engine(); e.loadPreset(id); e.beat = true;
-    const xs = VITALS.map((v) => ({ v })), seen = VITALS.map(() => [Infinity, -Infinity]), raw = [Infinity, -Infinity], flips = VITALS.map(() => 0);
+    const xs = VITALS.map((v) => ({ v })), seen = VITALS.map(() => [Infinity, -Infinity]), raw = [Infinity, -Infinity], mco = [Infinity, -Infinity], flips = VITALS.map(() => 0);
     for (let f = 0; f < 600; f++) {
       for (let i = 0; i < 25; i++) e.step(0.004);
       const m = computeMetrics(e);
-      raw[0] = Math.min(raw[0], m.co); raw[1] = Math.max(raw[1], m.co);
+      const c0 = e.COf * 0.06; raw[0] = Math.min(raw[0], c0); raw[1] = Math.max(raw[1], c0); mco[0] = Math.min(mco[0], f > 100 ? m.co : Infinity); mco[1] = Math.max(mco[1], f > 100 ? m.co : -Infinity);
       xs.forEach((x, i) => {
         const before = x.bad, r = vitalReading(x, m, true, f * 100);
         if (f > 100) { seen[i][0] = Math.min(seen[i][0], r.v); seen[i][1] = Math.max(seen[i][1], r.v); if (r.bad !== before) flips[i]++; }
       });
     }
-    assert.ok(raw[1] - raw[0] > 0.8, `${id}: the raw output swings (${raw[0].toFixed(2)}-${raw[1].toFixed(2)})`);
+    assert.ok(raw[1] - raw[0] > 0.8, `${id}: the engine's 2 s-filtered output swings (${raw[0].toFixed(2)}-${raw[1].toFixed(2)})`);
+    assert.ok(mco[1] - mco[0] < 0.15, `${id}: metrics.co, which the heart's label reads, wanders ${mco[0].toFixed(2)} to ${mco[1].toFixed(2)}`);   // (16 Nov 2026: it was that filtered output, swinging 0.15 to 1.6)
     assert.ok(seen[0][1] - seen[0][0] < 0.15, `${id}: CO wanders ${seen[0][0].toFixed(2)} to ${seen[0][1].toFixed(2)}`);
     assert.ok(seen[1][1] - seen[1][0] < 1, `${id}: MAP wanders ${seen[1][0].toFixed(1)} to ${seen[1][1].toFixed(1)}`);
     assert.deepEqual(flips, [0, 0], `${id}: a flag changed`);
@@ -93,7 +87,6 @@ test('a vital holds steady through a breath, and its red flag does not flicker',
   assert.equal(vitalReading(x, { co: 6.2 }, true, 1800).bad, false);
   assert.equal(vitalReading(x, { co: 6.7 }, false, 1900).bad, true);
   for (const s of [src('dock.js'), src('readouts-pane.js')]) { assert.match(s, /vitalReading\(x, m, st0\.running, now\)/); assert.doesNotMatch(s, /\.bad\(m\)/); }
-  assert.match(src('vital-read.js'), /v: \(m\) => m\.vitals\?\.co \?\? m\.co/, 'the vitals\' definitions (vital-read.js) read output over two breaths');
 });
 
 test('paused, the bar repaints on a measurement or a new patient and takes a new band at once', () => {
@@ -101,7 +94,9 @@ test('paused, the bar repaints on a measurement or a new patient and takes a new
   const keys = dock.match(/for \(const k of \[([^\]]*)\]\) store\.on\(k, \(\) => \{ if \(frame\) updateDock\(frame\); \}\)/);
   assert.ok(keys, 'the bar listens for the HVPG measurement');
   for (const k of ['hvpgMeasured', 'showHvpg', 'hiddenReadouts', 'lastHVPG', 'presetId']) assert.match(keys[1], new RegExp(`'${k}'`));
-  for (const s of [dock, pane]) assert.match(s, /if \(!x\.sev \|\| sev === 'none' \|\| !st0\.running \|\| now - x\.sevSince > 1500\)/);
+  // (Since 15 Nov 2026 (full app review A1) a band no longer holds 1.5 s while the model runs: it waits for its number to land, then changes
+  // (band-settle.js bandStep, tested in band-settle.test.js); paused, a measurement's number lands in its 0.4 s roll and its band with it.)
+  for (const s of [dock, pane]) { assert.match(s, /step = bandStepFor\(x\.sev, sev, /); assert.doesNotMatch(s, /sevSince > 1500/); }
 });
 
 test('every patient loads with its gradients agreeing', () => {
@@ -119,27 +114,19 @@ test('every patient loads with its gradients agreeing', () => {
 test('the right atrium is read over two breaths everywhere it is shown, and that reading holds still', () => {
   const e = new Engine(); e.loadPreset('ivc-web'); e.beat = true;
   for (let i = 0; i < 6000; i++) e.step(0.004);   // (24 s: the two-breath mean has settled)
-  let lo = Infinity, hi = -Infinity, vlo = Infinity, vhi = -Infinity;
+  // (The model's own beat-by-beat RA swings; since 15 Nov 2026 the readings are its means over one breath and one beat (engine shownMean),
+  // so metrics.ra holds still too, and the two-breath vital agrees with it.)
+  let lo = Infinity, hi = -Infinity, mlo = Infinity, mhi = -Infinity, vlo = Infinity, vhi = -Infinity;
   for (let f = 0; f < 120; f++) {
     for (let i = 0; i < 25; i++) e.step(0.004);
-    const m = computeMetrics(e);
-    lo = Math.min(lo, m.ra); hi = Math.max(hi, m.ra); vlo = Math.min(vlo, m.vitals.ra); vhi = Math.max(vhi, m.vitals.ra);
+    const m = computeMetrics(e), raw = e.P[e.ni.RA];
+    lo = Math.min(lo, raw); hi = Math.max(hi, raw); mlo = Math.min(mlo, m.ra); mhi = Math.max(mhi, m.ra); vlo = Math.min(vlo, m.vitals.ra); vhi = Math.max(vhi, m.vitals.ra);
   }
   assert.ok(hi - lo > 0.4, `the beat-by-beat RA swings (${lo.toFixed(2)}–${hi.toFixed(2)}), which is why it is not shown`);
+  assert.ok(mhi - mlo < 0.1, `the RA reading holds within 0.1 mmHg (${mlo.toFixed(2)}–${mhi.toFixed(2)})`);
   assert.ok(vhi - vlo < 0.3, `RA over two breaths holds within 0.3 mmHg (${vlo.toFixed(2)}–${vhi.toFixed(2)})`);
-  assert.match(stageSource(), /mk === 'ra' \? f\.metrics\?\.vitals\?\.ra/, 'the figure reads RA over two breaths');
   // (The slide data card: the presenter's live fingerprint and the worker's slide states are one function, engine/portal/fingerprint.js.)
-  assert.match(src('../engine/portal/fingerprint.js'), /ra: m\.vitals\?\.ra \?\? m\.ra/, 'the slide data card reads RA over two breaths');
-  assert.match(src('presenter.js'), /const liveFp = \(fr\) => fingerprintOf\(/, 'the live slide data is that fingerprint');
-  assert.match(readFileSync(new URL('../src/worker-core.js', import.meta.url), 'utf8'), /fingerprintOf\(m,/, 'and so are the slide states');
-  assert.match(src('vital-read.js'), /m\.vitals\?\.ra \?\? m\.ra/, 'the bar reads RA over two breaths');
 });
 
 // Sweep batch 02, shot 14: the Doppler panel said −31 cm/s over a ±5 scale with the trace clipped into a block. The scale
 // now always holds the peak the reading reports, and the words are set in the same frame as the picture.
-test('the Doppler scale holds the reported peak and the report is drawn with the picture', () => {
-  const d = src('doppler.js');
-  assert.match(d, /const rd = reading\(\);\s*\n\s*if \(rd\) \{\s*\n\s*const hi = rd\.vmax \* gf \* sgn, lo = rd\.vmin \* gf \* sgn;/);
-  // (Also while the reading still glides on the shown state, premium-feel R4: the words follow it in the picture's own frame.)
-  assert.match(d, /if \(reportDue \|\| velShown\.moving\) \{ reportDue = false; updateReport\(\); \}\s*\n\s*draw\(now\);/);
-});

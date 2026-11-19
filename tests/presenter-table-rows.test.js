@@ -3,8 +3,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { presenterSource } from './split-src.js';
 
-const PZ = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const PZ = presenterSource();
 
 test('a pending cell is a bar of a value\'s width, hidden from the screen reader, beside its spoken "calculating"', () => {
   const line = PZ.slice(PZ.indexOf('  const pendEl = '), PZ.indexOf('\n', PZ.indexOf('  const pendEl = ')));
@@ -21,5 +22,5 @@ test('a table shown with a row still computing is labelled degraded', () => {
 test('an arriving row waits for the cards\' landing before the table is swapped, and a layout it cannot make now is queued', () => {
   const w = PZ.slice(PZ.indexOf('  function watchRows('), PZ.indexOf('  const fpOf = '));
   assert.ok(w.indexOf('await Promise.all(throwCards().map((c) => c && throwLanded(c)))') < w.indexOf('el.replaceWith(t)'));
-  assert.match(w, /if \(!cardMoving\(\)\) layout\(\); else if \(thrown\(\)\) layoutAtLanding\(\);/);
+  assert.match(w, /if \(!(?:live\.)?cardMoving\(\)\) layout\(\); else if \((?:live\.)?thrown\(\)\) layoutAtLanding\(\);/);
 });

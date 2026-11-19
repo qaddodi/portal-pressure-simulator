@@ -1,7 +1,7 @@
 // Acute variceal bleeding from an oesophageal varix or GOV1: Baveno VIII Fig. 3 and 5.4, 5.16, 5.18, 5.20, 5.31, 5.35 to 5.37. Three leaf columns (E3, 7 Nov 2026):
 // the gastric half of the figure (GOV2, IGV1; 5.39 to 5.41) is its own chart, gastric.js. Patient { src: 'ov', cp, active, hvpg, ctrl, fit }.
 import { PTIPS_HVPG } from '../../engine/portal/pressure-cuts.js';
-import { inheritTone, cpClass } from './helpers.js';
+import { inheritTone, cpClass, NONE } from './helpers.js';
 
 const tree = inheritTone({
   id: 'root', t: 'Suspected variceal bleeding', r: 'Esophageal varix or GOV1', s: 'Vasoactive drug, antibiotics, restrictive transfusion. Endoscopy within 12 h. Band ligation.', stmt: '5.18', tone: 'n', kids: [
@@ -39,12 +39,13 @@ export default {
       default: return { head: 'Covered stent, then salvage TIPS', tone: 'bad', stmt: '5.35, 5.36', why: 'Band ligation did not control the bleeding.', next: 'A dedicated covered self-expanding metal stent is preferred over balloon tamponade as a bridge to TIPS or liver transplant. Evaluate for transplant.' };
     }
   },
-  chips: (p) => ['Esophageal or GOV1', `Child–Pugh ${cpClass(p.cp)}${p.cp}`, p.hvpg != null && `HVPG ${p.hvpg}`, p.active ? 'Active bleeding' : 'No active bleeding', p.ctrl ? 'Controlled' : 'Not controlled', !p.fit && 'Not a TIPS candidate'].filter(Boolean),
+  chips: (p, tiled = NONE) => ['Esophageal or GOV1', `Child–Pugh ${cpClass(p.cp)}${p.cp}`, p.hvpg != null && !tiled.has('hvpg') && `HVPG ${p.hvpg}`, p.active ? 'Active bleeding' : 'No active bleeding', p.ctrl ? 'Controlled' : 'Not controlled', !p.fit && 'Not a TIPS candidate'].filter(Boolean),
   patientFor(t, fp, shown = (k, v) => v) {
     const base = { ...(t?.patient || {}) };
     const live = (k, v) => (fp && Number.isFinite(fp[k]) ? shown(k, fp[k]) : v);
     return { src: 'ov', cp: 8, active: false, ctrl: true, fit: true, ...base, hvpg: base.hvpg === null ? null : live('hvpg', base.hvpg ?? 16) };
   },
+  live: true,   // (its patient takes the live model's readings: the card keeps room for every outcome's reading)
   worst: { src: 'ov', cp: 13, active: false, hvpg: 99.9, ctrl: false, fit: false },
   notes: 'The acute variceal bleeding algorithm of Baveno VIII (Fig. 3) for bleeding from an esophageal varix or GOV1: a vasoactive drug, antibiotic prophylaxis and restrictive transfusion, endoscopy within 12 hours and band ligation (5.18). Once bleeding is controlled, preemptive TIPS within 72 hours, ideally within 24, is indicated for Child–Pugh C 10–13, or B 8–9 with active bleeding at endoscopy, or HVPG ≥20 mmHg, in a patient aged <75 with creatinine <3 mg/dL and no heart failure (5.31); otherwise carvedilol with EVL every 2–4 weeks. If bleeding is not controlled, a covered esophageal stent bridges to salvage TIPS (5.35, 5.36).',
 };

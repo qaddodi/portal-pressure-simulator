@@ -34,7 +34,8 @@ test('end-to-side and side-to-side are one shunt, one at a time, and removing ei
   ss.apply(p); es.remove(p);
   assert.equal(p.portocaval, false); assert.equal(p.portocavalSide, false);
   assert.equal(defaultParams().portocavalSide, false);
-  assert.equal(sanitizeParams({ portocavalSide: 1 }).portocavalSide, true, 'a share link keeps it as a switch');
+  assert.equal(sanitizeParams({ portocavalSide: true }).portocavalSide, true, 'a share link keeps it as a switch');
+  assert.equal(sanitizeParams({ portocavalSide: 1 }).portocavalSide, false, 'a 1 is not a switch (R07)');
 });
 
 test('the engine: end-to-side divides the portal trunk; side-to-side keeps it, and the liver drains back out through it', () => {
@@ -72,11 +73,11 @@ function rig(params) {
 test('placing makes the shunt, names it in the timeline and shows its vessel; a second tap only shows it', () => {
   const r = rig(defaultParams());
   assert.equal(r.verbs.placeShunt('warren'), true);
-  assert.equal(r.st.params.dsrs, true); assert.deepEqual(r.log, ['Warren shunt']); assert.deepEqual(r.sels.at(-1), { type: 'edge', id: 'S_DSR' });
+  assert.equal(r.st.params.dsrs, true); assert.deepEqual(r.log, ['Distal splenorenal shunt (DSRS)']); assert.deepEqual(r.sels.at(-1), { type: 'edge', id: 'S_DSR' });
   assert.equal(r.verbs.placeShunt('warren'), false);
-  assert.equal(r.log.length, 1); assert.match(r.toasts.at(-1), /The Warren shunt is already in place/);
+  assert.equal(r.log.length, 1); assert.match(r.toasts.at(-1), /The distal splenorenal shunt \(DSRS\) is already in place/);
   assert.equal(r.verbs.removeShunt('warren'), true);
-  assert.equal(r.st.params.dsrs, false); assert.equal(r.log.at(-1), 'Remove Warren shunt');
+  assert.equal(r.st.params.dsrs, false); assert.equal(r.log.at(-1), 'Remove Distal splenorenal shunt (DSRS)');
   assert.equal(r.verbs.removeShunt('warren'), false);
 });
 
@@ -100,7 +101,7 @@ test('switching the portocaval shunt from end-to-side to side-to-side is one cha
 
 test('the Procedures tab lists every order, and the palette finds each with its take-down', () => {
   const chart = src('src/ui/chart.js'), pal = src('src/ui/palette.js');
-  assert.match(chart, /\.\.\.SURGICAL\.map\(\(x\) => placed\(proc\('stent', x\.label, x\.sub, \(\) => surgical\.placeShunt\(x\.id\)\), x\.on\)\)/);
+  assert.match(chart, /\.\.\.SURGICAL\.map\(\(x\) => placed\(proc\('stent', x\.proc \|\| x\.label, x\.sub, \(\) => surgical\.placeShunt\(x\.id\)\), x\.on\)\)/);
   assert.doesNotMatch(chart, /b\.hidden = !\(p\.rex/, 'the Meso-Rex bypass is no longer hidden');
   assert.match(pal, /for \(const x of SURGICAL\) add\('Treat', shuntName\(x\), \(\) => surgical\.placeShunt\(x\.id\)/);
   for (const id of ['warren', 'pc-es', 'mesocaval', 'rex']) assert.match(pal, new RegExp(`\\['${id}', '[^']+'\\]`), `Remove for ${id}`);

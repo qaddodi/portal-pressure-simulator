@@ -29,16 +29,18 @@ export function parseLive(label) {
   text(label.slice(at));
   return live ? runs : null;
 }
-/** A reading as its tile prints it, in running text (to its tile's decimals: pressures to one), or "…" (VALUE_PENDING) while it is unknown. */
-export function valueText(k, fp) {
+/** A reading as its tile prints it, in running text (to its tile's decimals: pressures to one; whole: a whole number), or "…" (VALUE_PENDING)
+ *  while it is unknown. The ONE formatter of a tile's value in words: a slide's {key}, the handout's lines and the callouts all read it, so the
+ *  blood pressure is never printed as its mean alone under the name "blood pressure" (a bare 93 is the MAP, vital-read.js bpText). */
+export function valueText(k, fp, whole = false) {
   const T = TILE[k], v = fp?.[k];
   if (!T || v == null || !Number.isFinite(v)) return VALUE_PENDING;
   if (k === 'plt') return plateletText(v);
   if (T.bp) return `${bpText(fp.sbp, fp.dbp, v)} ${T.u}`;   // (the blood pressure as the bedside writes it: 120/80 (93) mmHg)
-  return `${fmt(v * (T.x || 1), T.d ?? 1)}${T.u === '%' ? '%' : T.u ? ` ${T.u}` : ''}`;
+  return `${fmt(v * (T.x || 1), whole ? 0 : T.d ?? 1)}${T.u === '%' ? '%' : T.u ? ` ${T.u}` : ''}`;
 }
 // A reading's rating colour, as its tile's bar shows it (and the line's pill: presenter valTone): green, amber or red; after TIPS
-// the PPG is read against its target. A reading its tile does not rate has none.
+// the PPG is read against its 12 mmHg reference line. A reading its tile does not rate has none.
 const TONE = TOKEN_OF_RATE;
 export function valueTone(k, fp, tips = false) {
   if (fp?.[k] == null) return null;
@@ -221,6 +223,19 @@ export const spanPath = (sp) => {
   spX0[i] = sp.x0; spX1[i] = sp.x1; spY[i] = sp.y;
   return (spD[i] = `M${sp.x0} ${sp.y - SPAN_TICK}V${sp.y}H${sp.x1}V${sp.y - SPAN_TICK}`);
 };
+
+// A caliper's three segments (the line and its two end ticks, [[x, y], [x, y]] each) as twelve numbers kept on its element, so the ticks' path
+// text is built only when one of them changed (SF-3). segsSame: are they the numbers kept (k may be absent)? segsSave: keep them, in k or a new array.
+export function segsSame(k, segs) {
+  if (!k) return false;
+  for (let i = 0, j = 0; i < 3; i++) for (let e = 0; e < 2; e++) { const q = segs[i][e]; if (k[j++] !== q[0] || k[j++] !== q[1]) return false; }
+  return true;
+}
+export function segsSave(k, segs) {
+  k ||= new Float64Array(12);   // alloc-rare: once for each element
+  for (let i = 0, j = 0; i < 3; i++) for (let e = 0; e < 2; e++) { const q = segs[i][e]; k[j++] = q[0]; k[j++] = q[1]; }
+  return k;
+}
 
 // ── Where a reading's pill may stand (stage.js placeMulti: edge, avoid) ──
 /** Is the box r at least `edge` px inside the view V? */

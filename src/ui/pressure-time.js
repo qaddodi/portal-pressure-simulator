@@ -10,6 +10,8 @@ import { h, fmt, cssVar, cssAlpha, cssInk, clamp } from './util.js';
 import { FONT as FONT0, FONT } from './charts.js';
 import { frameFor, cancelFrame, paceMs, restGapFor, restPark, noteDraw, frameAnimating, pageRest, onPageWake } from './frame.js';
 import { tenthGap } from '../engine/core/gap.js';
+import { calmedDays, recordDay } from '../engine/portal/trail-calm.js';
+import { treatmentKey } from '../engine/portal/change-events.js';
 import { HVPG_CUTS, hvpgSev, HVPG_WORDS, BLEED_WORD, TOKEN_OF_SEV, NOT_SHOWN } from '../engine/portal/pressure-cuts.js';
 import { firstAtOrAbove, firstAbove } from './sorted.js';
 import { limitLabelX as labelX } from './limit-label.js';
@@ -56,12 +58,14 @@ const JUMP_S = 0.5;   // (a first sample this far ahead of the last one recorded
 const LIMITS = [[HVPG_CUTS.amber, ''], [HVPG_CUTS.red, `${HVPG_WORDS.danger[0]} ${HVPG_CUTS.red}`], [HVPG_CUTS.bleed, `${BLEED_WORD} ${HVPG_CUTS.bleed}`]];
 const sevOf = hvpgSev;
 const BLEED_BAND = `${HVPG_WORDS.danger[0]} · ${BLEED_WORD.toLowerCase()}`;
-const wordOf = (v) => (v < HVPG_CUTS.amber ? HVPG_WORDS.ok[0] : v < HVPG_CUTS.red ? HVPG_WORDS.caution[0] : v < HVPG_CUTS.bleed ? HVPG_WORDS.danger[0] : BLEED_BAND);
+const wordOf = (v) => (v >= HVPG_CUTS.bleed ? BLEED_BAND : HVPG_WORDS[sevOf(v)][0]);
 const nice = (span, n = 4) => { const raw = Math.max(1e-6, span / n); const p = Math.pow(10, Math.floor(Math.log10(raw))); const r = raw / p; return (r < 1.5 ? 1 : r < 3.5 ? 2 : r < 7.5 ? 5 : 10) * p; };
 
 // Kept once, for every frame (nothing below is made in a frame: gpu-practices.md, "no allocation in a frame"). Dashes are handed to the pen,
 // which copies them; the words are tables made here, at load, so a frame reads a string instead of building one.
-const DASH_NONE = [], DASH_PORTAL = [6, 4], DASH_BEFORE = [0.1, 4.5], DASH_LIMIT = [3, 4], DASH_MARK = [2, 3], DASH_SWATCH = [4, 3], DASH_WEDGE = [7, 5];
+// (A dash is for a line that stands still: the "before" levels, the limits, the hover mark. A trace that scrolls is never dashed, since its dashes would march with it
+// and distract: the readings are told apart by colour alone, tests/no-dashed-traces.test.js.)
+const DASH_NONE = [], DASH_BEFORE = [0.1, 4.5], DASH_LIMIT = [3, 4], DASH_MARK = [2, 3];
 const TICK_CHOICES = [5, 10, 20, 25, 50];
 const HVPG_KEYS = ['hvpg'];
 const RANGE_SPAN = Object.fromEntries(RANGES.map((r) => [r[0], r[2]]));   // (seconds on screen; null: the days)
@@ -96,7 +100,7 @@ function sevVar(sev) {
 }
 const byY = (a, b) => a.y - b.y;
 
-export function createPressureTime({ marks = () => [], stillLayer = true } = {}) {
+export function createPressureTime({ marks = () => [], stillLayer = true, smooth: smooth0 = false } = {}) {
   // ── DOM ───────────────────────────────────────────
   const heroVal = h('b', { class: 'pt-num' }, NOT_SHOWN);
   const heroSev = h('span', { class: 'pt-sev' });
@@ -141,9 +145,11 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   const laneChipBtn = laneChip('hvpg', 'HVPG lane', 'The HVPG lane under the pressures', true, (v) => { showLane = v; });
   chips.append(ekgChip, laneChipBtn);
   // Display only: averages away the heartbeat and breathing swings; the simulation is untouched.
-  let smooth = false;
+  // (The Tests pane draws the minutes' trace smooth until Smooth is touched: the spikes of each beat and breath are the option there, Tests > Pressure > Over time, play-test 16 Nov 2026. One beat's own
+  // window keeps its pulses, which is all it shows, a mean over six seconds being a straight line there; a slide's beat-by-beat trace keeps them too.)
+  let smooth = false, touched = false;
   const smoothBtn = h('button', { class: 'pt-chip pt-smooth', 'aria-pressed': 'false', title: 'Show the mean: hide beat-to-beat and respiratory variation', onclick: () => {
-    smooth = !smooth; yr.pressure = yr.hvpg = null; smoothBtn.setAttribute('aria-pressed', String(smooth)); draw();
+    touched = true; smooth = !smooth; yr.pressure = yr.hvpg = null; smoothBtn.setAttribute('aria-pressed', String(smooth)); draw();
   } }, 'Smooth');
   // Smooth and the range switch sit with the trace pills under the chart, together at the right end of the pills' last line.
   chips.append(h('div', { class: 'pt-ctl' }, smoothBtn, rangeSeg));
@@ -151,6 +157,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
 
   function setRange(id) {
     range = id;
+    if (smooth0 && !touched) { smooth = id !== 'beats'; smoothBtn.setAttribute('aria-pressed', String(smooth)); }
     rangeSeg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.range === id)));
     ekgChip.disabled = id !== 'beats';   // (one beat is the strip's unit: over two minutes or days it has nothing to show)
     yr.pressure = yr.hvpg = null;
@@ -174,6 +181,8 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   // (The columns of the fine buffer in the order of KEYS, and the sources of the frame being recorded: nothing is looked up by name for every sample.)
   const FINE_COLS = KEYS.map((k) => fine[k]), ALL_COLS = [fine.t, fine.ph, ...FINE_COLS], SRC = KEYS.map(() => null);
   let days = [];
+  const dayV = {};   // (today's readings, one scratch record: recordDay copies it into a point only when one is added)
+  let treatKey = null, bandsNow = null, stepNext = false;   // (the last treatment and band count seen, and a change waiting for its day's point)
   let clock = 'hemo', dayNow = 0, lastT = -Infinity, frame = null, wallAt = 0;
   // off: the model's time plus off is the trace's (the model's clock was set while the trace went on: a state restored, a time-lapse ended).
   let off = 0;
@@ -297,17 +306,14 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     stripDays = f.clock === 'disease' && range === 'days' && userRange === 'beats' && (onSlide() ? cfg.ekg : showEkg);
     sweepLapse = f.clock === 'disease' && (range === 'beats' || stripDays);
     const m = f.metrics;
-    const last = days[days.length - 1];
-    if (last && f.day < last.day) days = [];
-    if (!days.length || days[days.length - 1].day !== f.day) {
-      days.push({ day: f.day, v: { hvpg: m.hvpg, ...Object.fromEntries(TRACES.filter((t) => t.day).map((t) => [t.id, t.day(m)])) } });
-      if (days.length > 1500) days.shift();
-    } else {
-      // Keep today's point current (a treatment changes it without a new day).
-      const d = days[days.length - 1];
-      d.v.hvpg = m.hvpg;
-      for (const t of TRACES) if (t.day) d.v[t.id] = t.day(m);
-    }
+    // (A treatment or a procedure is a step: the days list cuts its trend there, and keeps both readings of the day it happened on, trail-calm.js recordDay.)
+    if (f.params) { const k = treatmentKey(f.params); if (k !== treatKey) { stepNext = treatKey != null; treatKey = k; } }
+    if (f.bands !== bandsNow) { stepNext = stepNext || bandsNow != null; bandsNow = f.bands; }
+    dayV.hvpg = m.hvpg;
+    for (const t of TRACES) if (t.day) dayV[t.id] = t.day(m);
+    const grew = recordDay(days, f.day, dayV, stepNext);
+    stepNext = false;
+    if (grew) calmDays();
   }
 
   // ── Series for the current range ──────────────────
@@ -364,8 +370,32 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       return out;
     }
     out.x.length = out.mid.length = 0;
-    for (const d of days) if (d.v[key] != null && d.day >= x0) { out.x.push(d.day); out.mid.push(d.v[key]); }
+    // (The days' readings are taken in whatever phase of the beat and breath the disease clock is in on that day, a ripple that is no part of the trend,
+    // so the line is drawn calmed, as every time-lapse chart is, engine/portal/trail-calm.js; its latest reading stays the live one.)
+    const c = calmOf(key);
+    if (!c) { for (const d of days) if (d.v[key] != null && d.day >= x0) { out.x.push(d.day); out.mid.push(d.v[key]); } return out; }
+    const n = c.x.length;
+    for (let i = 0; i < n; i++) if (c.x[i] >= x0) { out.x.push(c.x[i]); out.mid.push(i === n - 1 ? days[days.length - 1].v[key] : c.mid[i]); }   // (today's point stays the live reading)
     return out;
+  }
+  const calmKept = new Map();
+  // The days' series of a trace, calmed. Made when a trace is drawn, once for each change of the days (a day added, dropped or the clock
+  // gone back: calmVer), never for every trace on every new day: a time-lapse adds a day every frame or two, and the whole list of
+  // readings (a dozen traces, up to 1,500 days) calmed each time held the page for 200 to 500 ms on a slow machine (16 Nov 2026, the
+  // stall on slide changes). A trace no card draws is never worked out.
+  let calmVer = 0;
+  function calmDays() {
+    calmVer++;
+    if (!days.length) calmKept.clear();
+  }
+  function calmOf(key) {
+    const c = calmKept.get(key);
+    if (c && c.ver === calmVer) return c;
+    // alloc-rare: once for each trace drawn and each change of the days, never in a frame that drew the same days
+    if (!days.length || !(key in days[days.length - 1].v)) { calmKept.delete(key); return null; }
+    const e = { ...calmedDays(days, key), ver: calmVer };
+    calmKept.set(key, e);
+    return e;
   }
 
   // ── Crosshair ─────────────────────────────────────
@@ -466,7 +496,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   const glideAgain = () => { glideReq = false; draw(); };
   // ── The slide's card (beat-card.js) ───────────────
   // The paper's squares are 1 mmHg high, and as wide, so the EKG strip runs on into the pressures below it on one sheet. The wedged and free
-  // hepatic pressures with the HVPG shaded between them in its status colour; the portal pressure dashed over the wedged (they read nearly
+  // hepatic pressures with the HVPG shaded between them in its status colour; the portal pressure over the wedged in its own colour (they read nearly
   // the same); a caliper at "now" spans the gap. Where the patient stood before the slide's event (the slide's delta), the two dotted lines
   // and the old gap faint grey behind, named once. The readings in a column beside, or on a narrow card one line on top and the values at
   // the lines' ends. Every number is the slide's own (pinned), as the tiles show it.
@@ -481,9 +511,9 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   const YEg = (v) => F.eb - 3 - ((v + 0.3) / 1.3) * (F.eb - F.et - 6);   // (the S wave's dip to the R peak fill the lane: the chart's strip)
   const beatFont = (wt, px) => FONT0(wt, px * 13 / 12);   // (a slide's card: the larger lettering)
   const keyRows = [
-    { c: '', name: 'Portal vein', v: NaN, dashed: true, txt: '', label: 'PV', y: 0 },
-    { c: '', name: 'Wedged', v: NaN, dashed: false, txt: '', label: 'WHVP', y: 0 },
-    { c: '', name: 'Free', v: NaN, dashed: false, txt: '', label: 'FHVP', y: 0 },
+    { c: '', name: 'Portal vein', v: NaN, txt: '', label: 'PV', y: 0 },
+    { c: '', name: 'Wedged', v: NaN, txt: '', label: 'WHVP', y: 0 },
+    { c: '', name: 'Free', v: NaN, txt: '', label: 'FHVP', y: 0 },
   ];
   const keyRowList = [], endsBeat = [], topVals = [0, 0, 0, 0], ylTxt = [], ylY = [];
   const spanPool = [[0, 0], [0, 0], [0, 0]], spansBuf = [], wasBox = [0, 0, 0, 0];
@@ -535,8 +565,8 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
         for (let i = 0; i < rows.length; i++) {
           const r = rows[i];
           y += 26 * k;
-          g.strokeStyle = r.c; g.lineWidth = 3; g.lineCap = 'round'; g.setLineDash(r.dashed ? DASH_SWATCH : DASH_NONE);
-          g.beginPath(); g.moveTo(x + 1, y - 4); g.lineTo(x + 12, y - 4); g.stroke(); g.setLineDash(DASH_NONE); g.lineCap = 'butt';
+          g.strokeStyle = r.c; g.lineWidth = 3; g.lineCap = 'round';
+          g.beginPath(); g.moveTo(x + 1, y - 4); g.lineTo(x + 12, y - 4); g.stroke(); g.lineCap = 'butt';
           g.font = FONT(500, 12); g.fillStyle = muted; g.fillText(r.name, x + 18, y);
           g.font = FONT(650, 12.5); g.fillStyle = text; g.textAlign = 'right'; g.fillText(r.txt, x + cw, y); g.textAlign = 'left';
           y += 10 * k; stillRule(g, S, x, cw, y);
@@ -558,7 +588,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   // The beat card's still parts are kept on the GPU while nothing they print moves: KB is a copy of what SB (and its column) held when the layer
   // was last drawn, compared field by field (nothing is built to compare), and its ver moves when any of it differs. The printed words are in it.
   const KB = { ver: 0, w: 0, hh: 0, panel: '', faint: '', muted: '', text: '', hair: '', danger: '', ok: '', cap: '', join: '', L: 0, hrT: '', hvT: '', word: '', sevC: '', hrC: '', ylN: 0, col: false, x: 0, k: 0, deltas: false, rows: false, hrSince: '', hvSince: '', rn: 0 };
-  const kbYT = [], kbYY = [], kbR = [{ c: '', name: '', dashed: false, txt: '' }, { c: '', name: '', dashed: false, txt: '' }, { c: '', name: '', dashed: false, txt: '' }];
+  const kbYT = [], kbYY = [], kbR = [{ c: '', name: '', txt: '' }, { c: '', name: '', txt: '' }, { c: '', name: '', txt: '' }];
   function beatVer() {
     const S = SB, C = S.col, rl = keyRowList;
     let ch = KB.w !== S.w || KB.hh !== S.hh || KB.panel !== S.panel || KB.faint !== S.faint || KB.muted !== S.muted || KB.text !== S.text || KB.hair !== S.hair || KB.danger !== S.danger || KB.ok !== S.ok
@@ -566,7 +596,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     for (let i = 0; !ch && i < S.ylN; i++) if (kbYT[i] !== S.ylTxt[i] || kbYY[i] !== S.ylY[i]) ch = true;
     if (!ch && C) {
       ch = KB.x !== C.x || KB.k !== C.plan.k || KB.deltas !== C.plan.deltas || KB.rows !== C.plan.rows || KB.hrSince !== C.hrSince || KB.hvSince !== C.hvSince || KB.rn !== rl.length;
-      for (let i = 0; !ch && i < rl.length; i++) { const r = rl[i], q = kbR[i]; if (q.c !== r.c || q.name !== r.name || q.dashed !== r.dashed || q.txt !== r.txt) ch = true; }
+      for (let i = 0; !ch && i < rl.length; i++) { const r = rl[i], q = kbR[i]; if (q.c !== r.c || q.name !== r.name || q.txt !== r.txt) ch = true; }
     }
     if (!ch) return KB.ver;
     KB.w = S.w; KB.hh = S.hh; KB.panel = S.panel; KB.faint = S.faint; KB.muted = S.muted; KB.text = S.text; KB.hair = S.hair; KB.danger = S.danger; KB.ok = S.ok;
@@ -574,7 +604,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     for (let i = 0; i < S.ylN; i++) { kbYT[i] = S.ylTxt[i]; kbYY[i] = S.ylY[i]; }
     if (C) {
       KB.x = C.x; KB.k = C.plan.k; KB.deltas = C.plan.deltas; KB.rows = C.plan.rows; KB.hrSince = C.hrSince; KB.hvSince = C.hvSince; KB.rn = rl.length;
-      for (let i = 0; i < rl.length; i++) { const r = rl[i], q = kbR[i]; q.c = r.c; q.name = r.name; q.dashed = r.dashed; q.txt = r.txt; }
+      for (let i = 0; i < rl.length; i++) { const r = rl[i], q = kbR[i]; q.c = r.c; q.name = r.name; q.txt = r.txt; }
     }
     return ++KB.ver;
   }
@@ -676,7 +706,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
     }
     affine(YB, 2);
-    if (!noPv) { ctx.setLineDash(DASH_PORTAL); line(ctx, sp, pc, 2, plotW); ctx.setLineDash(DASH_NONE); }
+    if (!noPv) line(ctx, sp, pc, 2, plotW);
     line(ctx, sw, wc, 2, plotW);
     line(ctx, sf, fc, 2, plotW);
     ctx.restore();
@@ -776,6 +806,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       for (let v = Math.ceil(lo / tick) * tick; v <= hi + 1e-9; v += tick) {
         const yy = Math.round(Y(v)) + 0.5;
         c.strokeStyle = gridOn; c.globalAlpha = 0.7; c.beginPath(); c.moveTo(L, yy); c.lineTo(L + plotW, yy); c.stroke(); c.globalAlpha = 1;
+        if (key === 'hvpg' && !narrow && Math.abs(v - HVPG_CUTS.red) < 1e-9) continue;   // (the CSPH line carries its own number: the axis does not say it twice)
         c.fillStyle = faint; c.fillText(fmt(v, tick < 1 ? 1 : 0), L - 6, yy);
       }
       c.textBaseline = 'alphabetic';
@@ -1042,9 +1073,8 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
           if (s.x.length < 1) continue;
           const c = cssVar(t.c);
           if (s.lo) band(ctx, s, c, 0.16);
-          // (The wedged trace is dashed, its hue kept: it is ~35° from the portal's at similar lightness, C4.)
-          if (t.id === 'whvp') { ctx.setLineDash(DASH_WEDGE); line(ctx, s, c, 1.75, plotW); ctx.setLineDash(DASH_NONE); }
-          else line(ctx, s, c, t.id === 'CONF' ? 2 : 1.75, plotW);
+          // (Every trace is solid and told apart by its colour: the wedged amber, the portal pink, the free blue.)
+          line(ctx, s, c, t.id === 'CONF' ? 2 : 1.75, plotW);
           if (range === 'days' && s.x.length < 60) dots(ctx, s, c, panel);
           const e = range === 'days' ? recent(s) : (slide && Number.isFinite(endOf(t.id)) ? endOf(t.id) : liveEnd(t, frame.metrics)) ?? recent(s); pushEnd(Y(range !== 'days' && slide && Number.isFinite(recent(s)) ? recent(s) : e), e, undefined, t.abbr, c, lane);   // (on a slide, written at the line's end, its steady number; the live readings, so wedged − free is the header's HVPG)
         }
@@ -1081,7 +1111,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       if (Number.isFinite(hr)) pushEnd(mid, hr, 0, 'HR', text, ekgLane);
     }
     ctx.font = FONT(500, 12); ctx.fillStyle = faint; ctx.textAlign = 'left'; ctx.fillText('mmHg', 8, (lanes[0] ? lanes[0].top : T) - (ekgLane ? 8 : 12));
-    if (slide && lanes.length > 1) ctx.fillText('HVPG, mmHg', 8, lanes[1].top - 10);
+    if (lanes.length > 1) ctx.fillText('HVPG, mmHg', 8, lanes[1].top - 10);
 
     // markers: learner changes and events, where they happened
     const allBot = drawMarkers(allLanes);
@@ -1316,7 +1346,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   function redraw() { if (!frame) return; if (!(ticking && live())) draw(); updateHero(); }
   const offs = ['hiddenReadouts', 'hvpgMeasured', 'showHvpg'].map((k) => store.on(k, () => { yr.pressure = yr.hvpg = null; }));
   // A new patient (or the same one restarted) starts with empty traces.
-  function clear() { clearHemo(); days = []; redraw(); }
+  function clear() { clearHemo(); days = []; calmDays(); redraw(); }
   function pin(fp) { pinned = fp || null; if (frame) redraw(); }
   /** The window ahead of the record filled with the steady state the card opened on (backfill.js): the samples before its first one go in
    *  front, and the record it has made itself stays. The two minutes' bins and the strip's beats are made from them as from live ones. */

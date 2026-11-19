@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
+import { presenterSource } from './split-src.js';
 
 const DIR = new URL('../src/ui/decks/', import.meta.url);
 
@@ -14,7 +15,7 @@ test('no equation carries a legend that only restates it in words', () => {
 });
 
 test('a catheter slide puts its live tracing right after the equation, before the words', () => {
-  const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const src = presenterSource();
   const eq = src.indexOf('s.eq ? equation(s.eq) : null, s.monitor ? monitorFor(s, i) : null');
   assert.ok(eq > 0, 'monitor follows the equation in the teaching card');
 });

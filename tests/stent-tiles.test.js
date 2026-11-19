@@ -1,0 +1,162 @@
+// The stents' readings as tiles (the stent cards, 16 Nov 2026; plan /mnt/project-files/tips-geometry/tips-instrument-cards-plan.md §4): the flow, the
+// pressure across the stent, its peak velocity, its narrowest lumen and the local losses' share, for the TIPS and for the DIPS. Each is one number from
+// the engine's stentState, so the tile, the card and the Doppler cannot say different things; none is the PPG, and none is ever called an HVPG.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { deepMerge, sanitizeParams } from '../src/engine/portal/scenario.js';
+import { fingerprintOf } from '../src/engine/portal/fingerprint.js';
+import { stentReadsOf, dopplerK, EDGES } from '../src/engine/portal/topology.js';
+import { TILE, RATE, SCALE, STENT_RANGE, rateOf, tileOf } from '../src/ui/table-marks.js';
+
+const settled = (patch, preset = 'cirr-decomp') => {
+  const e = new Engine(); e.loadPreset(preset);
+  e.setParams(sanitizeParams(deepMerge(e.params, patch))); e.settle(3);
+  return e;
+};
+const SUFFIX = ['Flow', 'Dp', 'Vel', 'Lumen', 'LocalPct'];
+const KEYS = ['tips', 'dips'].flatMap((k) => SUFFIX.map((x) => k + x));
+
+test('every stent reading has a tile, a scale and a name that is not the PPG or the HVPG', () => {
+  for (const k of KEYS) {
+    const T = tileOf(k);
+    assert.ok(T && T.t && T.n && T.u && T.long, `${k} has a tile with its words`);
+    assert.ok(SCALE[k] && SCALE[k][1] > SCALE[k][0], `${k} has a scale`);
+    assert.ok(!/HVPG/i.test(`${T.t} ${T.n} ${T.s} ${T.long}`), `${k} never says HVPG`);
+  }
+  assert.ok(/across/i.test(TILE.tipsDp.n) && /not the PPG/i.test(TILE.tipsDp.long), 'the pressure across the stent says it is not the PPG');
+});
+
+test('no stent, no readings: every key is null', () => {
+  const f = fingerprintOf(computeMetrics(settled({})));
+  for (const k of KEYS) assert.equal(f[k], null, k);
+});
+
+test('the readings are the engine’s own: flow, drop, peak velocity, lumen and local share', () => {
+  for (const patch of [{ tips: { on: true, d: 8 } }, { tips: { on: true, d: 10 }, stenosis: { TIPS: 0.4 } }, { tips: { on: true, d: 10 }, stenosis: { TIPS: 0.4 }, stentGeom: { TIPS: { waist: 4 } } },
+    { tips: { on: true, d: 12 }, stenosis: { TIPS: 0.6 }, stenosisSite: { TIPS: 'proximal' } }]) {
+    const e = settled(patch), m = computeMetrics(e), t = m.tips, f = fingerprintOf(m);
+    assert.ok(t, JSON.stringify(patch));
+    assert.equal(f.tipsFlow, t.flow); assert.equal(f.tipsDp, t.dp);
+    assert.ok(Math.abs(f.tipsLumen - t.d * (1 - t.s)) < 1e-9, 'the lumen is d (1 − s)');
+    // the peak: the highest of the three Doppler points, the card's own reads of the stent's open mean velocity
+    const d = e.diameter('TIPS') / 10, v = (Math.abs(t.q) / (Math.PI * d * d / 4)) * dopplerK(EDGES[e.ei.TIPS]);
+    const reads = stentReadsOf(e.params, 'TIPS', v);
+    assert.ok(Math.abs(f.tipsVel - Math.max(...reads)) < 1e-6, `peak ${f.tipsVel} against the card's ${Math.max(...reads)}`);
+    assert.ok(reads.every((r) => r <= f.tipsVel + 1e-9));
+    const local = (100 * (t.parts.entry + t.parts.jet + t.parts.inlet)) / t.dp;
+    assert.ok(Math.abs(f.tipsLocalPct - local) < 1e-9 && f.tipsLocalPct > 0 && f.tipsLocalPct < 100, `local ${f.tipsLocalPct}`);
+    assert.ok(Math.abs(f.tipsFric + f.tipsLocal - f.tipsDp) < 0.02, 'friction and local losses are the drop');
+  }
+});
+
+test('a narrowing raises the peak velocity and the local share, and the stent’s drop is below the PPG', () => {
+  const open = fingerprintOf(computeMetrics(settled({ tips: { on: true, d: 10 } }))), tight = fingerprintOf(computeMetrics(settled({ tips: { on: true, d: 10 }, stenosis: { TIPS: 0.5 } })));
+  assert.ok(tight.tipsVel > 2 * open.tipsVel && tight.tipsLumen === 5 && open.tipsLumen === 10);
+  assert.ok(tight.tipsLocalPct > open.tipsLocalPct, 'the jet is a local loss');
+  for (const f of [open, tight]) assert.ok(f.tipsDp > 0 && f.tipsDp < f.ppg, `drop ${f.tipsDp} below PPG ${f.ppg}`);
+});
+
+test('the peak velocity is rated by the Doppler card’s own range, and the other readings carry no rating', () => {
+  assert.deepEqual(STENT_RANGE, [90, 190]);
+  const w = (v) => rateOf('tipsVel', { tipsVel: v })[1];
+  assert.equal(w(130), 'Normal'); assert.equal(w(60), 'Low'); assert.equal(w(250), 'High');
+  for (const k of KEYS.filter((x) => !/Vel$/.test(x))) assert.equal(RATE[k], undefined, `${k} is a number only`);
+  // the patent 10 mm stent of the deck (tips-doppler's STENT) is in range, as its slide says
+  const f = fingerprintOf(computeMetrics(settled({ tips: { on: true, d: 10 } })));
+  assert.ok(f.tipsVel > STENT_RANGE[0] && f.tipsVel < STENT_RANGE[1], `${f.tipsVel}`);
+});
+
+test('a DIPS has its own readings, and the TIPS keys stay empty without a TIPS', () => {
+  const f = fingerprintOf(computeMetrics(settled({ dips: { on: true, d: 10 } })));
+  assert.ok(f.dipsFlow > 0 && f.dipsDp > 0 && f.dipsVel > 0 && f.dipsLumen === 10, JSON.stringify([f.dipsFlow, f.dipsDp, f.dipsVel, f.dipsLumen]));
+  assert.equal(f.tipsVel, null);
+});
+
+test('the tray\'s caption keeps clear of the slider thumb: padding under the words (play-test 17 Nov 2026: the thumb covered "No waist")', async () => {
+  const { appCss } = await import('./split-src.js');
+  const pad = appCss().match(/\.se-panel \.se-cap \{[^}]*padding: (\d+)px 0 (\d+)px/);
+  assert.ok(pad && +pad[2] >= 4, 'at least 4 px under the caption');
+});
+
+test('Tests going away by the panel switch (not close()) tells every pane it is out of sight, so the stent editor frees the vessel card (play-test F11)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
+  const dock = readFileSync(new URL('../src/ui/dock.js', import.meta.url), 'utf8');
+  assert.match(dock, /function away\(\) \{[^}]*p\.shown\?\.\(false\)/);
+  assert.match(main, /if \(!instr && was\) dock\.away\(\)/);
+});
+
+test('the History badge keeps its room in the top bar, so the first edit does not tip the bar to icons (play-test R2-1)', async () => {
+  const { appCss } = await import('./split-src.js');
+  assert.match(appCss(), /\.topbar:not\(\[data-fit="2"\], \[data-fit="3"\]\) \.tb-act \.tb-hc:empty \{[^}]*visibility: hidden/);
+});
+
+test('a stent is picked over the sinusoids it crosses, and its hit strip is a thumb wide (play-test F15)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const hov = readFileSync(new URL('../src/ui/stage-hover.js', import.meta.url), 'utf8');
+  const tub = readFileSync(new URL('../src/ui/stage-tubes.js', import.meta.url), 'utf8');
+  assert.match(hov, /rank = pickTier\(x\) \* GL_ROWS \+ x\.row \+ \(isStent\(x\.e\) \? STENT_WINS : 0\)/);
+  assert.match(tub, /\(isStent\(e\) \? 36 : 10\) \/ /);
+  const { createVesselPick } = await import('../src/ui/vessel-pick.js');
+  const sin = [[0, 0], [100, 0]], stent = [[50, -50], [50, 50]];
+  const pk = createVesselPick((visit) => { visit('SIN', 5, 6, sin); visit('TIPS', 1 + 1e6, 10, stent); });
+  assert.equal(pk.pick(50, 0, 1, 0), 'TIPS');
+});
+
+test('the figure draws a stent to scale with its lumen: 12 mm twice 6 mm (play-test R2-2)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const tub = readFileSync(new URL('../src/ui/stage-tubes.js', import.meta.url), 'utf8');
+  assert.match(tub, /if \(isStent\(e\) && e\.kind === 'shunt'\) wA = vesselPx\(8\) \* Math\.max\(0\.5, D\) \/ 8;/);
+});
+
+test('the Dye button keeps the room of "Injecting", so the buttons beside it do not jump (play-test V16)', async () => {
+  const { appCss } = await import('./split-src.js');
+  assert.match(appCss(), /\.ac-dye \.ac-bl \{[^}]*min-width: 4\.9em/);
+});
+
+test('the tool card (the shunt help) stands above the transport bar and the dock (play-test V10)', async () => {
+  const { appCss } = await import('./split-src.js');
+  const css = appCss();
+  assert.match(css, /\.tool-card \{\s*position: absolute; left: 12px; bottom: calc\(var\(--vdock-top, 0px\) \+ 12px\)/);
+  assert.match(css, /\.tool-card \{ left: 8px; bottom: calc\(var\(--vdock-top, 0px\) \+ 8px\)/);
+});
+
+test('the Hepatic artery label opens the hepatic artery\'s own card, not the liver\'s (play-test V9)', async () => {
+  await import('./dom-shim.js');
+  const { normalizeSel } = await import('../src/ui/actions.js');
+  assert.deepEqual(normalizeSel({ type: 'node', id: 'HA' }), { type: 'edge', id: 'A_HEP' });
+});
+
+test('the details face\'s head pulls the sheet down, Back button included (play-test V13)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const card = readFileSync(new URL('../src/ui/card.js', import.meta.url), 'utf8');
+  assert.match(card, /e\.target\.closest\('input, \.ac-c, \.ad-scroll'\) \|\| \(e\.target\.closest\('button'\) && !e\.target\.closest\('\.ad-head'\)\)/);
+});
+
+test('the chart\'s PPG words keep off the pressure trace (play-test F10)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../src/ui/tips-figure.js', import.meta.url), 'utf8');
+  assert.match(src, /const hitsTrace = \(y\) =>/);
+  assert.match(src, /setGeo\(pT, 'y', ppgY\)/);
+});
+
+test('the view pill keeps Circuit and Anatomy in the Sinusoid view, and Circuit goes out through the anatomy (Mohammad 17 Nov, V20)', async () => {
+  const { appCss } = await import('./split-src.js');
+  const { readFileSync } = await import('node:fs');
+  assert.doesNotMatch(appCss(), /#app\.sin-focus :is\([^)]*data-view="(anatomic|circuit)"/);
+  assert.match(readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8'), /b\.dataset\.view === 'circuit' && store\.get\(\)\.sinusoid \? circuitFromSinusoid\(\)/);
+});
+
+test('Compare: the figure holds still when the bar comes on a wide screen (Mohammad 17 Nov 2026)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const fit = readFileSync(new URL('../src/ui/stage-fit.js', import.meta.url), 'utf8');
+  assert.match(fit, /el\.id === 'stageCenter' && insWrap\(\)\.width >= 768\) continue;/);
+});
+
+test('A stent’s ends keep their own opacity where they leave the portal vein: every stent drawing, not only the surgical shunts (Mohammad 17 Nov 2026)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const sv = readFileSync(new URL('../src/ui/stage-vessels.js', import.meta.url), 'utf8');
+  assert.match(sv, /SURGICAL_SHUNTS\.has\(x\.e\.shunt\) \|\| isStent\(x\.e\)\) \? JOIN_F_NOFADE : 0/);
+});

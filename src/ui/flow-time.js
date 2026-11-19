@@ -25,9 +25,10 @@ import { reduceMotionMQ } from './motion.js';
 import { headStep, HEAD_DT0 } from './display-state.js';
 import { fittedType, tokName } from './chart-ctx.js';
 import { cw, placeStarts } from './flow-time-labels.js';
+import { READING_COLOUR as RC } from './reading-colours.js';
 const nextFrame = frameFor('flow-time');
 
-// (No imports: the series and scales load in Node for the unit tests. Every value here is positive.)
+// (The series and scales load in Node for the unit tests. Every value here is positive.)
 // alloc-rare: a printed number's text, made only when the printed number changes (paint) or a chart is built
 const fmt = (v, d) => v.toFixed(d);
 const FT_MIN = 12;   // (px on the screen: the smallest the chart's words are drawn)
@@ -39,14 +40,14 @@ export const MINUTES = { from: -10, rise: 30, end: 40 };
 // scale (a lower line's fixed scale [min, max, step] in place of a fitted one) and pad (a share of a line's range kept clear above
 // and below it, 8% by default). A chart's lines are [lower, upper]: the lower on the left axis, the upper on the right, both fitted.
 export const LINE = {
-  pv: ['Portal pressure', 'mmHg', 1, '--tr-pv'], ppg: ['PPG', 'mmHg', 1, '--tr-pv'], pvFlow: ['Portal flow', 'L/min', 1, '--tr-hv'],
-  sin: ['Sinusoids', 'mmHg', 1, '--tr-sin'], asc: ['Ascites', 'L', 1, '--tr-hv', 0.001],
-  hvpg: ['HVPG', 'mmHg', 1, '--tr-wedge'], varix: ['Varix', 'mm', 1, '--tr-var'],
-  wt: ['Body weight', '% of start', 0, '--tr-cav', 1, { given: true, base: 100, scale: [84, 100, 4] }], lsm: ['Stiffness', 'kPa', 1, '--tr-scler', 1, { pad: 0.15 }],
+  pv: ['Portal pressure', 'mmHg', 1, RC.pv], ppg: ['PPG', 'mmHg', 1, RC.ppg], pvFlow: ['Portal flow', 'L/min', 1, RC.pvFlow],
+  sin: ['Sinusoids', 'mmHg', 1, RC.sin], asc: ['Ascites', 'L', 1, RC.asc, 0.001],
+  hvpg: ['HVPG', 'mmHg', 1, RC.hvpg], varix: ['Varix', 'mm', 1, RC.varix],
+  wt: ['Body weight', '% of start', 0, RC.wt, 1, { given: true, base: 100, scale: [84, 100, 4] }], lsm: ['Stiffness', 'kPa', 1, RC.lsm, 1, { pad: 0.15 }],
   // (The readings the teaching card's own time graph carries on a time-lapse slide, lapse-graph.js: each is one of the slide's tiles.)
-  ssm: ['Spleen stiffness', 'kPa', 1, '--tr-scler', 1, { pad: 0.15 }], salb: ['Albumin', 'g/dL', 1, '--tr-ivc', 1, { pad: 0.2 }],
-  rpp: ['Renal perfusion pressure', 'mmHg', 0, '--tr-cav'], he: ['Encephalopathy risk', 'index', 2, '--tr-var', 1, { pad: 0.2 }],
-  gv: ['Fundal varix', 'mm', 1, '--tr-var'], liver: ['Sinusoidal flow', '%', 0, '--tr-hv', 1, { pad: 0.2 }], map: ['Mean arterial pressure', 'mmHg', 0, '--tr-pv'], co: ['Cardiac output', 'L/min', 1, '--tr-hv', 1, { pad: 0.2 }],
+  ssm: ['Spleen stiffness', 'kPa', 1, RC.ssm, 1, { pad: 0.15 }], salb: ['Albumin', 'g/dL', 1, RC.salb, 1, { pad: 0.2 }],
+  rpp: ['Abdominal perfusion pressure', 'mmHg', 0, RC.rpp], he: ['Encephalopathy risk', 'index', 2, RC.he, 1, { pad: 0.2 }],
+  gv: ['Fundal varix', 'mm', 1, RC.gv], liver: ['Sinusoidal flow', '%', 0, RC.liver, 1, { pad: 0.2 }], map: ['Mean arterial pressure', 'mmHg', 0, RC.map], co: ['Cardiac output', 'L/min', 1, RC.co, 1, { pad: 0.2 }],
 };
 export const MEAL_LINES = ['pv', 'pvFlow'];
 const opt = (k) => LINE[k]?.[5] || {};
@@ -62,11 +63,14 @@ const niceStep = (raw) => { const p = Math.pow(10, Math.floor(Math.log10(raw)));
 const ticksOf = (lo, hi, step) => Array.from({ length: Math.round((hi - lo) / step) + 1 }, (_, k) => +(lo + k * step).toPrecision(6));
 // A line's range as it is fitted: the values' own span with `pad` (a share of it) kept clear above and below, never under zero. A
 // line that does not move at all (a span of nothing) gets a small span around its value, so it sits mid-axis and not on a rule.
-const PAD = 0.08;
+// A line that barely moves is not stretched to the plot's height either (14 Nov 2026: an HVPG of 8.3 to 8.4 drew as a drop and a climb
+// on an axis from 7.5 to 8.75): the range keeps at least MIN_SPAN of the line's value, centred on what it did.
+const PAD = 0.08, MIN_SPAN = 0.15;
 function rangeOf(v, pad = PAD) {
   const lo0 = Math.min(...v), hi0 = Math.max(...v), span = hi0 - lo0;
   if (span < 1e-6 * (Math.abs(hi0) + 1)) { const h = Math.max(Math.abs(hi0) * 0.05, 0.5); return [Math.max(0, lo0 - h), hi0 + h]; }
-  return [Math.max(0, lo0 - span * pad), hi0 + span * pad];
+  const floor = MIN_SPAN * Math.max(Math.abs(lo0), Math.abs(hi0)), mid = (lo0 + hi0) / 2, wide = Math.max(span, floor);
+  return [Math.max(0, mid - wide / 2 - wide * pad), mid + wide / 2 + wide * pad];
 }
 // The nice step (and the first gridline under the range's start) that covers [a, b] in exactly n steps.
 function fitSteps(a, b, n) {
@@ -80,27 +84,66 @@ function fitSteps(a, b, n) {
 const scaleOf = ({ lo, step }, n) => { const ticks = ticksOf(lo, lo + n * step, step); return { min: ticks[0], max: ticks.at(-1), ticks }; };
 // A line with a scale of its own, [min, max, step] (body weight: 84 to 100% in fours, its 88% on a gridline).
 const fixedScale = ([lo, hi, step]) => scaleOf({ lo, step }, Math.round((hi - lo) / step));
+// Two lines on their own axes can end (or start) at nearly the same height, their dots and value labels one on the other (the Carvedilol
+// slide "HVPG and LSM over two years": 13.4 mmHg and 28.6 kPa, one line's label across the other's line; Mohammad, 16 Nov 2026). Each axis
+// is fitted tight to its own line, so where a line lands is up to the fit alone: when the ends are closer than END_APART of the plot's
+// height (the starts, START_APART), pairScales widens ONE axis (more room above its line, or below it, in the same nice steps) until they
+// stand clear. The ticks stay round and the axis honest (a wider axis shows the same line smaller, it does not change it), and a line is
+// never widened past STRETCH_MAX times its tight fit. The end counts first: starts are the pre-change state and often alike.
+export const END_APART = 0.28, START_APART = 0.18, STRETCH_MAX = 3.4, STRETCH_STARTS = 2.2;   // (a widening that clears only the starts is kept smaller)
+const WIDEN = [0.3, 0.6, 1, 1.5, 2];
+const fracOf = (sc, v) => (v - sc.min) / (sc.max - sc.min);
+/** An axis's scales in n steps for the range [a, b]: tight, then each wider above and each wider below. [{ sc, ext, span }] */
+function plans(a, b, n) {
+  const w = b - a, mk = (lo, hi, ext) => { const sc = scaleOf(fitSteps(lo, hi, n), n); return { sc, ext, span: sc.max - sc.min }; };
+  return [mk(a, b, 0), ...WIDEN.flatMap((e) => [mk(a, b + e * w, e), mk(Math.max(0, a - e * w), b, e)])];
+}
+/** 0: the ends and the starts stand apart; 1: only the starts are close; 2: the ends are close (and the starts apart); 3: both close. */
+export function apartTier(L, U, vl, vu) {
+  const e = Math.abs(fracOf(L, vl.at(-1)) - fracOf(U, vu.at(-1))), s = Math.abs(fracOf(L, vl[0]) - fracOf(U, vu[0]));
+  return (e >= END_APART ? 0 : 2) + (s >= START_APART ? 0 : 1);
+}
 /** The two axes of a chart, left (the lower line, vl) and right (the upper, vu), each fitted tight to its own line so each fills the
  *  plot's whole height, and cut in the same number of steps so the gridlines are one set and both axes' numbers sit on them. A line
  *  with a scale given (LINE option scale) keeps it and the other is fitted to its step count; else the count (2 to 5) that wastes the
  *  least of either axis, four preferred. → [left scale, right scale], each { min, max, ticks }. */
-export function pairScales(vl, vu, optL = {}, optU = {}) {
+export function pairScales(vl, vu, optL = {}, optU = {}, same = false) {
+  if (same && !optL.scale && !optU.scale) {   // (two readings in one unit share one axis: a mmHg is the same height on both lines, so they cannot be read against each other falsely)
+    const [a, b] = rangeOf([...vl, ...vu], Math.min(optL.pad ?? PAD, optU.pad ?? PAD));
+    let best = null;
+    for (const n of [4, 3, 5, 2]) { const F = fitSteps(a, b, n), waste = n * F.step / (b - a); if (!best || waste < best.waste - 1e-9) best = { n, F, waste }; }
+    const one = scaleOf(best.F, best.n);
+    return [one, one];
+  }
+  if (optL.scale && optU.scale) return [fixedScale(optL.scale), fixedScale(optU.scale)];   // (both given, in the same number of steps: a slide's own honest scales)
   if (optL.scale) { const L = fixedScale(optL.scale), n = L.ticks.length - 1, [a, b] = rangeOf(vu, optU.pad); return [L, scaleOf(fitSteps(a, b, n), n)]; }
   if (optU.scale) { const U = fixedScale(optU.scale), n = U.ticks.length - 1, [a, b] = rangeOf(vl, optL.pad); return [scaleOf(fitSteps(a, b, n), n), U]; }
   const [la, lb] = rangeOf(vl, optL.pad), [ua, ub] = rangeOf(vu, optU.pad);
+  const tier0 = apartTier(...[scaleOf(fitSteps(la, lb, 4), 4), scaleOf(fitSteps(ua, ub, 4), 4)], vl, vu), cap = tier0 >= 2 ? STRETCH_MAX : STRETCH_STARTS;
   let best = null;
   for (const n of [4, 3, 5, 2]) {
-    const L = fitSteps(la, lb, n), U = fitSteps(ua, ub, n), waste = Math.max(n * L.step / (lb - la), n * U.step / (ub - ua));
-    if (!best || waste < best.waste - 1e-9) best = { n, L, U, waste };
+    for (const L of plans(la, lb, n)) {
+      for (const U of plans(ua, ub, n)) {
+        if (L.ext && U.ext) continue;   // (one axis is widened, never both: the other stays on its tight fit)
+        const cost = Math.max(L.span / (lb - la), U.span / (ub - ua));
+        if ((L.ext || U.ext) && cost > cap) continue;   // (a line is never flattened to a sliver of its axis to clear a label)
+        const tier = apartTier(L.sc, U.sc, vl, vu);
+        if (!best || tier < best.tier || (tier === best.tier && cost < best.cost - 1e-9)) best = { tier, cost, L: L.sc, U: U.sc };
+      }
+    }
   }
-  return [scaleOf(best.L, best.n), scaleOf(best.U, best.n)];
+  return [best.L, best.U];
 }
 
 /** trail: [[day, ...the model's lines], ...] → { min (the clock: minutes, or days), pv (the lower line), flow (the upper), one
  *  value a step from ax.from to ax.end, each one's scale, and ax }. On the meal clock the trail's first day is the meal
  *  (0 min), its last the end of the rise; on the 'days' clock each model day is its own step. lines: their keys, their scales;
- *  given: the end value of a line the slide gives (LINE option given), which climbs from 0 to it as the time-lapse runs. */
-export function flowTimeSeries(trail, clock = 'meal', lines = MEAL_LINES, given = null) {
+ *  given: the end value of a line the slide gives (LINE option given), which climbs from 0 to it as the time-lapse runs.
+ *  view (the days clock, optional; the slide's tool): { scales: { key: [min, max, step] } (a line's own scale in place of a fitted one: a
+ *  pressure from zero, so a change keeps its true size; both lines need one, in as many steps), before: { key:
+ *  value } (the state before the change the time-lapse starts from, drawn at day 0 on the day of the change; the model's own first day
+ *  is then day 1, a step at the very left, as sudden as the change is) }. The trail's days are already calmed: the worker does it where they are made (engine/portal/trail-calm.js). */
+export function flowTimeSeries(trail, clock = 'meal', lines = MEAL_LINES, given = null, view = null) {
   const model = modelLines(lines), col = (k) => 1 + model.indexOf(k);
   const pts = (trail || []).filter((r) => r && model.every((k) => Number.isFinite(r[col(k)])));
   if (pts.length < 2 || lines.some((k) => opt(k).given && !Number.isFinite(given?.[k]))) return null;
@@ -115,11 +158,25 @@ export function flowTimeSeries(trail, clock = 'meal', lines = MEAL_LINES, given 
     return (pts[i - 1][col(k)] + (pts[i][col(k)] - pts[i - 1][col(k)]) * f) * x[j];
   };
   const min = Array.from({ length: ax.end - ax.from + 1 }, (_, k) => ax.from + k);
-  const pv = min.map((m) => at(0, m)), flow = min.map((m) => at(1, m));
-  const [pScale, fScale] = pairScales(pv, flow, opt(lines[0]), opt(lines[1]));
+  const lead = clock === 'days' && view?.before && lines.every((k) => Number.isFinite(view.before[k])) ? 1 : 0;   // (days drawn from the state before the change)
+  const col0 = (j) => Array.from({ length: min.length }, (_, k) => (k < lead ? view.before[lines[j]] * x[j] : at(j, min[k])));
+  const pv = col0(0), flow = col0(1);
+  const o = (j) => (view?.scales?.[lines[j]] ? { ...opt(lines[j]), scale: view.scales[lines[j]] } : opt(lines[j]));
+  const [pScale, fScale] = pairScales(pv, flow, o(0), o(1), !opt(lines[0]).given && !opt(lines[1]).given && LINE[lines[0]]?.[1] === LINE[lines[1]]?.[1]);
   return { min, pv, flow, pScale, fScale, ax };
 }
-
+/** The chart's own reading of each model line at share p (0 to 1) of its time-lapse: the trail's value there, the very number its head prints (flowTimeSeries `at`).
+ *  The sentence and the tiles take these while the days play, so one number never reads 3.1 in the words and 4.4 on the chart (Choose the treatment 3, play-test 16 Nov 2026).
+ *  null where the trail holds too few days or lacks a line. { [key]: value } for the model's lines. */
+export function trailReading(trail, lines, p) {
+  const model = modelLines(lines), col = (k) => 1 + model.indexOf(k);
+  const pts = (trail || []).filter((r) => r && model.every((k) => Number.isFinite(r[col(k)])));
+  if (pts.length < 2 || !model.length) return null;
+  const d0 = pts[0][0], span = Math.max(1e-6, pts.at(-1)[0] - d0), d = d0 + span * clamp(p, 0, 1), i = clamp(pts.findIndex((r) => r[0] >= d), 1, pts.length - 1);
+  const f = clamp((d - pts[i - 1][0]) / Math.max(1e-9, pts[i][0] - pts[i - 1][0]), 0, 1), out = {};
+  for (const k of model) out[k] = pts[i - 1][col(k)] + (pts[i][col(k)] - pts[i - 1][col(k)]) * f;
+  return out;
+}
 // (2 Nov 2026: the chart is a model drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)
 const sv = svgModel;
 // The plot, drawn at the chart's own size in pixels with the card's small type (f): both lines over the plot's full height, the
@@ -218,7 +275,7 @@ export function createFlowTime() {
   el.className = 'pz-flowtime';
   const gl = createSvgGL(el, { host: 'flowtime' });
   el.dataset.lines = MEAL_LINES.join(',');
-  let ser = null, parts = null, shown = 0, goal = 0, raf = 0, lastT = 0, sig = '', clock = 'meal', keys = MEAL_LINES, given = null, LINES = linesOf(keys);
+  let ser = null, parts = null, shown = 0, goal = 0, raf = 0, lastT = 0, sig = '', clock = 'meal', keys = MEAL_LINES, given = null, view = null, LINES = linesOf(keys);
   let rx = [];   // (the treatments on through the slide's time-lapse that its tool shades, rx-bands.js; none on a built-in deck)
   const ax = () => ser?.ax || MINUTES;
   const Yof = yOf;
@@ -372,10 +429,10 @@ export function createFlowTime() {
      *  k: how far along it to draw (0 to 1); spec: { clock: 'meal' | 'days', lines: [lower, upper], given? } (undefined: keep
      *  the one drawn). A new trail fades in over the old chart. */
     set(trail, k = 1, spec) {
-      if (spec) { clock = spec.clock || 'meal'; keys = spec.lines || MEAL_LINES; given = spec.given || null; el.dataset.lines = keys.join(','); el.classList.toggle('days', clock === 'days'); }
-      const s2 = trail === undefined ? sig : trail ? JSON.stringify([clock, keys, given, trail[0], trail.at(-1), ...(rx.length ? [rx] : [])]) : '';
+      if (spec) { clock = spec.clock || 'meal'; keys = spec.lines || MEAL_LINES; given = spec.given || null; view = spec.view || null; el.dataset.lines = keys.join(','); el.classList.toggle('days', clock === 'days'); }
+      const s2 = trail === undefined ? sig : trail ? JSON.stringify([clock, keys, given, view, trail[0], trail.at(-1), ...(rx.length ? [rx] : [])]) : '';
       if (s2 !== sig) {
-        sig = s2; LINES = linesOf(keys); ser = flowTimeSeries(trail, clock, keys, given);
+        sig = s2; LINES = linesOf(keys); ser = flowTimeSeries(trail, clock, keys, given, view);
         const old = [...el.children].filter((c) => c.hasAttribute('data-svg-model'));
         parts = ser ? make() : null;
         shown = goal = minuteOf(k);

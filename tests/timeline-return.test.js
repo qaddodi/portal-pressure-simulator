@@ -4,8 +4,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const rule = (sel) => {
   const at = css.indexOf(`${sel} {`);
   assert.ok(at >= 0, `missing rule ${sel}`);

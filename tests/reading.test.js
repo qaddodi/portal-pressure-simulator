@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 
 const { scriptOf, scriptById, SCRIPT_IDS, phaseOf, takenOf, readingWords } = await import('../src/ui/tool-reading.js');
 const { specOf, markAt } = await import('../src/ui/proc-anim.js');
-const { WAVE_GAIN, WEDGE_DAMP } = await import('../src/ui/hvpg-clock.js');
+const { WEDGE_DAMP, PORTAL_DAMP } = await import('../src/ui/hvpg-clock.js');
 const { keepData, dataPlan } = await import('../src/ui/card-keep.js');
 const { GRADIENTS } = await import('../src/ui/decks/gradients.js');
 const { deckStates } = await import('./deck-states.js');
@@ -77,12 +77,12 @@ test('the HVPG: the trace holds at the free pressure until the balloon starts to
   for (let t = i0; t <= i1; t += 25) { const p = S.lv(t, v); assert.ok(p >= last - 1e-9, `the rise never falls back at ${t}`); last = p; }
   assert.ok(Math.abs(S.lv(i1, v) - v.b) < 1e-9, 'wedged once the balloon is up');
   assert.ok(S.lv(i0 + (i1 - i0) / 2, v) > v.a + 1 && S.lv(i0 + (i1 - i0) / 2, v) < v.b - 1, 'half way up half way through the balloon');
-  // (The wedge carries a softened beat and breath, not a ruler-flat line: at least 0.05 mmHg of swing, and no more than the free trace's.)
+  // (The wedge carries its breath and a faint beat, not a ruler-flat line: at least 0.05 mmHg of swing, and less than the free trace's.)
   const swing = (a, b) => { let lo = Infinity, hi = -Infinity; for (let t = a; t < b; t += 10) { const p = S.at(t, v, null); lo = Math.min(lo, p); hi = Math.max(hi, p); } return hi - lo; };
   const free = swing(0, Math.min(i0, 3600)), wedge = swing(i1 + 100, i1 + 3700);
   assert.ok(wedge > 0.05, `the wedge has its beat and breath: ${wedge.toFixed(2)} mmHg`);
   assert.ok(wedge < free, `softer than the free trace: ${wedge.toFixed(2)} against ${free.toFixed(2)}`);
-  assert.ok(WEDGE_DAMP < 0.6 && WAVE_GAIN > 0);
+  assert.ok(WEDGE_DAMP > 0.6 && WEDGE_DAMP < 1 && PORTAL_DAMP > 0.5 && PORTAL_DAMP < 1, 'a wedged or portal pulse is damped, never gone');
 });
 
 test('no trace ever steps: a level changes only by riding the balloon or the catheter drawn back, and a gap is left blank', () => {

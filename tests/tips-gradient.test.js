@@ -1,5 +1,5 @@
 // The gradient across the new stent (proc-anim.js MEASURES.tipsgrad, TIPS step 5): a reading, not a treatment; the TIPS catheter goes through the
-// stent into the portal vein, reads, is drawn back to the IVC and reads again; the gradient is the PPG the tiles show (9.2 mmHg through an 8 mm
+// stent into the portal vein, reads, is drawn back to the IVC and reads again; the gradient is the PPG the tiles show (9.4 mmHg through an 8 mm
 // stent in cirr-decomp, 7.9 through 10 mm, the recs' figures) and under AASLD 2024's 12 mmHg.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -7,6 +7,7 @@ import { Engine } from '../src/engine/portal/engine.js';
 import { computeMetrics } from '../src/engine/portal/metrics.js';
 import { deepMerge } from '../src/engine/portal/scenario.js';
 import { MEASURES, PROCS, PROC_KINDS, READS, playProcedure, specOf, procFrame, stepAt, stepMarks, markAt, procBlocked, procOffered } from '../src/ui/proc-anim.js';
+import { ppgSev } from '../src/engine/portal/pressure-cuts.js';
 
 const G = MEASURES.tipsgrad, T = G.T;
 const times = Array.from({ length: Math.ceil(T.end / 20) + 1 }, (_, i) => i * 20);
@@ -64,7 +65,7 @@ test('one step with one shot; each reading is taken with the tip still; the resu
   assert.equal(procFrame('tipsgrad', T.back - 20, STOPS).shot, 'way'); assert.equal(procFrame('tipsgrad', T.back, STOPS).shot, '', 'the view stops following the tip as it comes out');
 });
 
-test('the gradient is the PPG the tiles show: 9.2 mmHg through an 8 mm stent and 7.9 through 10 mm in cirr-decomp, both under 12', () => {
+test('the gradient is the PPG the tiles show: 9.2 mmHg through an 8 mm stent and 7.9 through 10 mm in cirr-decomp, both under 12', () => {   // (9.4 before 17 Nov 2026: the TIPS's outlet, docs/tips-stent-model.md)
   const rd = READS.tipsgrad;
   for (const [d, want] of [[8, 9.2], [10, 7.9]]) {
     const f = withTips(d);
@@ -82,18 +83,20 @@ test('the gradient is the PPG the tiles show: 9.2 mmHg through an 8 mm stent and
     assert.deepEqual(L.map((l) => [l.key, l.at, l.kicker]), [['f', 'tip', 'IVC']], 'then the IVC’s');
     assert.equal(L[0].text, rd.iv.toFixed(1));
     G.labels(T.res0 + 10, rd, f, L);
-    assert.deepEqual(L.map((l) => [l.key, l.kicker, l.text, l.cls]), [['g', 'GRADIENT', want.toFixed(1), 'result ok']]);
+    assert.deepEqual(L.map((l) => [l.key, l.kicker, l.text, l.cls]), [['g', 'GRADIENT', want.toFixed(1), `result ${ppgSev(want)}`]]);
     G.labels(T.back - 10, rd, f, L); assert.equal(L.length, 1, 'stands while the catheter waits');
     G.labels(T.back + 10, rd, f, L); assert.equal(L.length, 0, 'gone as it comes out');
     G.labels(T.pvRead0 - 10, rd, f, L); assert.equal(L.length, 0, 'none before the first reading');
   }
 });
 
-test('a gradient of 12 or more is not called ok', () => {
+test('the catheter\'s gradient is rated by the one PPG cut-offs, as the tile is (STG-8: amber from 6, red from 12; it was amber from 12)', () => {
   const rd = READS.tipsgrad, L = [];
-  rd.pv = 20; rd.iv = 5; rd.ppg = 15;
-  G.labels(T.res0 + 10, rd, {}, L);
-  assert.equal(L[0].cls, 'result caution'); assert.equal(L[0].text, '15.0');
+  for (const [ppg, cls] of [[3, 'result ok'], [8, 'result caution'], [11.9, 'result caution'], [12, 'result danger'], [15, 'result danger']]) {
+    rd.pv = 20; rd.iv = 20 - ppg; rd.ppg = ppg;
+    G.labels(T.res0 + 10, rd, {}, L);
+    assert.equal(L[0].cls, cls, `${ppg} mmHg`); assert.equal(L[0].text, ppg.toFixed(1));
+  }
 });
 
 // Played on a stand-in stage and a frame clock moved by hand: the run takes its readings from the model frame, shows the pills in order, and leaves the model alone.

@@ -5,7 +5,8 @@ const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`;
 export const HVPG = {
   id: 'hvpg', level: 'core', title: 'Measuring HVPG and PPG', minutes: 15,
   summary: 'How the HVPG is measured and interpreted, where it misleads, and when to measure the PPG instead.',
-  objectives: ['Describe how the free and wedged hepatic venous pressures are recorded', 'Calculate the HVPG, state its 5 and 10 mmHg cut-offs, and state where the bleeding risk climbs', 'Recognize when the HVPG misleads', 'Use the portal pressure gradient (PPG) when it does'],
+  objectives: ['Describe how the free and wedged hepatic venous pressures are recorded', 'Calculate the HVPG and state its 5 and 10 mmHg cut-offs', 'Recognize when the HVPG misleads, and use the PPG then'],
+  sections: [['Recording the pressures', ['Measuring portal pressure']], ['When the HVPG misses', ['presin', 'ppg', 'eus', 'eus-ladder']], ['Heart and hepatic veins', ['heart', 'bc']], ['Putting them together', ['plane', 'summary']]],
   checks: [
     ['How is the HVPG calculated?', 'Wedged hepatic venous pressure minus free hepatic venous pressure (WHVP − FHVP).'],
     ['At which HVPG levels does the risk rise?', 'An HVPG >5 mmHg is portal hypertension, ≥10 mmHg is CSPH, and from about 12 mmHg the risk of variceal bleeding rises steeply.'],
@@ -26,12 +27,12 @@ export const HVPG = {
       id: 'free', cath: 'free', tool: { kind: 'hvpg', catheter: true },
       kicker: 'Measuring portal pressure', title: 'The FHVP is recorded with the tip free in the hepatic vein',
       terms: { 'hepatic vein pressure': 'fhvp', IVC: 'ivc' },
-      line: 'The free hepatic vein pressure (FHVP), 2 to 4 cm from the IVC, is within about 2 mmHg of it. Subtracting it cancels the raised intra-abdominal pressure of ascites.',
+      line: 'The free hepatic vein pressure (FHVP), 2 to 4 cm from the IVC, is within about 2 mmHg of the IVC pressure. Subtracting it cancels the intra-abdominal pressure of ascites.',
       notes: 'The free hepatic venous pressure (FHVP) is recorded with the tip free in the hepatic vein, 2 to 4 cm from its ostium in the IVC. It should be within about 2 mmHg of the IVC pressure; a larger difference suggests malposition of the tip or an occluded hepatic vein. Subtracting the FHVP rather than the right atrial pressure cancels the intra-abdominal pressure that tense ascites adds to both readings.',
       ask: ['Why subtract the FHVP rather than the right atrial pressure?', 'The FHVP carries the same intra-abdominal and extrahepatic venous pressure as the wedged pressure, so subtracting it cancels them.'],
     },
     {
-      id: 'wedge', cutouts: ['sinusoid'], cath: 'wedge', tool: { kind: 'hvpg', catheter: true },
+      id: 'wedge', cath: 'wedge', tool: { kind: 'hvpg', catheter: true },
       kicker: 'Measuring portal pressure', title: 'The wedged pressure reflects sinusoidal pressure',
       terms: { sinusoids: 'whvp' },
       line: 'Balloon inflation stops flow, so the static column of blood equilibrates with the pressure of the upstream sinusoids. Record it once the tracing is stable, after ≥1 minute.',
@@ -39,12 +40,19 @@ export const HVPG = {
       ask: ['How do you confirm adequate wedging?', 'Inject a small amount of contrast: it stays in the vein with no washout, and the tracing loses its pulsatility.'],
     },
     {
+      id: 'wedge-sinusoid', cathKeep: true, wash: true, cam: 'lobule:sinusoid', terms: { sinusoids: 'lobule:sinusoid' }, data: 'tiles', tiles: ['whvp', 'sin'], key: ['whvp'],
+      kicker: 'Measuring portal pressure', site: 'sin', title: 'In cirrhosis, the wedged pressure approximates the sinusoidal pressure',
+      line: 'The occluded hepatic vein holds a static column that ends in the sinusoids. In cirrhosis the sinusoids no longer intercommunicate, so the WHVP, {whvp}, approximates the sinusoidal pressure, {sin}.',
+      notes: 'With the balloon inflated, flow in that hepatic vein stops and the blood upstream of the tip equilibrates with the pressure where it next meets flowing blood: the sinusoids. In cirrhosis the sinusoids no longer communicate freely with each other, so the column reflects the sinusoidal pressure, which is close to the portal pressure. That is why the WHVP, and so the HVPG, estimates the portal pressure in cirrhosis. Where the resistance lies before the sinusoids, the WHVP does not follow the portal pressure.',
+      ask: ['Which structure does the wedged column of blood reflect?', 'The sinusoids upstream of the tip, whose pressure in cirrhosis is close to the portal pressure.'],
+    },
+    {
       id: 'hvpg', cath: 'result', tool: { kind: 'hvpg', catheter: true },
       kicker: 'Measuring portal pressure', site: 'sin', title: 'HVPG measures the pressure drop across the sinusoids',
       eq: [mi('HVPG') + mo('=') + '<mi class="eq-wedge">WHVP</mi>' + mo('−') + '<mi class="eq-hv">FHVP</mi>'],
       line: 'In this case the HVPG is {hvpg}, which is {>=10 mmHg}: clinically significant portal hypertension.',
       notes: 'The hepatic venous pressure gradient is the pressure drop across the sinusoids. In this case the HVPG is about 12 mmHg, which is clinically significant. An HVPG of 1 to 5 mmHg is normal, and 6 to 9 mmHg is subclinical portal hypertension. From 10 mmHg varices and decompensation become possible, and the risk rises with the gradient; Baveno VIII advises a nonselective beta-blocker (NSBB), preferably carvedilol, at this stage to prevent decompensation. From about 12 mmHg the risk of variceal bleeding rises steeply, although varix size, red wale signs and liver function determine the bleeding risk: 12 mmHg is not a cut-off, and varices can bleed below it. Before nonhepatic abdominal surgery, an HVPG ≥16 mmHg is associated with higher short-term postoperative mortality (Baveno VIII Table 3). In acute variceal bleeding, an HVPG ≥20 mmHg is one of the criteria for preemptive TIPS (Baveno VIII 5.31). In MASLD cirrhosis the HVPG can underestimate the directly measured portal pressure, because part of the resistance is presinusoidal, so an HVPG just <10 mmHg does not exclude CSPH. On an NSBB, a fall of ≥10% from baseline, or to ≤12 mmHg, is clinically relevant (Baveno VIII Table 3, stated for primary prophylaxis). Noninvasively, an LSM ≥25 kPa by VCTE rules in CSPH; an LSM ≤15 kPa with platelets ≥150,000/µL rules it out. Sources: AASLD 2024 3 and 4; Baveno VIII Table 3.',
-      ask: ['On carvedilol, the HVPG falls from 18 to 13 mmHg. Is that a response?', 'Yes. It fell by >10% from baseline, which Baveno VIII calls clinically relevant on an NSBB, and it is close to 12 mmHg.'],
+      ask: ['On carvedilol, the HVPG falls from 18 to 13 mmHg. Is that a response?', 'Yes. It fell by 28%, more than the 10% from baseline that Baveno VIII calls a clinically relevant response on an NSBB.'],
     },
     {
       id: 'presin', lens: 'drop', terms: ['lobule:triad', 'lobule:sinusoid'], preset: 'schisto', cam: 'lobule:triad', callout: { at: 'triad', label: 'Resistance' }, tool: { kind: 'profile' }, key: ['pv', 'whvp', 'hvpg'],
@@ -58,23 +66,23 @@ export const HVPG = {
       id: 'ppg', lens: 'drop', terms: ['pv', 'sin'], preset: 'pvt-chronic', cam: 'route', labels: [], sites: ['pv', 'ivc'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, tool: { kind: 'profile' }, key: ['pv', 'ivc'],
       kicker: 'Where HVPG misleads', site: 'pre', title: 'The PPG detects resistance the HVPG misses',
       eq: [mi('PPG') + mo('=') + '<msub class="eq-pv"><mi>P</mi><mtext>portal vein</mtext></msub>' + mo('−') + '<msub class="eq-ivc"><mi>P</mi><mtext>IVC</mtext></msub>'],
-      line: 'Imaging shows the thrombus. The HVPG stays normal because the thrombus lies upstream of the sinusoids; a direct portal vein measurement would show a PPG of {ppg}.',
-      notes: 'Portal pressure can be measured directly: during TIPS, through a needle into a portal branch (transhepatic or transjugular), or by an endoscopic ultrasound-guided needle. A PPG >5 mmHg is portal hypertension, as for the HVPG, and after TIPS the target is a PPG <12 mmHg. In the model the portal pressure is measured at the confluence, upstream of the thrombus, so the PPG is high while the HVPG, measured downstream, is normal. The large pressure drop is at the thrombus, not in the sinusoids. In practice Doppler ultrasound or CT makes the diagnosis, and a cavernoma is not punctured for a pressure measurement; portal vein thrombosis is used here because it shows the discrepancy between the two gradients most clearly. At the bedside the HVPG misleads in presinusoidal disease such as PSVD or schistosomiasis, with varices and a normal WHVP.',
+      line: 'In another patient, imaging shows a portal vein thrombus. The HVPG stays normal because the thrombus lies upstream of the sinusoids; a direct measurement would show a PPG of {ppg}.',
+      notes: 'Portal pressure can be measured directly: during TIPS, through a needle into a portal branch (transhepatic or transjugular), or by an endoscopic ultrasound-guided needle. A PPG >5 mmHg is portal hypertension, as for the HVPG, and after a TIPS for variceal bleeding a PPG <12 mmHg is the reference (AASLD 2024). In the model the portal pressure is measured at the confluence, upstream of the thrombus, so the PPG is high while the HVPG, measured downstream, is normal. The large pressure drop is at the thrombus, not in the sinusoids. In practice Doppler ultrasound or CT makes the diagnosis, and a cavernoma is not punctured for a pressure measurement; portal vein thrombosis is used here because it shows the discrepancy between the two gradients most clearly. At the bedside the HVPG misleads in presinusoidal disease such as PSVD or schistosomiasis, with varices and a normal WHVP.',
       ask: ['A patient with varices has a normal HVPG and a patent portal vein. Which measurement detects the resistance, and where is it obtained?', 'The PPG, measured in the portal vein itself (at TIPS, transhepatically, or by an EUS-guided needle), upstream of the resistance.'],
     },
     {
       // (EUS-PPG, played step by step as the TIPS is on the shunts talk: proc-anim.js MEASURES.eus. A measurement, so the model does not
       // change; the callouts read the live left portal and left hepatic veins.)
-      id: 'eus', preset: 'schisto', procedure: 'eus', cam: 'liver', tool: { kind: 'reading' }, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['ppg'],
-      kicker: 'Where HVPG misleads', site: 'presin', title: 'EUS-PPG measures the portal vein pressure directly',
-      line: 'Back in the woman with schistosomiasis, an EUS-guided transgastric needle measures the portal and hepatic veins. The gradient is near the PPG of {ppg}; the HVPG is {hvpg}.',
+      id: 'eus', preset: 'schisto', procedure: 'eus', cam: 'liver', tool: { kind: 'reading' }, data: 'tiles', tiles: ['hvpg', 'eus'], key: ['eus'],
+      kicker: 'Where HVPG misleads', site: 'presin', title: 'EUS-PPG measures the gradient from inside the portal vein',
+      line: 'Back in the woman with schistosomiasis, an EUS-guided transgastric needle measures the left portal and left hepatic veins. The EUS-PPG is {eus}; the HVPG is {hvpg}.',
       notes: 'Press Next to step through it: echoendoscope placement, the portal vein, the hepatic vein and the gradient. A linear echoendoscope in the proximal stomach images the left lobe; a 25-gauge needle is advanced into the left portal vein, then into the left hepatic vein, each measured with a compact manometer, and the EUS-PPG is the left portal vein pressure minus the left hepatic vein pressure, from one needle in one session. Because the portal vein itself is measured, the EUS-PPG captures the presinusoidal resistance the WHVP misses, here schistosomiasis, and porto-sinusoidal vascular disorder the same way. It needs no catheter, no radiation and no contrast, and varices can be treated or a liver biopsy obtained in the same session. It is interpreted against the HVPG cut-offs. In early series it agrees well with the HVPG in cirrhosis, but the EUS-PPG is not yet a guideline standard, and it is performed in expert centers under sedation, which can lower the measurements.',
       ask: ['Why can the EUS-PPG detect a pressure the HVPG misses?', 'It measures the portal vein itself, upstream of a presinusoidal resistance; the WHVP reflects only the sinusoids.'],
     },
     {
       // (The three gradients of the patient the EUS slide just measured, on the ladder: the EUS-PPG is taught on the slide before, so its bracket stands here.)
       id: 'eus-ladder', lens: 'drop', terms: ['lobule:triad'], cam: 'lobule:triad', callout: { at: 'triad', label: 'Resistance' }, tool: { kind: 'profile', spans: ['hvpg', 'eus', 'ppg'] }, key: ['hvpg', 'eus'],
-      kicker: 'Where HVPG misleads', site: 'presin', title: 'The EUS-PPG spans the resistance that the wedge leaves out',
+      kicker: 'Where HVPG misleads', site: 'presin', title: 'The EUS-PPG spans the resistance that the HVPG misses',
       line: 'The HVPG is {hvpg:0}. The EUS-PPG starts in the portal vein, upstream of the resistance, and reads {eus:0}, close to the PPG of {ppg:0}.',
       notes: 'The same patient, with the three gradients side by side. The HVPG is the wedged minus the free hepatic venous pressure, so it spans the sinusoids only. The EUS-PPG is the left portal vein minus the left hepatic vein pressure, so it starts upstream of the portal tracts and spans the resistance; the PPG spans the portal vein to the IVC. Baveno VIII lists the EUS-guided gradient in PSVD and NCPF as a research question (RA8.18, RA8.24), so it is not a standard test.',
       ask: ['The HVPG is 3 mmHg and the EUS-PPG 15 mmHg in the same patient. Where does the resistance lie?', 'Between the left portal vein and the wedge, in the portal tracts. The EUS-PPG spans it and the HVPG does not.'],
@@ -98,7 +106,7 @@ export const HVPG = {
       of: [{ preset: 'healthy', name: 'Healthy' }, { id: 'hvpg', name: 'Cirrhosis' }, { id: 'presin', name: 'Schistosomiasis' }, { id: 'ppg', name: 'Portal vein thrombosis', short: 'PVT' }, { id: 'heart', name: 'Heart failure' }],
       kicker: 'Where HVPG misleads', title: 'The HVPG and PPG together separate five patients',
       line: 'Schistosomiasis and portal vein thrombosis raise the PPG and leave the HVPG low. Cirrhosis raises both. In right heart failure every pressure is high, but neither gradient rises.',
-      notes: 'Each point is one patient from this talk, plotted with the HVPG on the x-axis and the PPG on the y-axis, with the app\'s cut-offs (HVPG 5 and 10 mmHg, PPG 6 and 12 mmHg). The HVPG 10 line marks clinically significant portal hypertension (CSPH: an HVPG of 10 mmHg or more, Baveno VIII and AASLD 2024), and an HVPG to its right is CSPH, whatever the PPG. The PPG 12 line marks the bleeding risk and the post-TIPS target (<12 mmHg); it is not a CSPH cut-off. Schistosomiasis and portal vein thrombosis plot high on the PPG with a low HVPG, because the WHVP reflects only the pressure downstream of the resistance. The EUS-PPG measures the portal gradient in such a patient with one transgastric needle into the portal and the hepatic vein. Budd–Chiari is not plotted: the catheter cannot enter the thrombosed veins, so there is no HVPG to plot. Cirrhosis raises both gradients. In right heart failure every pressure rises together, so both gradients stay low although the absolute pressures are high.',
+      notes: 'Each point is one patient from this talk, plotted with the HVPG on the x-axis and the PPG on the y-axis, with the app\'s cut-offs (HVPG 5 and 10 mmHg, PPG 6 and 12 mmHg). The HVPG 10 line marks clinically significant portal hypertension (CSPH: an HVPG of 10 mmHg or more, Baveno VIII and AASLD 2024), and an HVPG to its right is CSPH, whatever the PPG. The PPG 12 line marks the bleeding risk and the post-TIPS reference for variceal bleeding (<12 mmHg, AASLD 2024); it is not a CSPH cut-off. Schistosomiasis and portal vein thrombosis plot high on the PPG with a low HVPG, because the WHVP reflects only the pressure downstream of the resistance. The EUS-PPG measures the portal gradient in such a patient with one transgastric needle into the portal and the hepatic vein. Budd–Chiari is not plotted: the catheter cannot enter the thrombosed veins, so there is no HVPG to plot. Cirrhosis raises both gradients. In right heart failure every pressure rises together, so both gradients stay low although the absolute pressures are high.',
       ask: ['A patient has varices and an HVPG of 3 mmHg. Which measurement do you obtain next?', 'The PPG, measured in the portal vein; it is high when the resistance is prehepatic, presinusoidal or in the hepatic veins.'],
     },
     {

@@ -35,6 +35,7 @@ const runTimers = (until) => {
 const pump = (ms) => { const end = T + ms; runTimers(end); T = end; const run = ask; ask = []; for (const cb of run) cb(T); runTimers(T); };
 
 async function boot() {
+  globalThis.__svgBox = true;
   const glMod = await import('../scripts/warm/gl-stub.mjs');
   const { installPage } = await import('../scripts/warm/dom.mjs');
   const page = installPage();
@@ -48,7 +49,7 @@ async function boot() {
     return type === 'webgl2' ? (this.__gl ??= glMod.makeGL(this)) : null;
   };
   const BOX = { x: 0, y: 0, left: 0, top: 0, right: 1200, bottom: 800, width: 1200, height: 800 }, NONE = { x: 0, y: 0, left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
-  win.Element.prototype.getBoundingClientRect = function () { return this.id === 'stageView' ? BOX : NONE; };
+  win.Element.prototype.getBoundingClientRect = function () { return this.id === 'stageView' || (globalThis.__svgBox && this.localName === 'svg' && this.parentElement?.id === 'stageView') ? BOX : NONE; };
   for (const [k, v] of [['clientWidth', 1200], ['clientHeight', 800], ['offsetWidth', 1200], ['offsetHeight', 800]]) Object.defineProperty(win.HTMLElement.prototype, k, { get() { return this.id === 'stageView' ? v : 0; }, configurable: true });
   const { createCore } = await import('../src/worker-core.js');
   const frames = [];
@@ -59,18 +60,27 @@ async function boot() {
   const { createStage } = await import('../src/ui/stage.js');
   const st = createStage({ wrap: page.document.getElementById('stageView'), onSelect() {}, onAction() {}, onOpenTab() {}, onHoverInfo() {}, onViewChange() {} });
   for (let i = 0; i < 120; i++) { st.update(frames[i % frames.length]); pump(16.7); }
-  return st;
+  return { st, page };
 }
 
 const plain = (m) => (m ? Object.fromEntries([...m].map(([k, v]) => [k, { ...v }])) : null);
 
-test('the solve ahead goes on through the live layouts: the same slots as alone, and the live labels as without it', async () => {
-  const st = await boot();
+test('the solve ahead goes on through the live layouts: the same slots as alone, and the live labels as without it; it writes nothing on the page', async () => {
+  const { st, page } = await boot();
   st.labelLayoutNow();
   const live0 = plain(st.labelLayoutNow());
   assert.ok(Object.keys(live0).some((k) => k.startsWith('n:')), `the Anatomy's own stations are solved: ${Object.keys(live0)}`);
   // (ms -1: the slice is over at once, so the solve yields at every point it can, the most slices and the most layouts between them.)
+  // (15 Nov 2026, his Safari ?perf in a time-lapse: 583 style writes a second on the figure's groups, restyled by the browser after the script.
+  // The solve ahead put the stage to the other view's end and back in every slice, and the camera's sizes (--clamp-sw, --clamp-fs, --halo-k)
+  // were written on the clamps', guides' and halos' groups there and back each time, and the labels' scale (--lbk, data-k) on theirs: 2162
+  // writes in this run. A solve at another stage writes nothing on the page.)
+  const mo = new page.dom.window.MutationObserver(() => {});
+  mo.observe(page.document.documentElement, { subtree: true, attributes: true, childList: true, characterData: true });
   const alone = st.labelPresolveRun(-1, null);
+  const recs = mo.takeRecords();
+  mo.disconnect();
+  assert.equal(recs.length, 0, `the solve ahead wrote on the page ${recs.length} times: ${[...new Set(recs.map((r) => `${r.attributeName || r.type} on ${r.target.localName}.${r.target.getAttribute?.('class') || ''}`))].slice(0, 8).join(', ')}`);
   const aloneSlots = plain(alone.slots);
   assert.ok(alone.slices > 5, `the solve ahead ran in slices: ${alone.slices}`);
   assert.ok(Object.keys(aloneSlots).filter((k) => k.startsWith('n:') && !aloneSlots[k].drop).length >= 2, `the Circuit's stations are solved ahead: ${Object.keys(aloneSlots)}`);
@@ -102,3 +112,4 @@ test("the solve ahead's lines index is its own: the live layouts' two shared buf
   assert.equal(indexHits(own, box, 0), 1, 'the kept index still holds its own line');
   assert.equal(indexHits(own, { x0: 100, y0: 295, x1: 140, y1: 305 }, 0), 0, 'and none of the live ones');
 });
+

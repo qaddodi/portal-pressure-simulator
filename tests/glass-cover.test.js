@@ -225,6 +225,36 @@ test('words that lie beside their paper (the teaching card\'s text and panel are
   assert.equal(text.clip(), '', 'a card below the words does not cut them');
 });
 
+test('a card zoomed up: its words are cut where the data card lies in the zoomed picture, never from their rest box (16 Nov 2026: the teaching words cropped to a few)', () => {
+  const shade = el('shade'), text = el('text');
+  const C = coverBoard().part();
+  // (At rest: the shade 100..300 × 100..250, its text 110..290 × 130..230, o read at scale 1. The zoom takes both to twice the size about the
+  // data card's middle: the shade is drawn at 0..400 × 0..300, so its text is drawn at 20..380 × 60..260, the offsets twice what they were read at: zf 2.)
+  const also = [{ el: text, o: [10, 30, -10, -20], own: false, st: null }];
+  const data = { g: el('data'), box: true, r: rect(0, 150, 400, 300) };   // (the zoomed data card over the lower part of the words: y 150 on)
+  C.apply([{ g: shade, box: true, r: rect(0, 0, 400, 300), zs0: 1, zf: 2, also }, data], () => false);
+  const c = text.clip();
+  assert.ok(c, 'its words are cut under the data card');
+  // (The text's drawn box: 360 × 200 at (20, 60); y 150 is 45% down it.)
+  assert.equal(shows(c, 50, 20), true, 'the first lines, above the data card: show');
+  assert.equal(shows(c, 50, 44), true, 'just above the data card: shows');
+  assert.equal(shows(c, 50, 46), false, 'under the data card: hidden');
+  assert.equal(shows(c, 5, 20), true, 'its left edge: shows');
+  // (The rest box would put the data card at 150 - 130 = 20 of 100 px down and 0..400 across, 0..300% of its width: the words gone at the left.)
+  assert.equal(shows(c, 5, 30), true, 'the left of the words is never cut away by a rest-box mix');
+  // (A glide in hand: the next frame's zoom is 1.5, the same offsets read at 1 are 1.5 times: the cut follows the words.)
+  C.apply([{ g: shade, box: true, r: rect(50, 25, 300, 225), zs0: 1, zf: 1.5, also }, { g: data.g, box: true, r: rect(50, 130, 300, 225) }], () => false);
+  const d = text.clip();
+  assert.ok(d && d !== c, 'cut again as the card grew');
+  // (The text now 270 × 150 at (65, 70): the data card's top, y 130, is 40% down it.)
+  assert.equal(shows(d, 50, 36), true, 'above the data card: shows');
+  assert.equal(shows(d, 50, 44), false, 'under the data card: hidden');
+  // (Back at rest, no zoom: offsets as read.)
+  C.apply([{ g: shade, box: true, r: rect(100, 100, 200, 150), zs0: 1, zf: 1, also }, { g: data.g, box: true, r: rect(100, 200, 200, 150) }], () => false);
+  assert.equal(shows(text.clip(), 50, 20), true, 'above the data card: shows');
+  assert.equal(shows(text.clip(), 50, 80), false, 'under the data card: hidden');
+});
+
 test('a solid card with no glass of its own (bare) is cut under a glass above it, and never cuts another', () => {
   const panel = el('panel'), sheet = el('sheet'), other = el('other');
   const C = coverBoard().part();

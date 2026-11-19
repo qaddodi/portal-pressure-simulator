@@ -4,7 +4,7 @@
 //        or bilirubin 1, falls on the scope side: the text says "<" for sparing it.
 //   8.48 the LSM criteria for cirrhosis must not be used.
 // The model gives the spleen stiffness (fp.ssm, as the tile prints it). Bilirubin and what the scope found are the slide's own facts.
-import { inheritTone } from './helpers.js';
+import { inheritTone, NONE } from './helpers.js';
 import { SSM_CUTS } from '../../engine/portal/ssm-cuts.js';
 
 const SSM_SPARE = SSM_CUTS.spareScope;   // 40 kPa
@@ -38,7 +38,7 @@ function reading(key, p) {
   return { head: 'Repeat EGD in 2 years', tone: 'ok', stmt: '8.46', why: `${why}, so endoscopy was indicated at diagnosis. It showed no varices.`, next: 'Repeat every 2 years.' };
 }
 
-const chips = (p) => [`SSM ${p.ssm} kPa`, `Bilirubin ${p.bili.toFixed(1)} mg/dL`, scoped(p) && (p.v === 'small' ? 'Small varices' : 'No varices')].filter(Boolean);
+const chips = (p, tiled = NONE) => [!tiled.has('ssm') && `SSM ${p.ssm} kPa`, `Bilirubin ${p.bili.toFixed(1)} mg/dL`, scoped(p) && (p.v === 'small' ? 'Small varices' : 'No varices')].filter(Boolean);
 
 function patientFor(tool, fp, shown = (k, v) => v) {
   const base = tool?.patient || {};
@@ -58,6 +58,7 @@ export default {
   tree, mapWords, lit,
   outcomes: ['skip', 'none', 'small'],
   outcomeOf, reading, chips, patientFor,
+  live: true,   // (its patient takes the live model's readings: the card keeps room for every outcome's reading)
   worst: { ssm: 99.9, bili: 9.9, v: 'small' },
   notes: 'In porto-sinusoidal vascular disorder (PSVD) and non-cirrhotic portal fibrosis (NCPF) the cirrhosis stiffness rules for avoiding endoscopy must not be used (8.48). Screening for gastroesophageal varices is recommended at diagnosis (8.46, strong). It is not required, at diagnosis or in follow-up, when spleen stiffness is <40 kPa and bilirubin is <1 mg/dL (<17 µmol/L), because varices are unlikely (8.47). A patient exactly at 40 kPa or 1 mg/dL is not spared. When endoscopy is done, it is repeated every 2 years if there are no varices and every year if the varices are small (8.46).',
 };

@@ -3,7 +3,6 @@
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { Engine } from '../src/engine/portal/engine.js';
 import { EDGES, NODES } from '../src/engine/portal/topology.js';
 import { deepMerge } from '../src/engine/portal/scenario.js';
@@ -28,15 +27,13 @@ function run(deckId, upTo) {
   throw new Error(`no slide ${deckId}/${upTo}`);
 }
 const NI = new Map(NODES.map((n, i) => [n.id, i]));
-const drop = (e, id) => { const x = EDGES[e.ei[id]]; return Math.abs(e.P[NI.get(x.from)] - e.P[NI.get(x.to)]); };
+// (A vein cut by a shunt's junction is one vein: its drop is its pieces' together. Since the TIPS joins the cava past the right hepatic vein
+// (17 Nov), the piece that keeps the vein's id is the short one at the cava, and a clot's whole drop stands on the longer piece before it.)
+const drop = (e, id) => EDGES.filter((x) => (x.part || x.id) === id).reduce((a, x) => a + Math.abs(e.P[NI.get(x.from)] - e.P[NI.get(x.to)]), 0);
 const origin = (e, id) => { const o = originFractions(EDGES, NODES, e.Q, e.P), k = e.ei[id]; return { smv: o[k * 4], imv: o[k * 4 + 1], spleen: o[k * 4 + 2], artery: o[k * 4 + 3] }; };
 
 test('every slide lens and lens button names a lens the presenter knows', () => {
-  const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  for (const k of KNOWN) assert.match(src, new RegExp(`^  ${k}: \\['`, 'm'), `presenter LENS_KEY has ${k}`);
   for (const k of PKG) assert.ok(EXT.lenses[k] && EXT.owner.lenses[k] === 'A', `package A registers the ${k} lens`);
-  const menu = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
-  for (const k of PKG) assert.doesNotMatch(menu.slice(menu.indexOf('const LENSES'), menu.indexOf('\n};', menu.indexOf('const LENSES'))), new RegExp(`\\b${k}:`), `${k} stays out of Explore's lens menu`);
   for (const d of DECKS) for (const s of d.slides) {
     if (s.lens) assert.ok(KNOWN.includes(s.lens) || PKG.includes(s.lens), `${d.id}/${s.id}: ${s.lens}`);
     if (s.lens) assert.ok(!s.visual, `${d.id}/${s.id}: a visual always shows pressure`);

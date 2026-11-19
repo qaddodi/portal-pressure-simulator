@@ -1,6 +1,5 @@
 // The figure's resolution and size: the canvas share (Auto, Adapt, While moving, Size cap), its eased changes, its resize and the density watch.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { TIERS_ON, TIER_TOP, onTierWarm } from './adapt-tier.js';
 import { figLab, figOpt, inMotion, renderScale, renderSetting } from './frame.js';
 import { capDensity } from './pixel-budget.js';
 import { leftAlone } from './quiet.js';
@@ -160,6 +159,9 @@ export function createRes(st, live) {
     // them again in the same task. A pinch or a layout change can land after this frame's draw
     // (Safari delivers touches outside the frame loop), and the figure would vanish for a frame.
     if (live.resizeReady && live.F && !live.inUpdate && !(live.lz?.isOpen() || live.lz?.covers())) { live.veinsDirty = true; drawVeins(false, 'resize'); live.veins?.showNow?.(); }
+    // (Not drawn again in this task (the lobule or the sinusoid open, a figure not yet whole, a resize inside an update): the screen the renderer keeps takes the new size with its last picture
+    // stretched over it, and the canvas shows that, never a cleared one: GPU-5, the lobule's one blank frame on a turn, a Shuffle or a card changing the stage box.)
+    else live.veins?.screenResized?.();
     // (The renderer keeps the canvas itself and copies it onto the shown surface once a frame, at the frame's end (keep-screen.js). This runs from the
     // resize observer, after that copy and before the paint: the width assigned above has cleared the shown surface, and the picture just drawn again
     // would reach it only at the next frame's end, so the paint between showed the figure gone for one frame (Mohammad's iPhone, 12 Nov 2026, the Doppler
@@ -168,11 +170,5 @@ export function createRes(st, live) {
   new ResizeObserver(resizeCanvas).observe(wrap);
   // (A change that leaves the canvas's size as it is (Glows alone) still draws the figure again, its glow layers remade.)
   // (Auto's step is taken at once for the view as it stands, so a change goes in one eased step, not by Full and back.)
-  if (TIERS_ON) onTierWarm(() => { if (live.veins && !live.veins.lost) live.veins.prepLow?.(TIER_TOP); });   // (the tiers' targets, made between frames)
-    // (B3: the lower targets, made between frames a moment after the canvas was sized, so the first moving frame allocates nothing.)
-  let lowWarmT = 0;
-  const lowWarm = () => { stageScope.clear(lowWarmT); lowWarmT = stageScope.timer(() => { if (live.veins && !live.veins.lost && !inMotion()) live.veins.prepLow?.(TIER_TOP); }, 1500); };
-  lowWarm();
-new ResizeObserver(lowWarm).observe(wrap);
-  return { autoNow, easeRes, lowWarm, moveGaps, noteMoveFrame, resizeCanvas, settleRes, subPixel };
+  return { autoNow, easeRes, moveGaps, noteMoveFrame, resizeCanvas, settleRes, subPixel };
 }

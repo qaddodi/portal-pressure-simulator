@@ -15,13 +15,16 @@
 // The four readings' colours on a dark ground: the dark looks' traces (tr-pv, tr-wedge, tr-hv, tr-ivc) and the bedside monitor's (mon-pv, mon-wedge, mon-free,
 // mon-ivc, dark in every look), written once so a reading wears one colour on every chart and monitor (unification audit, finding 2). The light looks' traces
 // are their own darker inks of the same hues.
-const DARK_TRACE = { pv: '#F0649E', wedge: '#DA7EDD', hv: '#5CA4F2', ivc: '#4CC2D6' };
+const DARK_TRACE = { pv: '#F0649E', wedge: '#EDA100', hv: '#5CA4F2', ivc: '#4CC2D6' };
 
 export const TOKENS = {
   light: {
     // surfaces
     'bg': '#F1EBE0',   // ground: page and figure share the paper
     'stage-bg': '#F1EBE0',
+    // the edge vignette on the stage ground (styles/app.css .stage-wrap, Mohammad 13 Nov 2026): the ground stays this look's colour in the middle and is mixed toward
+    // the tint at the corners (keep = how much of the ground is kept there); lift = a faint white pool behind the figure, for the look that cannot get darker
+    'vg-keep': '83%', 'vg-tint': '#5A3C1E', 'vg-lift': '0%',
     'surface': '#FCF9F3',
     'surface-2': '#F5F0E6',
     'surface-3': '#E9E2D4',
@@ -64,6 +67,14 @@ export const TOKENS = {
     // flow semantics
     'flow-normal': '#16988F',
     'flow-reversed': '#EC7424',
+    // (as text, a label's "⟲" and reversed reading: the orange mixed toward the ink, 4.5:1 on the paper; the vessel and arrowhead orange stays the stroke's. ST-3)
+    'flow-reversed-ink': 'color-mix(in srgb, var(--flow-reversed) 62%, var(--text))',
+    // Status colours as TEXT (LOOK-1, 19 Nov 2026): --caution, --ok and --danger are fills and strokes (amber is 3.28:1 on a Light card); a word, a number or a chip's
+    // label takes the ink form, in a style sheet and in a chart (tok('caution-ink')) alike. tests/token-contrast.test.js and chart-text-contrast.test.js measure both.
+    'caution-ink': 'color-mix(in srgb, var(--caution) 70%, var(--text))', 'ok-ink': 'color-mix(in srgb, var(--ok) 88%, var(--text))', 'danger-ink': 'color-mix(in srgb, var(--danger) 88%, var(--text))', 'critical-ink': 'color-mix(in srgb, var(--critical) 88%, var(--text))',
+    // A trace's colour as text (the HVPG equation's terms, a catheter reading's name, a chart line's name and number): the trace itself is a line (3:1), the word is this ink,
+    // the same hue. A chart piece asks for it with param('c', true) (chart-looks/resolve.js).
+    'tr-pv-ink': 'color-mix(in srgb, var(--tr-pv) 62%, var(--text))', 'tr-ppg-ink': 'color-mix(in srgb, var(--tr-ppg) 62%, var(--text))', 'tr-hvpg-ink': 'color-mix(in srgb, var(--tr-hvpg) 62%, var(--text))', 'tr-wedge-ink': 'color-mix(in srgb, var(--tr-wedge) 62%, var(--text))', 'tr-sin-ink': 'color-mix(in srgb, var(--tr-sin) 62%, var(--text))', 'tr-hv-ink': 'color-mix(in srgb, var(--tr-hv) 62%, var(--text))', 'tr-ra-ink': 'color-mix(in srgb, var(--tr-ra) 62%, var(--text))', 'tr-ivc-ink': 'color-mix(in srgb, var(--tr-ivc) 62%, var(--text))', 'tr-var-ink': 'color-mix(in srgb, var(--tr-var) 62%, var(--text))', 'tr-cav-ink': 'color-mix(in srgb, var(--tr-cav) 62%, var(--text))', 'tr-scler-ink': 'color-mix(in srgb, var(--tr-scler) 62%, var(--text))',
     // lens ramps ("#colour position", interpolated in OKLab by colormap.js; pressure positions are mmHg, the others run 0 to 1)
     // (pressure: lightness falls at every stop, so 12 and 20 mmHg differ on a projector or a printout as well as in hue (round 2 review A7,
     // Mohammad 18 Oct). The hue turns where the meaning turns: blue to 8 or so, the violet turn centred on 10 to 12 and a richer violet there,
@@ -82,7 +93,7 @@ export const TOKENS = {
     'og-panc-1': '#edd9a8', 'og-panc-2': '#d6b570', 'og-panc-3': '#a1803a',
     'og-kidney-1': '#d9a4bc', 'og-kidney-2': '#a55e85', 'og-kidney-3': '#6a3154',
     'og-gb-1': '#cad8a4', 'og-gb-2': '#98b16d', 'og-gb-3': '#627d40',
-    'og-gut-1': '#eed2c2', 'og-gut-2': '#dcad95', 'og-gut-3': '#a77960',
+    'og-gut-1': '#f4cfc1', 'og-gut-2': '#e5a893', 'og-gut-3': '#af745e',
     'og-heart-1': '#e9aca1', 'og-heart-2': '#ca7768', 'og-heart-3': '#94483d',
     'og-ra-1': '#e1998f', 'og-ra-2': '#c06456', 'og-ra-3': '#893c33',
     'og-light': 'rgba(255, 255, 255, .55)', 'og-dark': 'rgba(60, 22, 18, .26)', 'og-ao': 'rgba(70, 40, 30, .09)',
@@ -96,7 +107,7 @@ export const TOKENS = {
     'organ-body-line': '#CFC1AA',
     'organ-liver': '#905b49',
     'organ-spleen': '#7a5f78',
-    'organ-gut': '#a88570',
+    'organ-gut': '#af826e',
     'organ-stomach': '#a67a6c',
     'organ-heart': '#9d575c',
     'organ-kidney': '#895f7a',
@@ -125,7 +136,7 @@ export const TOKENS = {
     'vel-ink': '45%',   // a stent point's number: how much of its velocity colour, the rest the text's (4.5:1 at least on the light stage)
 
     // rendering: organ lighting, vessel tubes, background plane, circuit map
-    'shadow-rgb': '46 22 34', 'shadow-a': '.15', 'vessel-shadow': 'rgb(var(--shadow-rgb) / var(--shadow-a))',
+    'shadow-rgb': '46 22 34', 'shadow-a': '.15', 'card-shadow-a': '.45', 'vessel-shadow': 'rgb(var(--shadow-rgb) / var(--shadow-a))',
     'tube-shade': '.24', 'tube-sheen': '.42',
     'vessel-knock-a': '0',   // the paper gap where vessels of one tier cross (veins-gl.js, visual-style V2): PARKED on every look (8 Nov 2026). It cut the lower vessel round the end of one that joins it (hepatic veins into the IVC, branches off a trunk) with a black cap on the dark looks; it needs the joins listed before it comes back
     'vessel-rim-a': '0',   // a dark lumen's light rim (veins-gl.js, visual-style V1): off on the light looks, whose dark casing already edges it
@@ -135,21 +146,22 @@ export const TOKENS = {
     'fx-ink': 'rgba(22, 24, 29, .88)',
     'stent-metal': '#667285', 'suture-thread': '#E8742A', 'suture-edge': '#3a1d0a', 'stent-marker': '#545D6C', 'stent-alpha': '.5', 'stent-glint': '.24', 'stent-rail-w': '1.15', 'stent-strut-w': '.8',
     // ── BEGIN device materials (visual-style D1): one table per look, read by the catheter shader (stage-cath.js, eus-scope.js: through toRGB), the tamponade marks (app.css) and the clots ──
-    // poly: the catheter's shaft (a blue-grey body that shows on paper) and its dark hairline; scope*: the EUS echoendoscope (insertion tube, rigid tip, transducer face, port) and its hairline
+    // poly: the catheter's shaft (a light silver-white body, neutral not blue, so it stands out against the blue veins and shows on paper by its dark hairline) and that hairline; scope*: the EUS echoendoscope (insertion tube, rigid tip, transducer face, port) and its hairline
     // (dark on the light looks, light on the dark ones); latex: compliant balloons (HVPG wedge, BRTO / BATO occlusion, tamponade; -a: the tamponade fill); nylon: the TIPS dilation balloon; steel: needles, wire;
     // platinum: marker bands and coils; glue: the cyanoacrylate cast (EUS coils and glue); ptfe: the covered stent's cover (D4)
-    'dev-poly': '#9AA9BC', 'dev-poly-edge': '#2A303B',
+    'dev-poly': '#E2E4E7', 'dev-poly-edge': '#2A303B',
     'dev-scope': '#2B2E33', 'dev-scope-tip': '#5C5E66', 'dev-scope-face': '#C7C9CC', 'dev-scope-edge': '#0B0D12', 'dev-port': '#0D0D0F',
     'dev-latex': '#DDB262', 'dev-latex-edge': '#8F6A33', 'dev-latex-a': '.45', 'dev-nylon': '#C9D9EE',
-    'dev-steel': '#7C8696', 'dev-platinum': '#8E949E', 'dev-glue': '#3B4E6B', 'dev-ptfe': '#D9DEE5', 'dev-tips-mesh': '#2A3650', 'dev-graft': '#F8F7F4', 'dev-stent-wire': '#7A5416', 'dev-stent-glint': '#F3DDA0', 'dev-stent-gold': '#B07A1C',
+    'dev-steel': '#9096A0', 'dev-platinum': '#8E949E', 'dev-glue': '#3B4E6B', 'dev-ptfe': '#D9DEE5', 'dev-tips-mesh': '#2A3650', 'dev-graft': '#F8F7F4', 'dev-stent-wire': '#7A5416', 'dev-stent-glint': '#F3DDA0', 'dev-stent-gold': '#B07A1C',
     // ── END device materials ──
     // chart series (validated categorical order, light)
     's1': '#2a78d6', 's2': '#eb6834', 's3': '#1baf7a', 's4': '#eda100', 's5': '#e87ba4', 's6': '#008300', 's7': '#4a3aa7', 's8': '#e34948',
     'grid': '#E2DACB',
     // pressure-over-time traces: the plate's own vessel hues (portal magenta, wedged orchid,
-    // hepatic blue), then quieter inks for the rest. tr-sin is the sinusoidal pressure's own line (the curve, the flow-time chart), not the WHVP's: today the
+    // hepatic blue), then quieter inks for the rest. tr-ppg (gold) and tr-hvpg (violet) are the PPG's and the HVPG's lines on a chart: each reading has one colour on every
+    // chart (reading-colours.js), and the portal pressure's magenta is no longer shared with the PPG (13 Nov 2026). tr-sin is the sinusoidal pressure's own line (the curve, the flow-time chart), not the WHVP's: today the
     // same orchid, kept a token of its own so a reading's colour means one reading (unification audit, finding 2)
-    'tr-pv': '#B01E62', 'tr-wedge': '#A52DA9', 'tr-sin': '#A52DA9', 'tr-hv': '#2A78D6', 'tr-ra': '#5B6270', 'tr-ivc': '#059bae', 'tr-var': '#ee5d26', 'tr-cav': '#7a933f', 'tr-sv': 'var(--origin-spleen)', 'tr-smv': 'var(--origin-smv)', 'tr-imv': 'var(--origin-imv)', 'tr-scler': '#9a5505',
+    'tr-pv': '#B01E62', 'tr-ppg': '#8F6A00', 'tr-hvpg': '#4a3aa7', 'tr-wedge': '#C98500', 'tr-sin': '#A52DA9', 'tr-hv': '#2A78D6', 'tr-ra': '#5B6270', 'tr-ivc': '#059bae', 'tr-var': '#ee5d26', 'tr-cav': '#7a933f', 'tr-sv': 'var(--origin-spleen)', 'tr-smv': 'var(--origin-smv)', 'tr-imv': 'var(--origin-imv)', 'tr-scler': '#9a5505',
     'axis': '#B9AE98',
     'shadow-menu': 'calc(6px * var(--light-slant)) 6px 20px rgb(var(--shadow-rgb) / .1), calc(1px * var(--light-slant)) 1px 3px rgb(var(--shadow-rgb) / .06)',
     'shadow-dialog': 'calc(18px * var(--light-slant)) 18px 48px rgb(var(--shadow-rgb) / .16), calc(4px * var(--light-slant)) 4px 12px rgb(var(--shadow-rgb) / .08)',
@@ -159,7 +171,6 @@ export const TOKENS = {
     // ink on filled controls and badges
     'on-accent': '#FFFFFF', 'on-status': '#FFFFFF',
     // pathology and devices on the plate
-    'skin': '#E9C9B4',
     'bile-duct': '#7C8040',
     // lobule and sinusoid figures: septa, nodules, acinar zones (1 oxygen-rich to 3), and the cells' labels
     'lv-sep': '#FFF4E6', 'lv-nod': '#C9955C',
@@ -206,13 +217,21 @@ export const TOKENS = {
   // Soft light: warm, low-glare paper with frosted cards and softer ink; organ colours unchanged.
   soft: {
     from: 'light',
+    'card-shadow-a': '.5',   // (the card lift's strength: Light .45, Soft a little more, the dark looks .75; --glass-shadow in app-03-layouts.css)
     // (pressure keeps its pale end from before Linen's: Oat is darker than #DCEBF7, so that end reads lighter than the ground here, where Linen's #B8D5ED would sit at Oat's own lightness)
-    'ramp-pressure': '#DCEBF7 0, #99C2ED 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30',
+    // (COL-1: the two low stops, where a healthy hepatic vein, the cava and the central vein sit (3 to 5 mmHg), were 1.25:1 and 1.22:1 on Oat's ground; as dark against Oat's ground as Linen's are against Linen's: 1.37:1 and 1.81:1, where Linen's are 1.28 and 1.79)
+    'ramp-pressure': '#8DB8E2 0, #6A9FDE 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30',
     // Oat (6 Nov, picked from the Soft mocks): a deeper, warmer cream, frosted cards, firmer organs, trace lines at 3:1 on the card
-    'gut-a': '.80',
+    'gut-a': '.70',
     'organ-a': '.52',
     'bg': '#DDD0B9',
+    'flow-reversed-ink': 'color-mix(in srgb, var(--flow-reversed) 50%, var(--text))',   // (Oat's ground is darker: 4.7:1 at half. ST-3)
+    'tr-pv-ink': 'color-mix(in srgb, var(--tr-pv) 55%, var(--text))', 'tr-ppg-ink': 'color-mix(in srgb, var(--tr-ppg) 55%, var(--text))', 'tr-hvpg-ink': 'color-mix(in srgb, var(--tr-hvpg) 55%, var(--text))', 'tr-wedge-ink': 'color-mix(in srgb, var(--tr-wedge) 55%, var(--text))', 'tr-sin-ink': 'color-mix(in srgb, var(--tr-sin) 55%, var(--text))', 'tr-hv-ink': 'color-mix(in srgb, var(--tr-hv) 55%, var(--text))', 'tr-ra-ink': 'color-mix(in srgb, var(--tr-ra) 55%, var(--text))', 'tr-ivc-ink': 'color-mix(in srgb, var(--tr-ivc) 55%, var(--text))', 'tr-var-ink': 'color-mix(in srgb, var(--tr-var) 55%, var(--text))', 'tr-cav-ink': 'color-mix(in srgb, var(--tr-cav) 55%, var(--text))', 'tr-scler-ink': 'color-mix(in srgb, var(--tr-scler) 55%, var(--text))',   // (Oat's cards are darker: a step more toward the text)
+    // (ST-5: Oat is the weakest look for coloured text. The ink forms take 20 % of the text colour, not 12, so they hold 4.5:1 on its darkest card, surface-3; white on the amber fill, 6.6:1, for the dark ink's 2.8:1; the day counter's amber a step deeper)
+    'ok-ink': 'color-mix(in srgb, var(--ok) 80%, var(--text))', 'danger-ink': 'color-mix(in srgb, var(--danger) 80%, var(--text))', 'critical-ink': 'color-mix(in srgb, var(--critical) 80%, var(--text))',
+    'on-caution': '#FFFFFF', 'lapse-ink': '#744500',
     'stage-bg': '#DDD0B9',
+    'vg-keep': '80%', 'vg-tint': '#5A3C19',
     'surface': '#F0E9DC',
     'surface-2': '#E5D9C3',
     'surface-3': '#D3C5AB',
@@ -243,6 +262,7 @@ export const TOKENS = {
     'tile-edge': 'rgba(110, 82, 46, .12)',
     'inst-panel': '#F5EFE2',
     'tr-ra': '#526074',
+    'tr-ppg': '#7F5E00',   // (a shade deeper than Light's gold: the Soft orange --tr-var is nearer it, ΔE 15 at Light's)
     'tr-ivc': '#188ea1',
     'tr-var': '#dd5610',
     'tr-cav': '#678a2b',
@@ -256,29 +276,33 @@ export const TOKENS = {
       // a mid straw, between the old deep amber and Light's faint wash: visible against the beige ground, still translucent
     // status inks deepened for cream (the light theme's are tuned for white); the figure's label halo matches the paper
     // data card tiles and the FibroScan panel share one warm cream with a warm edge
-    // The organs, re-derived from Linen's (C3, 8 Nov): each tone keeps Linen's hue and chroma and sits the same OKLab step (ΔE) from Oat that Linen's sits from Linen.
+    // Deep clay, softened (18 Nov 2026; Mohammad: "less red, the intestine like it was before, tone the rest down a bit"): the organs keep Soft's warm hues, richer than
+    // before (OKLab L .645/.525/.385, chroma about 1.4x, hue turned toward clay and away from red) and the organ layer a little firmer (.72, kidney .88:
+    // styles/app-06-plate.css). The heart and right atrium are toned down (chroma x.68, hue +6; Mohammad). The gut sits in the stomach's clay hue (46) but paler than the organs: L .775/.665/.50, chroma .044/.064/.064, --gut-a .70 (Mohammad 18 Nov: not too bold, not washed out; first quieter try cb337653 was too faint). First version of Deep clay: 6405d100.
+    // (Before Deep clay:) the organs, re-derived from Linen's (C3, 8 Nov): each tone keeps Linen's hue and chroma and sits the same OKLab step (ΔE) from Oat that Linen's sits from Linen.
     // (The old pins were tuned for the near-white paper; the lit faces were ΔE 3 to 10 from Oat, Linen's are 6 to 21.) Edge strength: casing-a .66 (Linen .64); the knock-out is Oat itself.
     'knockout': 'rgba(221, 208, 185, .75)', 'casing-rgb': '51 37 26', 'casing-a': '.66', 'tube-shade': '.2',
     'leader': 'rgba(40, 42, 52, .42)', 'og-dark': 'rgba(60, 22, 18, .22)',
-    'og-liver-1': '#c89e8e', 'og-liver-2': '#ab6955', 'og-liver-3': '#7d3a28',
-    'og-stomach-1': '#d2b4a8', 'og-stomach-2': '#be8773', 'og-stomach-3': '#8a513d',
-    'og-eso-1': '#cfad9e', 'og-eso-2': '#ba836f', 'og-eso-3': '#885444',
-    'og-spleen-1': '#ba9baf', 'og-spleen-2': '#8d607e', 'og-spleen-3': '#5e3651',
-    'og-panc-1': '#cfbb8b', 'og-panc-2': '#ba9955', 'og-panc-3': '#87671e',
-    'og-kidney-1': '#c08ca4', 'og-kidney-2': '#8c486e', 'og-kidney-3': '#531c3f',
-    'og-gb-1': '#afbc89', 'og-gb-2': '#7f9754', 'og-gb-3': '#4b6528',
-    'og-gut-1': '#d3b8a8', 'og-gut-2': '#c1937c', 'og-gut-3': '#8e6149',
-    'og-heart-1': '#ce9288', 'og-heart-2': '#af5e50', 'og-heart-3': '#7a3127',
-    'og-ra-1': '#c68076', 'og-ra-2': '#a54b3f', 'og-ra-3': '#6f251d',
+    'og-liver-1': '#bb7c61', 'og-liver-2': '#9e5331', 'og-liver-3': '#6b3115',
+    'og-stomach-1': '#b38068', 'og-stomach-2': '#96583b', 'og-stomach-3': '#65351d',
+    'og-eso-1': '#b38068', 'og-eso-2': '#96583b', 'og-eso-3': '#65351d',
+    'og-spleen-1': '#aa7e9b', 'og-spleen-2': '#8c557a', 'og-spleen-3': '#5d3350',
+    'og-panc-1': '#b49651', 'og-panc-2': '#93700d', 'og-panc-3': '#5f4807',
+    'og-kidney-1': '#b37996', 'og-kidney-2': '#964f75', 'og-kidney-3': '#642f4c',
+    'og-gb-1': '#88a16a', 'og-gb-2': '#607b3a', 'og-gb-3': '#3c511c',
+    'og-gut-1': '#cfae9f', 'og-gut-2': '#b58873', 'og-gut-3': '#825844',
+    'og-heart-1': '#b78373', 'og-heart-2': '#985c49', 'og-heart-3': '#66392b',
+    'og-ra-1': '#ba8272', 'og-ra-2': '#9a5a49', 'og-ra-3': '#68372a',
     'organ-body': '#cec6b7', 'organ-body-line': '#b5a791',
-    'organ-liver': '#774433', 'organ-spleen': '#634962', 'organ-gut': '#8f6d59', 'organ-stomach': '#8d6255', 'organ-heart': '#834046', 'organ-kidney': '#724963', 'organ-pancreas': '#8f7c4f', 'organ-gb': '#627054', 'organ-aorta': '#978580',
+    'organ-liver': '#774433', 'organ-spleen': '#634962', 'organ-gut': '#956a57', 'organ-stomach': '#8d6255', 'organ-heart': '#834046', 'organ-kidney': '#724963', 'organ-pancreas': '#8f7c4f', 'organ-gb': '#627054', 'organ-aorta': '#978580',
     'diaphragm': '#8E7566',
     'artery': '#C8414D', 
   },
   dark: {
     from: 'light',
     'bg': '#1A1917', 'stage-bg': '#1A1917', 'surface': '#242321', 'surface-2': '#2B2A27', 'surface-3': '#333130',
-    'on-accent': '#15140F', 'on-status': '#15140F', 'skin': '#7A5E55',
+    'vg-keep': '62%', 'vg-tint': '#000000', 'vg-lift': '0%',
+    'on-accent': '#15140F', 'on-status': '#15140F',
     'shadow-menu': 'calc(6px * var(--light-slant)) 6px 20px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 1.2))', 'shadow-dialog': 'calc(24px * var(--light-slant)) 24px 60px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 1.6))',
     'glass': 'rgba(30, 29, 27, .95)', 'frost': 'rgba(30, 29, 27, .42)', 'scrim': 'rgba(6, 5, 4, .6)',
     'hairline': 'rgba(255, 244, 228, .09)', 'border': '#35332F', 'border-strong': '#4B4843',
@@ -286,6 +310,9 @@ export const TOKENS = {
     'brand-bg': '#3A342E', 'accent': '#7C9BFF', 'accent-ink': '#A5BAFF', 'accent-soft': 'rgba(124, 155, 255, .13)', 'accent-line': 'rgba(124, 155, 255, .4)', 'focus': '#7C9BFF',
     'ok': '#34C38F', 'caution': '#F0B43C', 'danger': '#F2634D', 'critical': '#FF4747', 'info': '#7C9BFF', 'disease': '#D2A2F2',
     'flow-normal': '#2CC5BD', 'flow-reversed': '#FF8C42',
+    'flow-reversed-ink': 'var(--flow-reversed)',   // (6.8:1 on the dark ground already: the same orange)
+    'tr-pv-ink': 'var(--tr-pv)', 'tr-ppg-ink': 'var(--tr-ppg)', 'tr-hvpg-ink': 'color-mix(in srgb, var(--tr-hvpg) 70%, var(--text))', 'tr-wedge-ink': 'var(--tr-wedge)', 'tr-sin-ink': 'var(--tr-sin)', 'tr-hv-ink': 'var(--tr-hv)', 'tr-ra-ink': 'var(--tr-ra)', 'tr-ivc-ink': 'var(--tr-ivc)', 'tr-var-ink': 'var(--tr-var)', 'tr-cav-ink': 'var(--tr-cav)', 'tr-scler-ink': 'var(--tr-scler)',   // (the dark looks' traces are already light enough to read as words)
+    'critical-ink': 'color-mix(in srgb, var(--critical) 75%, var(--text))',   // (ST-5: 4.2:1 on Dark's raised card, surface-3, at 12 %; 4.7 at 25)
     // lens ramps for a dark ground (visual-style C1): the light looks' ramps fall to dark ends that sink into the ground (a 30 mmHg vessel was 1.41:1).
     // Pressure keeps its hue path (ice, sky, cornflower, violet, magenta, wine) and keeps lightness falling at every stop (OKLab L .92 to .50); the flow,
     // velocity, heat and drop ramps keep their stops and lift only the dark end to about L .5 (hue and chroma kept). Navy and Black take these from Dark.
@@ -303,21 +330,21 @@ export const TOKENS = {
     'og-panc-1': '#917A45', 'og-panc-2': '#82621D', 'og-panc-3': '#CCB98D',
     'og-kidney-1': '#7D4864', 'og-kidney-2': '#50133B', 'og-kidney-3': '#B5869E',
     'og-gb-1': '#6F7A42', 'og-gb-2': '#4C5E1B', 'og-gb-3': '#ACB788',
-    'og-gut-1': '#917465', 'og-gut-2': '#855C48', 'og-gut-3': '#CCB3A5',
+    'og-gut-1': '#967164', 'og-gut-2': '#8c5847', 'og-gut-3': '#d1b1a4',
     'og-heart-1': '#8D4F47', 'og-heart-2': '#712820', 'og-heart-3': '#C58E86',
     'og-ra-1': '#853C37', 'og-ra-2': '#67130F', 'og-ra-3': '#BD7C75',
     'og-light': 'rgba(255, 238, 226, .14)', 'og-dark': 'rgba(24, 10, 6, .35)', 'og-ao': 'rgba(10, 4, 2, .3)',
     'og-hi': 'rgb(255 235 225)', 'og-hi-k': '5.6%', 'gut-rim-k': '50%',
     'lv-cong-base': '#2A0C18', 'lv-cong-base-a': '.3', 'lv-cong-isl': '#C99A8C', 'lv-cong-isl-a': '.065',
     'organ-body': '#262421', 'organ-body-line': '#3A3733',
-    'organ-liver': '#A88C82', 'organ-spleen': '#93889A', 'organ-gut': '#A8948A', 'organ-stomach': '#A99088', 'organ-heart': '#AE8387',
+    'organ-liver': '#A88C82', 'organ-spleen': '#93889A', 'organ-gut': '#ac9289', 'organ-stomach': '#A99088', 'organ-heart': '#AE8387',
     'organ-kidney': '#A07E8E', 'organ-lung': '#6E7A8C', 'organ-pancreas': '#AFA286', 'organ-gb': '#8C9A7E', 'organ-aorta': '#6E6470', 'organ-a': '.3', 'organ-tint': '20%', 'diaphragm': '#9C8C84',
-    'artery': '#E4606C', 'casing-rgb': '14 11 9', 'casing-a': '.3', 'vessel-casing': 'rgb(var(--casing-rgb) / var(--casing-a))', 'ascites': '#F0C67A', 'ascites-a': '.24', 'stage-grid': 'rgba(255, 240, 220, .05)', 'leader': 'rgba(236, 228, 214, .42)', 'vein-portal': 'var(--tour-portal)', 'vein-systemic': 'var(--tour-sys)', 'arrow-ink': 'rgba(238, 235, 229, .82)', 'label-halo': 'rgba(26, 25, 23, .9)', 'label-panel': 'rgba(26, 25, 23, .72)', 'doppler': '#3EE0A5', 'dop-glow': '#F4F6FF', 'dop-face': '#F1ECE2', 'dop-head-rim': '#FFFFFF', 'dop-head-ink': '#000000', 'vel-ink': '72%',
+    'artery': '#E4606C', 'artery-wall-k': '.5', 'casing-rgb': '14 11 9', 'casing-a': '.3', 'vessel-casing': 'rgb(var(--casing-rgb) / var(--casing-a))', 'ascites': '#F0C67A', 'ascites-a': '.24', 'stage-grid': 'rgba(255, 240, 220, .05)', 'leader': 'rgba(236, 228, 214, .42)', 'vein-portal': 'var(--tour-portal)', 'vein-systemic': 'var(--tour-sys)', 'arrow-ink': 'rgba(238, 235, 229, .82)', 'label-halo': 'rgba(26, 25, 23, .9)', 'label-panel': 'rgba(26, 25, 23, .72)', 'doppler': '#3EE0A5', 'dop-glow': '#F4F6FF', 'dop-face': '#F1ECE2', 'dop-head-rim': '#FFFFFF', 'dop-head-ink': '#000000', 'vel-ink': '72%',
     's1': '#3987e5', 's2': '#d95926', 's3': '#199e70', 's4': '#c98500', 's5': '#d55181', 's6': '#17A317', 's7': '#9085e9', 's8': '#e66767',
     'grid': '#2B2926', 'axis': '#4A4641',
-    'tr-pv': DARK_TRACE.pv, 'tr-wedge': DARK_TRACE.wedge, 'tr-sin': '#DA7EDD', 'tr-hv': DARK_TRACE.hv, 'tr-ra': '#B7B1A8', 'tr-ivc': DARK_TRACE.ivc, 'tr-var': '#F28A56', 'tr-cav': '#A9CC55', 'tr-sv': 'var(--origin-spleen)', 'tr-smv': 'var(--origin-smv)', 'tr-imv': 'var(--origin-imv)', 'tr-scler': '#B7C2D4',
+    'tr-pv': DARK_TRACE.pv, 'tr-ppg': '#FFD166', 'tr-hvpg': '#8466E8', 'tr-wedge': DARK_TRACE.wedge, 'tr-sin': '#DA7EDD', 'tr-hv': DARK_TRACE.hv, 'tr-ra': '#B7B1A8', 'tr-ivc': DARK_TRACE.ivc, 'tr-var': '#F28A56', 'tr-cav': '#A9CC55', 'tr-sv': 'var(--origin-spleen)', 'tr-smv': 'var(--origin-smv)', 'tr-imv': 'var(--origin-imv)', 'tr-scler': '#B7C2D4',
     'shadow-1': '0 0 0 1px var(--hairline)', 'shadow-2': 'var(--shadow-menu)', 'shadow-3': 'var(--shadow-dialog)',
-    'shadow-rgb': '0 0 0', 'shadow-a': '.38', 'vessel-shadow': 'rgb(var(--shadow-rgb) / var(--shadow-a))', 'tube-shade': '.3', 'tube-sheen': '.38', 'vessel-rim-a': '.3', 'vessel-knock-a': '0', 'organ-cast': 'rgba(0, 0, 0, .42)', 'tex-a': '.13', 'lit-hi': '.2', 'lit-lo': '.18', 'fx-ink': 'rgba(233, 237, 246, .9)', 'stent-metal': '#A0ABBE', 'suture-thread': '#E8742A', 'suture-edge': '#3a1d0a', 'stent-marker': '#BAC2D0', 'stent-alpha': '.5', 'stent-glint': '.24', 'stent-rail-w': '1.15', 'stent-strut-w': '.8',
+    'shadow-rgb': '0 0 0', 'shadow-a': '.38', 'card-shadow-a': '.75', 'vessel-shadow': 'rgb(var(--shadow-rgb) / var(--shadow-a))', 'tube-shade': '.3', 'tube-sheen': '.38', 'vessel-rim-a': '.3', 'vessel-knock-a': '0', 'organ-cast': 'rgba(0, 0, 0, .42)', 'tex-a': '.13', 'lit-hi': '.2', 'lit-lo': '.18', 'fx-ink': 'rgba(233, 237, 246, .9)', 'stent-metal': '#A0ABBE', 'suture-thread': '#E8742A', 'suture-edge': '#3a1d0a', 'stent-marker': '#BAC2D0', 'stent-alpha': '.5', 'stent-glint': '.24', 'stent-rail-w': '1.15', 'stent-strut-w': '.8',
     // ── BEGIN device materials, dark looks (visual-style D1, D6, D9; Navy and Black take these) ──
     'dev-poly': '#F0F0ED', 'dev-poly-edge': '#1C212B', 'dev-scope-edge': '#C9CED6',
     'dev-latex': '#FCE6B3', 'dev-latex-edge': '#B08A59', 'dev-latex-a': '.34', 'dev-nylon': '#E5EDF7',
@@ -356,6 +383,7 @@ export const TOKENS = {
   navy: {
     from: 'dark',
     'bg': '#0E1422', 'stage-bg': '#0E1422', 'surface': '#161E30', 'surface-2': '#1B2438', 'surface-3': '#232D44',
+    'vg-keep': '58%', 'vg-tint': '#00000A',
     'on-accent': '#0B1120', 'on-status': '#0B1120',
     'glass': 'rgba(16, 23, 42, .95)', 'frost': 'rgba(16, 23, 42, .42)', 'scrim': 'rgba(2, 4, 10, .6)',
     'hairline': 'rgba(200, 215, 255, .08)', 'border': '#222C46', 'border-strong': '#33405F',
@@ -368,7 +396,7 @@ export const TOKENS = {
     'og-panc-1': '#7D6C4C', 'og-panc-2': '#544938', 'og-panc-3': '#BCA878',
     'og-kidney-1': '#7A4766', 'og-kidney-2': '#4E2C46', 'og-kidney-3': '#D9B3CC',
     'og-gb-1': '#56704A', 'og-gb-2': '#3A4C3A', 'og-gb-3': '#93B07E',
-    'og-gut-1': '#7C5D5F', 'og-gut-2': '#553F47', 'og-gut-3': '#B79A9A',
+    'og-gut-1': '#7f5b62', 'og-gut-2': '#563e4a', 'og-gut-3': '#ba989c',
     'og-heart-1': '#8E4A52', 'og-heart-2': '#5E2E3C', 'og-heart-3': '#CE8C92',
     'og-ra-1': '#964650', 'og-ra-2': '#632B3A', 'og-ra-3': '#D48F96',
     'og-light': 'rgba(255, 235, 225, .14)', 'og-dark': 'rgba(0, 0, 0, .35)', 'og-ao': 'rgba(0, 0, 0, .3)',
@@ -387,6 +415,7 @@ export const TOKENS = {
   black: {
     from: 'dark',
     'bg': '#000000', 'stage-bg': '#000000', 'surface': '#0D0D0E', 'surface-2': '#141416', 'surface-3': '#1C1C1F',
+    'vg-keep': '100%', 'vg-lift': '7.5%',   // (Black cannot get darker: a faint light behind the figure instead of a shaded edge)
     'on-accent': '#0A0A0B', 'on-status': '#0A0A0B',
     'glass': 'rgba(10, 10, 11, .95)', 'frost': 'rgba(10, 10, 11, .42)', 'scrim': 'rgba(0, 0, 0, .7)',
     'hairline': 'rgba(255, 255, 255, .1)', 'border': '#26262A', 'border-strong': '#3A3A40',
@@ -416,7 +445,7 @@ export const CIRCUIT = {
     'accent': '#7C9BFF', 'accent-ink': '#A5BAFF', 'accent-soft': 'rgba(124, 155, 255, .13)', 'accent-line': 'rgba(124, 155, 255, .4)', 'focus': '#7C9BFF',
     'ok': '#34C38F', 'caution': '#F0B43C', 'danger': '#F2634D', 'critical': '#FF4747', 'info': '#7C9BFF', 'disease': '#D2A2F2',
     'flow-normal': '#2CC5BD', 'flow-reversed': '#FF8C42',
-    'artery': '#E4606C', 'casing-rgb': '0 0 0', 'casing-a': '.38', 'vessel-casing': 'rgb(var(--casing-rgb) / var(--casing-a))', 'leader': 'rgba(236, 228, 214, .42)',
+    'artery': '#E4606C', 'artery-wall-k': '.5', 'casing-rgb': '0 0 0', 'casing-a': '.38', 'vessel-casing': 'rgb(var(--casing-rgb) / var(--casing-a))', 'leader': 'rgba(236, 228, 214, .42)',
     'vein-portal': 'var(--tour-portal)', 'vein-systemic': 'var(--tour-sys)', 'arrow-ink': 'rgba(238, 235, 229, .82)', 'label-halo': 'rgba(18, 17, 16, .92)', 'label-panel': 'rgba(18, 17, 16, .72)', 'doppler': '#3EE0A5',
     'spine': 'rgba(124, 150, 255, .1)', 'map-dot': 'rgba(160, 182, 255, .12)',
     'fx-ink': 'rgba(233, 237, 246, .9)', 'stent-metal': '#A0ABBE', 'suture-thread': '#E8742A', 'suture-edge': '#3a1d0a', 'stent-marker': '#BAC2D0', 'stent-alpha': '.5', 'stent-glint': '.24', 'stent-rail-w': '1.15', 'stent-strut-w': '.8',

@@ -15,6 +15,10 @@ const COLLATERAL_NAMES = {
 const Qf = (eng, id) => (eng.Qf ? eng.Qf[eng.ei[id]] : eng.Q[eng.ei[id]]);
 const occ = (eng, id) => eng.occlusion(id) >= 0.99;
 const caudRef = (eng) => (eng.refQ ? eng.refQ[eng.ei.CAUD] : 0.8);
+/** One event: when it starts (on) and ends (off) from the metrics, the engine and the splanchnic inflow ratio, and what it says. */
+/** @typedef {(m: any, e: any, splIn?: number) => boolean} EventTest */
+/** @typedef {{ id: string, on: EventTest, off: EventTest, severity: string, anchor: string, title: string, detail: string | null, coll?: any }} EventDef */
+/** @type {EventDef[]} */
 const DEFS = [
   { id: 'HEPATOFUGAL_PV', on: (m, e) => Qf(e, 'PV_TRUNK') < -0.3 && !occ(e, 'PV_TRUNK'), off: (m, e) => Qf(e, 'PV_TRUNK') > 0, severity: 'danger', anchor: 'PV_TRUNK',
     title: 'Hepatofugal flow in the portal vein', detail: 'Blood now leaves the liver through the portal vein toward the collaterals.' },
@@ -25,25 +29,25 @@ const DEFS = [
   { id: 'INTRAHEPATIC_REVERSAL', on: (m, e) => Qf(e, 'PRE_R') < -0.2 || Qf(e, 'PRE_L') < -0.2 || Qf(e, 'PVH_L') < -0.2, off: (m, e) => Qf(e, 'PRE_R') > 0 && Qf(e, 'PRE_L') > 0 && Qf(e, 'PVH_L') > 0,
     severity: 'info', anchor: 'LPV', title: 'Intrahepatic portal branches reversed', detail: 'Arterial blood entering the sinusoids escapes backward through portal branches (typical after TIPS).' },
   { id: 'PV_STASIS', on: (m, e) => Math.abs(m.pvVel) < FLOW_CUTS.stasis && !occ(e, 'PV_TRUNK'), off: (m) => Math.abs(m.pvVel) > FLOW_CUTS.stasisOff, severity: 'caution', anchor: 'PV_TRUNK',
-    title: 'Portal vein stasis', detail: 'Doppler velocity below 9 cm/s: stasis raises the risk of portal vein thrombosis.' },
+    title: 'Portal vein stasis', detail: `Doppler velocity below ${FLOW_CUTS.stasis} cm/s: stasis raises the risk of portal vein thrombosis.` },
   { id: 'CSPH', on: (m) => m.hvpg >= HVPG_CUTS.red, off: (m) => m.hvpg < HVPG_CUTS.red - 0.5, severity: 'danger', anchor: 'SIN_R',
-    title: 'Clinically significant portal hypertension', detail: 'HVPG ≥10 mmHg (in cirrhosis): collaterals and varices can develop.' },
+    title: 'Clinically significant portal hypertension', detail: `HVPG ≥${HVPG_CUTS.red} mmHg (in cirrhosis): collaterals and varices can develop.` },
   { id: 'BLEED_RISK', on: (m) => m.hvpg >= HVPG_CUTS.bleed, off: (m) => m.hvpg < HVPG_CUTS.bleed - 0.5, severity: 'danger', anchor: 'VAR',
-    title: 'Bleeding more likely', detail: 'HVPG ≥12 mmHg. Bleeding risk climbs with the gradient from about 12 mmHg, but varices can bleed below it.' },
+    title: 'Bleeding more likely', detail: `HVPG ≥${HVPG_CUTS.bleed} mmHg. Bleeding risk climbs with the gradient from about ${HVPG_CUTS.bleed} mmHg, but varices can bleed below it.` },
   { id: 'VARIX_LARGE', on: (m) => m.varix.d >= 5, off: (m) => m.varix.d < 4.5, severity: 'caution', anchor: 'VAR',
     title: 'Large esophageal varices', detail: 'Diameter ≥5 mm: high-risk varices.' },
   { id: 'RED_WALE', on: (m) => m.varix.ratioMean > 0.7, off: (m) => m.varix.ratioMean < 0.65, severity: 'danger', anchor: 'VAR',
-    title: 'Red wale signs', detail: 'Modeled wall stress is approaching the rupture point (index = ΔP·r / w).' },
+    title: 'Red wale signs', detail: 'Modeled wall stress is approaching the rupture threshold (index = ΔP·r / w).' },
   { id: 'ASCITES_FORMING', on: (m) => m.ascites.ratePerDay > 80 && m.ascites.volume > 150, off: (m) => m.ascites.ratePerDay < -50, severity: 'caution', anchor: 'PERITONEUM',
     title: 'Ascites forming', detail: 'Lymph formation exceeds lymphatic drainage capacity.' },
   { id: 'TENSE_ASCITES', on: (m) => m.ascites.iap >= 12, off: (m) => m.ascites.iap < 11, severity: 'danger', anchor: 'PERITONEUM',
     title: 'Intra-abdominal hypertension', detail: 'IAP ≥12 mmHg compresses the IVC and raises variceal pressure.' },
   { id: 'HYPERDYNAMIC', on: (m) => m.co > 6.0 && m.svr < 14, off: (m) => m.co < 5.7 || m.svr > 15, severity: 'info', anchor: 'AO',
     title: 'Hyperdynamic circulation', detail: 'Splanchnic vasodilation: high cardiac output, low systemic resistance.' },
-  { id: 'HIGH_SHUNT', on: (m) => m.shuntFraction > 0.5, off: (m) => m.shuntFraction < 0.45, severity: 'caution', anchor: 'TIPS',
-    title: 'High portosystemic shunt fraction', detail: 'Over half of the splanchnic inflow bypasses the liver: risk of hepatic encephalopathy.' },
-  { id: 'LIVER_HYPOPERFUSION', on: (m) => m.liverPerfPct < 60, off: (m) => m.liverPerfPct > 65, severity: 'caution', anchor: 'SIN_R',
-    title: 'Liver hypoperfusion', detail: 'Total sinusoidal flow is below 60% of normal.' },
+  { id: 'HIGH_SHUNT', on: (m) => m.shuntFraction >= FLOW_CUTS.shuntLarge, off: (m) => m.shuntFraction < FLOW_CUTS.shuntLarge - 0.05, severity: 'caution', anchor: 'TIPS',
+    title: 'High portosystemic shunt fraction', detail: `${Math.round(FLOW_CUTS.shuntLarge * 100)}% or more of the splanchnic inflow bypasses the liver: risk of hepatic encephalopathy.` },
+  { id: 'LIVER_HYPOPERFUSION', on: (m) => m.liverPerfPct <= FLOW_CUTS.liverSevere, off: (m) => m.liverPerfPct > FLOW_CUTS.liverSevere + 5, severity: 'caution', anchor: 'SIN_R',
+    title: 'Liver hypoperfusion', detail: `Total sinusoidal flow is ${FLOW_CUTS.liverSevere}% of normal or less.` },
   { id: 'CAUDATE', on: (m, e) => Qf(e, 'CAUD') > 3 * caudRef(e), off: (m, e) => Qf(e, 'CAUD') < 2.5 * caudRef(e), severity: 'info', anchor: 'CAUD',
     title: 'Caudate lobe drains the liver', detail: 'Its own veins drain directly into the IVC: it is spared and hypertrophies.' },
   { id: 'RA_HIGH', on: (m) => m.ra > 10, off: (m) => m.ra < 9, severity: 'caution', anchor: 'RA',
@@ -101,6 +105,19 @@ function breathAveraged(m, eng, init) {
 // are frames: 0.3 s of model time at 1x, 2.4 s at 8x, and a few milliseconds during a slider drag, where every change
 // posts a frame of its own. Model time is the same on every device and at every speed.)
 const HOLD_S = 0.25;
+// An event says what CHANGED in the patient, not what the patient is (Mohammad, 16 Nov 2026, play-test: "Clinically significant PH" and "Bleeding more likely" fired when a
+// TIPS came out of a patient who started at HVPG 16; "Ascites forming" fired twice on a patient already shown with ascites). Two rules, for every condition:
+// 1. One that was already true when the patient loaded (the starting state) never fires: treating it and taking the treatment off brings the patient back to where
+//    they began, not into a new event. It is still tracked, so what the patient started with is known.
+// 2. One that fired, cleared and is true again fires a second time only after it stayed clear for REARM_S of model time (a day): a treatment switched on and off at the
+//    bedside is one story, a condition that returns months later is another. (The hemorrhagic shock classes are exempt: a rebleed an hour after a transfusion is news.)
+const REARM_S = 86400;
+// 3. A patient settles for a minute after loading (the net lymph formation, a small difference of large flows, moves by half within ten seconds while the pressures move 0.1 mmHg),
+//    so a condition that turns on in that first minute with nothing changed since the load is the starting state too, not an event.
+const SETTLE_S = 60;
+const REARM_FREE = new Set(['SHOCK_2', 'SHOCK_3']);
+/** Model seconds since the clock reading (day, t) the state was last stamped with. */
+const since = (eng, day, st) => (day - st.clrDay) * 86400 + (eng.t - st.clrT);
 // How long the condition has held, in model seconds; the clock starts over on a new day, a restored state or a clock set back.
 function held(s, eng, day) {
   if (s.since == null || s.sinceDay !== day || eng.t < s.since) { s.since = eng.t; s.sinceDay = day; return 0; }
@@ -114,6 +131,7 @@ export function detectEvents(eng, init = false) {
   if (!rec) RECS.set(eng, rec = {});   // alloc-rare: once per engine
   const m = computeMetrics(eng, rec);
   const day = (eng.day || 0) + (eng.dayFrac || 0);
+  if (init) eng.evStart = { rev: eng.paramsRev | 0, t: eng.t, day };   // (the patient's starting state is taken now: SETTLE_S)
   const v = breathAveraged(m, eng, init), splIn = Math.max(1e-6, m.splanchnicIn / 0.06), states = eng.evState;
   for (let i = 0; i < DEFS.length; i++) {
     const d = DEFS[i];
@@ -123,12 +141,16 @@ export function detectEvents(eng, init = false) {
       if (d.on(v, eng, splIn)) {
         if (init || held(s, eng, day) >= HOLD_S) {
           s.active = true; s.since = null;
+          const st = eng.evStart, settling = !!st && st.rev === (eng.paramsRev | 0) && st.day === day && eng.t - st.t < SETTLE_S && eng.t >= st.t;
+          if (init || settling) s.atStart = true;
+          // (A condition of the patient's own start, or one that cleared only moments ago, is not news: the rules above.)
+          const again = s.clrDay !== undefined && !REARM_FREE.has(d.id) && since(eng, day, s) < REARM_S;
           // alloc-rare: only when an event fires (a condition crossed its cut and held), never per frame
-          if (!init) eng.pushEvent({ id: d.id, severity: d.severity, title: d.title, detail: d.detail !== null ? d.detail : collDetail(eng, d.coll, splIn), anchor: d.anchor });
+          if (!init && !s.atStart && !again) eng.pushEvent({ id: d.id, severity: d.severity, title: d.title, detail: d.detail !== null ? d.detail : collDetail(eng, d.coll, splIn), anchor: d.anchor });
         }
       } else s.since = null;
     } else if (d.off(v, eng, splIn)) {
-      if (held(s, eng, day) >= HOLD_S) { s.active = false; s.since = null; }
+      if (held(s, eng, day) >= HOLD_S) { s.active = false; s.since = null; s.clrDay = day; s.clrT = eng.t; }
     } else s.since = null;
   }
   return m;

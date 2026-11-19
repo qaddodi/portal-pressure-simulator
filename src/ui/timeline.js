@@ -12,7 +12,7 @@
 
 import { store, replaceParams, onParamChange } from './store.js';
 import { host } from './host.js';
-import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText, swapText } from './util.js';
+import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText, swapText, reconcile } from './util.js';
 import { activeInterventions } from './inspector.js';
 import { removedLabel } from './removed-label.js';
 import { frameFor } from './frame.js';
@@ -35,13 +35,16 @@ export function captureFrame(f, params) {
   return { // alloc-rare: once per pin or marker (a learner action), never per frame
     P: Array.from(f.P), metrics: structuredClone(f.metrics), params: structuredClone(params), // alloc-rare: once per pin or marker (a learner action), never per frame
     frame: { ...f, P: Array.from(f.P), Pf: f.Pf ? Array.from(f.Pf) : undefined, Q: Array.from(f.Q), Qf: f.Qf ? Array.from(f.Qf) : undefined, D: Array.from(f.D), // alloc-rare: once per pin or marker (a learner action), never per frame
-      ext: Array.from(f.ext), slow: structuredClone(f.slow), metrics: structuredClone(f.metrics), bleed: structuredClone(f.bleed), events: [], samples: null, params: undefined, viewParams: structuredClone(params) }, // alloc-rare: once per pin or marker (a learner action), never per frame
+      ext: Array.from(f.ext), extf: f.extf ? Array.from(f.extf) : undefined, slow: structuredClone(f.slow), metrics: structuredClone(f.metrics), bleed: structuredClone(f.bleed), events: [], samples: null, params: undefined, viewParams: structuredClone(params) }, // alloc-rare: once per pin or marker (a learner action), never per frame
   };
 }
+// (A day count and the seconds of the run are two clocks: after a jump of months, "Day 180 · 8:35" read as a time of day. Past day 0 the clock is the day alone, as the
+// phone's bar and the figure's clock always had it; the minutes and seconds belong to the first day, where the model runs in real time.)
 export const fmtClock = (t, day) => {
+  if (day > 0) return `Day ${day}`;
   const s = Math.max(0, Math.floor(t)), m = Math.floor(s / 60), ss = String(s % 60).padStart(2, '0');
   const tt = m >= 60 ? `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
-  return day > 0 ? `Day ${day} · ${tt}` : tt;
+  return tt;
 };
 
 export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scenarioLabel, onHistory = null }) {
@@ -114,7 +117,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
     const ta = getComputedStyle(timeEl).textAlign, align = /right|end/.test(ta) ? 'end' : ta === 'center' ? 'middle' : 'start';
     const asc = -textBox('0', 0, 0, { weight, size, k }).y;   // (the baseline under the box's top, rounded as the browser rounds it)
     dayAt = { size, weight, y: r.top - b.top + asc, x: align === 'end' ? r.right - b.left : align === 'middle' ? (r.left + r.right) / 2 - b.left : r.left - b.left, align };
-    if (!dayGL) { dayGL = createSvgGL(timeEl, { host: 'dock' }); dayGL.cv.setAttribute('aria-hidden', 'true'); dayGL.cv.removeAttribute('role'); }
+    if (!dayGL) { dayGL = createSvgGL(timeEl, { host: 'dock', small: true }); dayGL.cv.setAttribute('aria-hidden', 'true'); dayGL.cv.removeAttribute('role'); }
     dayGL.setCtx({ view: timeEl.closest('.stage-wrap.cmap') ? 'circuit' : 'anatomic' });   // (the Circuit view's dark tokens, as the page's clock has them)
     dayPath = svgModel('path', { class: 'tl-day-gl', 'data-look': 'small.day', d: dayD(t) });
     dayGL.show(svgModel('svg', { 'data-look': 'small.root', viewBox: `0 0 ${b.width} ${b.height}`, preserveAspectRatio: 'none' }, dayPath), false);
@@ -313,7 +316,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
     const f = frameNow();
     if (!f) return;
     pinFrom(captureFrame(f, store.get().params), scenarioLabel(), fmtClock(f.t, f.day));
-    toast(`Comparing with ${fmtClock(f.t, f.day)}. Change something, then switch between then and now.`);
+    toast('Moment pinned. Change something, then switch between Then and Now.');   // (the bar already says which moment: its label is not repeated here)
   }
 
   // ── Rendering ─────────────────────────────────────
@@ -334,8 +337,22 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
       : [h('p', { class: 'tl-pop-empty' }, h('b', {}, 'Nothing has happened yet.'), ' Change something on the figure, or jump ahead in time.')];
   }
   function historyBody() { return h('div', { class: 'tl-pop tl-history' }, historyRows()); }
+  // The phone's History (the sheet, and the Settings page) is kept current while it is open, as the card is: a new row rises in at the top and the
+  // rows under it slide down (reconcile), where the list had been built once and a change or an event made while it was open did not show (16 Nov 2026).
+  const liveLists = new Set();
+  let liveAsk = 0;
+  function liveRepaint() {
+    liveAsk = 0;
+    for (const el of liveLists) {
+      if (!el.isConnected) { liveLists.delete(el); continue; }
+      const next = historyRows();
+      reconcile(el, next);
+    }
+  }
+  listeners.push(() => { if (liveLists.size && !liveAsk) liveAsk = restPass(liveRepaint); });   // (between frames: reconcile reads the rows' boxes)
+  function historyList() { const el = historyBody(); liveLists.add(el); return el; }
   function openHistory(anchor) {
-    popover(anchor, h('div', { class: 'tl-pop tl-history' }, historyRows()), { place: 'above', align: 'end', title: 'History' });
+    popover(anchor, historyList(), { place: 'above', align: 'end', title: 'History' });
   }
   function markerRows(items) {
     return items.slice().reverse().map((i) => {
@@ -343,10 +360,11 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
       const acts = [];
       const act = (label, ic, col, fn) => acts.push(h('button', { class: 'tl-pop-ic', style: { gridColumn: col }, title: label, 'aria-label': label, onclick: fn }, ic));
       if (e.snap) act(i === liveIndex() && cursor < 0 ? 'Back to this moment' : 'Go back here', svgIcon('rewind', 'mi-ic'), 1, () => { closePopover(); goTo(i); });
-      if (e.frame) act('Compare with now', svgIcon('camera', 'mi-ic'), 2, () => { closePopover(); pinFrom(e.frame, e.label, fmtClock(e.t, e.day)); toast(`Comparing with ${fmtClock(e.t, e.day)}: ${e.label}.`); });
+      if (e.frame) act('Compare with now', svgIcon('camera', 'mi-ic'), 2, () => { closePopover(); pinFrom(e.frame, e.label, fmtClock(e.t, e.day)); toast(`Moment pinned: ${e.label}.`); });
       const future = cursor >= 0 && i > cursor;
-      // (key and sig: the History card updates its list in place, main.js reconcile.)
-      return h('div', { class: `tl-pop-row${future ? ' future' : ''}`, 'data-row': `${e.t}|${e.day || 0}|${e.kind}|${e.label}`, 'data-sig': `${future}|${acts.map((b) => b.title).join(',')}|${e.detail || ''}|${e.snapFailed && !e.snap ? 'nogo' : ''}` },
+      // (key and sig: the History card updates its list in place, main.js reconcile. The key is the entry's own id, never its time: a change's snapshot lands a moment
+      // after the row and moves its time, and a key made of the time took that for a row going and a new one coming, the old one fading where it stood over the new, 16 Nov 2026.)
+      return h('div', { class: `tl-pop-row${future ? ' future' : ''}`, 'data-row': `e${e.id}`, 'data-sig': `${e.kind}|${e.label}|${e.kind === 'start' ? '' : fmtClock(e.t, e.day)}|${future}|${acts.map((b) => b.title).join(',')}|${e.detail || ''}|${e.snapFailed && !e.snap ? 'nogo' : ''}` },
         h('div', { class: 'tl-pop-head' }, h('i', { class: `tl-dot ${e.kind}`, style: { background: e.kind === 'event' ? SEV[e.sev] || SEV.info : '' } }), h('b', {}, e.kind === 'start' ? `Patient: ${e.label}` : e.label), h('span', { class: 'when' }, e.kind === 'start' ? 'Start' : fmtClock(e.t, e.day)), h('span', { class: 'tl-pop-acts' }, acts)),
         e.detail ? h('div', { class: 'tl-pop-d' }, e.detail) : null,
         e.snapFailed && !e.snap ? h('div', { class: 'tl-pop-d tl-nogo' }, 'Can’t go back here: the model did not save this moment.') : null);
@@ -398,11 +416,16 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
   onParamChange(({ label, history }) => { if (history || pending) noteParamChange(label); });
 
   return {
-    reset, recordAction, addEvents, update, undo, canUndo, lastChangeLabel, redo, goTo, togglePin, jump, openHistory, historyBody,
+    reset, recordAction, addEvents, update, undo, canUndo, lastChangeLabel, redo, goTo, togglePin, jump, openHistory, historyBody, historyList,
     entries: () => entries, cursor: () => cursor,
     onChange: (fn) => listeners.push(fn),
     save: () => ({ entries: entries.slice(), cursor, baseline: structuredClone(baseline) }),
-    load: (s) => { entries = s.entries; cursor = s.cursor; baseline = s.baseline; lastRenderLen = -1; render(true); for (const fn of listeners) fn(); },
+    load: (s) => {
+      // (Put back as it was kept: an edit being typed in, and every timer an entry of the history before this one started, belong to what is replaced: reset does the same.)
+      if (pending) clearTimeout(pending.timer);
+      tlGen++; pending = null; lastEv = {};
+      entries = s.entries; cursor = s.cursor; baseline = s.baseline; lastRenderLen = -1; render(true); for (const fn of listeners) fn();
+    },
     flush: flushParams,
   };
 }

@@ -40,7 +40,7 @@ endobj
 endobj
 4 0 obj
 <<
-/Length 4553
+/Length 4634
 >>
 stream
 1 0 0 1 0 0 cm  BT /F1 12 Tf 14.4 TL ET
@@ -117,7 +117,7 @@ BT 1 0 0 1 61.584 528.57 Tm (The two most important buttons) Tj T* ET
 q
 1 0 0 1 65 468.378 cm
 q
-BT 1 0 0 1 0 43.392 Tm -0.010578 Tw 13.248 TL /F2 9.6 Tf .113725 .113725 .121569 rg (Main menu) Tj /F1 9.6 Tf ( \(top left, shows the patient name, "Healthy" here\): opens the list of presentations and patients. On ) Tj /F2 9.6 Tf (Present) Tj /F1 9.6 Tf  T* 0 Tw (pick a talk to play it; on ) Tj /F2 9.6 Tf (Patients) Tj /F1 9.6 Tf ( pick a case to load. It also has search, Copy link to this view and Help. ) Tj /F2 9.6 Tf (Tests) Tj /F1 9.6 Tf (: opens) Tj T* (the Tests card with tabs for Pressure, HVPG, Doppler, Scope, Ascites, Fibro and Readouts, the measurements you) Tj T* (can take on this patient.) Tj T* ET
+BT 1 0 0 1 0 43.392 Tm -0.010578 Tw 13.248 TL /F2 9.6 Tf .113725 .113725 .121569 rg (Main menu) Tj /F1 9.6 Tf ( \(top left, shows the patient name, "Healthy" here\): opens the list of presentations and patients. On ) Tj /F2 9.6 Tf (Present) Tj /F1 9.6 Tf  T* 0 Tw (pick a talk to play it; on ) Tj /F2 9.6 Tf (Patients) Tj /F1 9.6 Tf ( pick a case to load. It also has search, Copy link to this view and Help. ) Tj /F2 9.6 Tf (Tests) Tj /F1 9.6 Tf (: opens) Tj T* (the Tests card with tabs for Pressure, IR, Doppler, Scope, Ascites, Fibro and Readouts, the measurements you) Tj T* (can take on this patient, and Trials: the landmark trials and whether this patient would have been enrolled.) Tj T* ET
 Q
 Q
 q
@@ -551,24 +551,24 @@ xref
 0000000083 00000 n 
 0000000149 00000 n 
 0000000694 00000 n 
-0000005299 00000 n 
-0000005340 00000 n 
-0000005447 00000 n 
-0000005559 00000 n 
-0000157788 00000 n 
-0000169092 00000 n 
-0000170357 00000 n 
-0000206804 00000 n 
-0000269236 00000 n 
-0000922993 00000 n 
-0001187390 00000 n 
-0001210198 00000 n 
-0001210648 00000 n 
-0001212424 00000 n 
-0001248681 00000 n 
-0002161077 00000 n 
-0002666001 00000 n 
-0002706062 00000 n 
+0000005380 00000 n 
+0000005421 00000 n 
+0000005528 00000 n 
+0000005640 00000 n 
+0000157869 00000 n 
+0000169173 00000 n 
+0000170438 00000 n 
+0000206885 00000 n 
+0000269317 00000 n 
+0000923074 00000 n 
+0001187471 00000 n 
+0001210279 00000 n 
+0001210729 00000 n 
+0001212505 00000 n 
+0001248762 00000 n 
+0002161158 00000 n 
+0002666082 00000 n 
+0002706143 00000 n 
 trailer
 <<
 /Size 23
@@ -577,5 +577,5 @@ trailer
 /ID [ <0861ad86bb7fdb53eb3d353341594fb0> <0861ad86bb7fdb53eb3d353341594fb0> ]
 >>
 startxref
-2706435
+2706516
 %%EOF

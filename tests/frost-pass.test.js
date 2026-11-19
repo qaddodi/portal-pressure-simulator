@@ -74,7 +74,7 @@ const frames = async (k) => { for (let i = 0; i < k; i++) { clock += 16; for (co
 
 // (The whole region blurred in one go (the option full): the counts below are its two passes. By default each part of it a glass reads is
 // blurred alone, two passes a part, to the same texels: tests/glass-parts.test.js.)
-const G = createGlassGL(wrap, source, [], { cards: { find: () => [shade, data], watch: [root], before: { parentNode: null } }, version: () => seq, full: true });
+const G = createGlassGL(wrap, source, [], { cards: { find: () => [shade, data], watch: [root], before: { parentNode: null } }, version: () => seq, full: true, markHold: false });
 
 test('with no copy of its own it makes no canvas and no context, and without a host every card keeps the browser\'s glass', async () => {
   assert.ok(G);

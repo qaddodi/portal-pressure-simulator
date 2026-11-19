@@ -12,6 +12,7 @@
 //   la.dispose()
 
 import { trackOf, trackAt } from './label-track.js';
+import { readAnims, readStyle } from './layout-snap.js';
 
 const NO_PAINT = () => false;
 const EVENTS = ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel'];
@@ -23,7 +24,7 @@ function toOf(a) {
 }
 /** The element's running animations that move its opacity. */
 function animsOf(e) {
-  try { return (e.getAnimations?.() || []).filter(animatesOpacity); } catch { return []; }
+  try { return (readAnims(e) || []).filter(animatesOpacity); } catch { return []; }
 }
 const animatesOpacity = (a) => { try { return a.effect.getKeyframes().some((k) => k.opacity != null && k.opacity !== ''); } catch { return false; } };
 
@@ -32,7 +33,7 @@ const animatesOpacity = (a) => { try { return a.effect.getKeyframes().some((k) =
  * scripted there); farther ones are watched by class only, so a write to their style (a camera's transform every frame) asks for nothing.
  * `shared`: see below. `gcs`: getComputedStyle (a stand-in in the tests).
  */
-export function createLayerAlpha(leaf, { near = null, shared = null, onChange = null, gcs = (e) => getComputedStyle(e) } = {}) {
+export function createLayerAlpha(leaf, { near = null, shared = null, onChange = null, gcs = (e) => readStyle(e) } = {}) {
   const chain = [];
   // (`shared`: a canvas the layer is drawn in that has the same ancestors above some point: the fades of those reach the canvas on their own, and
   // are left out here, so they are not applied twice.)

@@ -3,16 +3,18 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
+import { appCss, presenterSource } from './split-src.js';
 
 // A phone's data card has three states and no Show or Hide (Mohammad, 17 Oct, round 2 A): partly open with its second part on a
 // sheet whose edge shows under the card, fully open with the sheet flush, and closed to its edges at the top.
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-const js = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
+const css = appCss();
+const js = unsnap(presenterSource());
+const cardType = readFileSync(new URL('../src/ui/card-type.js', import.meta.url), 'utf8');
 
 test('a phone instrument card shows the instrument first, its readings on a sheet whose edge carries the handle', () => {
   assert.match(js, /const wide = cardOn && !low;/, 'never a phone on its side');
   assert.match(js, /dd0\.classList\.toggle\('pz-sheet', sheet\);/);
-  assert.match(js, /if \(sheet && dd0\.classList\.contains\('tool-open'\) && dd0\.dataset\.openFor !== String\(want\)\) \{ stopUnder\(\); dd0\.classList\.remove\('tool-open'\); \}/, 'each slide arrives partly open');
+  assert.match(js, /if \(sheet && dd0\.classList\.contains\('tool-open'\) && dd0\.dataset\.openFor !== String\((?:live\.)?want\)\) \{ stopUnder\(\); dd0\.classList\.remove\('tool-open'\); \}/, 'each slide arrives partly open');
   // (Mohammad, 17 Oct: "I thought the Doppler will show first": the sheet holds the tiles, never the instrument.)
   assert.match(js, /\(data\.classList\.contains\('pz-sheet'\) && !data\.classList\.contains\('tool-only'\)\) \? tiles\.el : tools\.el\);/);
   assert.match(css, /\.pz\.stack \.pz-data:is\(\.tool-lead, \.pz-sheet\):not\(\.tool-open\) > \.pz-tiles \{ max-height: 0; opacity: 0;/);
@@ -38,11 +40,11 @@ test('no Show or Hide on a phone: the chip is never shown upright or sideways', 
 });
 
 test('closing the card leaves its edge and the sheet\'s at the top, and it opens again partly', () => {
-  assert.match(js, /if \(phone\(\)\) return \[0, GRIP - \(lipOn\(d\) \? LIP : 0\) - \(d\.offsetTop \+ d\.offsetHeight\)\];/);
-  assert.match(js, /if \(to === 1 && ui\?\.data\.classList\.contains\('pz-sheet'\) && ui\.data\.classList\.contains\('tool-open'\)\) ui\.setFold\(false\);/);
+  assert.match(js, /if \((?:live\.)?phone\(\)\) return \[0, GRIP - \(lipOn\(d\) \? LIP : 0\) - \(d\.offsetTop \+ d\.offsetHeight\)\];/);
+  assert.match(js, /if \(to === 1 && (?:live\.)?ui\?\.data\.classList\.contains\('pz-sheet'\) && (?:live\.)?ui\.data\.classList\.contains\('tool-open'\)\) (?:live\.)?ui\.setFold\(false\);/);
   // (The handle's tap steps through the three states: partly, fully, closed, then partly again.)
   // (Upright, the readings' card tucks away first: tests/upright-tablet-phone.test.js.)
-  assert.match(js, /if \(dock\.to === 1\) \{ dock\.auto = false; dockTo\(0\); \}\n\s*else if \(wideSheet\(data\)\) setFold\(!data\.classList\.contains\('tool-open'\)\);[^\n]*\n\s*else if \(data\.classList\.contains\('tool-open'\)\) \{ if \(split\) \{ dock\.down = want; setFold\(false\); \} else \{ dock\.auto = false; dockTo\(1\); \} \}\n\s*else if \(split && dock\.down === want\) \{ dock\.auto = false; dockTo\(1\); \}\n\s*else setFold\(true\);/);
+  assert.match(js, /if \(dock\.to === 1\) \{ dock\.auto = false; dockTo\(0\); \}\n\s*else if \(wideSheet\(data\)\) setFold\(!data\.classList\.contains\('tool-open'\)\);[^\n]*\n\s*else if \(data\.classList\.contains\('tool-open'\)\) \{ if \(split\) \{ dock\.down = (?:live\.)?want; setFold\(false\); \} else \{ dock\.auto = false; dockTo\(1\); \} \}\n\s*else if \(split && dock\.down === (?:live\.)?want\) \{ dock\.auto = false; dockTo\(1\); \}\n\s*else setFold\(true\);/);
   assert.match(js, /if \(performance\.now\(\) - \(dock\.tapAt \|\| 0\) < 700\) return;/, 'a touch that already opened it is not taken twice');
   // (A pull down on a partly open card brings the sheet out; a push up from either open state is the dock drag.)
   assert.match(js, /\(!btn\.offsetWidth && !sheet\) \|\| \(sheet && open && !split\)/, 'a phone\'s open sheet: the push up is the dock drag');
@@ -52,7 +54,7 @@ test('a slide whose card does not fit comes in closed, and the next one that fit
   const auto = js.match(/function autoDock\(shut\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
   assert.match(auto, /if \(shut && dock\.to === 0 && dock\.autoKey !== key && [^{]*\) \{ dock\.autoKey = key; dock\.auto = true;/, 'once per slide: brought back by the reader, it stays');
   assert.match(auto, /else if \(!shut && dock\.auto && dock\.to === 1\) \{ dock\.auto = false;/, 'a card the reader closed stays closed');
-  assert.match(js, /const shut = !gone && \(both - data < words \|\| data - sheetLip > dmax \+ 0\.5\)/);
+  assert.match(cardType, /const shut = !gone && hasData && \(both - data < regular \|\| data - lip > dmax \+ 0\.5\);/);
   assert.match(js, /if \(key\) phoneLock = \{ key, cap, shut, data: full, fig: phoneFig \};/);
   // (Brought back, it may cover the figure, never the words: the figure's share is kept only while it fits.)
   assert.match(js, /!phoneShut && !dd\.classList\.contains\('tool-open'\)/);
@@ -107,8 +109,8 @@ test('pulling the readings out of a stacked card never closes the card', () => {
 
 // Mohammad, 20 Oct (iPhone, TIPS Doppler 9): the stacked card's monitor was taller with its readings tucked than out.
 test('a stacked card keeps one size with its readings tucked or out: it is fitted with them tucked', () => {
-  assert.match(js, /const split = el === ui\.data && splitSheet\(el\);\n\s*const wasOpen = split && el\.classList\.contains\('tool-open'\), wasU = split \? el\.style\.getPropertyValue\('--pz-u'\) : '';\n\s*if \(split\) \{ el\.classList\.remove\('tool-open'\);/);
-  assert.match(js, /if \(split\) \{\n\s*measureUnder\(el\);[^\n]*\n\s*if \(wasOpen\) el\.classList\.add\('tool-open'\);\n\s*if \(wasU\) el\.style\.setProperty\('--pz-u', wasU\);\n\s*ui\.lipMO\?\.takeRecords\(\);\n\s*\}\n\s*fitDone\.set\(el, fitSig\(el\)\);/);
+  assert.match(js, /const split = el === (?:live\.)?ui\.data && splitSheet\(el\);\n\s*const wasOpen = split && el\.classList\.contains\('tool-open'\), wasU = split \? el\.style\.getPropertyValue\('--pz-u'\) : '';\n\s*if \(split\) \{ el\.classList\.remove\('tool-open'\);/);
+  assert.match(js, /if \(split\) \{\n\s*measureUnder\(el\);[^\n]*\n\s*if \(wasOpen\) el\.classList\.add\('tool-open'\);\n\s*if \(wasU\) el\.style\.setProperty\('--pz-u', wasU\);\n\s*(?:live\.)?ui\.lipMO\?\.takeRecords\(\);\n\s*\}\n\s*(?:live\.)?fitDone\.set\(el, fitSig\(el\)\);/);
 });
 
 // Mohammad, 20 Oct (iPhone, TIPS Doppler 3, "With TIPS"): tucking the readings away, the instrument card's glass cut through the
@@ -120,7 +122,7 @@ test('a stacked card\'s cap grows with its readings while they slide, so its gla
   assert.match(js, /const capT = roomT > 0 \? \(tuck === 'none' \? `\$\{roomT\}px` : `min\(\$\{tuck\}, \$\{roomT\}px\)`\) : tuck;\n(?:\s*\/\/ alloc-rare[^\n]*\n)*\s*if \(roomO > 0\) dd\.style\.maxHeight = capT === 'none' \? `\$\{roomO\}px` : `min\(calc\(\$\{capT\} \+ var\(--pz-grow, 0px\)\), \$\{roomO\}px\)`;/, 'the phone\'s cap takes it, never past the opened card\'s room, even with no tucked room left');
   assert.doesNotMatch(js, /if \(roomT > 0\) dd\.style\.maxHeight/, 'an opened card is capped at its room whatever room the tucked card has');
   // (Fitted at rest, never mid-slide: fitCards' stacked fit runs only without .pz-sliding.)
-  assert.match(js, /const split = el === ui\.data && splitSheet\(el\);/);
+  assert.match(js, /const split = el === (?:live\.)?ui\.data && splitSheet\(el\);/);
   assert.match(js, /const ovOf = \(e\) => \{ if \(split\) measureUnder\(e\); return overflowOf\(e\); \};/, 'its travel is measured at each trial fit, never before the plan');
 });
 
@@ -161,13 +163,10 @@ test('a stacked row of tiles whose bars show no cut-off number keeps no empty ro
 test('a phone\'s data card and the words\' plan leave room for the glass as far as it really reaches, tab included', () => {
   assert.match(js, /const glassLift = \(k\) => \{/);
   assert.match(js, /\(parseFloat\(cs\.top\) \|\| 0\) - glassLift\(k\) - 8 - lip - fig\);/, 'the data card\'s room');
-  assert.match(js, /const reach = glassLift\(k\) \* k;\s+let both = H - foot - reach - 8 - dtop - FIG_MIN\(H\);/, 'the words\' plan');
-  // A stacked card a little too tall arrives partly open: the figure lends it, never under FIG_REG.
-  assert.match(js, /const lim = FIG_MIN\(H\) - FIG_REG\(H\), lent = Math\.min\(lim, Math\.max\(short, compact - \(both - data\)\)\);\s+if \(!gone && short > 0 && short <= lim\) \{ both \+= lent; phoneFig = FIG_MIN\(H\) - lent; \}\s+const shut = !gone && \(both - data < words/, 'the card starts half-open, not hidden');
-  // Its landing size is its final size: the room is lent for the words at Compact, the size the cap then gives them.
-  assert.match(js, /lent = Math\.min\(lim, Math\.max\(short, compact - \(both - data\)\)\)/, 'lent for the words as they will stand');
-  assert.match(js, /lend <= phoneFig - FIG_REG\(H\)[^\n]*\n\s+if \(reg\) phoneFig -= lend;/, 'Regular words lend from what the figure still keeps');
-  assert.match(js, /const room = H - foot - reach - 8, mine/);
+  assert.match(js, /const reach = glassLift\(k\) \* k;[\s\S]*?const room = H - foot - reach - 8;/, 'the words\' plan');
+  // A stacked card a little too tall arrives partly open: the figure lends the words their room, never under figFloorOf (card-type.js phonePlan).
+  assert.match(cardType, /if \(!gone && short > 0 && short <= figMin - figFloor\) \{ both \+= short; fig = figMin - short; \}/, 'the card starts half-open on what the figure lends');
+  assert.match(js, /const room = H - foot - reach - 8;/);
   assert.match(js, /const lift = p && t \? glassLift\(k\) : 16;/, 'the glass itself is placed by the same reach');
   assert.doesNotMatch(js, /- 16 - 8\b/);
 });
@@ -175,10 +174,9 @@ test('a phone\'s data card and the words\' plan leave room for the glass as far 
 // Mohammad, 22 Oct (iPhone, Sites 4/12, a larger text size): the Gut to heart ladder's bottom row (mmHg, the sinusoidal brace) was cut off by the
 // card's foot. The words stood at Compact over the data card's room, the figure's share kept, so the layout capped the card under the chart,
 // which does not give way to fit. An open data card keeps its full room: the words take what it leaves them, between 12 px and Compact.
-test('the words at Compact never take the room of an open data card whose chart cannot shrink', () => {
-  assert.match(js, /const floorCap = !gone && !shut \? Math\.max\(words, Math\.min\(compact, both - data\)\) : compact;/, 'the floor of the words\' cap');
-  assert.match(js, /: reg \? regular : Math\.min\(room - dtop - data, Math\.max\(Math\.min\(mine, both - data\), floorCap\)\)\) \/ k;/, 'an open card\'s cap uses it');
-  assert.match(js, /shut\s+\? Math\.min\(room - GRIP \* k, Math\.max\(Math\.min\(mine, room - dtop - Math\.min\(data, dmax \+ sheetLip\)\), compact\)\)/, 'a closed card still gives the words Compact');
+test('the words never take the room of an open data card whose chart cannot shrink', () => {
+  assert.match(cardType, /: Math\.min\(room - dtop - data, Math\.max\(Math\.min\(mine, both - data\), regular\)\);/, 'an open card\'s cap stops at the card\'s foot');
+  assert.match(cardType, /shut\n\s+\? Math\.min\(room - grip, Math\.max\(Math\.min\(mine, room - dtop - Math\.min\(data, dmax \+ lip\)\), regular\)\)/, 'a closed card gives the words Regular');
 });
 
 // Mohammad, 21 Oct (iPhone, Sites 3/12): the Gut to heart ladder bounced between a small and a large version. "Just make it one version everywhere."
@@ -260,7 +258,7 @@ test('no data-card chart follows the card\'s fit on any layout, so its size can 
 test('the ladder\'s Healthy name eases to a new place, never jumps', () => {
   const prof = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
   assert.match(prof, /nameAt\[n\.c\] = \{ x: n\.x, y: n\.y, fx: px, fy: py, t0: t1 \};/, 'from where it shows now');
-  assert.match(prof, /setGeo\(e, 'x', glideX\(a, t\)\); setGeo\(e, 'y', glideY\(a, t\)\)/, 'drawn where the glide has it');
+  assert.match(prof, /const gx = glideX\(a, t\), gy = glideY\(a, t\), cw = m\.nameW\[c\] \+ 8;\s+setGeo\(e, 'opacity', 1\); setGeo\(e, 'x', gx\); setGeo\(e, 'y', gy\)/, 'drawn where the glide has it');
   assert.match(prof, /\(nameAt\.hl \? t - nameAt\.hl\.t0 < FADE_MS : false\)/, 'frames keep coming while it glides');
 });
 

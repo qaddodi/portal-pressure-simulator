@@ -98,7 +98,7 @@
   "{ppg}"
  ],
  "hvpg/eus": [
-  "{ppg}",
+  "{eus}",
   "{hvpg}"
  ],
  "hvpg/heart": [
@@ -530,10 +530,6 @@
  "variceal-bleed/tips": [
   "{ppg}"
  ],
- "variceal-bleed/tipscoil": [
-  "{ppg}",
-  "{varix}"
- ],
  "variceal-bleed/controlled": [
   "{hr}",
   "{hb}"
@@ -604,7 +600,7 @@
   "{ppg}"
  ],
  "ncph/eus": [
-  "{ppg}",
+  "{eus}",
   "{hvpg}"
  ],
  "ncph/stiff": [
@@ -783,12 +779,13 @@
  ],
  "cause-treated/year2": [
   "{lsm}",
-  "{<10 kPa}",
-  "{plt}"
+  "{plt}",
+  "{hvpg}",
+  "{<10 mmHg}"
  ],
  "cause-treated/path-stopcarv": [
-  "{lsm}",
-  "{<10 kPa}"
+  "{hvpg}",
+  "{<10 mmHg}"
  ],
  "cause-treated/high": [
   "{hvpg}"
@@ -1095,8 +1092,7 @@
  ],
  "kidney/carv": [
   "{map}",
-  "{rpp}",
-  "{>=60 mmHg}"
+  "{rpp}"
  ],
  "kidney/path-carv": [
   "{map}",
@@ -1153,43 +1149,48 @@
  "landmark-trials/predesci": [
   "{hvpg}"
  ],
+ "landmark-trials/predesci-test": [
+  "{hvpg@predesci}",
+  "{hvpg}"
+ ],
  "landmark-trials/predesci-arms": [
   "{hvpg@predesci}",
   "{hvpg}"
  ],
- "landmark-trials/earlytips-arms": [
-  "{ppg@earlytips}",
-  "{ppg}",
-  "{liver@earlytips}",
-  "{liver}"
+ "landmark-trials/groszmann": [
+  "{hvpg}",
+  "{<10 mmHg}"
  ],
- "landmark-trials/lvtips-arms": [
-  "{ppg@lvtips}",
-  "{ppg}"
- ],
- "landmark-trials/transfusion": [
-  "{<7 g/dL}",
-  "{<9 g/dL}"
- ],
- "landmark-trials/transfusion-res": [
-  "{map@transfusion}",
+ "landmark-trials/bleed": [
   "{map}",
-  "{pv@transfusion}",
   "{pv}"
  ],
  "landmark-trials/transfusion-arms": [
-  "{map}",
-  "{pv}",
-  "{pv@transfusion-res}"
+  "{pv@bleed}",
+  "{pv}"
  ],
- "landmark-trials/rifaximin-arms": [
-  "{shunt}",
-  "{he@rifaximin}",
-  "{he}"
+ "landmark-trials/who-tips": [
+  "{hvpg}",
+  "{>=20 mmHg}"
+ ],
+ "landmark-trials/earlytips": [
+  "{ppg@who-tips}",
+  "{ppg}",
+  "{<12 mmHg}",
+  "{liver@who-tips}",
+  "{liver}"
+ ],
+ "landmark-trials/monescillo": [
+  "{>=20 mmHg}"
  ],
  "landmark-trials/covered-arms": [
-  "{asc@covered}",
+  "{ppg@covered}",
+  "{ppg}",
   "{asc}"
+ ],
+ "landmark-trials/rifaximin": [
+  "{shunt}",
+  "{he}"
  ],
  "gradients/agree": [
   "sinusoids",
@@ -1215,5 +1216,43 @@
   "{hvpg}",
   "{eus}",
   "{ppg}"
+ ],
+ "two-lesions/base": [
+  "{hvpg}",
+  "{ppg}",
+  "{pv}",
+  "{ra}"
+ ],
+ "two-lesions/clot": [
+  "{ppg}",
+  "{ppg@base}",
+  "{hvpg}"
+ ],
+ "two-lesions/varices": [
+  "{pv}",
+  "{varix}",
+  "{plt}"
+ ],
+ "two-lesions/both": [
+  "{ra}",
+  "{fhvp}",
+  "{whvp}",
+  "{hvpg}"
+ ],
+ "two-lesions/unclot": [
+  "{pvFlow}",
+  "{ppg}",
+  "{ra}",
+  "{pv}"
+ ],
+ "two-lesions/unsqueeze": [
+  "{ra}",
+  "{hvpg}"
+ ],
+ "two-lesions/together": [
+  "{ppg}",
+  "{ppg@base}",
+  "{hvpg}",
+  "{pv}"
  ]
 }

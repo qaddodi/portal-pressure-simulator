@@ -12,6 +12,7 @@ const app = (doc) => (appDoc === doc && appEl?.isConnected ? appEl : ((appDoc = 
 export function stageCoveredBy(doc = globalThis.document) {
   if (!doc) return '';
   if (doc.hidden) return 'page hidden';
+  if (doc.defaultView?.ppsLayoutOnly) return 'layout run';   // (a layout-only sweep sets it: the figure is not drawn, the cards are laid out and read as ever; gallery-sweep.mjs)
   const a = app(doc);
   if (!a) return '';
   const c = a.classList;

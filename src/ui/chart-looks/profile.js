@@ -14,7 +14,7 @@ const rated = (mid, hi) => [[{ rate: 'mid' }, mid], [{ rate: 'hi' }, hi]];
 const halo = { stroke: tok('surface'), width: 4, join: 'round' };
 // (the readings' pills: the tone of the rating, green, amber or red; 7145-7147 set --tone for each)
 const pillRect = (t) => ({ fill: mix('srgb', tok(t), 15, tok('surface')), stroke: mix('srgb', tok(t), 50, 'transparent'), width: 1 });
-const pillText = (t) => ({ fill: mix('srgb', tok(t), 82, tok('text')) });
+const pillText = (t) => ({ fill: tok(`${t}-ink`) });   // (the status ink, as the page's own pills wear it: LOOK-1)
 
 export const PROFILE = {
   // 7117-7119 .ppf-liver / .ppf-pre / .ppf-post rect: the zones' tints (the --chart-*-band theme tokens, which charts.js and stage.js read too)
@@ -35,6 +35,8 @@ export const PROFILE = {
   },
   // 7125 .ppf-lname, 7131 .ppf-name (7132 .liv italic: the picture never drew it)
   'prof.name': { base: { weight: 500, size: em(1), fill: tok('text-2') } },
+  // the chip a line's name stands on (tool-profile.js: the card's own colour, 90 %), so the name reads over the zone tints and the fill
+  'prof.name.chip': { base: { fill: mix('srgb', tok('surface'), 90, 'transparent') } },
   // 7127 .ppf-fill (the gradient is the piece's fill attribute)
   'prof.fill': { base: { opacity: 0.16 } },
   // 7128, 2275 .ppf-line (the gradient is the piece's stroke attribute)
@@ -64,7 +66,7 @@ export const PROFILE = {
   'prof.br.text': {
     state: RATE,
     base: { weight: 700, fill: tok('text'), halo },
-    when: rated({ fill: tok('caution') }, { fill: tok('danger') }),
+    when: rated({ fill: tok('caution-ink') }, { fill: tok('danger-ink') }),
   },
   'prof.br.k': { base: { weight: 600, fill: tok('text-2') } },
   // 7145-7150 .ppf-pill: a reading's pill, tinted as the bracket rates it

@@ -19,13 +19,21 @@ test('SMV, IMV and splenic vein tokens are the Blood origin lens tokens', () => 
   for (const f of ['src/ui/stage.js', 'src/ui/lobule-zoom.js']) assert.ok(!/originCol: \[\[/.test(read(f)), `${f}: no copy of the origin colours`);
 });
 
-test('wedge (sinusoid) colour is orchid: its own hue, between the splenic violet and the portal-pressure pink, with no old purple or lime left', () => {
+test('the sinusoid\'s colour (tr-sin) is orchid: its own hue, between the splenic violet and the portal-pressure pink, with no old purple or lime left', () => {
   const tokens = read('styles/tokens.css');
-  const wedge = [...tokens.matchAll(/--tr-wedge: (#[0-9A-Fa-f]{6})/g)].map((m) => m[1].toUpperCase());
+  const wedge = [...tokens.matchAll(/--tr-sin: (#[0-9A-Fa-f]{6})/g)].map((m) => m[1].toUpperCase());
   assert.deepEqual(wedge, ['#A52DA9', '#DA7EDD', '#DA7EDD'], 'light, dark, auto-dark');
   const hueOf = (h) => { const [r, g, b] = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255); const mx = Math.max(r, g, b), d = mx - Math.min(r, g, b); const t = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; return (t * 60 + 360) % 360; };
   const gap = (a, b) => Math.abs(((hueOf(a) - hueOf(b) + 540) % 360) - 180);
   // Orchid sits between portal violet (hue ~255) and pink (~335); keep a clear margin from both, and from the neutral portal vein.
   for (const w of wedge) for (const [c, n] of [['#7D5CDB', 'splenic violet'], ['#7D6FB6', 'portal vein'], ['#B01E62', 'portal pink'], ['#F0649E', 'portal pink (dark)']]) assert.ok(gap(w, c) > 25, `${w} is clear of the ${n}`);
   for (const f of ['src/ui/presenter.js', 'src/ui/hvpg-proc.js', 'styles/tokens.css']) assert.ok(!/#A68CF2|#7650C8|#668C0A|#A9D14A/i.test(read(f)), `${f}: old wedge purple gone`);
+});
+
+test('the wedged pressure reading (tr-wedge) is amber, apart from the portal pink and the free blue, so no dash is needed to tell the traces apart (16 Nov 2026)', () => {
+  const tokens = read('styles/tokens.css');
+  assert.deepEqual([...tokens.matchAll(/--tr-wedge: (#[0-9A-Fa-f]{6})/g)].map((m) => m[1].toUpperCase()), ['#C98500', '#EDA100', '#EDA100'], 'light, dark, auto-dark');
+  assert.match(tokens, /--mon-wedge: #EDA100;/, 'the monitor wears the dark looks\' colour');
+  const css = read('styles/app-09-tests.css');
+  for (const t of ['lobule:sinusoid', 'sinusoid:lumen']) assert.ok(css.includes(`[data-target="${t}"] { --term-c: var(--tr-sin); }`), `${t} stays the sinusoid's orchid`);
 });

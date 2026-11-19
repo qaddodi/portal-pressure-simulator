@@ -6,6 +6,7 @@
 import { createSvgGL, svgModel, setGeo } from './svg-gl.js';
 import { restPass, cancelRest } from './rest-pass.js';
 import { onTheme } from './theme-epoch.js';
+import { readMetric, readStyle } from './layout-snap.js';
 import { KEEP, PTR } from './callout-ptr.js';   // (how far the pointer reaches past the card's edge, and how far it stays from the card's sides)
 
 const BORDER = 2; // the card's (transparent) border, which the glass covers
@@ -47,17 +48,30 @@ const outline = (w, h, r, top, px, dir, len = PTR, tx = px, ox = 0) => {
   return `${d}H${f(r + ox)}${arc(0, b - r)}V${f(top + r)}${arc(r, top)}Z`;
 };
 
+// The bare callout's line: from the words' edge (x = px) to the tip, `len` past it at x = tx; nothing where it has no pointer.
+const leader = (h, top, px, dir, len, tx, ox) => {
+  const f = (n) => +n.toFixed(2);
+  if (dir === 'top') return `M${f(px + ox)} ${f(top)}L${f(tx + ox)} ${f(top - len)}`;
+  if (dir === 'bottom') return `M${f(px + ox)} ${f(top + h)}L${f(tx + ox)} ${f(top + h + len)}`;
+  return 'M0 0';
+};
+
 // (Read in the observer's callback, after the browser's own layout: never on a frame.)
 function observedSize(el, es) {
   const b = es[es.length - 1].borderBoxSize?.[0];
-  return [b ? [b.inlineSize, b.blockSize] : [el.offsetWidth, el.offsetHeight], parseFloat(getComputedStyle(el).borderTopLeftRadius) || 14];
+  return [b ? [b.inlineSize, b.blockSize] : [readMetric(el, 'offsetWidth'), readMetric(el, 'offsetHeight')], parseFloat(readStyle(el).borderTopLeftRadius) || 14];
 }
 
 const NO_OPTS = {};
+const LEAD_REACH = 18 - PTR;   // (the stage stands a callout 18 px off its point, stage-sites-paint.js _kt; a wedge reaches PTR of it, a bare line all of it)
 /** Gives `el` its glass body and returns `update(ax)`: call it whenever the pointer's offset `ax` (px from the card's
  *  centre) may have changed. It also redraws itself when the card is resized (a reading's text changing). */
-export function glassCallout(el, { pointer = true } = NO_OPTS) {
+export function glassCallout(el, { pointer = true, bare = false } = NO_OPTS) {
   const glass = el.firstElementChild, svg = glass.firstElementChild, path = svg.firstElementChild;   // (its glass, cloned with it from a model: withGlass)
+  // bare: no card at all, only the pointer's line (a 1 px leader from the words to their point), drawn on the callout's first child. That child is no
+  // glass any more (no .cl-glass: no tint, no frost, no fill of any kind can reach it, Mohammad, 17 Nov 2026, "a solid black rectangle"); it only
+  // carries the line's picture and fades with the words (app-06-plate.css .cl-leader).
+  if (bare) glass.className = 'cl-leader';
   const S = { glass, svg, gl: null, ask: 0, gone: false };   // alloc-rare: made once for each callout, as it is first built (stage.js makes a callout only when it first shows), never per frame
   S.ask = restPass(() => lineGL(S));   // alloc-rare: made once for each callout, as it is first built (stage.js makes a callout only when it first shows), never per frame
   // size: the card's exact (fractional) border box, and rad its corner radius, both taken when it is observed (its size changes): the
@@ -76,13 +90,15 @@ export function glassCallout(el, { pointer = true } = NO_OPTS) {
     const qw = Math.round(w * 100), qh = Math.round(h * 100), qax = Math.round(ax * 10), qlen = Math.round(tl * 10);
     if (qw === kw && qh === kh && dir === kdir && qax === kax && qlen === klen) return;
     kw = qw; kh = qh; kdir = dir; kax = qax; klen = qlen;
-    const r = rad, len = PTR + tl;
+    // (A card's wedge stops short of its point by the 18 px the stage stands a callout off it, less the wedge's own PTR: that gap reads as a pointer. A bare line has
+    // no wedge, so it runs on to the point itself, else it hangs in the air: 17 Nov 2026, "the leader line is detached".)
+    const r = rad, len = PTR + tl + (bare && dir !== 'none' ? LEAD_REACH : 0);
     const want = w / 2 + (lean ? ax : Math.max(-0.4 * w, Math.min(0.4 * w, ax)));
     const px = Math.max(KEEP, Math.min(w - KEEP, want)), tx = lean ? want : px, up = dir === 'top' ? len : 0;
     const ox = lean ? Math.max(0, -tx) : 0, gw = lean ? Math.max(w, tx) + ox : w;   // (the glass's own width: the card, and the tip where it stands outside it)
-    const d = outline(w, h, r, up, px, dir, len, tx, ox);
+    const d = bare ? leader(h, up, px, dir, len, tx, ox) : outline(w, h, r, up, px, dir, len, tx, ox);
     const gh = +(h + (dir === 'none' ? 0 : len)).toFixed(2);
-    glass.style.cssText = `left:${-BORDER - ox}px;top:${-BORDER - up}px;width:${+gw.toFixed(2)}px;height:${gh}px;clip-path:path('${d}')`;
+    glass.style.cssText = `left:${-BORDER - ox}px;top:${-BORDER - up}px;width:${+gw.toFixed(2)}px;height:${gh}px;${bare ? '' : `clip-path:path('${d}')`}`;
     setGeo(path, 'd', d);
     setGeo(svg, 'viewBox', `0 0 ${+gw.toFixed(2)} ${gh}`);
     S.gl?.paint();
@@ -106,11 +122,13 @@ export function glassCallout(el, { pointer = true } = NO_OPTS) {
     lineT = 0;
     if (S.gone || !el.isConnected) return;
     if (typeof getComputedStyle !== 'function') return;
-    const cs = getComputedStyle(path);
+    const cs = readStyle(path);
     lineCls = el.className;
     path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', cs.stroke);
-    path.setAttribute('stroke-width', cs.strokeWidth);
+    // (A bare callout's line: the callout's own --leader, 1 px; a card's outline is the stylesheet's stroke on the path.)
+    const lead = bare ? cs.getPropertyValue('--leader').trim() : '';   // (a custom property is inherited, the path has the callout's own)
+    path.setAttribute('stroke', lead || cs.stroke);
+    path.setAttribute('stroke-width', bare ? '1' : cs.strokeWidth);
     path.setAttribute('stroke-linejoin', cs.strokeLinejoin);
     S.gl?.relook();
   };

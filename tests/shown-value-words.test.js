@@ -8,6 +8,7 @@ import { varixGrade, ascitesGrade } from '../src/engine/portal/metrics.js';
 import { Engine } from '../src/engine/portal/engine.js';
 import { explain } from '../src/engine/portal/explain.js';
 import { stentSegments } from '../src/engine/portal/topology.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 
@@ -54,7 +55,7 @@ test('#13: the engine grades judge the printed diameter and volume (Endoscopy, A
   for (const f of ['dock.js', 'readouts-pane.js']) assert.match(read(`../src/ui/${f}`), /^import \{[^}]*\bshownOf\b[^}]*\} from '\.\/util\.js/m, f);
   assert.match(read('../src/ui/dock.js'), /x\.vsOut = shownOf\(v, t\.d\)[\s\S]*?const vs = x\.vsOut, sf = [^\n]*\n[^\n]*sf\(vs, f, st0\) : sf\(vs, m\);\n\s*sev = lz \? t\.st\(vs, f, st0\) : t\.st\(vs, m\);/);
   assert.match(read('../src/ui/readouts-pane.js'), /t\.s\(vs, m\);\n\s*sev = t\.st\(vs, m\);/);
-  assert.match(read('../src/ui/presenter.js'), /ratedShown\(p\.k, f\)/);
+  assert.match(presenterSource(), /ratedShown\(p\.k, f\)/);
 });
 
 test('#15: a stent sampled at a 90% narrowing reads its jet, judged there, not "No flow"', () => {
@@ -62,7 +63,7 @@ test('#15: a stent sampled at a 90% narrowing reads its jet, judged there, not "
   assert.ok(open < 2 && open * g > 2, `gate factor ${g}`);
   const src = read('../src/ui/doppler.js');
   assert.match(src, /function interpret\(r0, g = 1, seen = null\)/);
-  assert.match(src, /gf = gateFactor\(\); mean \*= gf;[\s\S]*?SEEN\.gated = mean; SEEN\.open = open;\n\s*const it = interpret\(r, gf, SEEN\);/);   // (and judged on the gated number shown)
+  assert.match(src, /gf = gateFactor\(\);[\s\S]*?mean \*= gf;[\s\S]*?SEEN\.gated = mean; SEEN\.open = open;\n\s*const it = interpret\(r, gf, SEEN\);/);   // (and judged on the gated number shown)
   assert.match(src, /r\.mean = r0\.mean \* g; r\.vmax = r0\.vmax \* g; r\.vmin = r0\.vmin \* g; r\.vmaxMean = r0\.vmaxMean \* g; r\.vminMean = r0\.vminMean \* g/);
 });
 
@@ -79,7 +80,7 @@ test('#16: "Why?" for PPG and HVPG shows its own formula, adding up to the numbe
 });
 
 test('#45: on a slide the scale unit leaves the top strip, and the strip fits by fixed steps without cutting or dropping a word', () => {
-  const src = read('../src/ui/doppler.js'), css = read('../styles/app.css');
+  const src = read('../src/ui/doppler.js'), css = appCss();
   assert.match(src, /ctx\.fillText\('cm\/s', w - 6, ovOn \? yLab : 13\)/);
   // (the pattern, "High velocity" on a narrowed stent, is never hidden: its last step is a line of its own under the reading)
   assert.doesNotMatch(src, /patternEl\.hidden = true/);

@@ -1,6 +1,7 @@
 // Scenario parameters, presets and drug effects (blueprint §8.4, §10.1, §10.2).
 
 import { EDGES } from './topology.js';
+import { GEOM_RANGE, geomFix, kindOf } from './stent-geom.js';
 
 export function defaultParams() {
   return {   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
@@ -10,7 +11,8 @@ export function defaultParams() {
       L: { pre: 1, sin: 1, post: 1 },   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     },
     stenosis: {},                 // edgeId → 0..1 lumen narrowing   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
-    stenosisSite: {},             // stent edgeId → 'proximal' | 'mid' | 'distal': the segment a stent's narrowing sits in (distal if unset)   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
+    stentGeom: {},                // stent edgeId → { len, waist, trans, red }: its hydraulic length, its mid waist's length and tapered ends (cm), and the waist's diameter reduction red (0–0.8; 0: no waist) (stent-geom.js; defaults if unset)   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
+    stenosisSite: {},             // stent edgeId → 'proximal' | 'distal': the end a stent's stenosis sits at (distal if unset; a waist mid stent is stentGeom.red)   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     thrombus: {},                 // edgeId → 0..1 occlusion   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     splenicRx: 0,                 // 0 none · 1 partial splenic artery embolization · 2 splenectomy
     splanchnicTone: 1,            // arteriolar resistance multiplier (<1 = vasodilated)
@@ -84,17 +86,20 @@ const P = (patch) => (p) => deepMerge(p, patch);
 // (/mnt/project-files/review/meal-response/review.md, engine-options.md).
 export const MEAL_TONE = 0.58, MEAL_BLUNT = 1.36;
 
-// Each preset: patch applied to defaultParams(), plus chronic days on the disease clock.
+// Each preset: patch applied to defaultParams(), plus chronic days on the disease clock. `facts`: the case's history the model does not hold
+// (trial-fit.js), so far only whether the patient has ever decompensated (ascites, a variceal bleed): the Tests card's trials read it (TC-fit-3).
 export const PRESETS = [
   { id: 'healthy', group: 'Normal', label: 'Healthy', apply: P({}), days: 0,
-    summary: 'Normal adult at rest. HVPG ≈ 3 mmHg, portal flow ≈ 1.1 L/min, no collateral flow.',
-    note: 'Normal adult at rest. HVPG about 3 mmHg, portal flow about 1.1 L/min.' },
+    summary: 'Normal adult at rest. HVPG in the normal 1 to 5 mmHg, portal flow ≈ 1.1 L/min, no collateral flow.',
+    note: 'Normal adult at rest. HVPG in the normal 1 to 5 mmHg, portal flow about 1.1 L/min.' },
   { id: 'postprandial', group: 'Normal', label: 'Postprandial', apply: P({ meal: 1 }), days: 0,
     summary: 'Meal-induced splanchnic vasodilation increases portal inflow and pressure slightly.',
     note: 'Postprandial splanchnic vasodilation raises portal inflow, so the portal pressure rises slightly.' },
-  { id: 'pvt-acute', group: 'Pre-hepatic', label: 'Acute portal vein thrombosis', apply: P({ thrombus: { PV_TRUNK: 1 } }), days: 0,
-    summary: 'Occlusive thrombus in the main portal vein. Mesenteric congestion; no collaterals yet (they form over weeks). The hepatic arterial buffer response maintains liver perfusion. HVPG normal.',
-    note: 'Occlusive thrombus in the main portal vein. No collaterals yet; the hepatic arterial buffer maintains liver perfusion.' },
+  // (volume 300: the congested mesenteric bed gives back blood to the central circulation by venoconstriction and the sympathetic reflex, so cardiac output stays near normal
+  // (4.9 L/min, MAP 92 mmHg, heart rate 63) instead of falling to 3.5 with the splanchnic return blocked; 13 Nov 2026.)
+  { id: 'pvt-acute', group: 'Pre-hepatic', label: 'Acute portal vein thrombosis', apply: P({ thrombus: { PV_TRUNK: 1 } }), days: 0, volume: 300,
+    summary: 'Occlusive thrombus in the main portal vein. Mesenteric congestion, with part of the blood already leaving by small preformed collaterals; the cavernoma takes weeks to form. The hepatic arterial buffer response maintains liver perfusion. HVPG normal.',
+    note: 'Occlusive thrombus in the main portal vein. Small preformed collaterals carry some blood; the cavernoma takes weeks to form.' },
   { id: 'pvt-chronic', group: 'Pre-hepatic', label: 'Chronic PVT (cavernous transformation)', apply: P({ thrombus: { PV_TRUNK: 1 } }), days: 240,
     summary: 'Months after occlusion: periportal collaterals (cavernoma) carry hepatopetal flow around the thrombus.',
     note: 'Months after occlusion, a cavernoma of periportal collaterals carries hepatopetal flow around the thrombus.' },
@@ -107,36 +112,48 @@ export const PRESETS = [
   // Porto-sinusoidal vascular disorder: the portal venules narrow and vanish with no cirrhosis (Baveno VIII 8.40 to 8.44), so the resistance sits before the sinusoids as in
   // schistosomiasis, a little less: a high portal pressure, a normal HVPG and stiffness, a big spleen. The deck's second presinusoidal patient.
   { id: 'psvd', group: 'Presinusoidal', label: 'Porto-sinusoidal vascular disorder', apply: P({ fibrosis: { R: { pre: 50, sin: 2.2 }, L: { pre: 50, sin: 2.2 } } }), days: 365,
-    summary: 'Narrowed portal venules and no cirrhosis: high portal pressure and splenomegaly, near-normal WHVP and liver stiffness, so HVPG is normal or mildly raised. Varices common, ascites rare.',
+    summary: 'Narrowed portal venules and no cirrhosis: high portal pressure and splenomegaly, a normal or only mildly raised WHVP and liver stiffness, so HVPG is normal or mildly raised. Varices common, ascites rare.',
     note: 'Narrowed portal venules without cirrhosis. Splenomegaly, near-normal HVPG. Varices can form; ascites is rare.' },
-  { id: 'cirr-comp', group: 'Sinusoidal', label: 'Compensated cirrhosis', apply: P({ cirrhosis: 0.4 }), days: 365,
-    summary: 'Mild sinusoidal portal hypertension (HVPG 6–9 mmHg). No varices yet.',
-    note: 'Mild sinusoidal portal hypertension. HVPG 6 to 9 mmHg, no varices yet.' },
-  { id: 'csph', group: 'Sinusoidal', label: 'Clinically significant PH', apply: P({ cirrhosis: 0.6 }), days: 365,
+  { id: 'cirr-comp', facts: { decompensated: false }, group: 'Sinusoidal', label: 'Compensated cirrhosis', apply: P({ cirrhosis: 0.4 }), days: 365,
+    summary: 'Mild sinusoidal portal hypertension (HVPG over 5 and under 10 mmHg). No varices yet.',
+    note: 'Mild sinusoidal portal hypertension. HVPG over 5 and under 10 mmHg, no varices yet.' },
+  { id: 'csph', facts: { decompensated: false }, group: 'Sinusoidal', label: 'Clinically significant PH', apply: P({ cirrhosis: 0.6 }), days: 365,
     summary: 'HVPG ≥10 mmHg: collaterals begin to open and small varices form.',
     note: 'HVPG ≥10 mmHg. Collaterals open and small varices appear.' },
   // MASLD cirrhosis with CSPH in an obese patient: part of the intrahepatic resistance sits before the sinusoids (the portal
   // venules and the perisinusoidal scar), so the wedged pressure under-reads the portal pressure. The cirrhosis setting gives the
-  // sinusoidal block and a presinusoidal multiplier of 4 adds the resistance the catheter cannot see: HVPG about 11 and PPG about
-  // 14 mmHg, small varices, no ascites (Baveno VIII 2.5: in MASLD-related cACLD the HVPG may underestimate the true portal gradient).
-  { id: 'masld-csph', group: 'Sinusoidal', label: 'MASLD cirrhosis, HVPG underestimates', apply: P({ cirrhosis: 0.6, fibrosis: { R: { pre: 4 }, L: { pre: 4 } } }), days: 365,
+  // sinusoidal block and a presinusoidal multiplier of 4 adds the resistance the catheter cannot see: HVPG about 10.5 and PPG about
+  // 14 mmHg (until 15 Nov 2026 the breath moved them, 10.3 to 10.9 and 13.6 to 14.3; the readings are now its means), small varices, no ascites (Baveno VIII 2.5: in MASLD-related cACLD the HVPG may underestimate the true portal gradient).
+  { id: 'masld-csph', facts: { decompensated: false }, group: 'Sinusoidal', label: 'MASLD cirrhosis, HVPG underestimates', apply: P({ cirrhosis: 0.6, fibrosis: { R: { pre: 4 }, L: { pre: 4 } } }), days: 365,
     summary: 'Obese MASLD cirrhosis with CSPH: part of the resistance is presinusoidal, so the HVPG underestimates the portal pressure gradient by a few mmHg. Small varices, no ascites.',
     note: 'Obese MASLD cirrhosis. HVPG underestimates the portal pressure gradient by a few mmHg. Small varices, no ascites.' },
-  { id: 'cirr-decomp', group: 'Sinusoidal', label: 'Decompensated cirrhosis', apply: P({ cirrhosis: 0.85, albumin: 2.8, diuretics: true }), days: 540,
-    summary: 'HVPG ≥16 mmHg, large varices, ascites, splenomegaly, hyperdynamic circulation.',
-    note: 'HVPG ≥16 mmHg. Large varices, ascites, splenomegaly and a hyperdynamic circulation.' },
-  { id: 'cirr-hepatofugal', group: 'Sinusoidal', label: 'End-stage cirrhosis, hepatofugal flow', apply: P({ cirrhosis: 0.95, apShunt: 1, albumin: 2.6, diuretics: true, spontaneous: { C6: true } }), days: 540,
-    summary: 'Very high sinusoidal resistance plus arterioportal shunting: the portal vein reverses and drains the liver into collaterals.',
-    note: 'Very high sinusoidal resistance plus arterioportal shunting. Portal flow reverses into collaterals.' },
-  { id: 'gastric-varix', group: 'Sinusoidal', label: 'Cirrhosis with gastrorenal shunt', apply: P({ cirrhosis: 0.9, albumin: 3.0, diuretics: true, spontaneous: { C5: true }, isolatedGV: true }), days: 450,
+  { id: 'cirr-decomp', facts: { decompensated: true }, group: 'Sinusoidal', label: 'Decompensated cirrhosis', apply: P({ cirrhosis: 0.85, albumin: 2.8, diuretics: true }), days: 540,
+    summary: 'HVPG ≥15 mmHg, large varices, ascites, splenomegaly, hyperdynamic circulation.',
+    note: 'HVPG ≥15 mmHg. Large varices, ascites, splenomegaly and a hyperdynamic circulation.' },
+  // The patient the TIPS slides and the Tests card start from: the sickest cirrhosis the model has (severity 100%) with the default stent (8 mm, uniform, covered) in
+  // place from the first day, so the 540 days are the years on a shunt and the readings are settled (a stent switched on after them would leave the ascites and the
+  // right atrium mid-transient: 1.3 L still to clear). No pressure is tuned for it: it is the cirr-decomp patient's rule at severity 1 with `tips` on (17 Nov 2026).
+  { id: 'cirr-decomp-tips', facts: { decompensated: true }, group: 'Sinusoidal', label: 'Decompensated cirrhosis + TIPS', apply: P({ cirrhosis: 1, albumin: 2.8, diuretics: true, tips: { on: true, d: 8 } }), days: 540,
+    summary: 'Decompensated cirrhosis at full severity with an 8 mm covered TIPS in place for good: the portal pressure falls and the ascites clears, with the hyperdynamic circulation and the low albumin left.',
+    note: 'Severity 100% with an 8 mm covered TIPS: portal pressure down, ascites cleared, hyperdynamic circulation remains.' },
+  // (Cirrhosis 0.84, not 0.95: at 0.95 the PPG rested on the red line at 12, 11.8 at the bedside and 12.1 settled, so the tile and the
+  // slides' tables could rate it differently. At 0.84: HVPG 11.1 and PPG 11.2 at the bedside, 11.4 and 11.5 settled, and the portal flow
+  // stays reversed (no higher setting clears 12 at the bedside: 1.0 reads 12.0). ENG-5.)
+  { id: 'cirr-hepatofugal', facts: { decompensated: true }, group: 'Sinusoidal', label: 'Cirrhosis with reversed portal flow', apply: P({ cirrhosis: 0.84, apShunt: 1, albumin: 2.6, diuretics: true, spontaneous: { C6: true } }), days: 540,
+    summary: 'Cirrhosis with raised sinusoidal resistance and arterioportal shunting: the portal vein reverses and drains the liver into collaterals.',
+    note: 'Raised sinusoidal resistance plus arterioportal shunting. Portal flow reverses into collaterals.' },
+  { id: 'gastric-varix', facts: { decompensated: true }, group: 'Sinusoidal', label: 'Cirrhosis with gastrorenal shunt', apply: P({ cirrhosis: 0.9, albumin: 3.0, diuretics: true, spontaneous: { C5: true }, isolatedGV: true }), days: 450,
     summary: 'Isolated fundal varices (IGV1), fed by the short and posterior gastric veins, decompress into the left renal vein through a gastrorenal shunt (the BRTO target); no communication with the coronary vein.',
     note: 'Isolated fundal varices (IGV1) drain through a gastrorenal shunt into the left renal vein: the BRTO target.' },
   // Compensated cirrhosis with small varices before pregnancy (HVPG about 12); `now` makes her pregnant once the disease
   // clock has run, so moving the gestation back to 0 shows her before pregnancy.
-  { id: 'pregnancy', group: 'Sinusoidal', label: 'Cirrhosis in pregnancy', apply: P({ cirrhosis: 0.62 }), days: 365, now: { gestation: 24 },
+  { id: 'pregnancy', facts: { decompensated: false }, group: 'Sinusoidal', label: 'Cirrhosis in pregnancy', apply: P({ cirrhosis: 0.65 }), days: 365, now: { gestation: 24 },
     summary: 'Compensated cirrhosis at 24 weeks of pregnancy. A larger blood volume, a higher cardiac output and splanchnic vasodilation raise portal inflow, so small varices grow large. Move the weeks on the heart card.',
     note: 'Compensated cirrhosis at 24 weeks. Higher blood volume and portal inflow enlarge small varices.' },
-  { id: 'sos', group: 'Postsinusoidal', label: 'Sinusoidal obstruction syndrome', apply: P({ fibrosis: { R: { post: 32 }, L: { post: 32 } } }), days: 21,
+  // (Central-vein resistance 34, not 32: at 32 SOS rested at HVPG 10.2 and PPG 12.1 at the bedside, on both red lines, and read amber or red with
+  // the last tenth (full app review ENG-5, 15 Nov 2026). At 34: about 10.4 and 12.4 at the bedside, 10.9 and 12.7 settled (the slides' states).
+  // No preset rests within 0.3 of a cut-off: tests/steady-readings.test.js.)
+  { id: 'sos', group: 'Postsinusoidal', label: 'Sinusoidal obstruction syndrome', apply: P({ fibrosis: { R: { post: 34 }, L: { post: 34 } } }), days: 21,
     summary: 'Central-vein resistance: high WHVP and HVPG, hepatomegaly, ascites.',
     note: 'Resistance at the central veins. High WHVP and HVPG, hepatomegaly, ascites.' },
   { id: 'budd-chiari', group: 'Post-hepatic', label: 'Budd–Chiari (hepatic vein occlusion)', apply: P({ thrombus: { RHV_IVC: 1, MHV_IVC: 1, LHV_IVC: 1 } }), days: 60,
@@ -148,10 +165,32 @@ export const PRESETS = [
   { id: 'rhf', group: 'Cardiac', label: 'Right heart failure + TR', apply: P({ contractility: 0.25, tr: 0.9 }), days: 60, volume: 1300,
     summary: 'High RA pressure is transmitted back: FHVP and WHVP both rise so HVPG stays normal; the portal vein becomes pulsatile.',
     note: 'High right atrial pressure is transmitted back. FHVP and WHVP both rise, so HVPG stays normal; portal flow is pulsatile.' },
-  { id: 'constrictive', group: 'Cardiac', label: 'Constrictive pericarditis', apply: P({ pericardial: 0.9 }), days: 60, volume: 600,
+  // (volume 1150 with the pericardium limiting the heart's filling (engine.js PERICARDIAL_FILL): RA about 16 mmHg, cardiac output 3.9, MAP 89, ascites about 3 L, HVPG normal; 13 Nov 2026.)
+  { id: 'constrictive', group: 'Cardiac', label: 'Constrictive pericarditis', apply: P({ pericardial: 0.9 }), days: 60, volume: 1150,
     summary: 'Pericardial constraint raises RA pressure; congestive hepatopathy without an HVPG rise.',
     note: 'Pericardial constriction raises RA pressure. Congestive hepatopathy without a rise in HVPG.' },
 ];
+
+/**
+ * A patient made at run time ("Yours", from Work backward), as a PRESETS entry: a params patch, the disease days and the volume a failing heart keeps.
+ * Read from storage or a link, so the patch is sanitized as it is applied: a value no control can reach never gets into the model.
+ */
+export function presetFromPatch({ id, label = '', group = 'Yours', patch = {}, days = 0, volume = 0, now = null, summary = '', note = '' }) {
+  const d = Math.min(1500, Math.max(0, Number.isFinite(days) ? days : 0)), v = Math.min(3000, Math.max(0, Number.isFinite(volume) ? volume : 0));
+  return { id, group, label, apply: (p) => sanitizeParams(deepMerge(p, patch)), days: d, volume: v, ...(now ? { now } : {}), summary, note };
+}
+/** Put a run-time patient in the list the menu, the worker and a deck read (the same id replaces its older entry); forgetPreset takes one out. Never a built-in. */
+export function registerPreset(def) {
+  const pr = presetFromPatch(def), i = PRESETS.findIndex((x) => x.id === pr.id);
+  if (i >= 0 && PRESETS[i].group !== 'Yours') return null;
+  if (i >= 0) PRESETS[i] = pr; else PRESETS.push(pr);
+  return pr;
+}
+export function forgetPreset(id) {
+  const i = PRESETS.findIndex((x) => x.id === id && x.group === 'Yours');
+  if (i >= 0) PRESETS.splice(i, 1);
+  return i >= 0;
+}
 
 // Allowed range of each numeric parameter (the controls' own ranges). Hand-edited links and console calls
 // are clamped to these, so a value no control can reach never turns the model into NaN.
@@ -162,35 +201,88 @@ const RANGES = {
 };
 const RANGE_LIST = Object.entries(RANGES), LOBES = ['R', 'L'], ZONES = ['pre', 'sin', 'post'], CLAMPED = ['stenosis', 'thrombus'], SITES = ['proximal', 'mid', 'distal'], SWITCHED = ['tips', 'dips'];
 const num = (v, lo, hi, def) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : def);
+// A switch is a real boolean or nothing: `!!'false'` is true, and a hand-edited link or an imported scenario must never turn a procedure or a drug on
+// because a non-empty string, an array or a 1 arrived (R07, external production review, 15 Nov 2026). Anything else takes the parameter's own default.
+const bool = (v, def) => (typeof v === 'boolean' ? v : def);
 
-/** A copy of params with every value of the wrong type replaced by its default and every number clamped to its range. */
-export function sanitizeParams(p) {
+/** A copy of params with every value of the wrong type replaced by its default and every number clamped to its range. Only real booleans switch a
+ *  treatment, a drug or a procedure on; a key the model has no parameter for is dropped, at every depth the model's own records have. */
+export function sanitizeParams(p) { return sanitize(p, null); }
+
+/** Like sanitizeParams, and the list of what it repaired: { params, repairs: [{ path, was, now }] }, each path a readable field ("tips.on", "drugs.carvedilol")
+ *  so a caller can say what an imported scenario lost. `was` is the value as it came (an object or array is named by its type, not copied). */
+export function sanitizeParamsReport(p) { const repairs = []; return { params: sanitize(p, repairs), repairs }; }
+
+const seen = (v) => (Array.isArray(v) ? 'array' : v && typeof v === 'object' ? 'object' : v);   // alloc-rare: only while a repair is being reported
+function sanitize(p, rep) {
   const d = defaultParams();
+  const fixed = (path, was, now) => { if (rep) rep.push({ path, was: seen(was), now }); return now; };   // alloc-rare: only while a repair is being reported
   const out = isObj(p) ? deepMerge(d, p) : d;
-  for (const k of Object.keys(out)) if (!Object.hasOwn(d, k)) delete out[k];   // B7: a key the model has no parameter for is not carried (a renamed or hand-added one)   // alloc-rare: checked when parameters are set, in the simulation worker, never by a drawn frame
-  for (const [k, [lo, hi]] of RANGE_LIST) out[k] = num(out[k], lo, hi, d[k]);
+  if (rep && !isObj(p) && p != null) fixed('', p, 'defaults');
+  for (const k of Object.keys(out)) if (!Object.hasOwn(d, k)) { fixed(k, out[k], 'dropped'); delete out[k]; }   // B7: a key the model has no parameter for is not carried (a renamed or hand-added one)   // alloc-rare: checked when parameters are set, in the simulation worker
+  for (const [k, [lo, hi]] of RANGE_LIST) { const v = out[k], n = num(v, lo, hi, d[k]); out[k] = n; if (rep && n !== v) fixed(k, v, n); }
   out.splenicRx = Math.round(out.splenicRx);
   for (const k of Object.keys(d)) {   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
-    if (typeof d[k] === 'boolean') out[k] = !!out[k];
-    else if (isObj(d[k]) && !isObj(out[k])) out[k] = d[k];
+    if (typeof d[k] === 'boolean') { if (typeof out[k] !== 'boolean') out[k] = fixed(k, out[k], d[k]); }
+    else if (isObj(d[k]) && !isObj(out[k])) out[k] = fixed(k, out[k], d[k]);
   }
   for (const lobe of LOBES) {
-    if (!isObj(out.fibrosis[lobe])) out.fibrosis[lobe] = d.fibrosis[lobe];
-    for (const z of ZONES) out.fibrosis[lobe][z] = num(out.fibrosis[lobe][z], 1, 80, 1);
+    if (!isObj(out.fibrosis[lobe])) out.fibrosis[lobe] = fixed(`fibrosis.${lobe}`, out.fibrosis[lobe], d.fibrosis[lobe]);
+    for (const z of ZONES) { const v = out.fibrosis[lobe][z], n = num(v, 1, 80, 1); out.fibrosis[lobe][z] = n; if (rep && n !== v) fixed(`fibrosis.${lobe}.${z}`, v, n); }
+    pruneTo(out.fibrosis[lobe], d.fibrosis[lobe], `fibrosis.${lobe}`, fixed);
   }
-  for (const k of CLAMPED) for (const id of Object.keys(out[k])) out[k][id] = num(out[k][id], 0, k === 'stenosis' ? 0.95 : 1, 0);   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
-  for (const id of Object.keys(out.stenosisSite)) if (!SITES.includes(out.stenosisSite[id])) delete out.stenosisSite[id];   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
-  for (const k of SWITCHED) { out[k].on = !!out[k].on; out[k].d = num(out[k].d, 6, 12, 8); }
-  for (const id of Object.keys(out.customShunts)) if (out.customShunts[id]) out.customShunts[id] = num(out.customShunts[id], 4, 16, 10);   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
-  for (const k of Object.keys(out.drugs)) out.drugs[k] = !!out.drugs[k];   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
+  pruneTo(out.fibrosis, d.fibrosis, 'fibrosis', fixed);
+  for (const k of CLAMPED) for (const id of Object.keys(out[k])) { const v = out[k][id], n = num(v, 0, k === 'stenosis' ? 0.95 : 1, 0); out[k][id] = n; if (rep && n !== v) fixed(`${k}.${id}`, v, n); }   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists)
+  // (A stent's stenosis is at an end, proximal or distal; a narrowing mid stent is its waist, stentGeom.red: stent-geom.js. A saved state from
+  // before 17 Nov 2026 may hold a stenosis 'mid': it is the same focal narrowing as a waist of PINCH of the length, so it is carried over as one.)
+  for (const id of Object.keys(out.stenosisSite)) if (out.stenosisSite[id] === 'mid' && STENT_EDGE.has(id)) {   // alloc-rare: checked when parameters are set (a few tiny key lists)
+    const kind = kindOf(STENT_EDGE.get(id)), sten = num(out.stenosis[id], 0, 0.95, 0), g = isObj(out.stentGeom[id]) ? out.stentGeom[id] : {};
+    if (sten > 0) out.stentGeom[id] = { ...geomFix(g, kind), red: Math.max(num(g.red, 0, 1, 0), Math.min(GEOM_RANGE.red[1], sten)) };   // alloc-rare: the same check
+    fixed(`stenosisSite.${id}`, 'mid', sten > 0 ? 'waist' : 'dropped');
+    delete out.stenosis[id]; delete out.stenosisSite[id];
+  }
+  for (const id of Object.keys(out.stenosisSite)) if (!SITES.includes(out.stenosisSite[id])) { fixed(`stenosisSite.${id}`, out.stenosisSite[id], 'dropped'); delete out.stenosisSite[id]; }   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists),
+  // A stent's geometry is a record of three lengths (cm), clamped, with the waist and its ends fitted inside the stent (stent-geom.js geomFix).
+  for (const id of Object.keys(out.stentGeom)) {   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
+    const v = out.stentGeom[id], kind = kindOf(STENT_EDGE.get(id));
+    if (!kind || !isObj(v)) { fixed(`stentGeom.${id}`, v, 'dropped'); delete out.stentGeom[id]; continue; }
+    const n = geomFix(v, kind);
+    for (const f of ['len', 'waist', 'trans', 'red']) if (rep && v[f] !== undefined && n[f] !== v[f]) fixed(`stentGeom.${id}.${f}`, v[f], n[f]);
+    out.stentGeom[id] = n;
+  }
+  for (const k of SWITCHED) {
+    pruneTo(out[k], d[k], k, fixed);
+    out[k].on = typeof out[k].on === 'boolean' ? out[k].on : fixed(`${k}.on`, out[k].on, d[k].on);
+    const v = out[k].d, n = num(v, 6, 12, 8); out[k].d = n; if (rep && n !== v) fixed(`${k}.d`, v, n);
+  }
+  // A custom shunt is a diameter: a number of 4 to 16 mm. A string, a true or anything else that merely reads as "on" is not a diameter, so there is no shunt.
+  for (const id of Object.keys(out.customShunts)) {   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
+    const v = out.customShunts[id];
+    if (typeof v === 'number' && Number.isFinite(v) && v > 0) out.customShunts[id] = num(v, 4, 16, 10);
+    else { if (v) fixed(`customShunts.${id}`, v, 'dropped'); delete out.customShunts[id]; }
+  }
+  pruneTo(out.catheter, d.catheter, 'catheter', fixed);
+  out.catheter.wedged = typeof out.catheter.wedged === 'boolean' ? out.catheter.wedged : fixed('catheter.wedged', out.catheter.wedged, false);
+  if (out.catheter.vein != null && typeof out.catheter.vein !== 'string') out.catheter.vein = fixed('catheter.vein', out.catheter.vein, null);
+  pruneTo(out.drugs, d.drugs, 'drugs', fixed);
+  for (const k of Object.keys(out.drugs)) if (typeof out.drugs[k] !== 'boolean') out.drugs[k] = fixed(`drugs.${k}`, out.drugs[k], d.drugs[k]);   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
   keepKnown(out.stenosis, ANY_EDGE); keepKnown(out.thrombus, ANY_EDGE); keepKnown(out.stenosisSite, ANY_EDGE); keepKnown(out.occluded, ANY_EDGE);   // B7
   keepKnown(out.customShunts, CUSTOM_EDGE); keepKnown(out.spontaneous, SPONTANEOUS_EDGE);
+  // A vessel switched by id (a plug, an anatomical variant) is true or false; a truthy string would close a collateral or add a shunt (the engine reads these as switches).
+  for (const k of ['occluded', 'spontaneous']) for (const id of Object.keys(out[k])) {   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists)
+    if (typeof out[k][id] === 'boolean') continue;
+    fixed(`${k}.${id}`, out[k][id], Object.hasOwn(d[k], id) ? d[k][id] : 'dropped');
+    if (Object.hasOwn(d[k], id)) out[k][id] = d[k][id]; else delete out[k][id];
+  }
   out.seed = num(out.seed, 0, 2 ** 31, 1);
   return out;
 }
+// A record the model owns keeps only the keys it defines: an extra one is not a parameter, and must not ride along to be read as a switch.
+function pruneTo(o, tpl, path, fixed) { for (const k of Object.keys(o)) if (!Object.hasOwn(tpl, k)) { fixed(`${path}.${k}`, o[k], 'dropped'); delete o[k]; } }   // alloc-rare: checked when parameters are set, in the simulation worker, never by a drawn frame
 
 // B7: the ids under stenosis, thrombus, stenosisSite, occluded, customShunts and spontaneous are vessels of the model; a link's other ids are dropped.
 const ANY_EDGE = new Set(EDGES.map((e) => e.id));
+const STENT_EDGE = new Map(EDGES.filter((e) => kindOf(e)).map((e) => [e.id, e]));
 const CUSTOM_EDGE = new Set(EDGES.filter((e) => e.shunt === 'custom').map((e) => e.id));
 const SPONTANEOUS_EDGE = new Set(EDGES.filter((e) => e.variant || e.spontaneous).map((e) => e.id));
 function keepKnown(o, ids) { if (isObj(o)) for (const k of Object.keys(o)) if (!ids.has(k)) delete o[k]; }   // alloc-rare: checked when parameters are set, in the simulation worker, never by a drawn frame

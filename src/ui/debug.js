@@ -1,4 +1,5 @@
 // Debug overlay: FPS and frame time, zoom, pixel ratio and build. Off by default; choices persist.
+import { prefs } from './prefs.js';
 import { gpuProbe } from './gpu-probe.js';
 
 import { propSoon } from './class-soon.js';
@@ -61,7 +62,7 @@ export const debugOn = (k) => !!st[k];
 export function initDebug(zoomFn) { getZoom = zoomFn; sync(); }
 export function setDebug(k, on) {
   st = { ...st, [k]: !!on };
-  try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) { caught('debug:28', e); /* private mode */ }
+  try { prefs.setItem(KEY, JSON.stringify(st)); } catch (e) { caught('debug:28', e); /* private mode */ }
   sync();
 }
 function sync() {

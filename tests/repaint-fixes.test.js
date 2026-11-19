@@ -2,12 +2,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { presenterSource } from './split-src.js';
 
 const read = (f) => readFileSync(new URL(f, import.meta.url), 'utf8');
 
 test('A: the new cards waiting unseen for the camera take their numbers at once, not counting through the glide', () => {
-  const js = read('../src/ui/presenter.js');
-  assert.match(js, /const ms = fresh \|\| \(bare && ui\.root\.classList\.contains\('pz-prep'\)\) \? 0 : undefined;/);
+  const js = presenterSource();
+  assert.match(js, /const ms = fresh \|\| \((?:live\.)?bare && (?:live\.)?ui\.root\.classList\.contains\('pz-prep'\)\) \? 0 : undefined;/);
   // (bare is set before the words come in, so wordsIn sees it)
   assert.ok(js.indexOf('bare = !booting && !!ui && !ct;') < js.indexOf('wordsIn(s, said, to, swap, lap, st);'));
 });

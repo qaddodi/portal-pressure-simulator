@@ -8,7 +8,7 @@
 // and checks this against it on random figures, join for join and point for point.)
 import { clamp } from './num.js';
 import { nodeJoinsInto, newJoinAnswer } from './fork-joins.js';
-import { END_HOSTS, STRAND_SOFT } from './anatomy.js';
+import { END_HOSTS, JOIN_REFUSED, STRAND_SOFT } from './anatomy.js';
 
 /** The courses redrawn smooth where two vessels run on into each other. Read as `get(row)`: the course, or undefined for a vessel left as drawn. */
 class RowCourses {
@@ -147,8 +147,10 @@ function addJoin(st, nn, cx, cy, trunk, N) {
   // junction gives, then the ghost leg is taken out of them, so no run-on bends a drawn vein toward a stretch that is not drawn and no web is owned by it. 13 Nov 2026.)
   if (OUT.ra >= 0 && !ghostAt(OUT.ra) && !ghostAt(OUT.rb)) {
     let s = st.straightPool[st.straight.length];
-    if (!s) { s = { a: 0, ia: 0, b: 0, ib: 0, fork: false }; st.straightPool.push(s); }   // alloc-rare: a run-on record, made the first time a figure has that many
+    if (!s) { s = { a: 0, ia: 0, b: 0, ib: 0, fork: false, x: 0, y: 0, o: [] }; st.straightPool.push(s); }   // (o: the strands that end on the node, row and end in turn)   // alloc-rare: a run-on record, made the first time a figure has that many
     s.a = UIT[OUT.ra].row; s.ia = UI[OUT.ra]; s.b = UIT[OUT.rb].row; s.ib = UI[OUT.rb]; s.fork = nu - strands > 2;
+    s.x = cx; s.y = cy; s.o.length = 0;
+    for (let u = 0; u < nu; u++) if (UIT[u].kind === 's' && UI[u] >= 0) s.o.push(UIT[u].row, UI[u]);
     st.straight.push(s);
   }
   for (let a = 0; a < nu; a++) for (let b = a + 1; b < nu; b++) pairAdd(UIT[a].row, UIT[b].row);
@@ -186,6 +188,36 @@ function addJoin(st, nn, cx, cy, trunk, N) {
 // it ended flat against nothing, and the shunt's start inside it was dropped, leaving a dark hole at the turn (13 Nov 2026, Mohammad's shot of 15c335a).
 const cutAway = (y, x, yy) => y.cut > 0 && Math.hypot(x - y.pts[0][0], yy - y.pts[0][1]) < 20;
 export function veinJoins(items, N, st, margin = 0) {
+  joinNodes(items, N, st);
+  const n = items.length;
+  if (BX.length < 4 * n) { BX = new Float64Array(4 * n * 2); ART = new Uint8Array(n * 2); }   // alloc-rare: grown only when more items than ever appear
+  endBoxes(items, margin, BX, ART);
+  joinEnds(items, N, st, margin, BX, ART, pairHas, 0, Infinity);
+  if (st.out.length !== st.nOut) st.out.length = st.nOut;
+  return st.out;
+}
+/**
+ * veinJoins in slices (18 Nov 2026, the Compare stop: 'joins all' ran 78 ms in one unit): the nodes' joins and the boxes in the first call, then the ends against the courses, a
+ * vessel at a time until `until` (performance.now() ms). False with its place kept in st.jr (and the pairs already joined, in a set of its own: the pass's kept tables are not
+ * safe across other calls); true with the answer in st, as veinJoins gives it (the joins are st.out, st.nOut of them). Called again with the same arguments it goes on.
+ */
+export function veinJoinsStep(items, N, st, margin, until) {
+  let jr = st.jr;
+  if (!jr) {
+    joinNodes(items, N, st);
+    const n = items.length, pairs = new Set();   // alloc-rare: a sliced pass is made ahead of the change, never in a frame
+    if (!margin) for (let h = 0; h < HL.length; h++) if (HG[h] === HGEN) pairs.add(HL[h] * 1048576 + HH[h]);
+    jr = st.jr = { a: 0, bx: new Float64Array(4 * n), art: new Uint8Array(n), pairs, has: null };   // alloc-rare: as above
+    jr.has = (x, y) => jr.pairs.has((x < y ? x : y) * 1048576 + (x < y ? y : x));
+    endBoxes(items, margin, jr.bx, jr.art);
+  }
+  const done = joinEnds(items, N, st, margin, jr.bx, jr.art, jr.has, jr.a, until, jr);
+  if (!done) return false;
+  st.jr = null;
+  if (st.out.length !== st.nOut) st.out.length = st.nOut;
+  return true;
+}
+function joinNodes(items, N, st) {
   st.nOut = 0; st.straight.length = 0;
   HGEN++; HN = 0;
   if (HGEN === 0xffffffff) { HG.fill(0); HGEN = 1; }
@@ -194,7 +226,7 @@ export function veinJoins(items, N, st, margin = 0) {
   nGroups = 0;
   for (let k = 0; k < n; k++) {
     const it = items[k];
-    if (it.kind === 'f') continue;
+    if (it.kind === 'f' || (it.kind === 's' && END_HOSTS[it.x.e.id])) continue;   // (a strand of a vessel whose ends lie on another's course joins that course, not the node it is named for: END_HOSTS; the cavernoma's, 17 Nov 2026)
     const art = it.x.isArt ? 1 : 0;
     for (let i = 0; i < 2; i++) {
       if (i === 0 && it.cut > 0) continue;   // (a divided vein's cut-away start meets nothing: see cutAway)
@@ -236,10 +268,11 @@ export function veinJoins(items, N, st, margin = 0) {
       addJoin(st, nn, cx, cy, undefined, N);
     }
   }
-  // (Every end against every course's box, in flat arrays: the same tests in the same order as with a Map of boxes, which with
-  // ~300 items made this loop most of a joins pass, start-up profile 2 Nov 2026.)
-  if (BX.length < 4 * n) { BX = new Float64Array(4 * n * 2); ART = new Uint8Array(n * 2); }   // alloc-rare: grown only when more items than ever appear
-  const bx = BX, art = ART;
+}
+// Every end against every course's box, in flat arrays: the same tests in the same order as with a Map of boxes, which with
+// ~300 items made this loop most of a joins pass, start-up profile 2 Nov 2026.
+function endBoxes(items, margin, bx, art) {
+  const n = items.length;
   for (let k = 0; k < n; k++) {
     const it = items[k], P = it.pts, m = it.obj.glMaxR + 4 + margin;
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -247,7 +280,12 @@ export function veinJoins(items, N, st, margin = 0) {
     bx[4 * k] = x0 - m; bx[4 * k + 1] = y0 - m; bx[4 * k + 2] = x1 + m; bx[4 * k + 3] = y1 + m;
     art[k] = it.x.isArt ? 1 : 0;
   }
-  for (let a = 0; a < n; a++) {
+}
+// The ends against the courses, from vessel `a0`: true when all are done, false (with the next vessel in jr.a) once `until` has passed (checked between vessels, one at least each call).
+function joinEnds(items, N, st, margin, bx, art, has, a0, until, jr) {
+  const n = items.length;
+  for (let a = a0; a < n; a++) {
+    if (a > a0 && until !== Infinity && performance.now() > until) { jr.a = a; return false; }
     const it = items[a], P = it.pts;
     for (let i = 0; i < 2; i++) {
       if (i === 0 && it.cut > 0) continue;
@@ -255,18 +293,20 @@ export function veinJoins(items, N, st, margin = 0) {
       for (let k = 0; k < n; k++) {
         if (k === a || art[k] !== art[a] || qx < bx[4 * k] || qx > bx[4 * k + 2] || qy < bx[4 * k + 1] || qy > bx[4 * k + 3]) continue;
         const y = items[k];
-        if (y === it || (!margin && pairHas(it.row, y.row)) || cutAway(y, qx, qy)) continue;
+        if (y === it || (!margin && has(it.row, y.row)) || cutAway(y, qx, qy)) continue;
+        if (JOIN_REFUSED.has(y.x.e.id) && y.x.e.id !== it.x.e.id) continue;   // (a vessel no other's end opens into: the cavernoma is passed over, not joined: JOIN_REFUSED)
         const hosts = END_HOSTS[it.x.e.id];
-        if (hosts && y.x.e.id !== it.x.e.id && !hosts.includes(y.x.e.id)) continue;   // (an end that may lie only on the courses it is drawn onto: END_HOSTS)   // (a stretch's wide pass keeps every contact of two vessels, not the first: which comes first depends on the widths)
+        if (hosts && y.x.e.id !== it.x.e.id && !hosts.includes(y.x.e.id)) continue;   // (an end that may lie only on the courses it is drawn onto: END_HOSTS)
         if (nearCourse(y.pts, q, y.obj.glMaxR + 0.5 * rq + 2 + margin)) {
           NIT[0] = it; NI[0] = i; NIT[1] = y; NI[1] = -1;
           addJoin(st, 2, qx, qy, y.x.e.id === it.x.e.id ? undefined : y.row, N);   // (the trunk, unless it is another stretch of the same vessel: the azygos arch's bend)
+          // (A sliced pass keeps the pairs joined in a set of its own: addJoin wrote this one into the pass's kept table, which another call may have used since.)
+          if (jr && it.row !== y.row) jr.pairs.add((it.row < y.row ? it.row : y.row) * 1048576 + (it.row < y.row ? y.row : it.row));
         }
       }
     }
   }
-  if (st.out.length !== st.nOut) st.out.length = st.nOut;
-  return st.out;
+  return true;
 }
 
 // Where one vessel runs on into the next, the two courses meet at a slight corner: the last few
@@ -288,6 +328,8 @@ function copyCourse(co, row, src) {
   if (dst.length !== n) dst.length = n;
   return dst;
 }
+// The samples over which a strand's end is moved with the node: its end goes to where the smoothed trunk now passes, easing back to its own course.
+export const STRAND_SNAP = 12;
 // How near (world units) a run-on's smoothed curve must pass to the join it smooths.
 export const RUN_ON_MISS = 2;
 // How near the cubic (p0 … p3) passes to (jx, jy): the least distance over its middle half, where the join lies.
@@ -349,6 +391,23 @@ export function smoothRunOn(items, straight, st) {
       if (d.length !== 2) d.length = 2;
     }
     co.gen[a] = co.cur; co.gen[b] = co.cur;
+    // The strands that end on this node end on the trunk where it passes now: the smoothed trunk may pass the node by up to RUN_ON_MISS, and a strand's round end is as thick as the
+    // trunk, so left on the node it stood out of the trunk's wall, a stair in the outline on each side of the node (the fundal varices' arch, 13 Nov 2026). Its last STRAND_SNAP samples ease from the move to none.
+    const o = straight[q].o;
+    if (o && o.length) {
+      const nx = 0.5 * 0.5 * 0.5 * p0x + 3 * 0.5 * 0.5 * 0.5 * p1x + 3 * 0.5 * 0.5 * 0.5 * p2x + 0.5 * 0.5 * 0.5 * p3x - straight[q].x;
+      const ny = 0.5 * 0.5 * 0.5 * p0y + 3 * 0.5 * 0.5 * 0.5 * p1y + 3 * 0.5 * 0.5 * 0.5 * p2y + 0.5 * 0.5 * 0.5 * p3y - straight[q].y;
+      for (let k = 0; k < o.length; k += 2) {
+        const row = o[k], end = o[k + 1], it = ROWIT[row];
+        if (!it) continue;
+        const P = co.gen[row] === co.cur ? co.arr[row] : copyCourse(co, row, it.pts);
+        for (let j = 0; j <= STRAND_SNAP && j < P.length; j++) {
+          const w = 1 - j / STRAND_SNAP, k2 = w * w * (3 - 2 * w), d = P[end ? P.length - 1 - j : j];
+          d[0] += nx * k2; d[1] += ny * k2;
+        }
+        co.gen[row] = co.cur;
+      }
+    }
   }
   for (let k = 0; k < items.length; k++) ROWIT[items[k].row] = undefined;
   return co;

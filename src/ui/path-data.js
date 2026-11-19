@@ -52,6 +52,8 @@ const SHORT = { 'first-visit': 'First-visit path', bleed: 'Bleed path', gastric:
  *  has no tree: the card draws its own rows, zones, cells or steps (algo, path-cards.js). */
 export const PATHS = Object.fromEntries(Object.values(ALGOS).map((a) => [a.id, { tree: a.tree, algo: a, kick: a.source, foot: a.cite, label: a.label, short: SHORT[a.id] || a.label, kind: a.kind }]));
 /** Whether an algorithm is a chart of nodes (kind 'tree'); the other kinds are drawn by path-cards.js. */
+/** Whether the patient moves with the live model (a slider, a button) while the card is up: the card then keeps room for every outcome; else it is sized for the slide's own. */
+export const isLive = (of) => algoOf(of).live === true;
 export const isTree = (of) => (algoOf(of).kind || 'tree') === 'tree';
 /** The words under each node of the phone's map (one or two short lines). */
 export const mapWordsOf = (of, id) => algoOf(of).mapWords?.[id] || null;
@@ -64,8 +66,8 @@ export const outcomeOf = (of, L) => algoOf(of).outcomeOf?.(L) ?? null;
 export const OUTCOMES = Object.fromEntries(Object.values(ALGOS).map((a) => [a.id, a.outcomes || []]));
 /** The phone's reading for one outcome: { head, tone, stmt, why, next }, in words, from the patient's own numbers. */
 export const readingFor = (of, key, p) => algoOf(of).reading?.(key, p) ?? null;
-/** The patient's numbers as a short list of words ('LSM 31 kPa', 'Child–Pugh C11'), for the card's header. */
-export const chipsOf = (of, p) => algoOf(of).chips?.(p) || [];
+/** The patient's numbers as a short list of words ('LSM 31 kPa', 'Child–Pugh C11'), for the card's header (tiled: the tile keys the card's header row already shows, whose readings the list leaves out). */
+export const chipsOf = (of, p, tiled) => algoOf(of).chips?.(p, tiled) || [];
 /** The patient a slide's tool names: the slide's own facts (tool.patient), over which the live model's readings go where it has them. */
 export const patientFor = (t, fp, shown = (k, v) => v) => algoOf(t?.of).patientFor(t, fp, shown);
 /** The longest patient each algorithm can print (every chip, the widest numbers), so a card reserves room for any patient: it never changes size. */

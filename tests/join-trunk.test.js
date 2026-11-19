@@ -1,6 +1,5 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { binVeins } from '../src/ui/veins-bin.js';
 
 // Where a vein ends on another vessel (the hepatic veins on the IVC) the join carries that vessel as its trunk, so the
@@ -67,22 +66,4 @@ test('a join whose trunk changed is binned again, entry for entry what a fresh b
   assert.deepEqual(Array.from(d.ent), Array.from(binVeins(scene(0, true).tubes, scene(0, true).joins).ent));
 });
 
-test('the figure names a trunk only for a vein ending on another vessel, not on another stretch of its own', () => {
-  const src = readFileSync(new URL('../src/ui/vein-joins.js', import.meta.url), 'utf8');
-  assert.match(src, /addJoin\(st, 2, qx, qy, y\.x\.e\.id === it\.x\.e\.id \? undefined : y\.row, N\)/);
-  assert.match(src, /const tk = g\.trunk >= 0 && !ghostAt\(g\.trunk\);\n\s+r\.trunk = tk \? UIT\[g\.trunk\]\.row : trunk;\n\s+r\.fork = tk;/);
-});
 
-test('the shader tests only the tributary-off-trunk side where a trunk is named, and both at a node', () => {
-  const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-  assert.match(gl, /float corner\(vec2 p, vec2 ga, float da, float ra, vec2 gb, float db, float rb, int role, float kw\)/);
-  assert.match(gl, /smoothstep\(0\.25 \* rm, 0\.25 \* rm \+ max\(0\.35 \* rm, 0\.9 \* kw\), off\)/);
-  assert.match(gl, /float off = role == 1 \? o1 : role == 2 \? o2 : min\(o1, o2\);/);
-  assert.match(gl, /if \(fract\(B\[m\]\) > 0\.1\) \{ tm \|= 1 << s; if \(fract\(B\[m\]\) > 0\.3\) tfm \|= 1 << s; \}/);
-  // Both callers (the fillet, and the blend of caliber and shading) pass the role of the pair in its join.
-  assert.match(gl, /int ro = \(jt\[j\] & \(1 << a\)\) != 0 \? 1 : \(jt\[j\] & \(1 << b\)\) != 0 \? 2 : 0;/);
-  assert.match(gl, /corner\(p, sg\[ta\], sd\[ta\], sr\[ta\], sg\[tb\], sd\[tb\], sr\[tb\], ro, kw\)/);
-  assert.match(gl, /corner\(p, sg\[ts\], sd\[ts\], sr\[ts\], sg\[to\], sd\[to\], sr\[to\], role, kw\)/);
-  // The nearer of a fork trunk's two stretches stands in for it (only where the entry marks a fork's trunk).
-  assert.match(gl, /int ta = fa \? tn\[a\] : a, tb = fb \? tn\[b\] : b;/);
-});

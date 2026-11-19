@@ -12,7 +12,7 @@ const body = (name) => {
 };
 
 test('the display loop tries the width step before the full update', () => {
-  assert.match(STAGE, /else if \(widthEasing && F && !stepOrgans\(\) && !stepWidths\(\)\) update\(F\);/, 'the organ step, then the width step, then the full update');
+  assert.match(STAGE, /else if \(widthEasing && F && !stepOrgans\(\) && !stepWidths\(\)\) framePart\('stage: update \(widths\)', update, F\);/, 'the organ step, then the width step, then the full update');
 });
 
 test('the width step falls back to the full update whenever anything but the widths may have changed', () => {
@@ -52,7 +52,7 @@ test('between model frames, an organ ease alone steps the organs alone, under th
   assert.match(fn, /if \((?:live\.)?(?:live\.)?morph !== (?:live\.)?(?:live\.)?morphTarget \|\| glAtUpdate !== wrap\.classList\.contains\('gl-on'\) \|\| bandsMoving\(\) \|\| lesionsMoving\(\) \|\| anyReveal\(\) \|\| visWidthMoving\(\)\) return false;/, 'any vessel width, band or lesion still moving takes the full update');
   assert.match(fn, /(?:live\.)?(?:live\.)?widthEasing = (?:live\.)?(?:live\.)?organsEasing = false;\n\s+(?:live\.)?updateOrgans\(f, f\.viewParams \|\| store\.get\(\)\.params, t\);/, 'the organs set their own easing flags again');
   assert.match(fn, /if \((?:live\.)?plateRedraw\) \{ (?:live\.)?plateRedraw = false; drawVeins\(false, 'plate hidden'\); \}/, 'a plate redraw it asks for is drawn, as after an update');
-  assert.match(src, /\} else if \((?:live\.)?(?:live\.)?widthEasing && (?:live\.)?(?:live\.)?F && !stepOrgans\(\) && !stepWidths\(\)\) update\((?:live\.)?(?:live\.)?F\);/);
+  assert.match(src, /\} else if \((?:live\.)?(?:live\.)?widthEasing && (?:live\.)?(?:live\.)?F && !stepOrgans\(\) && !stepWidths\(\)\) framePart\('stage: update \(widths\)', update, (?:live\.)?(?:live\.)?F\);/);
   // Nothing else in the update follows the liver's ease: only the organs and the fluid read it.
   for (const name of ['updateOverlays', 'updateLabels', 'updateNodesCircuit', 'fxSync', 'updateFocus', 'updateOrganSel']) {
     const at = src.indexOf(`  function ${name}(`), next = src.indexOf('\n  function ', at + 10);

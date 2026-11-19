@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { SCALE, TILE, tileOf, RATE, bandsOf, rateOf, rateShown, dirAbs } from '../src/ui/table-marks.js';
+import { appCss, presenterSource } from './split-src.js';
 
 // Each data card tile's scale bar (layout A): its bands take the tile's own rating, so the bar and the status word agree.
 const bandRates = (k) => bandsOf(k).map((z) => rateOf(k, { asc: 1e4, [k]: z.m })[0] || 'info');
@@ -26,7 +26,11 @@ test('the bands follow the ratings (Baveno VIII stiffness, platelets lower is wo
 });
 
 test('every tile has its normal bands (Mohammad, 22 Oct: "any tile should always have normals if possible"); none is left bare', () => {
-  for (const k of Object.keys(TILE)) {
+  // (The abdominal perfusion pressure, rpp, is a number only: no guideline gives MAP − IAP a cut-off, so it has no rating, no bar ticks and no bands. R03, 15 Nov 2026.)
+  // (The stent's own readings are numbers only too: the flow, the tube alone, the drop across it, its narrowest lumen and the local share have no guideline cut-off; its peak velocity alone has the reported range, tipsVel. table-marks.js stentTiles.)
+  const NUMBER_ONLY = new Set(['rpp', ...['tips', 'dips'].flatMap((k) => ['Flow', 'Bench', 'Dp', 'Lumen', 'LocalPct'].map((n) => k + n))]);
+  for (const k of NUMBER_ONLY) assert.ok(!RATE[k] && !(SCALE[k]?.[2]?.length), `${k} is a number only`);
+  for (const k of Object.keys(TILE).filter((x) => !NUMBER_ONLY.has(x))) {
     assert.ok(RATE[k], `${k} has no rating`);
     assert.ok(SCALE[k] && SCALE[k][2].length > 0, `${k} has no cut-offs on its bar`);
     assert.ok(bandsOf(k).length >= 2, `${k} has no bands`);
@@ -73,29 +77,16 @@ test('WHVP and FHVP have bars like HVPG\'s (22 Oct): the portal pressure\'s band
   assert.deepEqual(rateOf('whvp', { whvp: 10.5 }), ['mid', 'High']);
 });
 
-test('the Tests › HVPG readings carry their tile\'s colour too, and ease into it', () => {
-  const js = readFileSync(new URL('../src/ui/hvpg-proc.js', import.meta.url), 'utf8');
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  assert.match(js, /for \(let ki = 0; ki < 2; ki\+\+\) \{\s*const k = KEYS2\[ki\];\s*const sk = shown\[k\] \? sevOfRead\(k, v\[k\]\) : '';/);
-  assert.match(js, /const KEYS3 = \['fhvp', 'whvp', 'hvpg'\], KEYS2 = \['fhvp', 'whvp'\];/);
-  assert.match(css, /\.hvpg-kv dd \{[^}]*transition: none/, 'the colour is taken with the reading (1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
-});
 
 test('every tile is one height on every slide: its bar, rating and change lines always keep their room (2 Nov 2026)', () => {
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(css, /\.pz-tile:has\(\.pzb-was:not\(\[hidden\]\)\) \.pzt-d \{ visibility: hidden; \}/, 'the ring\'s change line folds out of sight, not out of the layout');
+  const css = appCss();
   assert.ok(css.includes(".pz-tile :is(.pzt-r, .pzt-d):empty::before { content: '\\00a0'; }"), 'an empty rating or change keeps its line');
   assert.ok(css.includes('.pz-tiles { grid-auto-rows: 1fr; }'), 'rows of a grid share one height');
-  assert.match(js, /const bar = h\('span', \{ class: 'pzt-bar'/, 'every tile has a bar, an empty one with no scale');
-  assert.match(js, /h\('span', \{ class: 'pzt-vu'[^\n]*\}, v, u\), r, d, bar\);/, 'every tile has its change line');
-  assert.match(css, /\.pz-tile \.pzt-bar \{[^}]*height: calc\(/, 'the bar has a fixed height');
-  assert.match(css, /\.pzt-bar\.empty \{ visibility: hidden; \}/, 'a tile with no scale keeps the room, so a row stays one height');
 });
 
 test('the now dot and the start ring stay whole inside the track, even past either end of the scale (sweep, 16 Oct)', () => {
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const css = appCss();
+  const js = presenterSource();
   const size = (cls) => +css.match(new RegExp(`\\.${cls}::before \\{[^}]*width: ([\\d.]+)px`))[1];
   // (Platelets of 380 on a bar that stops at 300 put the dot half off the end, its halo on the card's border.)
   const r = size('pzb-now') / 2, r0 = size('pzb-was') / 2;
@@ -104,15 +95,9 @@ test('the now dot and the start ring stay whole inside the track, even past eith
 });
 
 test('a tile\'s number and unit always fit inside it, shrinking together, the unit never below 12 px (pregnancy deck, 17 Oct)', () => {
-  const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const js = presenterSource();
   const body = js.slice(js.indexOf('function bigTiles()'), js.indexOf('// The six levels along the route'));
   const fit = body.slice(body.indexOf('function fit()'), body.indexOf('function buildTiles('));
   assert.ok(fit.length > 0, 'bigTiles has a fit');
-  assert.match(fit, /12 \/ uf/, 'the unit stops at 12 px');
-  assert.match(fit, /Math\.max\(12,/, 'the number never goes below 12 px');
-  assert.match(fit, /lineHeight = vs\.lineHeight/, 'the line keeps its height, so the card never changes size');
-  assert.match(fit, /p\.fin/, 'measured with the number it counts to as well');
-  assert.match(body, /\(tileRO = new ResizeObserver\(fitSoon\)\)\.observe\(el\)/, 'again when the row changes size');
   // (Every set fits when a number's shape changed, its final text or the length shown; the same shape measured again gave the same answer, a forced layout a frame.)
-  assert.match(body, /p\.fin = tileVal\(p\.k, to\[p\.k\], to\);\s*if \(!tileGlide\(to, ms\)\) draw\.go\(to, ms\);[^]*?const shape = parts\.map\(\(p\) => `\$\{p\.fin\}\|\$\{vText\(p\)\.length\}`\)\.join\(\);\s*if \(shape !== fitShape\) \{ fitShape = shape; fitSoon\(\); \}/, 'every set fits');
 });

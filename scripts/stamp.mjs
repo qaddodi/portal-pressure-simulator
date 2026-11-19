@@ -30,7 +30,7 @@ export const hasStamp = (text) => { STAMP.lastIndex = 0; return STAMP.test(text)
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const check = process.argv.includes('--check');
-  const files = [...walk(join(ROOT, 'src')), ...walk(join(ROOT, 'styles')), join(ROOT, 'index.html'), join(ROOT, 'sw.js')];
+  const files = [...walk(join(ROOT, 'src')), ...walk(join(ROOT, 'styles')), join(ROOT, 'index.html')];
   const stamped = files.filter((f) => hasStamp(readFileSync(f, 'utf8')));
   if (check) {
     if (stamped.length) {

@@ -3,6 +3,8 @@
 // 1.5 s before it changes, and clears only a little inside the cut-off (hysteresis), so a patient sitting on a cut-off
 // does not flicker red; a paused model takes its flag at once.
 import { MAP_BETA_CUT, SBP_BETA_CUT } from '../engine/portal/kidney-cuts.js';
+import { TRANSFUSE } from '../engine/portal/transfusion-cuts.js';
+import { bedsideMean } from '../engine/portal/bedside-mean.js';
 
 export const VITAL_HOLD = 1500;
 
@@ -36,7 +38,7 @@ export const VITALS = [
   { id: 'ra', k: 'RA', title: 'Right atrial pressure', why: 'ra', hideKey: 'ra', v: (m) => m.vitals?.ra ?? m.ra, d: 1, u: 'mmHg', cut: 10, hys: 0.5 },
   // (to: where the reading is heading, the hemoglobin once the plasma has refilled after a bleed or a unit's extra plasma has gone,
   // engine.js RED: the bar prints it beside the number while the two differ, so a bleed shows on the hemoglobin at once.)
-  { id: 'hb', k: 'Hb', title: 'Hemoglobin', why: 'hb', v: (m) => m.blood.hb, to: (m) => m.blood.hbSettled, d: 1, u: 'g/dL', cut: 7, low: true, hys: 0.2 },
+  { id: 'hb', k: 'Hb', title: 'Hemoglobin', why: 'hb', v: (m) => m.blood.hb, to: (m) => m.blood.hbSettled, d: 1, u: 'g/dL', cut: TRANSFUSE.lo, low: true, hys: 0.2 },
 ];
 
 // Where a vital is heading (its `to`), or null while it is there already: shown from TO_SHOW apart, kept until TO_HIDE, so a reading
@@ -49,9 +51,11 @@ export function vitalHeading(x, m) {
   return x.heading ? to : null;
 }
 
-/** The blood pressure as it is written at the bedside: systolic/diastolic (mean), "120/80 (93)"; the mean alone where the other two are unknown. */
+/** The blood pressure as it is written at the bedside: systolic/diastolic (mean), "120/80 (93)". Where the other two are unknown the mean is the
+ *  only number, and it is named as what it is, "MAP 93": a bare number under the name "blood pressure" would read as a systolic. */
 export function bpText(sbp, dbp, map) {
   if (!Number.isFinite(map)) return '—';
   const r = (v) => String(Math.round(v));
-  return Number.isFinite(sbp) && Number.isFinite(dbp) ? `${r(sbp)}/${r(dbp)} (${r(map)})` : r(map);
+  // (The mean is worked from the two numbers as printed, so a physician's sum on them gives the third: 117/69 (85), never (84).)
+  return Number.isFinite(sbp) && Number.isFinite(dbp) ? `${r(sbp)}/${r(dbp)} (${r(bedsideMean(Math.round(sbp), Math.round(dbp)))})` : `MAP ${r(map)}`;
 }

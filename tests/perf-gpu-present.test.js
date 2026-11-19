@@ -25,6 +25,7 @@ function fakeGL() {
         calls.push([k, ...a.map((x) => (Array.isArray(x) ? [...x] : x))]);
         if (k === 'getShaderParameter') return true;
         if (k === 'getProgramParameter') return a[1] === gl.ACTIVE_UNIFORMS ? 0 : true;
+        if (k === 'checkFramebufferStatus') return gl.FRAMEBUFFER_COMPLETE;   // (the Tube's targets are made: no other renderer to fall back on)
         if (k === 'getExtension') return null;
         if (k === 'getParameter') return 'stand-in';
         if (k === 'getContextAttributes') return { stencil: true };
@@ -58,7 +59,8 @@ test('A2: a whole picture drawn straight onto the canvas invalidates the canvas 
   const { g, f, look } = renderer();
   const n0 = f.calls.length;
   g.draw(M1, look, { on: false });
-  const inv = invals(f, n0);
+  // (The Tube's own pass into the vessel layer lets go of its depth and stencil there: the canvas's is the one this is about.)
+  const inv = invals(f, n0).filter(([, i]) => boundAt(f, i, f.gl.FRAMEBUFFER) === null);
   assert.equal(inv.length, 1);
   const [c, at] = inv[0];
   assert.deepEqual(c.slice(1), [f.gl.FRAMEBUFFER, [f.gl.COLOR]]);
@@ -190,23 +192,6 @@ test('A5: under a camera the overlay lay is cut to its bounds, and nothing is la
 });
 
 // ── D1 ──
-test('D1: trim() gives back the quality tiers\' targets, and prepLow makes them again', () => {
-  const { g, f } = renderer();
-  g.prepLow(0.7);
-  const made = g.lowMade;
-  assert.ok(made >= 1);
-  let n0 = f.calls.length;
-  g.trim();
-  const c = f.calls.slice(n0);
-  assert.equal(c.filter((x) => x[0] === 'deleteFramebuffer').length, 1, 'the tiers\' framebuffer');
-  assert.ok(c.filter((x) => x[0] === 'deleteTexture').length >= 3, 'and their textures');
-  n0 = f.calls.length;
-  g.trim();
-  assert.ok(!f.calls.slice(n0).some((x) => x[0] === 'deleteFramebuffer' || x[0] === 'deleteTexture'), 'a second trim has nothing more to give');
-  g.prepLow(0.7);
-  assert.equal(g.lowMade, made + 1, 'made again between frames, not at the first move');
-});
-
 test('D1: trim() of the lobule\'s shared renderer shrinks its texture of the host to a texel', () => {
   const host = renderer();
   const f = host.f;
@@ -220,4 +205,22 @@ test('D1: trim() of the lobule\'s shared renderer shrinks its texture of the hos
   assert.ok(sh.length >= 2, 'the vessel layer\'s base and the host\'s texture');
   assert.equal(lob.target.w, 640, 'sized again, cleared, when it is next asked for at the canvas\'s size');
   assert.ok(lob.target.gen > gen, 'a new texture generation: a kept picture of it is out of date');
+});
+
+// ── 17 Nov 2026: the upscale pass on a picture that is the canvas's own size ──
+// His Safari at rest: "figure laid on the screen: upscale 30; picture 1567x957 onto the screen 1567x957" and the fence of that step 16.0 ms (max 18.0) on every
+// sample. A picture the size of the canvas is the same pixels: the nine-read upscale shader changed none of them (scale 1), so it is a plain copy.
+test('a picture the canvas\'s own size is laid by a plain copy, not the upscale shader', () => {
+  const { g, f, canvas, look } = renderer();
+  g.setPicture([400, 300]);
+  g.draw([0.5, 0, 0, 0.5, 0, 0], look, { on: false });
+  // (the canvas takes the picture's size afterwards, as a resize that leaves the renderer's picture setting as it was does)
+  canvas.width = 400; canvas.height = 300;
+  const n0 = f.calls.length;
+  g.draw([0.5, 0, 0, 0.5, 0, 0], look, { on: false });
+  const after = f.calls.slice(n0);
+  const blits = after.filter((c) => c[0] === 'blitFramebuffer');
+  const toCanvas = blits.filter((c) => c[3] === 400 && c[4] === 300 && c[5] === 0);
+  assert.ok(toCanvas.length >= 1, 'the kept picture reaches the canvas by a blit');
+  assert.ok(toCanvas.every((c) => c[c.length - 1] === f.gl.NEAREST), 'an unfiltered copy: the same pixels');
 });

@@ -24,7 +24,32 @@ export const isDrivenAnimation = (a) => DRIVEN_ANIMS.has(a);
 const wakers = [];
 
 /** Wake glass after motion writes, while the scheduler can still draw it in this frame. */
-export function signalMove() { for (let i = 0; i < wakers.length; i++) wakers[i](); }
+export function signalMove() { movedAt = performance.now(); for (let i = 0; i < wakers.length; i++) wakers[i](); }
+let movedAt = -1e9;
+/**
+ * Whether a card was moved by number (signalMove) in the last `ms` milliseconds. The figure's partial present (veins-gl restBox, GPU-4) asks it: while cards move, every present is laid whole,
+ * so the plates, the words and the chart drawn in the figure's canvas are all laid at the place of this frame, never one of them left where an earlier present put it (Mohammad's play-test,
+ * 19 Nov 2026: with partial on, the HVPG 8 chart's last rows hung below the glass in 2 of 3 swaps, in 0 of 3 with it off).
+ */
+export const movedWithin = (ms) => performance.now() - movedAt < ms;
+
+/**
+ * A card moved by its caller's own paused animation, scrubbed by number (card-shuffle.js: the wallet's cards, a translateY ADDED to the card's own transform). The glass must not read that
+ * animation from its clock: a paused animation's clock stands where it was first seen (glass-motion.js clockOf, rate 0), so the plate stayed where the wallet was built while the words moved,
+ * and the text slid through a plate that did not move (Mohammad, a landscape iPhone, 19 Nov 2026). The animation is marked as driven here and its offset is the number given to driveTo(),
+ * read by the glass from driven(el) like a finger's move; it adds to the card's inline transform and translate, which the glass still reads.
+ */
+export function driveBy(el, an) {
+  if (!el || !an) return;
+  DRIVEN_ANIMS.add(an);
+  let d = DRIVEN.get(el);
+  if (!d) DRIVEN.set(el, (d = { x: 0, y: 0, on: false, prop: 'translate' }));   // alloc-rare: once per element
+  d.prop = 'translate';
+}
+/** The offset (px) the element's driven animation holds now; the glass is woken by signalMove(), called once after all the cards are set. */
+export function driveTo(el, x, y) { const d = DRIVEN.get(el); if (d) { d.x = x; d.y = y; d.on = true; } }
+/** Lets the glass read the element by itself again (its animation cancelled). */
+export function driveOff(el) { const d = DRIVEN.get(el); if (d) { d.on = false; d.x = 0; d.y = 0; } }
 
 /** Calls fn() whenever a glass mover's number changes; returns the function that stops it. */
 export function onMove(fn) {

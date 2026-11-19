@@ -40,7 +40,7 @@ test('the axes are written the same: 15 20 25 along the foot, 150K up the left, 
   assert.deepEqual([fv.xTicks, fv.yTick, fv.xName, fv.yName], [BAVENO_AXES.xTicks, BAVENO_AXES.yTick, BAVENO_AXES.xName, BAVENO_AXES.yName]);
   const fr = frame(560, 387), { X, Y } = scaler(pl, fr), nums = plotNumbers(pl, fr, X, Y, 14);
   assert.deepEqual(nums.filter((n) => n.cls.startsWith('pze-t')).map((n) => n.text).sort(), ['15', '150K', '20', '25']);
-  assert.deepEqual(nums.filter((n) => n.cls === 'pze-ax').map((n) => n.text).sort(), ['LSM kPa', 'PLT']);
+  assert.deepEqual(nums.filter((n) => n.cls === 'pze-ax').map((n) => n.text).sort(), ['LSM, kPa', 'PLT']);
 });
 
 test('the zones are the guideline card\'s own tints and hatch, and nothing is drawn as a dashed border', () => {

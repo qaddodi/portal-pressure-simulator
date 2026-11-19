@@ -20,7 +20,10 @@ import { readStyle, readLocalCTM } from './layout-snap.js';
 import { sceneBegin, sceneStyle } from './scene-store.js';
 import { getLive } from './live-style.js';
 import { WARM_MS } from './warm-views.js';
+import { PAINTER_TARGETS } from './plate-room.js';
 import { STOPS, STOPS_CMAP, STOP_LOOK } from './stop-tokens.js';
+import { listMatrix } from './transform-read.js';
+const RK = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };   // (a transform list's matrix, read at once: transform-read.js, never consolidate())
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);
 
@@ -188,7 +191,7 @@ function parseColorText(s) {
   return null;
 }
 
-const matAttr = (el) => { const t = el.transform?.baseVal; if (!t || !t.numberOfItems) return ID; const k = t.consolidate().matrix; return [k.a, k.b, k.c, k.d, k.e, k.f]; };   // (for chainM and the tests; the reading below writes into kept frames)
+const matAttr = (el) => { const t = el.transform?.baseVal; if (!t || !t.numberOfItems) return ID; const k = listMatrix(t, RK); return [k.a, k.b, k.c, k.d, k.e, k.f]; };   // (for chainM and the tests; the reading below writes into kept frames)
 // An element's own transform as the page lays it, where a strict reading found a CSS one (its transform, translate, rotate or scale,
 // about its transform-origin): read from the browser's own frames (cssLocal), kept until the element is read again. The page's
 // styles that set one also ease it, and while they do the group is not read (stage.js syncOver), so it stands between two readings.
@@ -199,7 +202,7 @@ const matOf = (el) => (cssAny && CSS_M.get(el)) || matAttr(el);
 const EM = new WeakMap();
 /** An element's own frame, its CSS transform included where a strict reading took one. Kept per element, rewritten at the next ask. */
 /** An element's own transform attribute written into `o` (or the identity, shared, where it has none): matAttr with no new array. Returns the matrix to read. */
-export function matAttrTo(o, el) { const t = el.transform?.baseVal; if (!t || !t.numberOfItems) return ID; const k = t.consolidate().matrix; o[0] = k.a; o[1] = k.b; o[2] = k.c; o[3] = k.d; o[4] = k.e; o[5] = k.f; return o; }
+export function matAttrTo(o, el) { const t = el.transform?.baseVal; if (!t || !t.numberOfItems) return ID; const k = listMatrix(t, RK); o[0] = k.a; o[1] = k.b; o[2] = k.c; o[3] = k.d; o[4] = k.e; o[5] = k.f; return o; }
 /** elMat with no new array: the frame of `el` (its CSS one where a strict reading took one), written into `o` when it is its attribute's. Returns the matrix to read; not to be kept. */
 export const elMatTo = (o, el) => (cssAny && CSS_M.get(el)) || matAttrTo(o, el);
 export const elMat = (el) => {
@@ -257,7 +260,7 @@ const GGT = [1, 0, 0, 1, 0, 0], GP = new Float64Array(4), GS = new Float64Array(
 function trTo(o, tr) {
   const t = tr?.baseVal;
   if (!t || !t.numberOfItems) return copy6(o, ID);
-  const k = t.consolidate().matrix;
+  const k = listMatrix(t, RK);
   o[0] = k.a; o[1] = k.b; o[2] = k.c; o[3] = k.d; o[4] = k.e; o[5] = k.f;
   return o;
 }
@@ -734,7 +737,7 @@ function matOfTo(o, el) {
   if (c) return copy6(o, c);
   const t = el.transform?.baseVal;
   if (!t || !t.numberOfItems) return copy6(o, ID);
-  const k = t.consolidate().matrix;
+  const k = listMatrix(t, RK);
   o[0] = k.a; o[1] = k.b; o[2] = k.c; o[3] = k.d; o[4] = k.e; o[5] = k.f;
   return o;
 }
@@ -1411,6 +1414,18 @@ export function createOrganPaint(gl, shape) {
     },
     /** The bytes held by the layers a live frame does not need: the mask layer and every nested depth (made when a masked or nested group first needs them). */
     deepBytes: deepBytesNow,
+    /** The bytes a painting w × h would add to the targets the painter holds (the scratch, the layer pairs and the stencil, at the full set of seven: a picture's groups nest that deep), 0 when they already
+     *  hold what it needs. Asked before a large picture is made (stage-plate.js, plate-room.js); the same size rule as size(). */
+    growBytes(w, h) {
+      let nw = AW, nh = AH;
+      if (!(w <= AW && h <= AH)) {
+        const gw = Math.max(AW, w), gh = Math.max(AH, h);
+        if (gw * gh <= targetRoom(BW, BH)) { nw = gw; nh = gh; } else { nw = Math.max(w, BW); nh = Math.max(h, BH); }
+      }
+      let held = 0;
+      if (AW) { held = AW * AH; if (scratch.on) held += AW * AH * 4; for (let d = 0; d < depths.length; d++) for (let j = 0; j < 2; j++) if (depths[d][j].on) held += AW * AH * 4; }
+      return Math.max(0, nw * nh * (4 * PAINTER_TARGETS + 1) - held);
+    },
     /** Gives those layers back (not while a picture's job is painting with them); a group that needs one again makes it at its first clear. */
     trimDeep() { return trimDeepNow(); },
     trim() { this.dropKept(); clearTimeout(deepT); deepT = 0; if (!AW) return; W = H = AW = AH = BW = BH = 0; trimOne(scratch); for (let d = 0; d < depths.length; d++) { trimOne(depths[d][0]); trimOne(depths[d][1]); } gl.bindRenderbuffer(gl.RENDERBUFFER, stencil); gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, 1, 1); },

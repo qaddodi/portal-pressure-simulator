@@ -19,7 +19,7 @@ test('a reading on the x axis: named and scaled from its tile, round nice number
   assert.equal(xKeyOf({ x: 'lsm' }), 'lsm');
   assert.equal(xKeyOf({ x: 'nonsense' }), null);
   assert.deepEqual(axisMeta({ x: 'lsm', param: 'cirrhosis' }), { name: 'Liver stiffness', unit: 'kPa', d: 1, x: 1, k: 'lsm' });
-  assert.equal(axisMeta({ x: 'wall' }).unit, '% of rupture', 'the wall stress has no tile but a chart can draw it');
+  assert.equal(axisMeta({ x: 'wall' }).unit, '% of rupture threshold', 'the wall stress has no tile but a chart can draw it');
   assert.deepEqual(xDomain([5, 29.7]), [0, 30], 'from zero when zero is close');
   assert.deepEqual(xDomain([9, 18.2]), [8, 20]);
   assert.deepEqual(xDomain([9, 18.2], 8, 20), [8, 20]);
@@ -86,7 +86,7 @@ test('the model: stiffness against HVPG and platelets over a year a point, every
   const t = { x: 'lsm', patient: { preset: 'healthy' }, param: 'cirrhosis', from: 0.4, to: 0.8, step: 0.2, days: 365, lines: ['hvpg', 'plt'], dots: [{ preset: 'rhf', name: 'Heart failure' }] };
   const [slide] = await seq([{ preset: 'schisto' }]);
   const ser = curveSeries(t, await seq(curveSteps(t), null));
-  assert.deepEqual(ser.lx[0].map((x) => Math.round(x * 10) / 10), [12.4, 23.7, 27.7], 'the stiffness of compensated cirrhosis, CSPH and beyond');
+  assert.deepEqual(ser.lx[0].map((x) => Math.round(x * 10) / 10), [12.4, 23.7, 36], 'the stiffness of compensated cirrhosis, CSPH and beyond');
   for (let i = 1; i < 3; i++) assert.ok(ser.ys[0][i] > ser.ys[0][i - 1] && ser.ys[1][i] < ser.ys[1][i - 1], 'the HVPG climbs and the platelets fall');
   const r = ringAt(t, slide.params, slide.fp);
   assert.ok(r.x < 7 && r.ys[1] < 80, `the schistosomiasis ring sits off the line: ${r.x} kPa, platelets ${r.ys[1]}`);
@@ -136,7 +136,7 @@ test('a second sweep may draw another reading (of): the fundal varix open, then 
     against: [{ label: 'Fundal, shunt closed', params: { occluded: { C5: true } }, own: 'Fundal, shunt open' }, { label: 'Esophageal', of: 'varix', params: { occluded: { C5: true } } }] };
   assert.deepEqual(againstsOf(t).map((a) => a.of), [null, 'varix']);
   assert.deepEqual(againstsOf({ ...t, against: [{ label: 'x', params: {}, of: 'nonsense' }] }).map((a) => a.of), [null], 'a reading the card does not know is ignored');
-  assert.deepEqual(drawnLines(t).map((l) => [l.k, l.name, l.c]), [['gv', 'Fundal, shunt open', '--tr-pv'], ['gv', 'Fundal, shunt closed', '--tr-hv'], ['varix', 'Esophageal', '--tr-cav']]);
+  assert.deepEqual(drawnLines(t).map((l) => [l.k, l.name, l.c]), [['gv', 'Fundal, shunt open', '--tr-var'], ['gv', 'Fundal, shunt closed', '--tr-hv'], ['varix', 'Esophageal', '--tr-cav']]);
   assert.equal(readingName(t), 'Varix');
   assert.equal(readingName({ ...t, reading: undefined }), 'Gastric varix', 'without a reading of its own the key keeps the first reading\'s name');
   assert.equal(curveSteps(t).length, 6);
@@ -164,7 +164,7 @@ test('a curve over the scope\'s air: the varix seen and the pressure across its 
 
 test('the HVPG and the platelets are two clearly different colours, and neither is a cut-off line\'s', () => {
   const h = lineMeta('hvpg', 0), p = lineMeta('plt', 1);
-  assert.equal(h.c, '--s7', 'the HVPG stays violet, as everywhere else');
+  assert.equal(h.c, '--tr-hvpg', 'the HVPG stays violet, as everywhere else (its one token, reading-colours.js: Light\'s violet as it was, a deeper one on the dark looks)');
   assert.equal(p.c, '--tr-ivc', 'the platelets are cyan: blue beside violet read as one colour (deuteranopia ΔE 4)');
   assert.notEqual(p.c, '--tr-hv');
   assert.ok(![p.c, h.c].some((c) => ['--caution', '--danger'].includes(c)), 'the amber and coral cut-off lines keep their colours to themselves');

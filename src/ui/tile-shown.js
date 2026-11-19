@@ -39,6 +39,8 @@ export function createTileShown(state) {
     },
     /** The value shown for tile k now, or fallback where it has none. */
     get(k, fallback, ref = false) { return state.or(nameOf(k, ref), fallback); },
+    /** Whether tile k's number is still on its way to its value (band-settle.js: its rating waits for it). */
+    moving(k) { return !!state.isMoving?.(nameOf(k, false)); },
     /** Lets go of tile k's followers (its tile was replaced). */
     drop(k) { state.delete(nameOf(k, false)); state.delete(nameOf(k, true)); },
     /** Calls cb after each display frame's step while anything on the state moves; returns the function that stops it. */

@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { appCss } from './split-src.js';
 
 const root = new URL('..', import.meta.url).pathname;
 const walk = (d) => readdirSync(join(root, d)).flatMap((f) => { const p = join(d, f); return statSync(join(root, p)).isDirectory() ? walk(p) : [p]; });
@@ -18,7 +19,7 @@ const BUILT = [/^organ-/, /^tone-/, /^od-/, /^sv-region-/, /^sv-lead-/, /^z\d$/,
 const KEPT = new Set([]);
 
 test('every class app.css styles is used by the app', () => {
-  const css = readFileSync(join(root, 'styles/app.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const css = appCss().replace(/\/\*[\s\S]*?\*\//g, '');
   // Selectors only: drop the declaration blocks (the innermost braces), so values such as 1.5em or url(x.svg) are not read
   // as classes; the rules inside @media and @container keep their selectors.
   const sel = css.replace(/\{[^{}]*\}/g, ';');

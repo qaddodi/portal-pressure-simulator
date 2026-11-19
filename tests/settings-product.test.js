@@ -40,7 +40,7 @@ test('R14 every default is as it was: Full, and off (but the credit\'s lean look
   assert.equal(f.renderScale(), 1);
   assert.deepEqual(Object.fromEntries(Object.keys(f.FIG_OPTS).map((k) => [k, f.figOpt(k)])), { move: 1, glow: 1, cap: 1.5, adapt: false, floor: 0.1 });
   assert.deepEqual(Object.fromEntries(Object.keys(f.FIG_LAB).map((k) => [k, f.figLab(k)])),
-    { motion60: true, glassCache: false, creditLean: true, lymphBoxes: false, pinchReuse: 0, upscale: false, lightArt: false, pinchLow: false });
+    { motion60: true, glassCache: false, creditLean: true, lymphBoxes: false, upscale: false, lightArt: false });
   assert.equal(f.paceMs(), f.MOTION60_MS, 'steady motion at most every 10 ms (4 Nov 2026)');
   delete globalThis.localStorage;
 });
@@ -55,11 +55,11 @@ test('R14 what a build stored for the experiments is cleared before the app read
     getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k),
   };
   const el = { setAttribute() {}, style: {} };
-  vm.runInNewContext(code, { localStorage, document: { documentElement: el }, matchMedia: () => ({ matches: false }) });
+  vm.runInNewContext(code, { localStorage, location: { pathname: '/' }, document: { documentElement: el }, matchMedia: () => ({ matches: false }) });
   assert.deepEqual([...store.keys()].sort(), ['pps.figV', 'pps.labelScale', 'pps.noGlass', 'pps.showHvpg', 'pps.theme'], 'only the experiments\' keys go');
   // (Once only, since 1 Nov 2026 (the GPU move, step 4): a choice stored after it is kept at the next load.)
   store.set('pps.renderScale', '0.75'); store.set('pps.fig.cap', '0');
-  vm.runInNewContext(code, { localStorage, document: { documentElement: el }, matchMedia: () => ({ matches: false }) });
+  vm.runInNewContext(code, { localStorage, location: { pathname: '/' }, document: { documentElement: el }, matchMedia: () => ({ matches: false }) });
   assert.equal(store.get('pps.renderScale'), '0.75');
   assert.equal(store.get('pps.fig.cap'), '0');
 });

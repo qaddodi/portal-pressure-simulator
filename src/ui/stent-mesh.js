@@ -20,6 +20,11 @@ const step01 = (x) => { const t = Math.min(1, Math.max(0, x)); return t * t * (3
 export const graftAlpha = (lam) => 0.86 * (0.1 + 0.9 * step01((lam - 0.45) / 0.45));
 /** The light levels the graft is cut at; each fill covers where the light is at least its level. */
 export const GRAFT_LEVELS = [0.45, 0.55, 0.65, 0.75, 0.84];
+/** The graft's far-end fade: its length in the mocks' units (a twelfth of the half-width; 24 is two half-widths), the number of overlapping fills it is built of, and its profile. */
+export const GRAFT_FADE_U = 24;
+export const GRAFT_FADE_STEPS = 20;
+/** The share of the graft's opacity left in the m-th stretch of the fade (m = 0 .. GRAFT_FADE_STEPS + 1): 1 before the fade, 0 at its very end, a smooth step between. */
+export const graftFade = (m) => 1 - step01(m / (GRAFT_FADE_STEPS + 1));
 const RING_STEPS = 40;   // (points per half ring: about 16 per crown, so a crown is a round turn at any zoom, never a corner; 18 drew them as kinks, 13 Nov 2026)
 
 /**
@@ -93,23 +98,42 @@ export function stentLookD(f, A, bare = A, k = 1) {
     for (let i = 0; i <= n; i++) { const v = Math.sin(t0 + (t1 - t0) * i / n); o.push(f(at(v), v)); }
     return o;
   };
+  // The graft's far end fades out (Mohammad, 16 Nov 2026: "fade the cover so it doesn't have this sharp kinda edge"): over its last GRAFT_FADE_U units its transmittance falls
+  // smoothly to clear, so it thins away where the stent leaves the tract instead of stopping in a hard cut. The wires are untouched. Every fill below is one of a staircase of
+  // prefix fills (all from the band, the m-th ending at e_m, the last at the graft's end): where the fills laid over one another stop one by one, the opacity steps down, finely
+  // enough (GRAFT_FADE_STEPS) that the steps are never seen, and every fill's start edge lies on the band's, so there is no seam. In log transmittance the fills add, so the
+  // light levels (lit side more white) and the fade multiply: where the m-th stretch of the fade lies in light level j the cover's opacity is graftAlpha(level) x graftFade(m),
+  // L(m, j) = -ln(1 - that) its log transmittance, and fill (j, m) is the second difference of L, so the fills over any point add up to exactly that.
+  const fadeL = Math.min(GRAFT_FADE_U * u, 0.4 * (s1 - SB)), eFade0 = s1 - fadeL, K = GRAFT_FADE_STEPS;
   const levels = [0, ...GRAFT_LEVELS];
-  let below = 0;   // (the opacity the fills under this one already give)
+  const wants = levels.map((lvl, j) => graftAlpha(j === 0 ? 0 : (lvl + (levels[j + 1] ?? 1)) / 2));
+  const Lg = (j, m) => (j < 0 ? 0 : -Math.log(1 - wants[j] * graftFade(m)));   // (the log transmittance of level j in the m-th stretch of the fade)
   for (let j = 0; j < levels.length; j++) {
-    const lvl = levels[j], next = levels[j + 1] ?? 1, want = graftAlpha(j === 0 ? 0 : (lvl + next) / 2);
-    const op = Math.max(0, 1 - (1 - want) / (1 - below)); below = want;
-    if (!(op > 0.004) || sMax <= SB) continue;
-    const hiE = [], loE = [], sp0 = edgeOf(lvl, SB), start = [];
+    const lvl = levels[j];
+    if (sMax <= SB) continue;
+    const grid = [], sp0 = edgeOf(lvl, SB), start = [];
     if (sp0) start.push(...arcAt(sp0[0], sp0[1], startAt));
     for (let a = Math.min(sMax, SB + BOW); ; a = Math.min(sMax, a + step)) {
       const sp = edgeOf(lvl, a);
-      if (sp) { hiE.push(f(a, sp[1])); loE.push(f(a, sp[0])); }
+      if (sp) grid.push([a, f(a, sp[1]), f(a, sp[0])]);
       if (a >= sMax) break;
     }
-    if (hiE.length < 2) continue;
-    const spEnd = edgeOf(lvl, sMax), cap = [];
-    if (spEnd) cap.push(...arcAt(spEnd[1], spEnd[0], (v) => Math.max(sMax, endAt(v))));
-    out.graft.push(['M' + [...start, ...hiE, ...cap, ...loE.reverse()].map(P).join(' L') + ' Z', +op.toFixed(3)]);
+    if (grid.length < 2) continue;
+    for (let m = 0; m <= K; m++) {
+      const op = 1 - Math.exp(-(Lg(j, m) - Lg(j - 1, m) - Lg(j, m + 1) + Lg(j - 1, m + 1)));
+      if (!(op > 0.0003)) continue;
+      const em = m === K ? s1 : eFade0 + fadeL * m / K, ae = Math.min(em, sMax);
+      if (ae <= SB + BOW) continue;
+      const hiE = [], loE = [];
+      for (const [a, hi, lo] of grid) { if (a > ae - 1e-6) break; hiE.push(hi); loE.push(lo); }
+      const spE = edgeOf(lvl, ae);
+      if (!spE) continue;
+      let cap;
+      if (ae >= sMax) cap = arcAt(spE[1], spE[0], (v) => Math.max(sMax, endAt(v)));   // the graft's own clean end (or the unrolling front)
+      else cap = [f(ae, spE[1]), f(ae, spE[0])];   // a step of the fade: straight across
+      if (!hiE.length) continue;
+      out.graft.push(['M' + [...start, ...hiE, ...cap, ...loE.reverse()].map(P).join(' L') + ' Z', +op.toFixed(4)]);
+    }
   }
   // the gold band where the graft starts (bowed with the cylinder), and the gold tab near the far end
   if (e >= SB) {
@@ -119,5 +143,54 @@ export function stentLookD(f, A, bare = A, k = 1) {
   }
   const ts = sLast - Pc * 0.55;
   if (ts + 3.4 * u <= e) out.tab = `M${P(f(ts - 3.4 * u, Math.sin(0.32)))} L${P(f(ts + 3.4 * u, Math.sin(0.32)))}`;
+  return out;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// The stent in a CUT view (Mohammad, 17 Nov 2026, from the mock stent-tiles-three-ways.html: "the stent itself in the side view doesn't cover the lumen because it's a
+// cut view and we only see the outside of the stent"). The tube is cut along its axis and the front half taken away, so what is left to see is the wall on each side:
+// a thin cover band hugging the lumen over the covered stretch, the rings as a zig-zag running along each wall (crowns touching in the bare stretch's open cells), a gold
+// mark where the cover starts. Nothing is drawn across the lumen, so its colour (velocity or pressure) and a narrowing of it (an end stenosis, a waist) show whole.
+// The wall follows the lumen's edge, so a narrowing pinches the stent exactly as it pinches the lumen. Pure path data, like stentLookD, with the same piece names so the
+// figure's looks serve both (the pieces a cut view has no use for are '').
+
+/**
+ * f(a, v): the lumen's edge at arc length a along the stent, v = +1 on one wall, -1 on the other (the same frame stentLookD takes: only its two edges are read).
+ * A: the stent's length; bare: the open stretch from the start (A or more: all bare); opts: t the wall's thickness, step the zig-zag's period (both in the
+ * frame's units), ampB / ampC how far the bare and covered rings reach in from their wall.
+ * Returns { wall, backBare, backCov, frontBare, frontCov, glint, band, tab, graft: [] } (path data; '' where there is none): wall is the cover's two bands (filled), the
+ * rest are strokes.
+ */
+export function stentCutD(f, A, bare = A, opts = {}) {
+  const out = { wall: '', backBare: '', backCov: '', frontBare: '', frontCov: '', glint: '', band: '', tab: '', graft: [] };
+  if (!(A > 0.5)) return out;
+  const t = opts.t > 0 ? opts.t : 1.6, step = Math.max(2, opts.step > 0 ? opts.step : 6), ampB = opts.ampB ?? 3, ampC = opts.ampC ?? 2;
+  const covered = bare > 0.5 && bare < A - 2 * step, SB = covered ? bare : A;
+  const P = (q) => `${q[0].toFixed(1)} ${q[1].toFixed(1)}`;
+  // a point `off` outside the lumen's edge on wall v (outside: away from the other wall)
+  const at = (a, v, off) => {
+    const p = f(a, v), q = f(a, -v), dx = p[0] - q[0], dy = p[1] - q[1], l = Math.hypot(dx, dy) || 1;
+    return [p[0] + (dx / l) * off, p[1] + (dy / l) * off];
+  };
+  // the open cells of the bare stretch: two zig-zags a half period apart along each wall, so the crowns touch and close the cells
+  const zig = (a0, a1, v, off, amp, phase) => {
+    let d = '', i = phase;
+    for (let a = a0; a <= a1 + 1e-6; a += step / 2) d += (d ? ' L' : 'M') + P(at(Math.min(a, A), v, off - ((i++ & 1) ? amp : 0)));
+    return d + ' ';
+  };
+  for (const v of [-1, 1]) {
+    for (const ph of [0, 1]) out.frontBare += zig(0, SB, v, 0.4, ampB, ph);
+    if (covered) out.frontCov += zig(SB, A, v, t, ampC, 0);
+  }
+  if (!covered) return out;
+  // the cover: a band of thickness t outside each wall's lumen edge, from where it starts to the stent's end (sampled finely: an abrupt pinch stays abrupt)
+  const n = Math.max(24, Math.min(400, Math.round((A - SB) / 1.5)));
+  for (const v of [-1, 1]) {
+    const inner = [], outer = [];
+    for (let i = 0; i <= n; i++) { const a = SB + ((A - SB) * i) / n; inner.push(P(at(a, v, 0))); outer.push(P(at(a, v, t))); }
+    out.wall += 'M' + inner.join(' L') + ' L' + outer.reverse().join(' L') + ' Z ';
+  }
+  // the gold mark where the cover starts: a short bar across each wall
+  for (const v of [-1, 1]) out.band += `M${P(at(SB, v, -t))} L${P(at(SB, v, 2.2 * t))} `;
   return out;
 }

@@ -8,13 +8,14 @@ import { DOPPLER } from '../src/ui/decks/doppler.js';
 import { createCore } from '../src/worker-core.js';
 import { PRESETS, defaultParams } from '../src/engine/portal/scenario.js';
 import { CIRCUIT } from '../src/ui/decks/circuit.js';
+import { presenterSource } from './split-src.js';
 
 test('the meal slide is a bedside time-lapse with its meal ramp', () => {
   const s = DOPPLER.slides.find((x) => x.id === 'meal');
   assert.equal(s.lapse.clock, 'seconds');
   assert.equal(s.tool.kind, 'doppler');
   assert.deepEqual(s.ramp.meal, [0, 1]);
-  const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const pres = presenterSource();
   assert.match(pres, /ramp: s\.ramp \|\| null, bedside: bedside\(s\)/);
   assert.match(pres, /type: 'lapseFast', ms: 600/);
 });

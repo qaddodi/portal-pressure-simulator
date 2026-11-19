@@ -14,7 +14,7 @@ import { store } from './store.js';
 import { clamp } from './util.js';
 
 export function createDiaphragm(st, live) {
-  const { EI, NI, abdTo, caud, diaCut, drawAscites, findingHidden, gBackdrop, hidePlate, liveOn, liverTint, lv, morphLiver, normalSync, organEls, organG, platePoke, putA, recruitFrac, spleenMv, syncOrganMasks, syncSelFluid, syncSelLine } = st;
+  const { EI, NI, caud, diaCut, drawAscites, findingHidden, gBackdrop, hidePlate, liveOn, liverTint, lv, morphLiver, normalSync, organEls, organG, platePoke, putA, recruitFrac, spleenMv, syncOrganMasks, syncSelFluid, syncSelLine } = st;
   // The diaphragm is drawn around the organs it covers, the way a plate shows it: one smooth dome a
   // little above the liver, the fundus and the spleen, bridging the dips between them, and down the
   // flanks on both sides (where diaMask fades it out). It runs along the top of their current outlines,
@@ -119,7 +119,6 @@ export function createDiaphragm(st, live) {
   // The congestion's shades stay hidden at no opacity (the glossy one aside), and all hide in the figure view.
   function lvShade(el, gloss, imaging) { const v = imaging || (el !== gloss && !(+el.style.opacity > 0)) ? 'hidden' : ''; if (el.style.visibility !== v) el.style.visibility = v; }
   function updateOrgans(f, p, t) {
-    const k = 1 - t;
     const imaging = live.isImaging();
     const [cT, gT, tT] = easeLiver(f, p, Math.min(0.1, (performance.now() - live.lvAt) / 1000));
     // The congestion tint eases here, not by a CSS transition: the plate raster reads the value
@@ -163,12 +162,11 @@ export function createDiaphragm(st, live) {
       caud.stented(!!p.dips?.on);
       gpuProbe.time(null, 'organs: caudate', orgCaudate);
     }
-    // The caput medusae: one value for everything that belongs to it (the skin's tint around the navel, the navel's ring, the epigastric
-    // veins and the paraumbilical vein, stage-frame edgeVisible and stage-tubes), from the vein's recruitment (0 closed, 1 as wide as it
-    // grows): it starts at 15% and is whole at 45%, and a finding the view keeps hidden takes all of it away. Held in steps of 5%, so a
-    // wobble in the model never moves it; the tint then eases to each new step (stage.js abdTo).
+    // The caput medusae: one value for everything that belongs to it (the navel's ring, the epigastric veins and the paraumbilical vein,
+    // stage-frame edgeVisible and stage-tubes), from the vein's recruitment (0 closed, 1 as wide as it grows): it starts at 15% and is
+    // whole at 45%, and a finding the view keeps hidden takes all of it away. Held in steps of 5%, so a wobble in the model never moves it.
+    // (Nothing is tinted around the navel: the veins stand on the bare figure, no skin patch, glow or halo behind them.)
     caputK = stepHeld(caputK, findingHidden('coll') ? 0 : clamp((recruitFrac('C3', f) - 0.15) / 0.3, 0, 1), 0.05);
-    abdTo((caputK * 0.9 * k).toFixed(2));
     // The navel is a landmark only for the paraumbilical vein that runs to it: with that vein closed, it was a lone ring
     // in the empty abdomen beside the gut (sweep batches 02–04). It fades in as the vein opens, as the caput's veins do, in
     // quarter steps (the organs' raster is drawn again at each step: plateStateKey).

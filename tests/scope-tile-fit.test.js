@@ -3,8 +3,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { presenterSource } from './split-src.js';
 
-const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const src = presenterSource();
 
 test('the tiles fit skips a picture tile before it reads the number and unit', () => {
   const fit = src.slice(src.indexOf('function fit() {'), src.indexOf('function fit() {') + 900);

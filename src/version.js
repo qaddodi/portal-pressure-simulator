@@ -1,11 +1,9 @@
-// When the app and its model content were last updated, shown as a date (no version number is shown
-// anywhere; package.json keeps one only for SCORM exports). A class taught on content of one date
-// behaves the same all term: the model, presets and decks only change when the content date does.
-// A no-break space keeps month and year on one line.
+// When the app was last updated, shown as a month and year (no version number; About also names the build, RELEASE below). The model, presets and decks change with
+// the app, so the date is the only promise the About sheet makes (19 Nov 2026, bible ENG-8: it used to promise content fixed to October). A
+// no-break space keeps month and year on one line.
 export const UPDATED = 'November\u00a02026';
 // Which build this is: the release tag and short commit, written by scripts/build.mjs (define). The unbuilt source site says "source".
 export const RELEASE = typeof __PPS_RELEASE__ === 'undefined' ? 'source' : __PPS_RELEASE__; // eslint-disable-line no-undef
-export const CONTENT_UPDATED = 'October\u00a02026';
 
 // Creator, and the page that lists all of their teaching tools.
 export const AUTHOR = 'Mohammad Almeqdadi, MD';
@@ -22,7 +20,7 @@ export const VALIDATION = [
   'Right heart failure: high RAP and WHVP, normal HVPG, pulsatile portal vein, protein-rich ascites',
   'Splenic vein thrombosis: normal portal pressure, high splenic vein pressure, flow through the short gastric veins',
   'Splenorenal shunt in decompensated cirrhosis: the splenic vein reverses',
-  'End-stage cirrhosis with arterioportal shunting: hepatofugal portal flow',
+  'Cirrhosis with arterioportal shunting: hepatofugal portal flow',
   'TIPS 10 mm at HVPG ≈20 mmHg: PPG <12 mmHg, shunt fraction and hepatic perfusion change as expected',
   'Model calibration: no variceal rupture at an HVPG <12 mmHg (a simplification: real varices can bleed <12)',
   'Hemorrhage lowers portal pressure; over-transfusion raises it above the pre-bleed level',

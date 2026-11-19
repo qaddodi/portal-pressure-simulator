@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss, presenterSource } from './split-src.js';
 
 // An equation on a teaching card stays in proportion to the words beside it, on phones and upright iPad (the stack layout).
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, sel, body]) => ({ sel: sel.trim(), body }));
 const tokens = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
 const px = (name, vmin) => {   // --t-<name>: clamp(lo, calc(lo + (100vmin - 390px) * k), hi) at a given short side
@@ -25,7 +26,7 @@ test('on the stacked layout the equation is about the same visible size as the s
 test('an equation wider than its box is set smaller (--eq-k), on every layout, never clipped', () => {
   const eq = rules.find((r) => r.sel === '.pz-eq math');
   assert.match(eq.body, /font-size:\s*calc\(var\(--s-val\)\s*\*\s*var\(--eq-k,\s*1\)\)/);
-  const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const src = presenterSource();
   assert.match(src, /function fitEquations[\s\S]*?scrollWidth[\s\S]*?--eq-k/);
   assert.match(src, /fitEquations\(el\);/, 'fitCards fits the equations');
 });

@@ -5,6 +5,7 @@ import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss, lobuleSource } from './split-src.js';
 
 const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
 const main = src('main.js');
@@ -43,23 +44,24 @@ test('the scales, the stored value and the listeners', async () => {
 test('the anatomy canvas, the lobule and the sinusoid read it; the instruments and labels do not', () => {
   const stage = stageSource().replace(/\blive\./g, '');   // (the stage's shared lets read live.x in a part; judged here by their names)
   assert.match(stage, /(?:live\.)?vdpr = base \* figShare\(r\.width, r\.height, base\);/);
-  assert.match(stage, /let k = \(renderSetting\(\) === 'auto' \? (?:live\.)?(?:live\.)?autoK : renderScale\(\)\) \* \((?:live\.)?(?:live\.)?moveLow \? figOpt\('move'\) : 1\) \* (?:live\.)?(?:live\.)?adaptK;/);
+  assert.match(stage, /let k = \(renderSetting\(\) === 'auto' \? (?:live\.)?autoK : renderScale\(\)\) \* \((?:live\.)?moveLow \? figOpt\('move'\) : 1\) \* (?:live\.)?adaptK;/);
   assert.match(stage, /onRenderScale\(\(\) => \{ (?:live\.)?autoK = autoNow\(\); (?:live\.)?moveLow = false; (?:live\.)?adaptK = 1; moveGaps\.length = 0; easeRes\(\); (?:live\.)?veinsDirty = true; (?:live\.)?forceDraw = true; (?:live\.)?stageWake\(\); settleRes\(\); \}\)/);
-  assert.equal(src('lobule-zoom.js').split('* lzScale()').length - 1, 6);   // (a sixth reader joined the five below; draw; paintAhead reads draw's own; spareMake; rimOnGPU, the dive's rim drawn on the GPU; buildWideGL, the wide copy on the GPU. The 2D ones went 1 Nov)
-  assert.equal(src('sinusoid-view.js').split('* svScale()').length - 1, 2);
+  // (The lobule's six readers: draw; paintAhead reads draw's own; spareMake; rimOnGPU, the dive's rim drawn on the GPU; buildWideGL, the wide copy on the GPU; the card zoom's sharpen. Each reads
+  // lzDensity, the scale held to the figure's pixel budget; none reads the scale bare, or the lobule would be drawn at a density the anatomy's canvas is not (14 Nov 2026).)
+  assert.equal(lobuleSource().split('lzDensity(').length - 1, 6);
+  assert.ok(!/\blzK\b[^;\n]*devicePixelRatio|devicePixelRatio[^;\n]*\blzK\b/.test(lobuleSource().replace(/\/\/.*$/gm, '').replace(/const lzDensity[^\n]*/, '')), 'the scale is read only through lzDensity');
+  assert.equal(src('sinusoid-view.js').split('svDensity(').length - 1, 2);
   for (const f of ['util.js', 'label-gl.js', 'glass-gl.js', 'instruments.js']) assert.ok(!src(f).includes('renderScale'), f);
 });
 
 test('the lobule and the sinusoid take a change up while hidden and as they open, and ease one made while they show', () => {
-  const lz = src('lobule-zoom.js'), sv = src('sinusoid-view.js');
-  assert.match(lz, /const lzScale = \(\) => lzK;/);
-  assert.match(lz, /if \(fade <= 0\) \{ lzK = k; lzWant = null; return; \}/, 'a change made while hidden is taken up at once');
-  assert.match(lz, /lzWant = k === lzK \? null : k;/, 'one made while it shows waits for resSwap (none when the share is the same)');
-  assert.match(lz, /if \(fade > 0 && was === 0\) \{ lzK = renderScale\(\); lzWant = null; \}/, 'and as it opens: never a share from before');
-  assert.match(sv, /const svScale = \(\) => svK;/);
-  assert.match(sv, /if \(!\(shown > 0\)\) \{ svK = k; svWant = null; return; \}/);
-  assert.match(sv, /svWant = k === svK \? null : k;/);
-  assert.match(sv, /if \(opacity > 0 && was <= 0\) \{\n\s*svK = renderScale\(\); svWant = null;/);
+  const lz = lobuleSource(), sv = src('sinusoid-view.js');
+  assert.match(lz, /if \(fade <= 0\) \{ lzK = k; lzCap = figOpt\('cap'\); lzWant = null; return; \}/, 'a change made while hidden is taken up at once');
+  assert.match(lz, /lzWant = k === lzK && figOpt\('cap'\) === lzCap \? null : k;/, 'one made while it shows (the scale or the size cap) waits for resSwap (none when both are the same)');
+  assert.match(lz, /if \(fade > 0 && was === 0\) \{ lzK = renderScale\(\); lzCap = figOpt\('cap'\); lzWant = null; \}/, 'and as it opens: never a share from before');
+  assert.match(sv, /if \(!\(shown > 0\)\) \{ svK = k; svCap = figOpt\('cap'\); svWant = null; return; \}/);
+  assert.match(sv, /svWant = k === svK && figOpt\('cap'\) === svCap \? null : k;/);
+  assert.match(sv, /if \(opacity > 0 && was <= 0\) \{\n\s*svK = renderScale\(\); svCap = figOpt\('cap'\); svWant = null;/);
 });
 
 test('Auto: 1/zoom past the home framing, in steps down to 10%, changed only once the view settles', () => {
@@ -80,7 +82,7 @@ test('Auto: 1/zoom past the home framing, in steps down to 10%, changed only onc
   assert.match(fn, /(?:live\.)?vtGliding/);
   assert.match(fn, /if \(k === (?:live\.)?autoK && !(?:live\.)?moveLow && a === (?:live\.)?adaptK\) return;/, 'no reallocation unless the share changes');
   assert.match(fn, /(?:live\.)?autoK = k; (?:live\.)?moveLow = false; easeRes\(\);/, 'and that change eases');
-  assert.match(stage, /settleRes\(\); {3}\/\/ \(the view moved/);
+  assert.match(stage, /framePart\('draw: resolution', settleRes\); {3}\/\/ \(the view moved/);
 });
 
 test('every resize for a share goes through easeRes; the copy is laid over first, then the canvas is resized', () => {
@@ -89,7 +91,7 @@ test('every resize for a share goes through easeRes; the copy is laid over first
   const at = fn.indexOf('fadeOver(vCanvas, resFollow, veinsPresent, veins && !veins.lost ? veins.top : null, fadeBox)');
   assert.ok(at >= 0 && at < fn.indexOf('resizeCanvas()'), 'copied before the resize clears it, the kept picture put on the canvas for each read');
   assert.ok(!/moveLow = true; resizeCanvas\(\)/.test(stage) && !/autoK = k; moveLow = false; resizeCanvas\(\)/.test(stage), 'no share change resizes without the fade');
-  assert.match(src('../../styles/app.css'), /\.stage-view\.in-lobule \.res-fade/);
+  assert.match(appCss(), /\.stage-view\.in-lobule \.res-fade/);
 });
 
 test('resFollow: the old picture moves from the transform it was drawn in to the one drawn now', () => {
@@ -113,12 +115,12 @@ test('res-fade: the opacity eases 1 → 0 with no step at either end', async () 
   assert.ok(!/style\.opacity/.test(rf), 'the canvas is never hidden: the mix is made in its own presents');
 });
 
-test('the further options: all off by default but the per-device megapixel budget (1.5, or 0.5 on a phone), stored, and each one heard', async () => {
+test('the further options: all off by default but the per-device megapixel budget (1.5 on every device), stored, and each one heard', async () => {
   const store = new Map();
   globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
   const f = await import(`../src/ui/frame.js?t=opts${Date.now()}`);
   assert.deepEqual(f.FIG_OPTS, { move: [1, 0.75, 0.5, 0.25], glow: [1, 0.5, 0.25], cap: [8, 0, 0.25, 0.5, 1, 1.5, 2, 3, 4, 6], adapt: [false, true], floor: [0.1, 0.25, 0.5] });
-  for (const [k, v] of Object.entries({ move: 1, glow: 1, cap: 1.5, adapt: false, floor: 0.1 })) assert.equal(f.figOpt(k), v, `${k} at its default (a Mac or an iPad: 1.5 MP)`);
+  for (const [k, v] of Object.entries({ move: 1, glow: 1, cap: 1.5, adapt: false, floor: 0.1 })) assert.equal(f.figOpt(k), v, `${k} at its default (1.5 MP)`);
   assert.equal(f.figDefault('cap'), 1.5); assert.equal(f.figDefault('move'), 1);
   let heard = 0;
   f.onRenderScale(() => heard++);
@@ -277,7 +279,7 @@ test('Auto keeps its step near an edge: no flip between 75% and 50% when the zoo
   for (const z of [0.8, 1, 1.5, 2, 3, 4, 7, 12]) assert.equal(f.autoSticky(z, 0), f.autoScale(z), `from nothing (a new setting): the table's own step at ${z}×`);
   // (The table and its edges unchanged: 75% from 1.34×.)
   assert.equal(f.autoScale(1.34), 0.75);
-  assert.match(stage, /const k = autoNow\((?:live\.)?(?:live\.)?autoK\), a = (?:live\.)?(?:live\.)?adaptK;/);
+  assert.match(stage, /const k = autoNow\((?:live\.)?autoK\), a = (?:live\.)?adaptK;/);
 });
 
 // (Mohammad, 30 Oct: "no resolution drop unless I choose to".)
@@ -302,7 +304,7 @@ test('Full with every option off and the 8-megapixel budget chosen: the canvas a
   assert.match(stage, /if \(renderSetting\(\) !== 'auto' && (?:live\.)?autoK === 1 && !(?:live\.)?moveLow && !figOpt\('adapt'\) && (?:live\.)?adaptK === 1\) return;/);
 });
 
-test('the figure size default is per device: 0.5 MP on a phone, 1.5 MP on a Mac and an iPad (12 Nov 2026)', async () => {
+test('the figure size default is 1.5 MP on every device, an iPhone too (16 Nov 2026: the phone\'s old Sharper is its Standard)', async () => {
   const store = new Map();
   globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
   const was = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
@@ -312,17 +314,21 @@ test('the figure size default is per device: 0.5 MP on a phone, 1.5 MP on a Mac 
   };
   try {
     const phone = await as('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148', 5, 'p');
-    assert.equal(phone.figOpt('cap'), 0.5); assert.equal(phone.figDefault('cap'), 0.5); assert.equal(phone.isPhone(), true);
+    assert.equal(phone.figOpt('cap'), 1.5); assert.equal(phone.figDefault('cap'), 1.5);
+    const { figDetailWords, FIG_STEPS } = await import('../src/ui/fig-detail-words.js');
+    assert.equal(figDetailWords(FIG_STEPS, phone.figDefault('cap'))[FIG_STEPS.indexOf(1.5)], 'Standard', 'the phone\'s Standard is 1.5 MP, the step it called Sharper before');
     const pad = await as('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15', 5, 'i');
     assert.equal(pad.figOpt('cap'), 1.5);
     const mac = await as('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15', 0, 'm');
-    assert.equal(mac.figOpt('cap'), 1.5); assert.equal(mac.isPhone(), false);
+    assert.equal(mac.figOpt('cap'), 1.5); assert.equal(mac.figDefault('cap'), phone.figDefault('cap'), 'one default for every device');
+    assert.ok(!('isPhone' in mac), 'no per-device branch left in the cap default');
     // a stored choice wins on any device, and the phone's own default stores nothing
     store.set('pps.fig.cap', '4');
     assert.equal((await as('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Mobile/15E148', 5, 'c')).figOpt('cap'), 4);
     store.clear();
-    phone.setFigOpt('cap', 2); assert.equal(store.get('pps.fig.cap'), '2', 'a choice other than the phone default is stored');
-    phone.setFigOpt('cap', 0.5); assert.ok(!store.has('pps.fig.cap'), 'the phone default stores nothing');
+    phone.setFigOpt('cap', 2); assert.equal(store.get('pps.fig.cap'), '2', 'a choice other than the default is stored');
+    phone.setFigOpt('cap', 1.5); assert.ok(!store.has('pps.fig.cap'), 'the default stores nothing');
+    phone.setFigOpt('cap', 0.5); assert.equal(store.get('pps.fig.cap'), '0.5', 'the old phone default is now a choice (Softer) and is kept');
   } finally {
     if (was) Object.defineProperty(globalThis, 'navigator', was); else delete globalThis.navigator;
     delete globalThis.localStorage;

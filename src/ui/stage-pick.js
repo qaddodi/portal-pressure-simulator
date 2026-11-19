@@ -19,16 +19,18 @@ export function createPick(st, live) {
     if (live.lobuleOn) return out;
     for (const x of EV) if (x.vis && !x.noHit) out.push(x.e.id);
     if (live.morph < 0.5) for (const [id] of ORGAN_KEYS) out.push('organ:' + id);
+    else out.push('node:RA');   // (the circuit has no heart to pick: its right atrium is the last stop of the walk, a station that opens the heart's card, fig-stations.js)
     return out;
   }
   const figSay = (msg) => { const el = document.getElementById('live'); if (el && msg) el.textContent = msg; };
   function figWords(item) {
     if (item.startsWith('organ:')) return `${ORGAN_NAME.get(item.slice(6))}. Press Enter for its card.`;
+    if (item === 'node:RA') return 'Right atrium. Press Enter for its card.';
     const e = EI[item] != null ? EDGES[EI[item]] : E[item]?.e;
     if (!e) return '';
     if (!live.F || EI[item] == null) return `${e.label || item}. Press Enter for actions.`;
-    const q = live.F.Q[EI[item]];
-    return `${e.label}: ${fmt(live.F.P[NI[e.from]], 1)} to ${fmt(live.F.P[NI[e.to]], 1)} millimeters of mercury, flow ${fmt(q * 0.06, 2)} liters per minute${E[item].rev ? ', reversed' : ''}. Press Enter for actions.`;
+    const F = live.F, P = F.Pf || F.P, q = (F.Qf || F.Q)[EI[item]];   // (the shown readings, as the figure and the cards read them)
+    return `${e.label}: ${fmt(P[NI[e.from]], 1)} to ${fmt(P[NI[e.to]], 1)} millimeters of mercury, flow ${fmt(q * 0.06, 2)} liters per minute${E[item].rev ? ', reversed' : ''}. Press Enter for actions.`;
   }
   function figShow(item, say = true) {
     const was = figKeys.cur;
@@ -38,8 +40,9 @@ export function createPick(st, live) {
       const org = item.slice(6), sel = store.get().selection;
       setGlowSrc('key', []);
       setOrganHover(sel?.type === 'organ' && sel.id === org ? null : org);
-    } else setGlowSrc('key', item ? [{ id: item, col: 'var(--accent)', amt: 1.8, wide: 1.25, top: true, dur: D_FLIP }] : []);
-    if (item && say) figSay(figWords(item));
+    } else if (item === 'node:RA') setGlowSrc('key', []);   // (a station of the circuit with no vessel of its own to light)
+    else setGlowSrc('key', item ? [{ id: item, col: 'var(--accent)', amt: 1.8, wide: 1.25, top: true, dur: D_FLIP }] : []);
+    if (item && say) figSay((typeof say === 'string' ? say + ' ' : '') + figWords(item));   // (say: a string leads the words, the walk's "Station 3 of 7, portal vein.")
   }
   // (Which way Tab came in: a Tab pressed anywhere just before the figure took focus.)
   document.addEventListener('keydown', (ev) => { if (ev.key === 'Tab') { figKeys.tabAt = performance.now(); figKeys.back = ev.shiftKey; } }, true);

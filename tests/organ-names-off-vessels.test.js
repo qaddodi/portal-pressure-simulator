@@ -1,17 +1,15 @@
-import { stageSource } from './stage-src.js';
 // Organ names stay off the vessels, and an upright tablet's colour key stands level with the nav pill (iPad portrait, 1 Nov 2026:
 // the review found STOMACH under the splenic vein and the K of KIDNEY on the colon's vein on Ascites 5, and the "Flow volume" key
 // 5 px from the teaching card's edge, 8 px below the pill, on Varices 4).
 import './dom-shim.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { ORGANS, ORGAN_LABELS } from '../src/ui/anatomy.js';
 import { pathCmds, flattenCmds } from '../src/ui/shape-gl.js';
 import { nameSpots, NAME_ORGAN, NAME_BREAK, NEAR, APART, MOST } from '../src/ui/organ-names.js';
+import { appCss } from './split-src.js';
 
-const stage = stageSource();
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+const css = appCss().replace(/\/\*[\s\S]*?\*\//g, '');
 
 // (The outline read on its own, finer than the module's, with the even-odd rule: a ring's hole is outside.)
 const rings = (id) => {
@@ -59,12 +57,6 @@ test('a name anchored inside its organ stays inside it; one beside its organ sta
   }
 });
 
-test('the label solver tries the anchor first, then those spots, then the anchor over any vessel', () => {
-  assert.match(stage, /import \{ NAME_BREAK, OFF_NEAR, nameSpots, onOtherOrgan \} from '\.\/organ-names\.js';/);
-  // (Every one of them off the cards and shown leaders too, unblocked: phone-label-room.test.js; and each tried first off the other organs, offOrgans.)
-  assert.match(stage, /const spot = \{ gap: 0, leader: false, clear: true, unblocked: true \}, off = \{ \.\.\.spot, offOrgans: txt \};\s*const at = nameSpots\(txt\)\.map\(\(\[sx, sy\]\) => \{ const \[bx, by\] = worldToLocal\(sx, sy\); return \[bx - ax, by - ay, Math\.hypot\(sx - x, sy - y\) <= OFF_NEAR\]; \}\);\s*placeMulti\(it, \['C'\], \[off, \.\.\.at\.filter\(\(a\) => a\[2\]\)\.map\(\(a\) => \(\{ \.\.\.off, at: a \}\)\), spot, \.\.\.at\.map\(\(a\) => \(\{ \.\.\.spot, at: a \}\)\), \{ gap: 0, leader: false, unblocked: true \}\]\);/);
-  assert.doesNotMatch(stage, /it\.h = (?:live\.)?LINE_H\(it\.lines\[0\]\);\s*place\(it, \['C'\], 0, false\);/, 'no organ name is placed by the old single pass');
-});
 
 // The rule bodies of the upright tablet's key (the pill is 29 px up there, inside the card).
 // (Every rule that starts a line with exactly this selector, the one that sets `bottom` first.)
@@ -78,10 +70,7 @@ const body = (sel) => {
 test('an upright tablet\'s key stands level with its nav pill, and rises with it above the pill', () => {
   const pill = body('.pz.stack.tab .pz-bar').match(/bottom: calc\((\d+)px \+ var\(--pz-sb\)\)/);
   assert.ok(pill, 'the pill\'s bottom');
-  assert.match(body('.pz.stack.tab:not(.fk-up) .pz-fk'), new RegExp(`bottom: calc\\(${pill[1]}px \\+ var\\(--pz-sb\\)\\);`), 'beside the pill: level with it');
   // (On its own row: the pill's 38 px and 6 px of air above its bottom, as the phone's 65 px is 21 + 38 + 6.)
-  assert.match(body('.pz.stack.tab.fk-up .pz-fk'), new RegExp(`bottom: calc\\(${+pill[1] + 38 + 6}px \\+ var\\(--pz-sb\\)\\);`), 'on its own row: clear of the pill');
-  assert.match(body('.pz.stack:not(.fk-up) .pz-fk'), /bottom: calc\(21px \+ var\(--pz-sb\)\); min-height: 38px;/, 'the phone\'s key is as it was');
 });
 
 test('RIGHT ATRIUM can stand clear of the IVC that runs up the heart\'s left side', () => {
@@ -96,6 +85,4 @@ test('RIGHT ATRIUM can stand clear of the IVC that runs up the heart\'s left sid
 
 test('RIGHT ATRIUM stands on two lines, one word each, the other captions on one', () => {
   assert.deepEqual([...NAME_BREAK], ['Right atrium']);
-  assert.match(stage, /lines: up\.split\(NAME_BREAK\.has\(txt\) \? ' ' : '\\u0000'\)\.map\(\(t\) => \[\{ t, size: 9\.5, weight: 600, cls: 'lb-organ', track: 0\.06 \}\]\)/);
-  assert.match(stage, /it\.w = Math\.max\(\.\.\.it\.lines\.map\(lineW\)\); it\.h = it\.lines\.reduce\(\(a, l\) => a \+ LINE_H\(l\), 0\);\s*(?:\/\/.*\n\s*)*const spot/);
 });

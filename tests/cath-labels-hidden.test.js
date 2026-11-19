@@ -5,9 +5,10 @@ import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const stage = stageSource();
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 
 const hidSrc = stage.match(/const cathHid = \(\) => [^\n]*\n/)?.[0];
 const cathHid = (env) => new Function(...Object.keys(env), `${hidSrc}return cathHid;`)(...Object.values(env))();

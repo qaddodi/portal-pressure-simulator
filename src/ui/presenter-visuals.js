@@ -1,11 +1,14 @@
 // The Presenter's visuals over the dimmed figure (scale, quadrant, walls) and its calculator worker, moved out of presenter.js (size budget).
 import { h, fmt, clamp } from './util.js';
 import { noteLoop } from './svg-gl.js';
-import { NO_ASC, TILE } from './table-marks.js';
+import { NO_ASC, TILE, atShown, numName } from './table-marks.js';
+import { SAAG_PORTAL, TP_HIGH } from '../engine/portal/ascites-cuts.js';
+import { hvpgRate, ppgRate } from '../engine/portal/pressure-cuts.js';
 import { restPass } from './rest-pass.js';
 import { EASE_ARRIVE, EASE_MOVE, cssCurve } from './ease.js';
 import { reduceMotionMQ as reduce } from './motion.js';
 import { frameFor } from './frame.js';
+import { makeCalc } from './calc-client.js';   // (the second engine: calc-client.js, shared with the Tests card's sweeps)
 
 const nextFrame = frameFor('presenter');
 
@@ -30,10 +33,13 @@ function scaleKey(sc, rows) {
   const cols = `grid-template-columns:${zones.map((z) => `minmax(0, ${z.b - z.a}fr)`).join(' ')}`;
   const pins = rows.filter((r) => r.f).sort((a, b) => a.f[sc.key] - b.f[sc.key]);
   // (each patient takes the colour of the zone it sits in)
-  const rate = (r) => (zones.find((z) => r.f[sc.key] < z.b) || zones[zones.length - 1]).c;
+  // (A gradient's dot by its own rating, pressure-cuts.js, at the decimal it prints: an HVPG of 5.0 is normal, amber only past it. A zone
+  // found by `< z.b` put 5.0 in the amber zone (full app review PC-16). Other readings by the deck's marks, as before.)
+  const GRAD = { hvpg: hvpgRate, eus: hvpgRate, ppg: ppgRate }[sc.key];
+  const rate = (r) => (GRAD ? GRAD(atShown(sc.key, r.f[sc.key])) : (zones.find((z) => r.f[sc.key] < z.b) || zones[zones.length - 1]).c);
   // A second reading or several under each patient (sub: a tile key or a list), pressures in whole mmHg.
   const SUBNAME = { hvpg: 'HVPG', plt: 'Platelets', ppg: 'PPG', pv: 'Portal vein', sin: 'Sinusoids', ra: 'Right atrium', ivc: 'IVC' };
-  const sub = (f) => [sc.sub || []].flat().filter((k) => f[k] != null).map((k) => `${SUBNAME[k] || TILE[k]?.t || k} ${fmt(f[k], dig(k))}${TILE[k]?.u ? ` ${TILE[k].u}` : ''}`);
+  const sub = (f) => [sc.sub || []].flat().filter((k) => f[k] != null).map((k) => `${SUBNAME[k] || numName(k) || k} ${fmt(f[k], dig(k))}${TILE[k]?.u ? ` ${TILE[k].u}` : ''}`);
   const box = h('div', { class: 'pz-visual pz-sk', role: 'img', 'aria-label': pins.map((r) => `${r.name} ${fmt(r.f[sc.key], 1)} ${u}`).join(', ') },
     // (the names and the rules sit in columns as wide as their zones, so a long one wraps inside its zone, never into the next)
     h('div', { class: 'pzk-names', 'aria-hidden': 'true', style: cols }, zones.map((z) => h('span', { 'data-rate': z.c }, z.t))),
@@ -76,8 +82,8 @@ function quadrantVisual(rows) {
   }
   const quads = QUADS.map((q) => { const rect = sv('rect', { 'data-look': 'card.quad.rect' }), n = sv('text', { class: 'pzq-n', 'data-look': 'card.quad.n', 'text-anchor': 'start' }, String(q.n)); return { q, rect, n, g: sv('g', { class: 'pzq-q', 'data-look': 'card.g', 'data-q': String(q.n) }, rect, n) }; });
   const cuts = [sv('line', { class: 'pzq-cut', 'data-look': 'card.quad.cut' }), sv('line', { class: 'pzq-cut', 'data-look': 'card.quad.cut' })], axes = [sv('line', { class: 'pzq-axis', 'data-look': 'card.quad.axis' }), sv('line', { class: 'pzq-axis', 'data-look': 'card.quad.axis' })];
-  const xt = [[0, '0'], [1.1, '1.1'], [2, '2'], [3, '3']].map(([v, t]) => ({ v, el: sv('text', { class: 'pzq-t' + (v === 1.1 ? ' on' : ''), 'data-look': 'card.quad.t', 'text-anchor': 'middle' }, t) }));
-  const yt = [[0, '0'], [2.5, '2.5'], [5, '5']].map(([v, t]) => ({ v, el: sv('text', { class: 'pzq-t' + (v === 2.5 ? ' on' : ''), 'data-look': 'card.quad.t', 'text-anchor': 'end' }, t) }));
+  const xt = [[0, '0'], [SAAG_PORTAL, String(SAAG_PORTAL)], [2, '2'], [3, '3']].map(([v, t]) => ({ v, el: sv('text', { class: 'pzq-t' + (v === SAAG_PORTAL ? ' on' : ''), 'data-look': 'card.quad.t', 'text-anchor': 'middle' }, t) }));
+  const yt = [[0, '0'], [TP_HIGH, String(TP_HIGH)], [5, '5']].map(([v, t]) => ({ v, el: sv('text', { class: 'pzq-t' + (v === TP_HIGH ? ' on' : ''), 'data-look': 'card.quad.t', 'text-anchor': 'end' }, t) }));
   const axX = sv('text', { class: 'pzq-ax', 'data-look': 'card.quad.ax', 'text-anchor': 'middle' }, 'SAAG, g/dL'), axY = sv('text', { class: 'pzq-ax', 'data-look': 'card.quad.ax', x: 0, y: 0, 'text-anchor': 'middle' }, 'Ascitic fluid protein, g/dL');
   const dots = pts.map((p, i) => {
     const circle = sv('circle', { 'data-look': 'card.quad.dot', r: 15 }), names = p.names.map((nm) => sv('text', { 'data-look': 'card.quad.name' }, nm));
@@ -101,7 +107,7 @@ function quadrantVisual(rows) {
     const H = B + 20 + t + 12 + 0.75 * a + 0.3 * a + 6;
     model.setAttribute('viewBox', `0 0 ${W} ${H.toFixed(1)}`);
     if (svg.style.aspectRatio !== `${W} / ${H.toFixed(1)}`) svg.style.aspectRatio = `${W} / ${H.toFixed(1)}`;
-    const xs = X(1.1), ys = Y(2.5), box = [[L, T, xs, ys], [xs, T, R, ys], [L, ys, xs, B], [xs, ys, R, B]];
+    const xs = X(SAAG_PORTAL), ys = Y(TP_HIGH), box = [[L, T, xs, ys], [xs, T, R, ys], [L, ys, xs, B], [xs, ys, R, B]];
     for (const { q, rect, n: el } of quads) {
       const [x0, y0, x1, y1] = box[(q.y ? 0 : 2) + q.x];
       at(rect, { x: x0, y: y0, width: x1 - x0, height: y1 - y0 });
@@ -187,58 +193,6 @@ function wallsVisual() {
       h('p', { class: 'pzw-c2' }, sin ? 'A pressure rise raises lymph flow at once' : 'A pressure rise filters little fluid'));
   };
   return h('div', { class: 'pz-visual pz-walls', role: 'img', 'aria-label': 'The intestinal capillary wall retains protein; the hepatic sinusoid lets it through' }, panel(false), panel(true));
-}
-
-// ── The off-screen engine ──────────────────────────
-// A second engine in its own worker (the main thread when workers are unavailable) computes the slides'
-// states, so the live figure keeps running while a presentation is prepared.
-function makeCalc() {
-  const pending = new Map();
-  let seq = 1, post = null, kill = () => {}, broken = false;
-  // Every waiting request settles with an error: a page left open across an update can no longer load the engine (its
-  // stamped files are gone from the cache and the server), and the presenter says so instead of waiting for ever.
-  const fail = (message) => { broken = true; for (const [reqId, p] of pending) p.done({ type: 'error', reqId, message }); pending.clear(); };
-  const onMsg = (m) => {
-    const p = pending.get(m.reqId);
-    if (!p) return;
-    if (m.type === 'seqStep') { p.step?.(m); return; }
-    pending.delete(m.reqId); p.done(m);
-  };
-  const ready = (async () => {
-    let w = null;
-    try {
-      w = new Worker(new URL('../worker.js', import.meta.url), { type: 'module' });
-      await new Promise((res, rej) => {
-        const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
-        w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
-        w.onerror = (e) => { clearTimeout(t); rej(e); };
-        w.postMessage({ type: 'visibility', visible: false });
-        w.postMessage({ type: 'run', running: false });
-        w.postMessage({ type: 'presets', reqId: 0 });
-      });
-      w.onmessage = (e) => onMsg(e.data); w.onerror = (e) => { e.preventDefault?.(); fail('the engine stopped'); };
-      post = (m) => w.postMessage(m); kill = () => w.terminate();
-    } catch {
-      if (w) { w.onmessage = w.onerror = null; w.terminate(); }   // (a worker that never said hello: not left running beside the page's own engine)
-      try {
-        const { createCore } = await import('../worker-core.js');
-        const core = createCore((m) => setTimeout(() => onMsg(m), 0));
-        core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
-        post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
-      } catch { fail('the engine could not load'); }
-    }
-  })();
-  const send = async (msg, entry) => {
-    await ready;
-    if (broken) { entry.done({ type: 'error', reqId: msg.reqId, message: 'the engine is unavailable' }); return; }
-    pending.set(msg.reqId, entry); post(msg);
-  };
-  return {
-    request: (type, payload = {}) => new Promise((done) => send({ type, reqId: seq++, ...payload }, { done })),
-    sequence: (steps, base, step) => new Promise((done) => send({ type: 'sequence', reqId: seq++, steps, base }, { done, step })),
-    kill: () => kill(),
-    get broken() { return broken; },
-  };
 }
 
   return { scaleVisual, quadrantVisual, wallsVisual, makeCalc, xKey };

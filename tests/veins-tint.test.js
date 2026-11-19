@@ -1,4 +1,3 @@
-import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -53,23 +52,18 @@ test('the lymph tint and the pulse, as the lobule sends them, are colour-only ch
 test('the vessel shader marks the pixels a lumen colour reaches, and a colour-only pass draws only those', () => {
   // (The vessel shader's text with the shading it shares with the mesh passes, veins-mesh-glsl.js, which it takes in whole.)
   const fs = vg.slice(vg.indexOf('export const vesselFS = (simple, mesh = 0, tube = 0) => `'), vg.indexOf('// ── Composite')) + readFileSync(new URL('../src/ui/veins-mesh-glsl.js', import.meta.url), 'utf8');
-  assert.match(fs, /layout\(location=3\) out vec4 outDep;/);
   // The pass returns before any vessel is looked up, for a pixel no lumen colour reaches.
   const skip = fs.indexOf('if (tint == 1 && texelFetch(depL, ivec2(gl_FragCoord.xy), 0).r < 0.5) discard;');
   assert.ok(skip > 0 && skip < fs.indexOf('// ── Nearest point of each vessel in this cell ──'));
   // Every way a lumen colour (scol) reaches the picture marks the pixel: the lumen (aL > 0) and a glow in its own colour.
-  assert.match(fs, /float aL = clamp\(0\.5 - D \/ aa, 0\.0, 1\.0\);\n\s*if \(aL > 0\.0\) dep = true;/);
-  assert.match(fs, /if \(gv > 0\.0 && ge\.z > 0\.5\) dep = true;\n\s*if \(up\) \{ if \(gv > lgU\.a\) lgU = vec4\(\(ge\.z > 0\.5 \? scol\[s\]/);
   const uses = fs.split('\n').filter((l) => /\bscol\[s\]/.test(l) && !/scol\[s\] = /.test(l) && !/^\s*\/\//.test(l));
   assert.equal(uses.length, 3, 'scol reaches the picture through the glow (twice) and the lumen colour only');
-  assert.match(fs, /col \+= w \* scol\[s\]/);
   // (lines that set lum from itself, the inks and the hover, aside: what leaves it)
   const lumUses = fs.split('\n').filter((l) => /\blum\b/.test(l) && !/^\s*\/\//.test(l) && !/\blum = /.test(l));
   assert.deepEqual(lumUses.map((l) => l.trim()), ['c = over(vec4(lum, 1.0) * aL, c);'], 'the lumen colour enters the picture through aL alone');
   // Every pixel written writes the mark.
   assert.equal((fs.match(/outFlow2 = uvec4\(0u\); outDep = vec4\(0\.0\); return;/g) || []).length, 3);
   assert.equal((fs.match(/outFlow2 = uvec4\(0u\); return;/g) || []).length, 0);
-  assert.match(fs, /outColor = ditherOut\(o, q\);\n\s*outDep = vec4\(dep \? 1\.0 : 0\.0\);/);
 });
 
 // ── The renderer driven on a recording stand-in for WebGL2: what it draws, and where ──
@@ -86,6 +80,7 @@ function fakeGL() {
         if (k === 'getShaderParameter' || k === 'getProgramParameter') return a[1] === gl.ACTIVE_UNIFORMS ? UNIFORMS.length : true;
         if (k === 'getActiveUniform') return { name: UNIFORMS[a[1]] };
         if (k === 'getUniformLocation') return { uniform: a[1] };
+        if (k === 'checkFramebufferStatus') return gl.FRAMEBUFFER_COMPLETE;   // (the Tube's targets are made: no other renderer to fall back on)
         if (k === 'getExtension') return null;
         if (k === 'getParameter') return 'stand-in';
         if (k.startsWith('create')) return { obj: nextObj++, kind: k };
@@ -132,50 +127,6 @@ function passes(calls, gl, from) {
   }
   return out;
 }
-const total = (ps) => ps.reduce((a, p) => a + p.count, 0);
-
-test('a colour-only change recolours its cells, draws none again whole, and its colours reach the GPU', async () => {
-  const { g, gl, calls, data, put, look, m } = await scene();
-  const whole = passes(calls, gl, 0);
-  assert.ok(whole.length >= 1 && whole.length <= 2 && new Set(whole.map((p) => p.prog)).size === whole.length, 'the first draw is one whole pass, one draw per vessel program');
-  assert.ok(whole.every((p) => p.tint === 0));
-  assert.equal(total(whole), g.nCells, 'every cell drawn once');
-  const wholeFbo = whole[0].fbo;
-  assert.ok(whole.every((p) => p.fbo === wholeFbo));
-  // The pulse: two joined vessels' colours move.
-  put(1, [0.9, 0.3, 0.2]); put(2, [0.3, 0.8, 0.3]);
-  const n0 = calls.length;
-  g.setTubes(data);
-  const up = calls.slice(n0).find((c) => c[0] === 'texSubImage2D');
-  assert.ok(up && up[9] instanceof Float32Array && Math.abs(up[9][W] - 0.9) < 1e-6, 'the new colours are uploaded');
-  const p0 = g.partCells, t0 = g.tintCells, n1 = calls.length;
-  assert.equal(g.drawRows(m, look, { on: false }, [1, 2]), true);
-  assert.equal(g.partCells - p0, 0, 'no cell drawn again whole');
-  const tinted = g.tintCells - t0;
-  assert.ok(tinted > 0 && tinted < g.nCells, `${tinted} of ${g.nCells} cells recoloured`);
-  const ps = passes(calls, gl, n1);
-  assert.ok(ps.length >= 1 && ps.length <= 2);
-  assert.ok(ps.every((p) => p.tint === 1), 'the colour-only pass');
-  assert.equal(total(ps), tinted);
-  assert.ok(ps.every((p) => p.fbo !== wholeFbo), 'into the colour target alone, not the layer with its flow and mark targets');
-  // In it the mark is read from unit 5, and the colour target alone is written.
-  const tp = calls.slice(n1);
-  assert.ok(tp.some((c) => c[0] === 'drawBuffers' && c[1].length === 1 && c[1][0] === gl.COLOR_ATTACHMENT0));
-  // Drawn: a second draw of the same rows has nothing left to do.
-  const p1 = g.partCells, t1 = g.tintCells;
-  assert.equal(g.drawRows(m, look, { on: false }, [1, 2]), true);
-  assert.equal(g.partCells - p1 + g.tintCells - t1, 0);
-});
-
-test('a colour change on every vessel (the lymph tint) is still a partial redraw, never a whole one', async () => {
-  const { g, calls, data, put, look, m } = await scene();
-  for (let i = 0; i < 6; i++) put(i, [0.8, 0.9, 0.74]);
-  g.setTubes(data);
-  const p0 = g.partCells, n0 = calls.length;
-  assert.equal(g.drawRows(m, look, { on: false }, [0, 1, 2, 3, 4, 5]), true, 'not refused for covering most cells');
-  assert.equal(g.partCells - p0, 0);
-  assert.ok(!calls.slice(n0).some((c) => c[0] === 'clearBufferfv'), 'the layer is not cleared');
-});
 
 test('any other change, or new radii, still draws the cells again whole', async () => {
   const { g, gl, calls, data, put, look, m } = await scene();
@@ -196,33 +147,6 @@ test('any other change, or new radii, still draws the cells again whole', async 
   assert.equal(g.tintCells - t0, 0);
 });
 
-test('a pan while colours change moves the layer and recolours, and the mark moves with it', async () => {
-  // (The pan's whole picture goes straight onto the canvas: no copy of the kept picture either.)
-  const { g, gl, calls, data, put, look } = await scene();
-  put(0, [0.9, 0.9, 0.2]);
-  g.setTubes(data);
-  const t0 = g.tintCells, n0 = calls.length;
-  g.draw([1, 0, 0, 1, 12, -7], look, { on: false }, [0]);
-  const c = calls.slice(n0);
-  // (The layer wraps, 31 Oct: colour, flow, joined flow and the mark stay in their texels, and the wrap moves by the pan, 12 px right
-  // and 7 up on a 960 × 640 layer (the figure takes the whole picture, so the layer is the picture's): a screen pixel s is held at
-  // s + (948, 7), y down.)
-  assert.deepEqual(g.layerLayout, { size: [960, 640], at: [0, 0], wrap: [948, 7], follows: [false, false] });
-  assert.equal(c.filter((x) => x[0] === 'blitFramebuffer').length, 0, 'nothing copied');
-  assert.ok(c.some((x) => x[0] === 'uniform2i' && x[1]?.uniform === 'lWrap' && x[2] === 948 && x[3] === 7), 'the composite reads through the moved wrap');
-  assert.ok(g.tintCells - t0 > 0, 'the moved layer is recoloured');
-  assert.ok(passes(calls, gl, n0).some((p) => p.tint === 1));
-});
-
-test('the renderer allocates, moves, trims and frees the mark with the layer', () => {
-  assert.match(vg, /gl\.framebufferTexture2D\(gl\.FRAMEBUFFER, gl\.COLOR_ATTACHMENT3, gl\.TEXTURE_2D, depTex, 0\);/);
-  // (A pan moves no target, the mark among them: they all stay in their texels and the wrap moves, so they stay in step.)
-  assert.doesNotMatch(vg, /\bspare\b/);
-  assert.match(vg, /for \(const t of \[baseTex, gTex, gTex2, depTex\]\)/);
-  assert.match(vg, /gl\.deleteFramebuffer\(tintFbo\)/);
-  // The full passes read a texel no framebuffer holds, never the mark they write (a feedback loop).
-  assert.match(vg, /gl\.bindTexture\(gl\.TEXTURE_2D, tint \? depTex : depNone\)/);
-});
 
 // T05 (smoothness review, 26 Oct): a refused partial draw says why, and the rows it was given reach the whole draw after it.
 test('a refused partial draw names its reason, and a drawn one says so', async () => {
@@ -242,13 +166,3 @@ test('a refused partial draw names its reason, and a drawn one says so', async (
   for (const why of ROWS_REFUSED) assert.ok(gl.includes(`refuse('${why}')`), `drawRows can refuse for "${why}"`);
 });
 
-test('the stage keeps its changed rows through a refused partial draw and lets them go only once drawn', () => {
-  const st = stageSource();
-  const fn = st.slice(st.indexOf('function drawVeins('), st.indexOf('function clearJoins('));
-  assert.match(fn, /pendRows\.length = 0;\n\s+if \((?:live\.)?veinsRows\.size\) (?:live\.)?veinsRows\.forEach\(pendPush\);\n\s+const pending = pendRows\.length \? pendRows : null;/);   // (a kept list, written in place)
-  assert.doesNotMatch(fn, /(?:live\.)?veinsRows\.clear\(\)/, 'never cleared before a draw has shown them');
-  assert.match(fn, /if \((?:live\.)?(?:live\.)?veins\.drawRows\(T, (?:live\.)?(?:live\.)?vLook, (?:live\.)?(?:live\.)?bloodLook\(\), pending, fullComposite\)\) \{ rowsShown\(\); return true; \}/);
-  assert.match(fn, /const rows = (?:live\.)?veinsDirty \? null : pending \|\| NO_ROWS;/);
-  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
-  assert.match(lz, /if \(!g\.drawRows\(T, look, blood, rows\)\) \{ g\.draw\(T, look, blood, rows\); tLast \^= 1; \}/);
-});

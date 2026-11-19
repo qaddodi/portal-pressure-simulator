@@ -7,11 +7,15 @@
 // (Next pressed mid-entrance, a swipe let go): its next move starts from there, never from a jump.
 
 import { frameFor, cancelFrame, easeNow, beginMotion } from './frame.js';
-import { cubicBezier } from './ease.js';
+import { enterWhenReady } from './widget-ready.js';
+import { easeArrive } from './ease.js';
 import { classSoon, runSoon } from './class-soon.js';
 import { caught } from './caught.js';
 import { D_SMALL, D_SURFACE } from './ease.js';
 import { signalMove } from './num-move.js';
+import { readBox } from './layout-snap.js';
+import { STALL_MAX } from './glide-clock.js';
+import { cardMoveFor } from './card-motion.js';
 
 /** How far (px) the new card comes in from, and the stagger (ms) of a second card behind the first. */
 export const THROW_IN = 56, THROW_STAGGER = 40;
@@ -22,8 +26,7 @@ const nextFrame = frameFor('card-throw');
 // rail's curve.)
 // (Out on the rail's curve, which starts at once and fast, gone from sight by 85 % of its way (a few frames), and in on it from
 // the same distance.)
-export const RAIL_MS = 560, RAIL_GAP = 24;   // motion-scale: own pace (the rail throw, decided with the cards)
-export const easeRail = cubicBezier(0.32, 0.72, 0, 1);
+export const RAIL_MS = 560, RAIL_GAP = 24;   // motion-scale: own pace (the rail throw, decided with the cards); its curve is easeArrive, the token every card arrival uses (review ANI-1: no fourth curve)
 
 /** Where a card is at k (0 to 1) of its move, on the rail's curve: out, gone from sight by 85 % of its way; in, with no overshoot,
  *  whole by 40 % of its way. */
@@ -31,9 +34,18 @@ export function throwAt(kind, k, from, to) { return throwInto({ x: 0, o: 0 }, ki
 /** The same, written into out ({x, o}) in place: what the frame uses, so a moving card costs no object a frame. */
 export function throwInto(out, kind, k, from, to) {
   k = k <= 0 ? 0 : k >= 1 ? 1 : k;
-  const e = easeRail(k), f = kind === 'out' ? Math.min(1, e / 0.85) : kind === 'back' ? e : Math.min(1, e / 0.4);   // ('back': a card let go short of a swipe, fading in on its way as it moves, not ahead of it)
+  const e = easeArrive(k), f = kind === 'out' ? Math.min(1, e / 0.85) : kind === 'back' ? e : Math.min(1, e / 0.4);   // ('back': a card let go short of a swipe, fading in on its way as it moves, not ahead of it)
   out.x = from.x + (to.x - from.x) * e; out.o = from.o + (to.o - from.o) * f;
   return out;
+}
+
+/** How far a card may travel (px, the whole way it is sent) so that no part of it that can still be seen crosses the screen's edge. A card going out is gone from sight by `seen` of its
+ *  way (the rail's curve: 85% of it; a case card's faster fade: 95%), so it may go as far as the room between its box and the edge, over that share. A card with no box (no layout) or no
+ *  room measured is not held back. Mohammad, 16 Nov 2026: the leaving card "shouldn't get cut off" at the viewport's edge. box: its rect; dir: 'next' (left) or 'back' (right). */
+export function throwReach(box, dir, vw, travel, seen = 0.85) {
+  if (!box || !(box.width > 0) || !(vw > 0) || !(travel > 0)) return travel;
+  const room = dir === 'back' ? vw - box.right : box.left;
+  return Math.max(0, Math.min(travel, Math.max(0, room) / seen));
 }
 
 const runs = new Map();
@@ -53,8 +65,17 @@ const OPACITY = new Array(1001);
 const opacityText = (o) => { const i = o > 0 ? (o < 1 ? Math.round(o * 1000) : 1000) : 0; return OPACITY[i] ?? (OPACITY[i] = (i / 1000).toFixed(3)); };   // alloc-rare: fills each of the 1001 table entries once, ever
 // (A property is written only when its text changes: a card whose opacity has settled at 1 or 0 (in whole by 40 % of its way, out gone by
 // 85 %) or whose x holds still makes no style write for it in the frames left, so a move's last third restyles nothing but the transform.)
+// (CRD-3, bible review 19 Nov 2026: one mover for `transform`. The throw writes it inline with !important, and an important author declaration outranks an animation, so a Shuffle card's
+// pose (its lift, its scale, which the shuffle holds by a paused animation added to the card's transform) was dropped for the whole throw and came back in one step when the throw let go.
+// The throw now writes the pose into its own text: translateX(x) then the shuffle's pose for this card, what the animation would give. The pose is a function of the shuffle's position
+// only, set by card-shuffle.js, and '' for a card the shuffle does not hold.)
+let poseOf = null;
+/** The shuffle's pose for a card (el) as a CSS transform text, composed after the throw's own translate. */
+export function setThrowPose(fn) { poseOf = typeof fn === 'function' ? fn : null; }
+/** The inline transform text for a card thrown to x: its translate, then the shuffle's pose for it. Exported for the tests. */
+export function throwTransform(el, x) { const pose = poseOf ? poseOf(el) : ''; return pose ? `translateX(${x.toFixed(2)}px) ${pose}` : `translateX(${x.toFixed(2)}px)`; }
 const write = (el, x, o) => {
-  const st = el.style, tx = `translateX(${x.toFixed(2)}px)`, ot = opacityText(o);
+  const st = el.style, tx = throwTransform(el, x), ot = opacityText(o);
   if (st.transform !== tx) st.setProperty('transform', tx, 'important');
   if (st.opacity !== ot || st.getPropertyPriority('opacity') !== 'important') st.setProperty('opacity', ot, 'important');
 };
@@ -92,7 +113,13 @@ function land(el, r, x, o) {
   try { r.done?.(); } finally { settleLands(el, r.kind !== 'out'); }
 }
 function stepRun(el, r, now) {
-  const k = r.ms > 0 ? (now - r.t0) / r.ms : 1;
+  // (The move's own clock goes on by what the frame took but never by more than STALL_MAX, as the camera's glides do (glide-clock.js): a frame of 200 ms, the deck's first card arriving
+  // with the slide built behind it, carried the fade of a card from nothing to whole in one step, which read as the card popping in after a wait (the tester, iPhone, 17 Nov 2026: the title
+  // card at 0 for 700 ms then 1 in one step, frames of 194 to 239 ms). A long frame now holds the card where it stood and the move goes on from there; the guard still lands it by the wall clock.)
+  // (A staggered card's wait is the wall clock's: it is the move after it that a long frame is held back on.)
+  if (now < r.t0) { r.v = now; r.last = now; return; }
+  r.v += Math.min(Math.max(0, now - r.last), STALL_MAX); r.last = now;
+  const k = r.ms > 0 ? (r.v - r.t0) / r.ms : 1;
   if (k < 0) return;   // (a staggered card waits where it starts)
   const p = throwInto(pos, r.kind, k, r.from, r.to);
   r.x = p.x; r.o = p.o;
@@ -144,9 +171,30 @@ export const throwGuard = guard;
 // (R20: the throws are one transition the page's deferrable work waits out, from the first card moving to the last one landing.)
 let endMove = null;
 const settle = () => { if (!runs.size) { if (guardT) clearTimeout(guardT); guardT = 0; guardAt = Infinity; if (endMove) { endMove(); endMove = null; } } };
+// (CRD-4, bible review 19 Nov 2026: a card's entrance waits for its widgets and fonts (enterWhenReady, up to 450 ms, held at its start). Whatever the card is given in that wait (a Next that
+// throws it out, a finger, a second way in) must end the wait: a stale hold fired later used to run an 'in' over the 'out', so the old card slid back in with its old words. One pending entrance
+// per card, kept here and cancelled by every other move: start(), throwBack, throwStop, throwRelease.)
+const entering = new WeakMap();
+function cancelEntry(el) { const c = entering.get(el); if (c) { entering.delete(el); c(); } }
+/** Whether el's entrance is waiting for its widgets and fonts (held at its start, not yet moving). */
+export const throwEntering = (el) => entering.has(el);
+function enterLater(el, go) {
+  cancelEntry(el);   // (a second way in replaces the first wait: one hold per card)
+  let cancel, ran = false;
+  cancel = enterWhenReady(el, () => { ran = true; if (entering.get(el) === cancel) entering.delete(el); go(); }, undefined, false);
+  if (!ran) entering.set(el, cancel);   // (a wait that went at once has already run go(): nothing is pending)
+}
 function start(el, kind, to, ms, delay, done) {
+  cancelEntry(el);   // (CRD-4: any move of the card ends a wait to show it)
   endMove ||= beginMotion('card throw', ms + delay + 2000);
+  cardMoveFor(ms + delay + 120);   // (the work made for the rest after, the other view's labels solved ahead, waits for the landing: card-motion.js)
   const from = here(el);
+  if (kind === 'out' && to.x !== from.x && el.isConnected) {   // (never cut at the screen's edge: throwReach)
+    let box = null;
+    try { box = readBox(el); } catch { /* a card with no box (no layout): not held back */ }
+    const dir = to.x < from.x ? 'next' : 'back', travel = Math.abs(to.x - from.x), keep = throwReach(box, dir, typeof innerWidth === 'number' ? innerWidth : 0, travel);
+    if (keep < travel) to.x = from.x + (dir === 'next' ? -keep : keep);
+  }
   runs.delete(el); pinned.delete(el);
   if (kind === 'out') settleLands(el, false);   // (a card sent out will not land: whoever waited for it arriving is told)
   el.classList?.add(THROWING); classSoon(el, THROWING, true);   // (on in the task that starts the move; a let-go still waiting is overruled)
@@ -155,7 +203,8 @@ function start(el, kind, to, ms, delay, done) {
   signalMove();
   const dead = performance.now() + delay + ms + GUARD_MS;
   const run = ++runIds; lastRun.set(el, run);
-  runs.set(el, { run, kind, from, to, x: from.x, o: from.o, t0: easeNow() + delay, ms, done, dead });
+  const n0 = easeNow();
+  runs.set(el, { run, kind, from, to, x: from.x, o: from.o, t0: n0 + delay, v: n0, last: n0, ms, done, dead });
   outCheck();   // A replacement that no longer goes out can release the waiting slide immediately.
   if (!ask) ask = nextFrame(step);
   guardBy(dead);
@@ -212,7 +261,9 @@ export function throwIn(el, dir, delay = 0) {
   // (A card already coming in is taken from where it is, never put back at its start: a second call for it mid-way (a repeated pass of
   // cardsIn, a staggered card asked again) used to drop it from full to nothing and slide it in again, a blink.)
   if (!was) { el.style.setProperty('transition', 'none', 'important'); write(el, s * THROW_IN, 0); runs.delete(el); }
-  start(el, 'in', { x: 0, o: 1 }, RAIL_MS, was?.kind === 'in' ? 0 : delay);
+  // (A card with a widget not yet drawn comes in when it is, held at its start meanwhile: no deck card is seen in the page's fallback look, widget-ready.js.)
+  const d = was?.kind === 'in' ? 0 : delay;
+  if (was) start(el, 'in', { x: 0, o: 1 }, RAIL_MS, d); else enterLater(el, () => start(el, 'in', { x: 0, o: 1 }, RAIL_MS, d));
 }
 
 /** Brings el in where it stands, from nothing to whole, over ms after delay ms, on this clock: no slide, only the fade. For a card that comes
@@ -230,7 +281,7 @@ export function throwFade(el, delay = FADE_DELAY, ms = FADE_MS) {
   const was = runs.get(el);
   releaseHeld(el);
   if (!was) { el.style.setProperty('transition', 'none', 'important'); write(el, 0, 0); }
-  start(el, 'back', { x: 0, o: 1 }, ms, was ? 0 : delay);
+  if (was) start(el, 'back', { x: 0, o: 1 }, ms, 0); else enterLater(el, () => start(el, 'back', { x: 0, o: 1 }, ms, delay));
 }
 
 /** A card let go short of a swipe (or one the swipe took along that the next slide keeps) eases back to its place from where the finger left it
@@ -239,7 +290,7 @@ export function throwFade(el, delay = FADE_DELAY, ms = FADE_MS) {
  *  trails (or leads) the card by that frame. */
 export function throwBack(el, x, o) {
   if (!el) return;
-  releaseHeld(el); pinned.delete(el);
+  cancelEntry(el); releaseHeld(el); pinned.delete(el);
   if (runs.get(el)?.kind === 'out') settleLands(el, false);
   runs.delete(el);   // The finger's supplied position supersedes any older throw (a waiter for an arrival keeps waiting for the card's return).
   write(el, x, o);
@@ -270,7 +321,7 @@ function outCheck() {
 export const throwing = (el) => runs.has(el);
 
 /** Stops el's move where it is (a finger takes it), its inline values kept for whoever takes it next. */
-export function throwStop(el) { classSoon(el, THROWING, false); runs.delete(el); settleLands(el, false); releaseHeld(el); pinned.delete(el); if (!runs.size && ask) { cancelFrame(ask); ask = 0; } settle(); outCheck(); }
+export function throwStop(el) { cancelEntry(el); classSoon(el, THROWING, false); runs.delete(el); settleLands(el, false); releaseHeld(el); pinned.delete(el); if (!runs.size && ask) { cancelFrame(ask); ask = 0; } settle(); outCheck(); }
 
 
 // ── Out on the tap, while the slide before is still settling (Mohammad, 2 Nov 2026: "when i hit next it takes time to move out of the
@@ -291,7 +342,7 @@ export function throwOutNow(el, dir, dist) {
 /** Whether el was sent out on the tap and waits, out of sight, for the new slide's change to take it. */
 export const throwPinned = (el) => pinned.has(el);
 /** Lets go of a pinned card: to its class's look (a leave class keeps it out). */
-export function throwRelease(el) { if (pinned.delete(el)) hold(el); }
+export function throwRelease(el) { cancelEntry(el); if (pinned.delete(el)) hold(el); }
 
 // ── Motion state (R01): what a card's throw is doing now, read by the presenter instead of guessing from the browser's animations ──
 /** Where el's throw stands, or null when it owns none: { run (the id of the last start for el), kind ('in', 'out', 'back'), x, o (as last

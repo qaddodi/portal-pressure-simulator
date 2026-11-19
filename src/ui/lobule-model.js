@@ -9,6 +9,8 @@ import { NODES, EDGES } from '../engine/portal/topology.js';
 import { clamp } from './util.js';
 import { oxygenFor } from './blood.js';
 import { sinceNow } from './since-ref.js';
+import { readAt } from './slide-read.js';
+import { LYMPH, tissueP, sinusoidPull } from '../engine/portal/lymph.js';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -29,9 +31,21 @@ function ratioOf(Q, HQ, id) {
 export function lobuleFlowsInto(out, f, H) {
   const Q = f.Qf || f.Q, HQ = H?.Q, asc = f.metrics?.ascites;
   out.flow = ratioOf(Q, HQ, LOBE.q); out.portal = ratioOf(Q, HQ, LOBE.pre); out.portalQ = Q[EI[LOBE.pre]]; out.portalRef = HQ?.[EI[LOBE.pre]] ?? 0;
-  out.art = ratioOf(Q, HQ, LOBE.a); out.lymph = asc?.hepLymph ?? 0; out.lyProt = asc?.lymphProt ?? 0.88; out.sigma = asc?.lymphSigma ?? 0.15;
+  out.art = ratioOf(Q, HQ, LOBE.a); out.iap = asc?.iap ?? 5; out.lymph = asc?.hepLymph ?? 0; out.lyProt = asc?.lymphProt ?? 0.88; out.sigma = asc?.lymphSigma ?? 0.15;
   out.lymph0 = H?.metrics?.ascites?.hepLymph || 0.8;
   return out;
+}
+
+/** On a slide, the readings the slide's own state also gives (its fingerprint, which its tiles and words print; a what-if or a time-lapse keeps it
+ *  to the live model's: stage.siteFp) are read from it while the live model agrees to within a breath (slide-read.js). So the lobule's three
+ *  pressures and its lymph and protein print the number the card and the words print, on every slide of one state (16 Nov 2026, play-test:
+ *  17.3 on the figure, 16.7 on the card). Every consumer of the model (labels, cards, the sinusoid's) reads the pinned value. */
+function pinToSlide(m, st) {
+  const fp = st.presenting && !st.compareSnap ? st.presentFp : null, at = fp?.at?.P;
+  if (!at || m.hide) return;
+  m.P1 = readAt(m.P1, at[NI[LOBE.pv]]); m.P2 = readAt(m.P2, at[NI[LOBE.sin]]); m.P3 = readAt(m.P3, at[NI[LOBE.cv]]);
+  m.lymph = readAt(m.lymph, fp.hepLymph, Math.max(0.1, 0.08 * Math.abs(fp.hepLymph || 0)));
+  m.lyProt = readAt(m.lyProt, fp.lymphProt, 0.03);
 }
 
 /** The lens a store state has the vessels coloured by: the imaging view's neutral, a comparison's change, or the chosen "Colored by". */
@@ -62,10 +76,12 @@ export function lobuleStateInto(m, f, st, since = sinceOf(st), P = f.P) {
   const zone = m.zone ||= { pre: 0, sin: 0, post: 0 };   // alloc-rare: only the first time an output object is filled (then written in place)
   zone.pre = (1 + 2 * sc) * fib.pre; zone.sin = (1 + 20 * sc ** 2.5) * fib.sin; zone.post = (1 + 2 * sc) * fib.post;
   const P3 = P[NI[S.cv]], cong = Math.max(0, P3 - (HP?.[NI[S.cv]] ?? P3));
+  m.alb = p.albumin ?? 4;   // (the plasma albumin, for the Starling sum along the sinusoid: disseJ)
   m.P1 = P[NI[S.pv]]; m.P2 = P[NI[S.sin]]; m.P3 = P3; m.P4 = P[NI[S.hv]]; m.P5 = P[NI['IVCS']];
   const Hs = m.H ||= [0, 0, 0, 0, 0];   // alloc-rare: only the first time an output object is filled (then written in place)
   for (let i = 0; i < 5; i++) Hs[i] = HP?.[NI[NODE_IDS[i]]];
   lobuleFlowsInto(m, f, H);
+  pinToSlide(m, st);
   m.zone = zone; m.s = sc; m.cong = cong; m.hide = !!st.imaging; m.fib = fib; m.hvpg = f.metrics?.hvpg;
   m.fibSin = clamp(Math.log(zone.sin) / 3.2, 0, 1); m.fibPre = clamp(Math.log(zone.pre) / 5.4, 0, 1) ** 0.6; m.fibPost = clamp(Math.log(zone.post) / 4.8, 0, 1) ** 0.6;
   m.congU = clamp(cong / 12, 0, 1); m.shuntU = clamp((sc - 0.45) / 0.35, 0, 1); m.septU = clamp((sc - 0.3) / 0.5, 0, 1);
@@ -104,3 +120,29 @@ export function lobuleStateInto(m, f, st, since = sinceOf(st), P = f.P) {
 
 /** Hepatic lymph as a multiple of the healthy rate. */
 export const lymphRate = (m) => m.lymph / (m.lymph0 || 0.8);
+
+/**
+ * Wet Disse (16 Nov 2026): the fluid filtered into the space of Disse at a point of the sinusoid, as a multiple of the healthy liver's mean,
+ * at `rho` (0 at the central vein, 1 at the portal edge). The engine's hepatic lymph (engine.js starling(), lymph.js hepLymphOf) rises with the
+ * net filtration pressure at a weighted mid-sinusoid; here the same sum is taken at each point, the pressure falling from the portal venule's (p1) to the
+ * central vein's (p3) as the blood's colours do, less the liver tissue's (tissueP of the belly's, iap) and the oncotic pull across the wall (albumin alb, the wall's
+ * albumin reflection coefficient sg), and the profile is scaled so its mean is the engine's rate (lr, × healthy). So the total is the model's
+ * and only the spread is worked out: flat and thin before the sinusoid (a clot), heavy at the portal edge in cirrhosis, heavy to the central
+ * vein behind it (SOS, heart failure). `r` holds { p1, p3, iap, alb, sg, lr }; a table of 32 points is made again only when one of them moves.
+ */
+const DJ = new Float32Array(32), DJK = [NaN, NaN, NaN, NaN, NaN, NaN];
+export function disseJ(r, rho) {
+  if (DJK[0] !== r.p1 || DJK[1] !== r.p3 || DJK[2] !== r.iap || DJK[3] !== r.alb || DJK[4] !== r.sg || DJK[5] !== r.lr) {
+    DJK[0] = r.p1; DJK[1] = r.p3; DJK[2] = r.iap; DJK[3] = r.alb; DJK[4] = r.sg; DJK[5] = r.lr;
+    const shut = Math.min(1, Math.max(0, (r.sg - 0.15) / 0.45)), sigH = 0.1 + 0.5 * shut, onc = sinusoidPull(r.alb, sigH), pT = tissueP(r.iap), floor = LYMPH.hepBase / LYMPH.kfHep;
+    let sum = 0;
+    for (let k = 0; k < 32; k++) {
+      const x = 0.06 + (k / 31) * 0.94, P = r.p3 + (r.p1 - r.p3) * Math.min(1, Math.max(0, (x - 0.075) / 0.845)) ** 0.8;
+      DJ[k] = floor + Math.max(0, P - pT - onc - LYMPH.hepOffset); sum += DJ[k];
+    }
+    const sc = Math.max(0.05, r.lr) / (sum / 32);
+    for (let k = 0; k < 32; k++) DJ[k] *= sc;
+  }
+  const f = Math.min(1, Math.max(0, (rho - 0.06) / 0.94)) * 31, k = Math.min(30, Math.floor(f));
+  return DJ[k] + (DJ[k + 1] - DJ[k]) * (f - k);
+}

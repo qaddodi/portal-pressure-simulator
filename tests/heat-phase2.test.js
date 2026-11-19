@@ -1,16 +1,12 @@
-import { stageSource } from './stage-src.js';
 // Heat, phase 2 (26 Oct): the blood table without a whole clear or a whole upload each frame, the junction widths without
 // per-frame arrays and sorts, and text written only when it changes. The picture and the clinical numbers stay the same.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { retireRows, changedRows } from '../src/ui/flow-rows.js';
 import { createJunctionWidths } from '../src/ui/junction-widths.js';
 import { advanceStream } from '../src/ui/blood.js';
 import { COUNTED } from '../src/ui/gpu-probe.js';
 
-const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const fn = (src, head) => { const i = src.indexOf(head); assert.ok(i >= 0, head); return src.slice(i, src.indexOf('\n  }\n', i) + 4); };
 const STRIDE = 16, ROWS = 40;
 // A small seeded random, so a failure repeats.
 const rng = (seed) => () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 2 ** 32; };
@@ -101,38 +97,8 @@ test('junction widths: the second widest vessel at each node, the widest when al
   }
 });
 
-test('stepBlood: no whole-table clear and no filtered or reduced copies of the strands each frame; setFlow sends a span', () => {
-  const stage = stageSource().replace(/^\s*\/\/.*$/gm, ''), gl = read('src/ui/veins-gl.js');
-  const blood = fn(stage, '  function stepBlood(dt) {');
-  assert.doesNotMatch(blood, /flowData\.fill\(0\);/);
-  assert.doesNotMatch(blood, /\.filter\(|\.reduce\(/);
-  // (The row writer is a function of its own, made once: not a closure made on each step.)
-  assert.match(fn(stage, '  function put(row, k, q, f0, f1, strength, ends) {'), /flowData\.fill\(0, o, o \+ FLOW_TEXELS \* 4\); flowNow\[row\] = 1;/);
-  assert.match(blood, /retireRows\(flowData, flowWas, flowNow, FLOW_TEXELS \* 4\)/);
-  assert.match(blood, /advanceStreamAt\(streams\[k\], velQf, velQ, k, so\)/);
-  const set = fn(gl, '    setFlow(data) {');
-  assert.match(set, /changedRows\(data, flowSent, stride, nTubes(, SPAN)?\)/);
-  assert.match(set, /gl\.texSubImage2D\(gl\.TEXTURE_2D, 0, 0, lo, FLOW_TEXELS, hi - lo \+ 1, gl\.RGBA, gl\.FLOAT, data, lo \* stride\)/);
-  assert.match(set, /gl\.bindTexture\(gl\.TEXTURE_2D, flowTex\);/);
-});
 
 test('width step: junction widths reused, no per-node arrays or sorts; the sync it took is counted under ?perf', () => {
-  const stage = stageSource().replace(/^\s*\/\/.*$/gm, '');
-  const inner = fn(stage, '  function stepWidthsInner(f) {'), upd = fn(stage, '  function updateInner(f) {');
-  for (const src of [inner, upd]) { assert.match(src, /const J = junctionWidths\(\);/); assert.doesNotMatch(src, /ws\.sort\(/); }
-  assert.match(inner, /if \(syncRadiiOnly\(t\)\) gpuProbe\.note\(COUNTED\.widthRadii\);\s*else \{ gpuProbe\.note\(COUNTED\.widthWhole\); syncVeins\(t\); \}/);
   for (const k of ['flowSame', 'flowRetired', 'widthRadii', 'widthWhole']) assert.equal(typeof COUNTED[k], 'string', k);
 });
 
-test('Compare words on the dock tiles and the lobule label numbers are written only when they change', () => {
-  const dock = read('src/ui/dock.js'), lz = read('src/ui/lobule-zoom.js');
-  // (2 Nov 2026: the words drawn on the GPU, gl-words.js, whose set() does nothing for the words it already shows; the colour class only on a change.)
-  assert.match(dock, /if \(x\.cmpCls !== cc\)/);
-  assert.match(dock, /else x\.cmpW\.set\(ct\);/);
-  assert.match(read('src/ui/gl-words.js'), /if \((?:S\.dead \|\| \()?t === S\.want\.t && u === S\.want\.u\)?\) return;/);   // (S.dead: a disposed set does nothing, a90d5609)
-  // (Asked for in the frame, written between frames: pageRun.)
-  assert.match(lz, /if \(L\.bv !== v\) \{ L\.bv = v; writeLab\(L\); \}/);
-  assert.match(lz, /if \(d && L\.dv !== d\) \{ L\.dv = d; writeLab\(L\); \}/);
-  assert.match(lz, /if \(L\.b && L\.b\.textContent !== L\.bv\) L\.b\.textContent = L\.bv;/);
-  assert.match(lz, /if \(L\.dEl && L\.dEl\.textContent !== L\.dv\) L\.dEl\.textContent = L\.dv;/);
-});

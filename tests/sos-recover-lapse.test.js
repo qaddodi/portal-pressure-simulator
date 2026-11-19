@@ -8,15 +8,16 @@ import { createCore } from '../src/worker-core.js';
 import { OUTFLOW } from '../src/ui/decks/outflow.js';
 import { PRESETS } from '../src/engine/portal/scenario.js';
 import { deckStates } from './deck-states.js';
+import { presenterSource } from './split-src.js';
 
 const fmt = (v) => v.toFixed(1);
-const presenter = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const presenter = presenterSource();
 
 test('the recovery slide eases the central veins over its days instead of setting them before the counter starts', () => {
   const s = OUTFLOW.slides.find((x) => x.id === 'recover');
   assert.ok(s.lapse && s.days, 'a time-lapse');
   assert.equal(s.params, undefined, 'no params of its own (they were set, and shown, before the days ran)');
-  assert.deepEqual(s.ramp, { 'fibrosis.R.post': [32, 1], 'fibrosis.L.post': [32, 1] });
+  assert.deepEqual(s.ramp, { 'fibrosis.R.post': [34, 1], 'fibrosis.L.post': [34, 1] });
   const sos = OUTFLOW.slides.find((x) => x.id === 'sos');
   assert.equal(sos.preset, 'sos');
   assert.equal(sos.params, undefined, 'the SOS slide is the preset as every other deck shows it (Sites, Where, Lobule)');
@@ -28,9 +29,9 @@ test('a dotted ramp key eases that nested param day by day', async () => {
   const seen = [];
   const core = createCore((m) => { if (m.type === 'seqStep') seen[m.i] = m.params; });
   core.handle({ type: 'run', running: false });
-  await core.handle({ type: 'sequence', reqId: 1, steps: [{ preset: 'sos', params: { fibrosis: { R: { post: 32 }, L: { post: 32 } } } }, { days: 4, fine: true, ramp: { 'fibrosis.R.post': [32, 1], 'fibrosis.L.post': [32, 1] } }] });
+  await core.handle({ type: 'sequence', reqId: 1, steps: [{ preset: 'sos', params: { fibrosis: { R: { post: 34 }, L: { post: 34 } } } }, { days: 4, fine: true, ramp: { 'fibrosis.R.post': [34, 1], 'fibrosis.L.post': [34, 1] } }] });
   core.dispose();
-  assert.equal(seen[0].fibrosis.R.post, 32);
+  assert.equal(seen[0].fibrosis.R.post, 34);
   assert.equal(seen[1].fibrosis.R.post, 1);
   assert.equal(seen[1].fibrosis.L.post, 1);
   assert.equal(seen[1]['fibrosis.R.post'], undefined, 'no literal dotted key left in the params');
@@ -39,17 +40,20 @@ test('a dotted ramp key eases that nested param day by day', async () => {
 
 // (Healed over the whole month, the Recovered row reads PV 8.5 and FHVP 4.7, up from 8.0 and 4.3 when the veins healed
 // before the days: Mohammad kept the new numbers, 18 Oct. 22 Oct the SOS preset itself carries the block of 32 and
-// runs its 21 days with it, so the patient arrives a little more congested: PV 8.6, FHVP 4.8.)
-test('the Recovered row: PV 8.6, FHVP 4.8, HVPG 2.5, no ascites', async () => {
+// runs its 21 days with it, so the patient arrives a little more congested: PV 8.6, FHVP 4.8. 15 Nov 2026 the block is 34, to take SOS off
+// the HVPG's red line (full app review ENG-5), and the row reads FHVP 4.9 and HVPG 2.4. 16 Nov 2026 the numbers are the bedside's, the beat's means: PV 8.9, FHVP 5.4, HVPG 2.2; later that day, with the
+// lymph model's larger ascites in the SOS patient, FHVP 5.3 and HVPG 2.3; 17 Nov, with the collapse-edge step in the quiet settle (engine.js collapseFlips) and the bedside decks, FHVP 5.4 and HVPG 2.2 (the quiet settle of this patient can still wander by a tenth, see tests/preset-no-drift.test.js).)
+// 19 Nov 2026, the slide's run-in grew to the live model's 40 s (ENG-1): FHVP 5.3 and HVPG 2.3.
+test('the Recovered row: PV 8.9, FHVP 5.3, HVPG 2.3, no ascites', async () => {
   const fps = await deckStates(OUTFLOW), f = fps[OUTFLOW.slides.findIndex((x) => x.id === 'recover')];
-  assert.equal(fmt(f.pv), '8.6');
-  assert.equal(fmt(f.fhvp), '4.8');
-  assert.equal(fmt(f.hvpg), '2.5');
+  assert.equal(fmt(f.pv), '8.9');
+  assert.equal(fmt(f.fhvp), '5.3');
+  assert.equal(fmt(f.hvpg), '2.3');
   assert.ok(f.asc < 0.5, `ascites ${f.asc}`);
 });
 
 test('a slide diving from the anatomy aims the lobule at its station before the dive starts', () => {
   const cam = presenter.match(/async function camera\(cam, s, cut, early = 0, begun = null\) \{([\s\S]*?)\n {2}\}/)[1];
-  const aim = cam.indexOf("if (cam !== 'sinusoid') stage.lobuleAim(part, { zoom });"), dive = cam.indexOf('store.set({ lobule: true });');
+  const aim = cam.indexOf("if (cam !== 'sinusoid') stage.lobuleAim(part, { zoom });"), dive = cam.indexOf("setViewKey('lobule');");
   assert.ok(aim > 0 && dive > aim, 'aimed first, then the dive');
 });

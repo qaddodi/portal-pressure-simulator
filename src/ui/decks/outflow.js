@@ -5,11 +5,7 @@
 export const OUTFLOW = {
   id: 'outflow', level: 'advanced', title: 'After the sinusoids: central veins and the heart', minutes: 14,
   sections: [['Sinusoidal obstruction syndrome', ['Sinusoidal obstruction syndrome']], ['The heart', ['Normal heart', 'Heart failure', 'Constrictive pericarditis']], ['The IVC', ['The IVC']]],
-  objectives: [
-    'Name the causes of sinusoidal obstruction syndrome (SOS)',
-    'Explain why the HVPG can be measured in SOS',
-    'Distinguish heart failure, constrictive pericarditis and an IVC web by Doppler and right atrial pressure',
-  ],
+  objectives: ['Name the causes of sinusoidal obstruction syndrome (SOS)', 'Explain why the HVPG can be measured in SOS', 'Tell heart failure, constrictive pericarditis and an IVC web apart by Doppler and RA pressure'],
   checks: [
     ['Why can the HVPG be measured in sinusoidal obstruction syndrome?', 'The hepatic veins are patent, and the resistance lies upstream of the FHVP, so the WHVP rises.'],
     ['Which measurement distinguishes an IVC web from heart failure?', 'Right atrial pressure: normal with a web, elevated in heart failure and constrictive pericarditis.'],
@@ -33,8 +29,8 @@ export const OUTFLOW = {
       ask: ['Why can the WHVP be measured here but not when the hepatic veins are thrombosed?', 'Here the veins are patent, so the catheter can wedge, and the resistance lies between the WHVP and the FHVP.'],
     },
     {
-      id: 'recover', lens: 'heat', days: 30, ramp: { 'fibrosis.R.post': [32, 1], 'fibrosis.L.post': [32, 1] }, lapse: { seconds: 6 }, cam: 'lobule:central', terms: { 'central veins': 'lobule:central' }, tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'asc'], keepTiles: true, title: 'HVPG and ascites over the month' }, data: 'tiles', tiles: ['asc', 'hvpg'], key: ['asc'], delta: 'sos',
-      kicker: 'Sinusoidal obstruction syndrome', site: 'postsin', title: 'Most patients recover',
+      id: 'recover', lens: 'heat', days: 30, ramp: { 'fibrosis.R.post': [34, 1], 'fibrosis.L.post': [34, 1] }, lapse: { seconds: 6 }, cam: 'lobule:central', terms: { 'central veins': 'lobule:central' }, tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'asc'], keepTiles: true, title: 'HVPG and ascites over the month' }, data: 'tiles', tiles: ['asc', 'hvpg'], key: ['asc'], delta: 'sos',
+      kicker: 'Sinusoidal obstruction syndrome', site: 'postsin', title: 'Mild and moderate SOS usually resolves',
       line: 'As the endothelium heals, the central veins clear; over the following weeks the ascites resolves and the HVPG falls to {hvpg}.',
       notes: 'Mild and moderate SOS resolves with careful fluid management, diuretics and analgesia. Severe SOS, with renal or respiratory failure, carries high mortality, and defibrotide is the treatment. For prevention: reduced-intensity conditioning where possible, and ursodeoxycholic acid prophylaxis in many centers.',
       ask: ['Which drug treats severe sinusoidal obstruction syndrome?', 'Defibrotide, which protects the injured sinusoidal endothelium.'],

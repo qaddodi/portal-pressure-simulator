@@ -4,7 +4,9 @@
 // tabulates every difference. There is no Compare mode: unpinning ends it.
 
 import { store } from './store.js';
-import { h, fmt, svgIcon } from './util.js';
+import { wallShare } from '../engine/portal/wall-read.js';
+import { h, fmt as fmt1, svgIcon } from './util.js';
+import { fmtG } from './num.js';
 import { liveBalance } from './balance-hold.js';
 import { activeInterventions } from './inspector.js';
 
@@ -12,8 +14,8 @@ import { activeInterventions } from './inspector.js';
 // systemic circulation), so a long table reads as four short ones.
 const GROUPS = [['Pressure', 3], ['Flow', 3], ['Consequences', 2], ['Systemic', 3]];
 const ROWS = [
-  ['HVPG', (m) => m.hvpg, 1, 'mmHg'], ['Portal pressure', (m) => m.pv, 1, 'mmHg'], ['PPG (portal vein − IVC)', (m) => m.ppg, 1, 'mmHg'], ['Portal flow', (m) => m.pvFlow, 1, 'L/min'],
-  ['Hepatic perfusion', (m) => m.liverPerfPct, 0, '%'], ['Shunt fraction', (m) => m.shuntFraction * 100, 0, '%'], ['Varix wall stress (model)', (m) => m.varix.ratioShown * 100, 0, '%'],
+  ['HVPG', (m) => m.hvpg, 1, 'mmHg'], ['Portal pressure', (m) => m.pv, 1, 'mmHg'], ['PPG (PV − IVC)', (m) => m.ppg, 1, 'mmHg'], ['Portal flow', (m) => m.pvFlow, 1, 'L/min'],
+  ['Hepatic perfusion', (m) => m.liverPerfPct, 0, '%'], ['Shunt fraction', (m) => m.shuntFraction * 100, 0, '%'], ['Varix wall stress (model)', (m) => wallShare(m.varix) * 100, 0, '%'],
   ['Ascites formation', (m, live) => (live ? liveBalance(m.ascites.ratePerDay) : Math.round(m.ascites.ratePerDay / 100) * 100), 0, 'mL/day'], ['Right atrial pressure', (m) => m.ra, 1, 'mmHg'], ['MAP', (m) => m.map, 0, 'mmHg'], ['Cardiac output', (m) => m.co, 1, 'L/min'],
 ];
 
@@ -63,7 +65,7 @@ export function createCompare() {
     const A = st.compareSnap.metrics, B = f.metrics;
     const rows = ROWS.map(([lab, g, d, u]) => {
       const a = g(A), b = g(B, true), dd = b - a;
-      const same = Math.abs(dd) < Math.pow(10, -d) * 0.5;
+      const same = Math.abs(dd) < Math.pow(10, -d) * 0.5, fmt = u === 'mL/day' ? fmtG : fmt1;   // (a daily volume takes its thousands comma, as the lymph tile does)
       return [lab, u, fmt(a, d), fmt(b, d), 'd ' + (same ? 'same' : dd > 0 ? 'up' : 'down'), same ? '' : dd > 0 ? '▲' : '▼', same ? '—' : `${dd > 0 ? '+' : '−'}${fmt(Math.abs(dd), d)}`];
     });
     const names = [st.compareSnap.names?.[0] || 'Then', st.compareSnap.names?.[1] || 'Now'];

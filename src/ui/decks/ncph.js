@@ -5,7 +5,7 @@
 export const NCPH = {
   id: 'ncph', level: 'core', title: 'Presinusoidal portal hypertension', minutes: 8,
   objectives: [
-    'Recognize portal hypertension with preserved liver function: varices, splenomegaly, normal liver stiffness',
+    'Recognize portal hypertension with preserved liver function and normal stiffness',
     'Explain why the HVPG is near normal in presinusoidal resistance',
     'Name the two main causes: schistosomiasis and porto-sinusoidal vascular disorder (PSVD)',
   ],
@@ -43,16 +43,16 @@ export const NCPH = {
     {
       // (EUS-PPG, played step by step as on the HVPG talk's own slide: proc-anim.js MEASURES.eus. A measurement, so the model does not change;
       // the callouts read the live left portal and left hepatic veins of the patient already on the figure.)
-      id: 'eus', procedure: 'eus', cam: 'liver', tool: { kind: 'reading' }, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['ppg'],
+      id: 'eus', procedure: 'eus', cam: 'liver', tool: { kind: 'reading' }, data: 'tiles', tiles: ['hvpg', 'eus'], key: ['eus'],
       kicker: 'Site of resistance', site: 'presin', title: 'EUS-PPG measures portal pressure directly',
-      line: 'An EUS-guided needle passed through the stomach measures the portal and hepatic vein pressures. Here the EUS-PPG is {ppg}, while the HVPG was {hvpg}.',
+      line: 'An EUS-guided needle passed through the stomach measures the portal and hepatic vein pressures. Here the EUS-PPG is {eus}, while the HVPG was {hvpg}.',
       notes: 'Press Next to step through it: the echoendoscope in, the portal vein, the hepatic vein, and the gradient. A linear echoendoscope in the proximal stomach images the left lobe; a needle crosses into the left portal vein, then into the left hepatic vein, each measured with a manometer, and EUS-PPG is the portal vein pressure minus the hepatic vein pressure, from one needle in one session. Because it measures the portal vein directly, it detects the presinusoidal resistance the HVPG misses. The value of EUS-guided portal pressure gradient measurement in PSVD or noncirrhotic portal fibrosis (NCPF) is still a research question for Baveno VIII (RA8.18, RA8.24), so it is not a standard test; it is done in expert centers under sedation. The model does not change: the measurement reads the vessels as they are.',
       ask: ['Why can EUS-PPG detect portal hypertension that the HVPG missed?', 'It measures the portal vein itself, upstream of the presinusoidal resistance; the WHVP reflects only sinusoidal pressure.'],
     },
     {
       // (The three gradients of the patient the EUS slide just measured, on the ladder: the EUS-PPG is taught on the slide before, so its bracket stands here.)
       id: 'eus-ladder', lens: 'drop', terms: ['lobule:triad'], cam: 'lobule:triad', callout: { at: 'triad', label: 'Resistance' }, tool: { kind: 'profile', spans: ['hvpg', 'eus', 'ppg'] }, key: ['hvpg', 'eus'],
-      kicker: 'Site of resistance', site: 'presin', title: 'The EUS-PPG spans the resistance that the wedge leaves out',
+      kicker: 'Site of resistance', site: 'presin', title: 'The EUS-PPG spans the resistance that the HVPG misses',
       line: 'The HVPG is {hvpg:0}. The EUS-PPG starts in the portal vein, upstream of the resistance, and reads {eus:0}, close to the PPG of {ppg:0}.',
       notes: 'The same patient, with the three gradients side by side. The HVPG is the wedged minus the free hepatic venous pressure, so it spans the sinusoids only. The EUS-PPG is the left portal vein minus the left hepatic vein pressure, so it starts upstream of the portal tracts and spans the resistance; the PPG spans the portal vein to the IVC. Baveno VIII lists the EUS-guided gradient in PSVD and NCPF as a research question (RA8.18, RA8.24), so it is not a standard test.',
       ask: ['The HVPG is 3 mmHg and the EUS-PPG 15 mmHg in the same patient. Where does the resistance lie?', 'Between the left portal vein and the wedge, in the portal tracts. The EUS-PPG spans it and the HVPG does not.'],

@@ -3,17 +3,12 @@
 // Baveno VIII 9.2 makes Doppler the first-line test for portal vein thrombosis (8.25 gives the diagnosis of Budd–Chiari syndrome).
 
 const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`;
-const STENT = { tips: { on: true, d: 9 }, splanchnicTone: 0.7, habrStrength: 1.5, apShunt: 0.5, stenosis: { TIPS: 0.6 } };
+const STENT = { tips: { on: true, d: 9 }, splanchnicTone: 0.7, habrStrength: 1.5, apShunt: 0.5, stenosis: { TIPS: 0.611111 } };   // (1 − 3.5/9: a 9 mm stent narrowed to 3.5 mm: lumens on their 0.5 mm step, so the figure's label is the model's; was 0.6, 3.6 mm)
 
 export const DOPPLER = {
   id: 'doppler', level: 'core', title: 'Doppler of the portal system', minutes: 14,
   sections: [['Doppler basics', ['Doppler']], ['Reading a waveform', ['Cirrhosis', 'The method']], ['Portal inflow', ['Portal inflow']], ['Outflow', ['Outflow']], ['After TIPS', ['After TIPS']]],
-  objectives: [
-    'Interpret normal portal and hepatic vein Doppler: direction, velocity and waveform',
-    'Read every waveform in the same order: direction, then velocity, then shape',
-    'Distinguish hepatofugal portal flow, portal vein thrombosis, Budd–Chiari syndrome and right heart failure',
-    'Recognize TIPS stenosis from the direction of left portal vein flow',
-  ],
+  objectives: ['Interpret normal portal and hepatic vein Doppler: direction, velocity and waveform', 'Tell hepatofugal flow, portal vein thrombosis, Budd–Chiari syndrome and right heart failure apart', 'Recognize TIPS stenosis from the direction of left portal vein flow'],
   checks: [
     ['In what order do you read a Doppler waveform, and what does a main portal vein waveform below the baseline mean?', 'Direction (above or below the baseline), then velocity, then shape (continuous, pulsatile or flat). Below the baseline is hepatofugal flow: portal blood flows away from the liver, out through portosystemic collaterals, in advanced cirrhosis.'],
     ['Portal flow is pulsatile with each cardiac cycle and the HVPG is normal. Where is the problem?', 'In the heart: elevated right atrial pressure is transmitted through the sinusoids to the portal vein.'],
@@ -33,7 +28,7 @@ export const DOPPLER = {
     {
       id: 'hepatic', cam: 'hepatic', labels: ['RHV', 'RA'], tool: { kind: 'doppler', vessel: 'RHV_IVC', waves: true, mode: 'color' },
       kicker: 'Doppler', title: 'Hepatic vein flow is phasic with the cardiac cycle',
-      line: 'Flow toward the heart lies below the baseline: S and D waves each cardiac cycle. Atrial contraction briefly reverses flow (a wave), with a small v wave between.',
+      line: 'Flow toward the heart lies below the baseline: S and D waves each cardiac cycle, with a small v wave between them. Atrial contraction briefly reverses flow (the a wave).',
       notes: 'The hepatic veins drain into the right atrium through a short segment of IVC, so their waveform reflects right atrial pressure. Flow toward the heart is displayed below the baseline in blue, and the reversal in orange-red. The normal waveform has four components: the a wave (atrial contraction) briefly reverses flow, the S wave carries blood toward the heart in ventricular systole, the small v wave turns toward the baseline as the atrium fills, and the D wave carries blood forward again in diastole. Tricuspid regurgitation enlarges the v wave. A noncompliant cirrhotic liver dampens the waveform to biphasic or monophasic. A tall a wave and S-wave reversal point to tricuspid regurgitation or an elevated right atrial pressure.',
       ask: ['What causes the brief reversal in the normal hepatic vein waveform?', 'Atrial contraction (the a wave).'],
     },
@@ -95,7 +90,7 @@ export const DOPPLER = {
       id: 'a4', terms: ['pv'], preset: 'rhf', cam: 'route', labels: ['CONF', 'RHV', 'RA'], tool: { kind: 'doppler', vessel: 'PV_TRUNK', pair: true, calipers: true },
       vignette: 'A 72-year-old woman with severe tricuspid regurgitation has ascites and lower-extremity edema. Her liver tests are mildly elevated.',
       caseQ: 'What will her portal vein waveform look like?',
-      kicker: 'Outflow', site: 'cardiac', title: 'Pulsatile portal flow: the heart',
+      kicker: 'Outflow', site: 'cardiac', title: 'Pulsatile portal flow points to the right heart',
       line: 'Portal vein flow is pulsatile, in phase with the hepatic vein below it. A pulsatility index {>=30%} is abnormal. Right atrial pressure is {ra} and the HVPG stays {hvpg}.',
       notes: 'In right heart failure, tricuspid regurgitation and constrictive pericarditis, elevated right atrial pressure is transmitted through the sinusoids and portal flow becomes pulsatile; with severe regurgitation it may reverse in systole. The pulsatility index, (Vmax − Vmin) / Vmax, is abnormal at ≥30% and severe at ≥50%. The HVPG is normal because the wedged and free hepatic venous pressures (WHVP, FHVP) rise together. A dilated IVC and hepatic veins point to the heart, not the liver. The narrow trace below the portal vein is the right hepatic vein: each portal pulsation coincides with its waves.',
       ask: ['Pulsatile portal flow with a normal HVPG: where is the resistance?', 'Downstream of the liver, in the heart: elevated right atrial pressure is transmitted back through the sinusoids.'],
@@ -105,8 +100,8 @@ export const DOPPLER = {
       vignette: 'A 60-year-old man had a covered TIPS for refractory ascites 6 months ago. Over the last month his ascites has recurred.',
       caseQ: 'What direction will his left portal vein flow be?',
       kicker: 'After TIPS', site: 'sin', title: 'Hepatopetal again: TIPS stenosis',
-      line: 'Left portal vein flow is hepatopetal again: the stent no longer draws flow toward it. The TIPS has stenosed, and the PPG is back to {ppg}.',
-      notes: 'With a patent TIPS, flow in the intrahepatic portal branches is directed toward the stent (hepatofugal). Signs of TIPS stenosis: a stent velocity <90 or >190 cm/s at the proximal, mid or distal stent, a change of >50 cm/s from the baseline study, a main portal vein velocity <30 cm/s, and an intrahepatic portal branch that becomes hepatopetal. Stenoses form mostly at the hepatic vein end, where a jet exceeds 190 cm/s while velocity in the rest of the stent is low. TIPS venography with a portosystemic gradient confirms it, and angioplasty or a new stent treats it. The Doppler ultrasound of TIPS talk covers the stent itself.',
+      line: 'Left portal vein flow is hepatopetal again: the stent no longer draws flow toward it. The TIPS has stenosed, and the PPG has risen to {ppg}.',
+      notes: 'With a patent TIPS, flow in the intrahepatic portal branches is directed toward the stent (hepatofugal). Signs of TIPS stenosis: a stent velocity <90 or >190 cm/s at the proximal, mid or distal stent, a change of >50 cm/s from the baseline study, a main portal vein velocity <30 cm/s, and an intrahepatic portal branch that becomes hepatopetal. Stenoses form mostly at the hepatic vein end, where a jet exceeds 190 cm/s while velocity in the rest of the stent is low. TIPS venography with a portosystemic gradient confirms it, and angioplasty or a new stent treats it. The Doppler after TIPS talk covers the stent itself.',
       ask: ['Name three Doppler signs of TIPS stenosis.', 'A stent velocity <90 or >190 cm/s, a main portal vein velocity <30 cm/s, and an intrahepatic portal branch that is hepatopetal again.'],
     },
     {
@@ -115,8 +110,8 @@ export const DOPPLER = {
       id: 'relation', preset: 'csph', cam: 'portal', labels: ['CONF'],
       tool: { kind: 'curve', x: 'hvpg', xCuts: [10], patient: { preset: 'healthy' }, param: 'cirrhosis', from: 0.3, to: 1, step: 0.05, days: 365, lines: ['pvVel', 'pvFlow'] },
       kicker: 'Summary', site: 'sin', title: 'A normal portal velocity does not rule out CSPH',
-      line: 'CSPH at an HVPG of {hvpg}, yet main portal vein velocity is still {pvVel}. In the model velocity falls {<15 cm/s} only at an HVPG of about 16 mmHg.',
-      notes: 'Each point is the model\'s cirrhosis from mild to severe, settled for a year: main portal vein velocity and portal flow, plotted against the HVPG. The velocity stays near 26 cm/s up to an HVPG of 10 mmHg, is still 24 cm/s at 11.6 mmHg, and falls <15 cm/s only at about 16 mmHg. The portal flow first rises with the hyperdynamic circulation, then falls as the collaterals carry more of the inflow. So the Doppler signs are specific but insensitive: a normal portal velocity does not exclude CSPH. The model\'s velocity is the mean along the vein; the published cut-offs use the peak velocity, <16 cm/s together with a dilated vein (Iranpour 2016; McNaughton and Abu-Yousef 2011), and the app marks 15 cm/s. The ring is the CSPH patient. (Iranpour 2016; McNaughton and Abu-Yousef 2011; AASLD 2024 Fig. 2.) One model patient per point; real patients vary far more.',
+      line: 'CSPH at an HVPG of {hvpg}, yet main portal vein velocity is still {pvVel}. In the model velocity falls {<15 cm/s} only at an HVPG of about 15.5 mmHg.',
+      notes: 'Each point is the model\'s cirrhosis from mild to severe, settled for a year: main portal vein velocity and portal flow, plotted against the HVPG. The velocity stays near 26 cm/s up to an HVPG of 10 mmHg, is still 24 cm/s at 11.1 mmHg, and falls <15 cm/s only at about 15.5 mmHg. The portal flow first rises with the hyperdynamic circulation, then falls as the collaterals carry more of the inflow. So the Doppler signs are specific but insensitive: a normal portal velocity does not exclude CSPH. The model\'s velocity is the mean along the vein; the published cut-offs use the peak velocity, <16 cm/s together with a dilated vein (Iranpour 2016; McNaughton and Abu-Yousef 2011), and the app marks 15 cm/s. The ring is the CSPH patient. (Iranpour 2016; McNaughton and Abu-Yousef 2011; AASLD 2024 Fig. 2.) One model patient per point; real patients vary far more.',
       ask: ['A patient has an HVPG of 12 mmHg and a portal vein velocity of 24 cm/s. Does the normal Doppler rule out CSPH?', 'No. The velocity usually falls <15 cm/s only at a much higher gradient, so a normal Doppler does not exclude CSPH.'],
     },
     {

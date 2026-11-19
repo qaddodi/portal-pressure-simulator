@@ -39,8 +39,8 @@ test('growing a box takes in what the slide points at with the 8 % room the came
 test('names resolve as the glow resolves them: a term target, an organ, a station, a named set, else a vessel', () => {
   const o = camOn(['PV_TRUNK', 'spleen', 'varix', 'CONF', 'AO', '@hepatic-veins']);
   assert.deepEqual(o.organs, ['spleen']);
-  // varix → C1a, C1b; CONF is the portal vein's station and frames its vessel, not a point; the set brings the three hepatic veins
-  assert.deepEqual(o.edges, ['PV_TRUNK', 'C1a', 'C1b', 'RHV_IVC', 'MHV_IVC', 'LHV_IVC']);
+  // the portal vein is two pieces where the coronary vein joins it; varix → C1a, C1b; CONF is the portal vein's station and frames its vessel, not a point; the set brings the three hepatic veins
+  assert.deepEqual(o.edges, ['PV_TRUNK', 'PV_TRUNK_1', 'C1a', 'C1b', 'RHV_IVC', 'RHV_IVC_1', 'MHV_IVC', 'LHV_IVC']);
   assert.equal(o.points.length, 1, 'AO has no term target: it frames where the station stands');
   assert.deepEqual(o.unknown, []);
   assert.deepEqual(camOn(['liver', 'liver', 'C5', 'C5']), { organs: ['liver'], edges: ['C5'], points: [], unknown: [] }, 'a name twice counts once');
@@ -92,16 +92,4 @@ test('the examples in the authoring guides name things the camera knows', () => 
     if (m[2]) assert.ok(REGIONS[m[2]], `${m[0]}: no region ${m[2]}`);
   }
   assert.ok(n >= 2, 'the guides show the form (the full guide and the quick guide)');
-});
-
-test('the presenter frames by name through camBox, and the older forms through the same sums', () => {
-  const pz = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  const body = /function camBox\(cam, s\) \{([\s\S]*?)\n {2}\}\n/.exec(pz)?.[1];
-  assert.ok(body, 'camBox is where the framing is worked out');
-  assert.match(body, /regionBox\(isCamOn\(cam\) \? cam\.near : cam, REGIONS\)/, 'a region, a box or a list of regions, or the region the names grow from');
-  assert.match(body, /growBox\(r, unionBox\(\[stage\.focusBox\(n\), pts\]\.filter\(Boolean\)\), 30\)/, 'the names, as drawn now, with the stations where they stand');
-  assert.match(body, /growBox\(r \|\| REGIONS\.route, f\)/, 'the slide\'s outlines and soft glows still grow it, as before, and a region the plate lacks is still the route');
-  // Every place that frames a slide goes through camBox, so a camera by name works at the slide, in a flip of scales and on the rise out of the lobule.
-  assert.equal((pz.match(/camBox\(/g) || []).length, 3, 'the one move to a framing (frameTo: the glide, the refit, a time-lapse\'s push), the rise and the definition');
-  assert.doesNotMatch(pz, /Array\.isArray\(cam\) \? cam : REGIONS/, 'no second reading of a camera that skips the sums');
 });

@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { appCss } from './split-src.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (f) => unsnap(readFileSync(join(root, f), 'utf8'));
@@ -25,9 +26,12 @@ test('every way a right-hand card opens asks the others to give way when the ves
 
 test('Tests has one fixed width on a Mac and an iPad held sideways (500 px, no divider), which the give-way arithmetic assumes', () => {
   const dock = read('src/ui/dock.js');
-  assert.match(dock, /const SIDE_W = 500;/);
-  assert.match(dock, /: Math\.min\(SIDE_W, Math\.max\(360, W \* 0\.62\)\)\)/, 'no remembered width off a sideways phone');
-  assert.match(dock, /divider\.hidden = state !== 'open' \|\| fixedSide\(\);/);
+  assert.match(dock, /const SIDE_W = 500, SIDE_W_WIDE = 600;/);
+  assert.match(dock, /const sideFixed = \(W\) => Math\.min\(SIDE_W_WIDE, Math\.max\(SIDE_W, Math\.round\(W \* 0\.3\)\)\);/, '500 px up to a 1,667 px stage, then growing to 600 (review ST section, Mac density)');
+  // (Three cards side by side still leave the vessel card its 316 px strip at every width the side card grows: Details 380, Tests, Treat 400, four 12 px gaps.)
+  for (let W = 1667; W <= 3000; W += 7) assert.ok(W - 380 - Math.min(600, Math.max(500, Math.round(W * 0.3))) - 400 - 4 * 12 >= 316, `${W}`);
+  assert.match(dock, /: Math\.min\(sideFixed\(W\), Math\.max\(360, W \* 0\.62\)\)\)/, 'no remembered width off a sideways phone');
+  assert.match(dock, /fadeShown\(divider, !\(state !== 'open' \|\| fixedSide\(\)\)\);/);   // (it fades, 15 Nov 2026)
   assert.match(read('src/ui/main.js'), /\|\| Math\.min\(500, Math\.max\(360, innerWidth \* 0\.62\)\)/);
 });
 
@@ -42,7 +46,7 @@ test('a card that gives way hands focus on to the opening card\'s button; a dial
   assert.match(u, /back\.style\.setProperty\('--modal-top', `\$\{Math\.max\(0, Math\.round\(modalVV\.offsetTop\)\)\}px`\)/);
   assert.equal((u.match(/removeProperty\('--modal-top'\)/g) || []).length, 1, 'cleared in modalKbEnd, which the keyboard going and the dialog gone both run');
   assert.match(u, /modalKbEnd\(back\); modalBand = \[0, 0\]/);
-  const css = read('styles/app.css');
+  const css = appCss();
   assert.match(css, /\.modal-back \{ position: fixed; inset: var\(--modal-top, 0px\) 0 var\(--modal-kb, 0px\) 0;/);
   assert.match(css, /calc\(100dvh - var\(--modal-kb, 0px\) - var\(--modal-top, 0px\) - 32px/);
 });
@@ -73,12 +77,13 @@ test('the feedback ask waits for every open working surface on every screen (Tes
 });
 
 test('the Compare strip centres in the room the right-hand cards leave, and eases as they come and go', () => {
-  const css = read('styles/app.css');
+  const css = appCss();
   const rule = css.match(/^\.sb-center\.float-ui \{([^}]*)\}/m)?.[1] ?? '';
   // (since the off-GPU gate: the room's centre is reached by translate, half the cards' width, not by easing right)
   assert.match(rule, /right: calc\(env\(safe-area-inset-right\) \+ var\(--gap\)\);/);
   assert.match(rule, /left: calc\(env\(safe-area-inset-left\) \+ var\(--gap\)\)/);
-  assert.match(rule, /translate: calc\(-\.5 \* var\(--right-occ, 0px\)\) 0; transition: translate var\(--d-small\) var\(--ease\)/);
+  // (16 Nov 2026: the free stage, free-stage.js: the room beside the banner's own rows, the left shelf's card and the right-hand cards, not the sum of every card's width)
+  assert.match(rule, /translate: calc\(\(var\(--fs-top-l, 0px\) - var\(--fs-top-r, 0px\)\) \/ 2\) 0; transition: translate var\(--d-small\) var\(--ease\)/);
   assert.doesNotMatch(rule, /translateX\(-50%\)/, 'no longer centred on the whole window');
-  assert.match(css, /^\.sb-center\.float-ui > \* \{ pointer-events: auto; margin-inline: auto; max-width: calc\(100% - var\(--right-occ, 0px\)\); \}/m);
+  assert.match(css, /^\.sb-center\.float-ui > \* \{ pointer-events: auto; margin-inline: auto; max-width: calc\(100% - var\(--fs-top-l, 0px\) - var\(--fs-top-r, 0px\)\); \}/m);
 });

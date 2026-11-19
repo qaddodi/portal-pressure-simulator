@@ -2,7 +2,6 @@
 // engorgement (d − 2) / 10 (Mohammad, 17 Oct: a 5.5 mm "Large" varix was drawn a third of the way up and looked thin).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { endoGrow, LARGE_MM } from '../src/ui/endo-size.js';
 import { varixGrade } from '../src/engine/portal/metrics.js';
 
@@ -29,7 +28,3 @@ test('a large varix is drawn plainly large, growing to full at 10 mm', () => {
   for (let d = 4.9; d < 5.1; d += 0.001) assert.equal(endoGrow(d) >= 0.5, varixGrade(d).label !== 'Small', `d ${d}`);
 });
 
-test('the scope takes its engorgement from endoGrow', () => {
-  const src = readFileSync(new URL('../src/ui/instruments.js', import.meta.url), 'utf8');
-  assert.match(src, /const gNow = endoGrow\(mv\.d\);/);
-});

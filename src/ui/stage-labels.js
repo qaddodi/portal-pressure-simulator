@@ -5,13 +5,15 @@ import { CHIP_NODES } from './anatomy.js';
 import { afterMotion, cancelFrame, cancelMay, frameFor, inMotion, mayTask } from './frame.js';
 import { COUNTED, gpuProbe } from './gpu-probe.js';
 import { HEART_KEY, addHeart } from './heart-label.js';
+import { onLabelRoll } from './count-roll.js';
 import { store } from './store.js';
+const STENTS = ['TIPS', 'DIPS'];   // (the stents whose cm/s callouts wait for them to settle: stentReady)
 
 export function createLabelDriver(st, live) {
   const { stationRev, E, EI, EV, LABEL_FIRST_REST_MS, LABEL_REST_SLICE_MS, LABEL_SLICE_MS, calloutSig, camSettle, cath, dop, dpr, dprobePaint, easeInOut, explain, fxBuild, glideXfEnd, hasVarices, isImaging, labelBase, labelGlSync, layerMode, layoutLabels, layoutLabelsGen, nextFrame, nodeItem, pre, preAsk, pzInset, refreshCTM, renderBlock, resItem, rideNow, rideStart, rideStop, sameDeps, scan, scanItem, scanPaint, shortenTo, sigFold, sites, sitesPaint, stageBox, themeKey, velItem, wrap, xfMarkCurrent, xfRelease } = st;
   const SOLVED_A = { sig: null, sc: 0, th: 0, csig: 0, ins: 0 }, SOLVED_B = { sig: null, sc: 0, th: 0, csig: 0, ins: 0 };   // (what updateLabels writes it into, by turns)
   const JOB_NOW = { maxWait: 0 };
-  const HAND_STILL_MS = 90;   // (a wheel step is over this long after its last tick: the settle no longer waits the 250 ms of gestureOn)
+  const HAND_STILL_MS = 90;   // motion-scale: not a move (a wait, no motion). (a wheel step is over this long after its last tick: the settle no longer waits the 250 ms of gestureOn)
   const JOB = { g: null, key: null, solvedFor: null, t0: 0 }, jobKeyArr = [], labelKeyArr = [];   // (the solve in slices: one at a time, its key and the key of the layout that stands, kept)
   const keyInto = (to, from) => { to.length = from.length; for (let i = 0; i < from.length; i++) to[i] = from[i]; return to; };
   const labelVis = new Map(); // key → shown last frame (hysteresis against blockers)
@@ -86,6 +88,10 @@ export function createLabelDriver(st, live) {
     const x = E[sid];
     if (!x?.vis) { live.stentCalm.delete(sid); return false; }
     const now = performance.now(), c = live.stentCalm.get(sid);
+    // (Asked with the stage put to the other view's end (stage-view.js atTargetStage: the solve ahead, its key), the vessels stand at that view's widths,
+    // never the eased width the live stent is settling to: the live figure's answer, unchanged. Asked there, it had restarted the live stent's calm every
+    // time the solve ahead ran, and the stent's cm/s callouts went for 1.2 s, came back, and went again a few seconds later: 17 Nov 2026, TIPS slides.)
+    if (live.stageDry) return c != null && now - c >= live.STENT_CALM_MS;
     if (!c || x.reveal || f.morphing || x.width !== x.wT) { live.stentCalm.set(sid, now); return false; }
     return now - c >= live.STENT_CALM_MS;
   }
@@ -111,7 +117,7 @@ export function createLabelDriver(st, live) {
     for (let i = 0; i < d.length; i++) sigDeps[i] = d[i];
     sigStats.builds++;
     const edges = '~' + EV.filter((x) => x.vis).map((x) => `${x.e.id}${sigWidth(x)}${x.ghost ? 'g' : ''}`).join(',');   // (after a ~: the field a view change's landing reads apart, stage-view.js sameButWidths)
-    return (sigText = [labelGeo, t >= 0.5, live.rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, paramJSON((f.viewParams || st.params).stenosis), paramJSON((f.viewParams || st.params).stenosisSite),
+    return (sigText = [labelGeo, t >= 0.5, live.rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, paramJSON((f.viewParams || st.params).stenosis), paramJSON((f.viewParams || st.params).stenosisSite), paramJSON((f.viewParams || st.params).stentGeom),
       isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && paramJSON(st.focus.marks), live.fxSig, live.fx?.steps && live.slideGlow.map((g) => g.id + g.at).join(), (live.fx?.organs.some((o) => o.organ === 'spleen') || live.fx?.calipers.some((c) => c.organ)) && Math.round((f.slow?.spleen ?? 11) * 2), d[7], st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && paramJSON(st.presentTerms || null), st.presenting && st.presentNames && String(st.presentGrads), explain.key, scan.on, [...(st.hiddenLabels || [])].join(','), d[8], flagged(f, flagSigBuf).join(','), d[23], edges, `${tips}${dips}`, dop.key, d[19]].join('|'));
   }
   const sigStats = { builds: 0 };
@@ -128,6 +134,18 @@ export function createLabelDriver(st, live) {
     return h || 1;
   };
   const stats = { layouts: 0, skips: 0, values: 0, ms: 0, jobs: 0, slices: 0, drops: 0, solves: 0 };   // (solves: the layouts that searched afresh, not carried)
+  // (A scene: what the labels are laid out for as a whole, not for a pan or a tick of a reading: the view, the patient, the stage's size, the text scale,
+  // the slide's stations. The first solve of a scene has no history (stage-label-solve.js `fresh`): the labels of a reload, of a patient or of a view are the
+  // same whatever came before, and a later solve of the scene keeps the slots it had. It lands the scene only with the camera at rest, so a solve in the
+  // middle of the first framing is followed by another with no history.)
+  function labelSceneOf(st, b) { return [live.morphTarget, st.presetId, Math.round(b.width), Math.round(b.height), labelBase(), live.rotU > 0.5, st.presenting ? (st.presentLabels?.join(',') || '*') : '', st.layers.labels, st.labelLevel].join('|'); }
+  const camAtRest = () => (live.morph === 0 || live.morph === 1) && !live.gestureOn() && !live.vtGliding && !live.drifting && !live.zoomBase && !live.viewXf && !store.get().presetLoading;
+  // (A scene lands only once what its labels are laid out around has come in: the camera at rest, the cards' boxes read, no stent still settling, and the
+  // Doppler probe standing (or not asked for). Until then each solve keeps no history, so a reload's labels do not depend on the order these arrived in;
+  // after it, every solve keeps the slots it had.)
+  const probeSettling = () => !!dop.id && (!!dpr.swap || !!dpr.leaving || (dpr.mon && !dpr.on));
+  const stentsSettling = () => { for (const sid of STENTS) { const x = E[sid]; if (x?.vis && (x.reveal || x.width !== x.wT)) return true; } return false; };
+  function sceneLanded(sf) { if (sf.scene != null && camAtRest() && live.blockerBoxes && !probeSettling() && !stentsSettling()) { live.labelSceneDone = sf.scene; live.labelFresh = false; } }
   function solCacheKey(sig, sc, th, b, csig, ins) {
     if (live.morph !== 1 || live.morphTarget !== 1 || live.xfSolving || live.viewXf || !(sc > 0)) return null;
     return [sig, Math.round(Math.log2(sc) * 4), Math.round(th * 100), Math.round(live.CTM.e / (b.width / 4)), Math.round(live.CTM.f / (b.height / 4)), b.width, b.height, live.rotU > 0.5, live.labelFonts, csig, ins].join('|');
@@ -151,7 +169,22 @@ export function createLabelDriver(st, live) {
     live.labelSol = keep;
     return false;
   }
+  // (No label is laid out before the page's first framing has settled: the stage's size and the camera unchanged for LABELS_SETTLE_MS, no glide
+  // under way. On a fresh load the first fit moves the figure a few times as the page lays itself out, and labels laid for the first view
+  // crossfaded to the next for seconds: two "Right hepatic vein 4.6", one fading over RIGHT ATRIUM, one at the left (F24, iPhone, 17 Nov 2026).
+  // Then they fade in once, where they stay. At most LABELS_WAIT_MAX after the first ask, so a figure that never rests still shows its labels.)
+  const LABELS_SETTLE_MS = 300, LABELS_WAIT_MAX = 3000, settle = { w: -1, h: -1, k: 0, x: 0, y: 0, t: 0, t0: -1, ask: 0 };   // motion-scale: not a move (a wait for the framing to rest, no motion)
+  function firstSettled(b) {
+    const now = performance.now(), z = settle, cam = live.vt || NO_VT;
+    if (z.t0 < 0) z.t0 = now;
+    if (z.w !== b.width || z.h !== b.height || Math.abs(z.k - cam.k) > 1e-4 || Math.abs(z.x - cam.x) > 0.05 || Math.abs(z.y - cam.y) > 0.05) { z.w = b.width; z.h = b.height; z.k = cam.k; z.x = cam.x; z.y = cam.y; z.t = now; }
+    if ((now - z.t >= LABELS_SETTLE_MS && !live.vtGliding && !live.camMove) || now - z.t0 >= LABELS_WAIT_MAX) { live.labelsUp = true; return true; }
+    z.ask ||= nextFrame(() => { z.ask = 0; if (live.F && !live.labelsUp) updateLabels(live.F); });
+    return false;
+  }
+  const NO_VT = { k: 1, x: 0, y: 0 };
   function updateLabels(f, force = false) {
+    rollF = f;
     live.labelPainted = false;
     if (live.viewXf) return;   // (the change between the views: the new view's labels were solved at the tap for where it lands, and ride it)
     // Laid out once the presenter's camera settles (see camSettle), or at once if its glide was cut short. (Its new labels were solved as it
@@ -164,6 +197,7 @@ export function createLabelDriver(st, live) {
     const t0 = performance.now();
     refreshCTM();
     const st = store.get(), b = stageBox();
+    if (!live.labelsUp && !firstSettled(b)) return;
     // (Rigid labels, labels-plan.md step 6: while the camera moves (a hand's pan, pinch or wheel, a glide, a slow push, a card's zoom) and what
     // the labels show is the same, nothing is laid out. Every label stands at CTM x its world anchor + its offset, drawn by the GPU in the figure's
     // own frame (label-gl pinDraw), so it moves with the figure to the pixel; the layout is solved once, when the camera comes to rest. What the
@@ -212,8 +246,9 @@ export function createLabelDriver(st, live) {
         const sf = live.solvedFor === SOLVED_A ? SOLVED_B : SOLVED_A;
         sf.sig = sig; sf.sc = sc; sf.th = th; sf.csig = csig; sf.ins = ins; sf.view = live.morphTarget;
         sf.ck = solCacheKey(sig, sc, th, b, csig, ins);
+        sf.scene = labelSceneOf(st, b); live.labelFresh = sf.scene !== live.labelSceneDone;
         // (A zoom back to a step already solved in the Circuit: its recorded slots are carried, with no solve. They stand only if every label still fits.)
-        if (sf.ck && solCacheTry(sf.ck, f)) { live.solvedFor = sf; live.solveAsked = false; } else {
+        if (sf.ck && solCacheTry(sf.ck, f)) { live.solvedFor = sf; live.solveAsked = false; sceneLanded(sf); } else {
         // (The labels already standing are carried to this frame's camera first: a solve that does not land inside its slice leaves them as
         // they are, so each frame of a zoom or glide that asked for a fresh solve left them one more frame behind the figure, and
         // dropped the sliced solve the next frame. Mohammad, 2 Nov: "the labels and callouts move slower than the figure camera".)
@@ -226,7 +261,7 @@ export function createLabelDriver(st, live) {
           labelTail();
           return;
         }
-        live.solvedFor = sf; live.solveAsked = false; solCachePut(sf);
+        live.solvedFor = sf; live.solveAsked = false; solCachePut(sf); sceneLanded(sf);
         }
       }
       else if (hand || live.reslotted) labelSettleSoon();
@@ -293,7 +328,7 @@ export function createLabelDriver(st, live) {
     cancelMay('label solve');
     try { while (!labelSliceRun(j.g, 1e6)); } catch (e) { live.labelJob = null; live.labelKey = null; throw e; }
     live.labelJob = null;
-    live.solvedFor = j.solvedFor; live.solveAsked = false; solCachePut(live.solvedFor);
+    live.solvedFor = j.solvedFor; live.solveAsked = false; solCachePut(live.solvedFor); sceneLanded(j.solvedFor);
     live.labelKey = keyInto(labelKeyArr, j.key); stats.layouts++;
     labelTail();
   }
@@ -314,7 +349,7 @@ export function createLabelDriver(st, live) {
     if (!done && (age > 400 || !live.gestureOn())) { mayTask('label solve', labelJobStep, JOB_NOW); return false; }
     if (!done) return true;
     live.labelJob = null;
-    live.solvedFor = j.solvedFor; live.solveAsked = false; solCachePut(live.solvedFor);
+    live.solvedFor = j.solvedFor; live.solveAsked = false; solCachePut(live.solvedFor); sceneLanded(j.solvedFor);
     if (gpuProbe.on) gpuProbe.note(COUNTED.labelSolve);
     live.labelKey = keyInto(labelKeyArr, j.key); stats.layouts++;
     if (j.xfTap) xfMarkCurrent(j.xfTap);
@@ -341,7 +376,10 @@ export function createLabelDriver(st, live) {
   // dive) a laid-out label is left exactly as it is, its places, widths and collisions kept from its last layout and its live values
   // not rebuilt or written into the page, so a moving frame does no label DOM work at all. The values catch up in the first frame
   // after the move ends.)
-  let heldF = null, heldWait = null;
+  let heldF = null, heldWait = null, rollF = null, rollAsked = false;
+  // (A station's number counting to a new value, review LBL-7: it asks for a frame while it counts, and the frame writes the next step into the label; during a move the held path above takes over and the count starts as the move ends.)
+  const rollRun = () => { rollAsked = false; const g = rollF; if (!g || heldF || inMotion() || cathHid()) return; if (!refreshValues(g)) live.labelKey = null; labelGlSync(); };
+  onLabelRoll(() => { if (!rollAsked) { rollAsked = true; frameFor('labels')(rollRun); } });
   const heldRun = () => { const g = heldF; heldF = null; if (!g || cathHid()) return; if (!refreshValues(g)) live.labelKey = null; labelGlSync(); };
   const heldDone = () => { heldWait = null; frameFor('labels')(heldRun); };
   function holdValues(f) {

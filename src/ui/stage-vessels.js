@@ -1,37 +1,40 @@
 // The vessels on the GPU: coil and varix-spread ease, the morph frame, colours, radii, colour pass, syncVeins and drawVeins.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { TIERS_ON, TIER_TOP, motionK, sharpMoving, tierK } from './adapt-tier.js';
-import { CONTEXT_EDGES, FEEDERS, IVC_EDGES, SIN_EDGES, VIEW } from './anatomy.js';
+import { sharpMoving } from './adapt-tier.js';
+import { ANAT_HIDDEN, CONTEXT_EDGES, FEEDERS, IVC_EDGES, SIN_EDGES, VIEW } from './anatomy.js';
 import { cssColor8 } from './css-color.js';
 import { createColourFollow } from './display-state.js';
 import { D_SURFACE, easeMove } from './ease.js';
 import { PEEL_GLOW, peelGlow } from './flow-peel.js';
-import { PINCH_LOW_K, easeNow, figLab, figOpt, inMotion } from './frame.js';
+import { easeNow, figOpt, framePart, settling } from './frame.js';
 import { writeGlowTexels } from './glow-texels.js';
 import { gpuProbe } from './gpu-probe.js';
 import { liftEnd, nearPath } from './highlight-math.js';
+import { firstPiece } from './part-names.js';
 import { LIGHT } from './light.js';
 import { lookChanged, newLookSig } from './look-sig.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
-import { alongCurve } from './pressure-along.js';
-import { sinceInput } from './quiet.js';
+import { alongCurve, oxRampOf, oxygenAlong } from './pressure-along.js';
+import { sinceInput, handDown } from './quiet.js';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js';
 const VARIX_FADE_TO = 0.88;   // how much of the esophageal varices fades while the EUS-PPG scope is in front of them (a faint ghost of them stays)
 import { createSweepClient } from './sweep-client.js';
 import { clamp } from './util.js';
-import { frontKey, fronted } from './collateral-front.js';
+import { frontAlpha, frontKey, frontP, fronted } from './collateral-front.js';
 import { FRONT_MAX_MS, changeDrawn, easingFront, edgeHops, frontDelay } from './change-order.js';
 import { beadRadius } from './varix-bead.js';
 import { LOOK_SITE } from './varix-look.js';
+import { isStent } from '../engine/portal/topology.js';
 import { JOIN_F_NOFADE } from './tube-join-glsl.js';
-import { newJoinStore, runOnSamples, smoothRunOn as smoothPass, veinJoins as joinsPass } from './vein-joins.js';
-import { F_DIFFUSE, F_DOTTED, F_NOCASE, F_SHADOW, F_SHUNT, F_SPEC, F_VEIL, F_WHOLE, TUBE_TEXELS, binVeins } from './veins-gl.js';
+import { newJoinStore, runOnSamples, smoothRunOn as smoothPass, veinJoins as joinsPass, veinJoinsStep as joinsPassStep } from './vein-joins.js';
+import { ARTERY_WALL, readArteryWall, writeArteryWall } from './artery-wall.js';
+import { F_DIFFUSE, F_DOTTED, F_EDGE, F_NOCASE, F_SHADOW, F_SHUNT, F_SPEC, F_VEIL, F_WHOLE, TUBE_TEXELS, binVeins } from './veins-gl.js';
 import { writeJoinNow, writePoints } from './veins-sweep.js';
 import { chainsOf, planChainInto } from './vessel-taper.js';
 
 import { stageScope } from './stage-scope.js';
 export function createVessels(st, live) {
-  const { E, EV, FADE_DOWN_Y, FADE_IN, FEEDER_FADE_Y, GL_ROWS, IVC_JOIN, LIGATED, MAP, MORPH_GPU, MORPH_JSLACK, MORPH_SLACK, N_SAMPLES, ORIGIN_LUMEN, PORTAL_CASING, SIN_FADE, STRAIGHT_COLL, TIER_ALPHA, TIER_ART, TIER_GROUP, TIER_LIFT, TIER_LIFT_FRONT, W_TAU, arcLen, binList, binMemo, binTube, binTubeOf, divideLen, easeInOut, edgeQ, geo, getOrganCovers, glow, joinKey, joinRoom, joinsKept, joinsOf, keep, layerMode, lenOfItem, levelTier, morphMiss, morphOff, morphTrackSoon, mt, noteMoveFrame, reachOf, refreshCTM, rowKey, selAKey, setOf, settleRes, spot, spotOn, strandAt, subPixel, sweepPiece, syncMapInk, tubeData, tubeFill, vCanvas, vesselAt, vh, viewKeep, viewNext, viewSame, widthMoving, wrap, wrapCS, wrapCls } = st;
+  const { E, EV, FADE_DOWN_Y, FADE_IN, FEEDER_FADE_Y, GL_ROWS, IVC_JOIN, LIGATED, MAP, MORPH_GPU, MORPH_JSLACK, MORPH_SLACK, N_SAMPLES, ORIGIN_LUMEN, PORTAL_CASING, SIN_FADE, STRAIGHT_COLL, TIER_ALPHA, TIER_ART, TIER_GROUP, TIER_LIFT, TIER_LIFT_FRONT, W_TAU, arcLen, binList, binMemo, binTube, binTubeOf, divideLen, easeInOut, edgeQ, geo, getOrganCovers, joinKey, joinRoom, joinsKept, joinsOf, keep, layerMode, lenOfItem, levelTier, morphMiss, morphOff, morphTrackSoon, mt, noteMoveFrame, reachOf, refreshCTM, rowKey, selAKey, setOf, settleRes, spot, spotOn, strandAt, subPixel, sweepPiece, syncMapInk, tubeData, tubeFill, vCanvas, vesselAt, vh, viewKeep, viewNext, viewSame, widthMoving, wrap, wrapCS, wrapCls } = st;
   // ── A coil or a varix's spread easing at rest, on the GPU (2 Nov 2026, Mohammad: "Move. Everything. To. GPU.") ──
   // A slide change that grows or shrinks a varix eases its channels' coil (g.wig toward g.wigT) and its strands' fan (g.spr toward
   // g.sprT) over a second or two, and the strands spread into cells their binning did not list: 10 to 19 whole binnings of every vessel
@@ -77,7 +80,7 @@ export function createVessels(st, live) {
   function envCheck() {
     et.checkT = 0;
     if (!live.veins || live.veins.lost || live.morph !== live.morphTarget || !wrap.classList.contains('gl-on') || live.lobuleOn) return;
-    if (inMotion() || live.coilEasing) { envSoon(); return; }
+    if (settling() || live.coilEasing) { envSoon(); return; }
     const rows = rowKey(envItemsAt(0, 1)), key = `${live.morph}|${rows}`;
     if (key === et.key && et.pc?.set?.owner === live.veins) return;
     et.key = key;
@@ -89,7 +92,7 @@ export function createVessels(st, live) {
     let part = null;
     const next = () => {
       if (gen !== et.gen || !live.veins || live.veins.lost) return;
-      if ((inMotion() || sinceInput() < 700) && snaps.length < 2 * ENV_AT.length) { stageScope.timer(next, 200); return; }
+      if (handDown() || ((settling() || sinceInput() < 700) && snaps.length < 2 * ENV_AT.length)) { stageScope.timer(next, 200); return; }
       if (snaps.length < 2 * ENV_AT.length) {
         const m = snaps.length >> 1, [w, sp] = ENV_AT[m];
         if (!part) { const items = envItemsAt(w, sp); part = { items, o: joinsKept(items), J2: null }; stageScope.timer(next, 0); return; }
@@ -144,7 +147,7 @@ export function createVessels(st, live) {
     et.restT = 0;
     if (live.easeHeld) return;   // (held for a check: binned when it asks, rebinNow)
     if (!et.pc?.set || mt.using !== et.pc.set) return;
-    if (live.coilEasing || inMotion() || live.inUpdate) { et.restT = stageScope.timer(easeRest, 600); return; }
+    if (live.coilEasing || settling() || live.inUpdate) { et.restT = stageScope.timer(easeRest, 600); return; }
     morphOff();
     live.vBinKey = ''; live.binShown = null; live.bendShown = null;
     syncVeins(easeInOut(live.morph));
@@ -192,7 +195,7 @@ export function createVessels(st, live) {
     mt.restT = 0;
     if (!mt.using) return;
     if (live.easeHeld) return;   // (held for a check: binned when it asks, rebinNow)
-    if (live.morph !== live.morphTarget || live.coilEasing || inMotion() || live.inUpdate) { mt.restT = stageScope.timer(pieceRest, 600); return; }
+    if (live.morph !== live.morphTarget || live.coilEasing || settling() || live.inUpdate) { mt.restT = stageScope.timer(pieceRest, 600); return; }
     morphOff();
     live.vBinKey = ''; live.binShown = null; live.bendShown = null;
     syncVeins(easeInOut(live.morph));
@@ -212,6 +215,9 @@ export function createVessels(st, live) {
   const FR_STORES = [newJoinStore(), newJoinStore()];   // alloc-rare: kept, made once for the stage
   let frFlip = 0;
   function frameFrom(pc, items, sOf, morphMiss) {
+    // (A piece uploaded but not prepared yet is not drawn from: the frame that did prepared it whole on the spot, 170.9 ms of 'prepare 3 (webs)' in one frame, 18 Nov 2026, now that the
+    // preparing runs in slices of its own. It is binned on the CPU as a piece not made is, till its last slice is done.)
+    if (pc.set && live.veins.morphSetReady && !live.veins.morphSetReady(pc.set)) return morphMiss('preparing');
     for (let i = 0; i < items.length; i++) if (!pc.path.has(items[i].row)) return morphMiss('vessels');
     // (A store of its own for this frame, the other the last one's: the courses it handed the renderer are not written over while it may read them.)
     frFlip ^= 1;
@@ -425,10 +431,18 @@ export function createVessels(st, live) {
   }
   function veinJoins(items, st = newJoinStore(), margin = 0) {
     live.glRadDirty = true; live.glStore = st;
-    for (let i = 0; i < items.length; i++) { const it = items[i], id = it.kind === 'v' ? it.x.e.id : ''; it.cut = id === 'SV_MID' ? divideLen(id) : 0; it.ghost0 = id === 'PV_TRUNK' && divideLen(id) > 0; }   // (the Warren shunt's cut splenic vein: its cut-away start meets nothing, vein-joins.js cutAway. Not the portal trunk's: the portocaval junction keeps its five ends, whose pairwise fillets drew it whole; four ends read as one blended group and sheared, 13 Nov)
+    for (let i = 0; i < items.length; i++) { const it = items[i], id = it.kind === 'v' ? it.x.e.id : ''; it.cut = id === 'SV_MID' ? divideLen(id) : 0; it.ghost0 = id === firstPiece('PV_TRUNK') && divideLen(id) > 0; }   // (the Warren shunt's cut splenic vein: its cut-away start meets nothing, vein-joins.js cutAway. Not the portal trunk's: the portocaval junction keeps its five ends, whose pairwise fillets drew it whole; four ends read as one blended group and sheared, 13 Nov)
     const J = joinsPass(items, N_SAMPLES, st, margin);
     live.glStraight = st.straight;
     return J;
+  }
+  // The same pass in slices (vein-joins.js veinJoinsStep): false while there is more of it to do, until `until` (performance.now() ms); true with the answer in st, and the pairs that run on in glStraight as veinJoins leaves them.
+  function veinJoinsStep(items, st, margin, until) {
+    live.glRadDirty = true; live.glStore = st;
+    for (let i = 0; i < items.length; i++) { const it = items[i], id = it.kind === 'v' ? it.x.e.id : ''; it.cut = id === 'SV_MID' ? divideLen(id) : 0; it.ghost0 = id === firstPiece('PV_TRUNK') && divideLen(id) > 0; }
+    const done = joinsPassStep(items, N_SAMPLES, st, margin, until);
+    if (done) live.glStraight = st.straight;
+    return done;
   }
   const smoothRunOn = (items, st = live.glStore) => smoothPass(items, live.glStraight, st);
   // (The memo is one kept object written in place by each whole sync, with its widths list and its classes buffer; glowBits' second slot is the
@@ -463,8 +477,6 @@ export function createVessels(st, live) {
     return liftEnd(spot.ids.has(id) && spotOn(), joins);
   }
   const END_TOUCH = 3;
-  let rgbGlowCs = null;
-  const rgbGlowOf = (c) => toRGB(c, rgbGlowCs);   // (the glow-only sync's colour reader, kept; rgbGlowCs the style it reads)
   // (A vessel attribute counts as changed once it is a 255th away from what the layer was drawn with: a colour step under that cannot show, and a
   // running model's colours follow a little on every frame. The difference is kept, so the steps add up; NaN counts as changed.)
   const tubeMoved = (a, b) => !(Math.abs(a - b) <= 0.0039);
@@ -472,7 +484,7 @@ export function createVessels(st, live) {
     const m = live.glowMemo;
     if (!m || !live.veins || live.veins.lost || !live.vLook || live.tubesNew || live.lensFrom || live.colEasing || !live.tubesShown || live.tubesShown.length !== tubeData.length) return false;
     if (m.t !== t || m.F !== live.F || m.geo !== live.geometryVersion || m.netA !== live.netA || m.cs !== wrapCS() || m.mode !== layerMode() || m.origin !== live.originOn()) return false;
-    if (m.selK !== selAKey() || m.cath !== live.cathTint || m.vf !== live.varixFade || m.plate !== live.veins.hasPlate(0) || m.cls !== wrapCls() || m.reach !== (glow.lit.size ? 20 : 11)) return false;
+    if (m.selK !== selAKey() || m.cath !== live.cathTint || m.vf !== live.varixFade || m.plate !== live.veins.hasPlate(0) || m.cls !== wrapCls() || m.reach !== 11) return false;
     const b = glowBits(m.items, 1), nb = m.items.length + IVC_LIST.length;   // (the buffer may be longer than the items it holds)
     for (let i = 0; i < nb; i++) if (b[i] !== m.bits[i] || b[i] & 64) return false;   // (a vessel drawing on changes with the clock: whole syncs)
     return true;
@@ -481,13 +493,12 @@ export function createVessels(st, live) {
   function syncGlowOnly(t) {
     if (!glowOnlyOk(t)) return false;
     live.glowSync = false;
-    const cs = live.glowMemo.cs, rgbCs = rgbGlowOf, W = TUBE_TEXELS * 4;
-    rgbGlowCs = cs;
+    const W = TUBE_TEXELS * 4;
     let changed = false;
     for (const it of live.glowMemo.items) {
       if (it.kind !== 'v' && it.kind !== 's') continue;
       const o = it.row * W;
-      writeGlowTexels(tubeData, o, it.kind, it.x.e.id, it.ra?.e.id, it.obj.len, glow.lit, vh.amt, rgbCs, easeInOut);
+      writeGlowTexels(tubeData, o, it.kind, it.x.e.id, it.ra?.e.id, vh.amt, easeInOut);
       for (let i = o + 39; i < o + 48; i++) if (tubeMoved(tubeData[i], live.tubesShown[i])) { veinsRows.add(it.row); live.tubesShown.set(tubeData.subarray(o, o + W), o); changed = true; break; }
     }
     if (changed) live.veins.setTubes(tubeData);
@@ -507,7 +518,7 @@ export function createVessels(st, live) {
     const { x, kind } = it, o = it.obj;
     let c, k1, k2 = 0, k3 = 0;
     if (kind === 'v' && it.ra) { c = 1; k1 = x.shadeVer | 0; k2 = it.ra.shadeVer | 0; k3 = Math.round(it.f * 1e4); }
-    else if (kind === 'v' && !x.isArt) { c = 2; k1 = x.shadeVer | 0; k2 = frontKey(x, performance.now()); }   // (a collateral's front of width runs with the clock: collateral-front.js)
+    else if (kind === 'v' && !x.isArt) { c = 2; k1 = x.shadeVer | 0; k2 = frontKey(x, performance.now()); k3 = oxKeyOf(it); }   // (k3: the oxygen lens's ramp)   // (a collateral's front of width runs with the clock: collateral-front.js)
     else {
       // (As itemRadii: the esophageal balloon squeezes the varices' strands, a varix strand is beaded, a sinusoid strand narrows.)
       const r = (kind === 'v' ? Math.max(0.5, x.width / 2) : kind === 's' ? Math.max(1.6, x.width * o.k) / 2 : o.w / 2) * (kind === 's' && x.e.id === 'C1a' ? live.balloonSqueeze : 1);
@@ -545,10 +556,11 @@ export function createVessels(st, live) {
   const SMOOTH = (u) => u * u * (3 - 2 * u);
   const plainRow = (row) => { const it = rowIt[row]; return !!it && it.kind !== 's' && !it.ra && !!it.obj.glR0; };
   // Where a stenosed vessel's colour stands along it (pressure-along.js; combined plan V1): by the resistance its narrowing adds,
-  // so the colour falls at the waist. Null for any other (the plain mix by arc, as before): a strand, a tributary drawn into a trunk,
-  // a liver branch, a vessel with no stenosis. The cava drawn as one takes each stretch's own.
+  // so the colour falls at the waist. Null for any other (the plain mix by arc, as before): a strand, a tributary drawn into a trunk, a liver branch, a vessel with no stenosis. The cava drawn as one takes each stretch's own.
   const alongK = new Float64Array(N_SAMPLES), alongBuf = new Float32Array(N_SAMPLES);
-  function alongOf(it) {
+  const oxKeyOf = (it) => (it.kind === 'v' && it.x.oxRamp && !it.ra ? it.x.oxRamp * (1 + Math.round(oxRampOf(geo[it.x.e.id]?.len || 0) * 1e3)) : 0);   // (the oxygen lens's ramp into a junction, x.oxRamp: its key, 0 for none; pressure-along.js oxygenAlong)
+  const alongLoss = { jet: 0, ends: 0, at: 0, dir: 1, jet2: 0, at2: 0, set(x) { this.jet = x.lsJ; this.ends = x.lsE; this.at = x.lsAt; this.dir = x.lsDir; this.jet2 = x.lsJ2 || 0; this.at2 = x.lsAt2 || 0; return this; } };   // (a stent's local losses, read at once by alongCurve)
+  function alongStenosis(it) {
     if (it.kind !== 'v') return null;
     const fa = it.x.stenF, fb = it.ra?.stenF, f = it.f;
     if (!fa && !fb) return null;
@@ -556,8 +568,9 @@ export function createVessels(st, live) {
       const u = i / (N_SAMPLES - 1);
       alongK[i] = !it.ra ? fa(u) : u < f ? (fa ? fa(u / f) : 1) : fb ? fb((u - f) / (1 - f)) : 1;
     }
-    return alongCurve(alongK, alongBuf);
+    return alongCurve(alongK, alongBuf, !it.ra && it.x.lsJ + it.x.lsE + (it.x.lsJ2 || 0) > 0 ? alongLoss.set(it.x) : null);
   }
+  const alongOf = (it) => (oxKeyOf(it) ? oxygenAlong(it.x.oxRamp, geo[it.x.e.id]?.len || 0, alongBuf) : alongStenosis(it));
   function sendRadii(items) {
     for (let q = 0; q < items.length; q++) {
       const it = items[q];
@@ -679,11 +692,13 @@ export function createVessels(st, live) {
       // (A change under a third of a device pixel at every sample is not sent: the vessels' caliber follows the model's pressures, and
       // each tiny step redrew the whole vessel layer at the model's rate (Mohammad's photo, 4 Nov: 14 whole draws a second, 10 fps). The
       // difference is kept, so the steps add up and one is sent once it is a third of a pixel; the lobule's radii work the same way.)
-      if (sent && sent.length === R.length) { let d = 0; for (let j = 0; j < R.length; j++) { const x = Math.abs(sent[j] - R[j]); if (x > d) d = x; } if (d <= radTol) continue; }
+      const oxKey = oxKeyOf(it);   // (the oxygen ramp is sent with the radii: a change of it is sent though the radii stand)
+      if (sent && sent.length === R.length && (o.glOxKey || 0) === oxKey) { let d = 0; for (let j = 0; j < R.length; j++) { const x = Math.abs(sent[j] - R[j]); if (x > d) d = x; } if (d <= radTol) continue; }
       let mx = -Infinity;
       for (let j = 0; j < R.length; j++) if (R[j] > mx) mx = R[j];
       // (The copy is refilled in place when it is the same size: no new array per changed vessel per frame of an ease. It is the
       // figure's glR, what the GPU draws: its version glRv moves with each change, for a reader that follows it, cathLive.)
+      o.glOxKey = oxKey;
       if (sent && sent.length === R.length) sent.set(R); else o.glRSent = Float64Array.from(R);
       o.glR = o.glRSent; o.glMaxR = mx; o.glRv = (o.glRv || 0) + 1;
       // (A vessel's new radii change only its own cells: drawn again as a colour change is, see drawVeins.)
@@ -698,7 +713,6 @@ export function createVessels(st, live) {
   // A vessel gets its light line (F_SPEC) from this drawn width (x.width, px at the default fit): between 3.4 and about 5 the light line, the dark line and the rim together
   // covered most of the lumen and a thin vessel read striped (V4, visual-style review).
   const SPEC_MIN_W = 6;
-  const cpRgb = (c) => toRGB(c, cpCs);
   const cpMixA = [0, 0, 0], cpMixB = [0, 0, 0], cpFade = new Float64Array(8);
   const mix3To = (out, a, b, k) => { out[0] = a[0] + (b[0] - a[0]) * k; out[1] = a[1] + (b[1] - a[1]) * k; out[2] = a[2] + (b[2] - a[2]) * k; return out; };
   // (The figure's colours as last shown, by row: [c0, c1]. Kept maps and pairs, three in turn: the one a crossfade reads from
@@ -719,7 +733,7 @@ export function createVessels(st, live) {
   function put8(v0, v1, v2, v3, v4, v5, v6, v7) { const F8 = cpFade; F8[0] = v0; F8[1] = v1; F8[2] = v2; F8[3] = v3; F8[4] = v4; F8[5] = v5; F8[6] = v6; F8[7] = v7; return true; }
   // (On the cava drawn as one, a stretch's tint end t placed along the whole: from lo, over w; an unset end, below 0, stays.)
   const tintAlong = (t, lo, w) => (t < 0 ? t : lo + t * w);
-  const SURGICAL_SHUNTS = new Set(['dsrs', 'portocaval', 'mesocaval', 'rex']);   // (the surgical shunts: their rows keep their own opacity at a join, JOIN_F_NOFADE)
+  const SURGICAL_SHUNTS = new Set(['dsrs', 'portocaval', 'mesocaval', 'rex']);   // (the surgical shunts: their rows keep their own opacity at a join, JOIN_F_NOFADE; so do the stents, TIPS, DIPS and the drawn ones, so a stent's ends stand as strong as its middle where it leaves the portal vein: Mohammad 17 Nov 2026)
   const ligatedAt = (id) => { for (let q = 0; q < LIGATED.length; q++) if (LIGATED[q][1] === id) return true; return false; };
   function colPass() {
     const items = cpItems, cs = cpCs, T0 = cpT0, now = cpNow, artery = cpArtery, originMode = cpOrigin, ivcOn = cpIvcOn, colDt = cpDt, cpEase = reduceMotion.matches ? null : easingFront(now);
@@ -741,14 +755,17 @@ export function createVessels(st, live) {
             c0 = mix3To(cpMixA, a, b, clamp(((q0[0] - A[0]) * dx + (q0[1] - A[1]) * dy) / L2, 0, 1));
             c1 = mix3To(cpMixB, a, b, clamp(((q1[0] - A[0]) * dx + (q1[1] - A[1]) * dy) / L2, 0, 1));
           }
-        } else if (kind === 's' && obj.tie) {
-          // (A strand that runs only a stretch of its vessel (the cavernoma's fine channel, in two halves) takes the vessel's gradient over that stretch, so the halves meet in one colour.)
-          c0 = mix3To(cpMixA, a, b, obj.tie[0]); c1 = mix3To(cpMixB, a, b, obj.tie[1]);
         } else { c0 = a; c1 = ra ? toRGB(ra.col ? ra.col[1] : NEUTRAL, cs) : b; }
         // Coloring the blood by origin: the lumen steps back to a quiet grey so the parcels' colors read.
         if (originMode) c0 = c1 = ORIGIN_LUMEN;
       }
       let alpha = x.isArt ? (x.e.shunt === 'ap' ? 0.55 : 0.85) : kind === 'c' ? clamp(2 * T0 - 1, 0, 1) : kind === 's' || kind === 'f' ? (obj.live ?? 1) * clamp(1 - 2 * T0, 0, 1) : 1;
+      // (A vessel that comes or goes where nothing may draw on (Reduce Motion, imaging) fades in or out whole: owner, 15 Nov 2026, nothing pops.)
+      // (A vessel the Anatomy does not draw (ANAT_HIDDEN) comes in as the circuit takes over, as the circuit's own rows do, never whole at the
+      // switch's midpoint.)
+      if (kind === 'v' && ANAT_HIDDEN.has(id)) alpha *= clamp(2 * T0 - 1, 0, 1);
+      if (x.reveal?.fade) { const u = easeInOut(clamp((now - x.reveal.t0) / x.reveal.dur, 0, 1)); alpha *= x.reveal.out ? 1 - u : u; }
+      else if (fronted(x)) alpha *= frontAlpha(frontP(x.reveal, now), x.reveal.out);   // (a collateral's closing front leaves a hairline: it fades with the front, never goes in one frame)
       const sinStrand = kind === 's' && SIN_EDGES.has(id);
       const tier = x.lifted && !x.back ? (x.front ? TIER_LIFT_FRONT : TIER_LIFT) : x.isArt ? TIER_ART : levelTier(x);
       // The network recedes to netA with a vessel selected (the lifted tier and the vessels behind the organs are not faded as a
@@ -757,7 +774,10 @@ export function createVessels(st, live) {
       const shade = (!x.isArt || x.tube) && !ghost;
       const veil = IVC_EDGES.has(id) && !ivcOn, whole = IVC_EDGES.has(id) && ivcOn;
       const spec = shade && !veil && kind !== 'f' && kind !== 'c' && !CONTEXT_EDGES.has(id) && !x.back && x.width >= SPEC_MIN_W;
-      const flags = (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt && !x.tube ? F_NOCASE : 0) | (veil ? F_VEIL : 0) | (whole ? F_WHOLE : 0) | (x.e.kind === 'shunt' && x.e.shunt !== 'ap' ? F_SHUNT : 0) | (x.e.kind === 'shunt' && SURGICAL_SHUNTS.has(x.e.shunt) ? JOIN_F_NOFADE : 0);
+      // (A shunt's row, and a collateral's once it is drawn at full strength, gets its corners' fillets across tiers: the gastrorenal and splenorenal shunts end on the left renal vein, which lies in a fainter tier, and without
+      // the fillets their sides met the vein's wall at a right angle, as a pipe laid across it (Mohammad, 13 Nov 2026, twice). A collateral still easing in from its faint level keeps no fillet: it would show as a solid fin beside it.)
+      const shuntRow = (x.e.kind === 'shunt' && x.e.shunt !== 'ap') || (kind === 'v' && x.e.kind === 'collateral' && (x.level ?? 1) >= 1) || (x.underRex && E.REX?.vis);   // (a vessel the Meso-Rex bypass passes under draws a tier above its own trunk while the bypass shows: its corners keep their fillets across the tiers, as a shunt's do)
+      const flags = (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt && !x.tube ? F_NOCASE : 0) | (x.isArt && x.tube && ARTERY_WALL.k > 0 ? F_EDGE : 0) | (veil ? F_VEIL : 0) | (whole ? F_WHOLE : 0) | (shuntRow ? F_SHUNT : 0) | (x.e.kind === 'shunt' && (SURGICAL_SHUNTS.has(x.e.shunt) || isStent(x.e)) ? JOIN_F_NOFADE : 0);
       const z = (kind === 'v' ? x.row + 0.5 : x.row) / GL_ROWS;
       colT[0] = c0[0]; colT[1] = c0[1]; colT[2] = c0[2]; colT[3] = c1[0]; colT[4] = c1[1]; colT[5] = c1[2];
       // (A change easing in, a slide's patient morphing: a vessel the front has not reached yet keeps its colour; easingFront.)
@@ -800,13 +820,13 @@ export function createVessels(st, live) {
       // The drawn stretch: a vessel drawing on (or retracting) grows along its flow. A tributary's arc length is its own
       // (not its trunk's), or its chevrons and streaks would run along it many times too fast and bunch into ticks.
       let lo = 0, hi = 1;
-      if (x.reveal && kind !== 'f' && kind !== 'c' && !fronted(x)) {   // (a collateral keeps its whole length: its front is a width, radFill)
+      if (x.reveal && !x.reveal.fade && kind !== 'f' && kind !== 'c' && !fronted(x)) {   // (a collateral keeps its whole length: its front is a width, radFill)
         const r = x.reveal, u = clamp((now - r.t0) / r.dur, 0, 1), off = r.out ? easeInOut(u) : 1 - easeInOut(u);
         if (r.dir > 0) hi = 1 - off; else lo = off;
       }
       if (kind === 'v' && ligatedAt(id)) lo = Math.max(lo, divideLen(id) / (it.len || geo[id].len || 1));
       tubeData[o + 20] = lo; tubeData[o + 21] = hi; tubeData[o + 22] = kind === 's' ? obj.len : kind === 'f' ? lenOfItem(it) || 1 : it.len || geo[id].len || 1;
-      for (let j = 23; j < 28; j++) tubeData[o + j] = 0;
+      for (let j = 23; j < 28; j++) tubeData[o + j] = 0; if (x.isArt && x.tube && ARTERY_WALL.k > 0) writeArteryWall(tubeData, o + 24);   // (the artery's own wall on the dark looks: artery-wall.js)
       let tint = kind === 'v' && live.cathTint?.[id], t0 = 0, t1 = 0;
       if (tint) { t0 = tint[0]; t1 = tint[1]; }
       if (ra && kind === 'v') {
@@ -830,7 +850,7 @@ export function createVessels(st, live) {
         tubeData[o + 32] = wc[0]; tubeData[o + 33] = wc[1]; tubeData[o + 34] = wc[2]; tubeData[o + 35] = obj.wale;
         tubeData[o + 36] = 0.1; tubeData[o + 37] = 0.9; tubeData[o + 38] = 0.15 * (obj.len || 1); tubeData[o + 39] = 0;
       }
-      writeGlowTexels(tubeData, o, kind, id, ra?.e.id, obj.len, glow.lit, vh.amt, cpRgb, easeInOut);
+      writeGlowTexels(tubeData, o, kind, id, ra?.e.id, vh.amt, easeInOut);
       // The moving front of the flow peel: a vessel on its way between the views is lit a little in its own hue (the hover's lift, veins-gl
       // shov), a bell on its own share of the change, so the blood seems to lead the change (flow-peel.js; 0 at rest and with reduced motion).
       if (kind === 'v' && !ra && T0 > 0 && T0 < 1 && !reduceMotion.matches) { const gw = PEEL_GLOW * peelGlow(T0, geo[id].rk[N_SAMPLES >> 1]); if (gw > tubeData[o + 39]) tubeData[o + 39] = gw; }
@@ -964,7 +984,7 @@ export function createVessels(st, live) {
     // tubeData and into kept colour pairs, colPass below, in the same arithmetic.)
     cpT0 = easeInOut(live.morph); cpNow = performance.now(); cpCs = cs;
     // (The Change and Heat lenses draw their "higher" in red, ΔE 3 from --artery: there the arteries step back to the lens's neutral grey, C4.)
-    cpArtery = toRGB(mode === 'delta' || mode === 'heat' ? 'var(--lens-neutral)' : 'var(--artery)', cs);
+    cpArtery = toRGB(mode === 'delta' || mode === 'heat' ? 'var(--lens-neutral)' : 'var(--artery)', cs); readArteryWall(cssNum(cs, '--artery-wall-k', 0), cpArtery);
     cpOrigin = live.originOn();
     const T0 = cpT0;
     tubeData.fill(0);
@@ -990,7 +1010,7 @@ export function createVessels(st, live) {
     // (The look handed to the vessels' painter: one kept object and its colour lists, written in place each sync; its signature is numbers
     // compared with the last one's, lookChanged, not text made of it.)
     const vl = VLOOK;
-    vl.reach = glow.lit.size ? 20 : 11; vl.organs = 1 - T0; vl.fluid = live.fluidLook;
+    vl.reach = 11; vl.organs = 1 - T0; vl.fluid = live.fluidLook;
     lookRgba(vl.casing, cssTriplet(cs, '--casing-rgb'), cssNum(cs, '--casing-a', 0.56));
     lookRgba(vl.shadow, cssTriplet(cs, '--shadow-rgb'), cssNum(cs, '--shadow-a', 0.15));
     lookRgba(vl.sheen, toRGB('var(--light-ink)', cs), cssNum(cs, '--tube-sheen', 0.42));
@@ -1041,7 +1061,7 @@ export function createVessels(st, live) {
   function drawVeinsNow(fullComposite) {
     // (The bowel's float handed to the live stack only when it moved or a setLive made new cuts (bowelAt NaN): handed every drawn frame, it marked the textures new (veins-gl
     // shift), so no rest frame was the blood's alone: every lumen repainted, a new picture for the glass each time. 13 Nov 2026, the Mac's heat at rest.)
-    if (live.liveSet || live.liveOn()) { live.syncLiveOrgans(); if (live.liveSet) { const dy = live.bowelDy(); if (dy !== live.bowelAt) { live.bowelAt = dy; live.veins.organs.shift('bowel', dy); } } }
+    if (live.liveSet || live.liveOn()) { framePart('draw: live organs', live.syncLiveOrgans); if (live.liveSet) { const dy = live.bowelDy(); if (dy !== live.bowelAt) { live.bowelAt = dy; live.veins.organs.shift('bowel', dy); } } }
     if (!live.veins || live.veins.lost || !live.vLook || !live.F) return false;
     if (!live.CTM) refreshCTM();
     const m = live.CTM;
@@ -1071,9 +1091,9 @@ export function createVessels(st, live) {
       if (live.veins.drawRows(T, live.vLook, live.bloodLook(), pending, fullComposite)) { rowsShown(); return true; }
     }
     if (key !== live.veinsDrawKey) {
-      settleRes();   // (the view moved: Figure resolution looks again once it settles)
-      if (figOpt('adapt')) noteMoveFrame();
-      if (live.plateOn()) live.schedulePlateView();
+      framePart('draw: resolution', settleRes);   // (the view moved: Figure resolution looks again once it settles)
+      if (figOpt('adapt')) framePart('draw: adapt', noteMoveFrame);
+      if (live.plateOn()) framePart('draw: plate view', live.schedulePlateView);
     }
     // (Moved with only some vessels' attributes changed, those vessels are named: a drag while the model plays still
     // moves the drawn layer, and draws their cells again, rather than drawing it all.)
@@ -1081,30 +1101,8 @@ export function createVessels(st, live) {
     live.veinsDirty = false; live.veinsDrawKey = key; viewKeep.set(viewNext); rowsShown();
     glMBuf[0] = S * m.a; glMBuf[1] = S * m.b; glMBuf[2] = S * m.c; glMBuf[3] = S * m.d; glMBuf[4] = S * (m.e - live.wrapRect.left) + tx; glMBuf[5] = S * (m.f - live.wrapRect.top) + ty;
     live.glM = glMBuf;
-    // (Settings › Figure performance › Pinch frame reuse (frame.js): only while a hand zooms; a frame that laid the last picture again
-    // leaves the layer to be drawn whole, so the view a pinch stops at is always shaded afresh.)
-    const reuse = figLab('pinchReuse');
-    live.veins.setReuse?.(reuse, !!reuse && live.gestureOn());
-    // (Vessels lower while pinching: likewise only while a hand zooms, and a frame drawn lower leaves the layer to be drawn whole.)
-    const low = figLab('pinchLow');
-    // (Quality tiers, adapt-tier.js (R07): under deadline pressure every zoom frame of a move, a hand's or a glide's, draws the layer at
-    // the tier's share inside targets made once at the top tier's size; the view a move stops at is drawn at Full. ?tiers=0: off.)
-    // (Not through the change between the views: its frames drawn lower and the landing at Full read as a flicker, soft then sharp, on the figure.)
-    // (B3, pure-gpu-plan: while the camera glides, a hand or wheel zooms, or the figure morphs between the views, the vessels, blood and organs are drawn at
-    // MOTION_K of the layer's width and height and stretched in the present; labels, lines and glass are on their own layers, at Full. The frame that
-    // lands (morph at its target, the gesture over) draws the layer whole, and `soft` keeps the page awake until it has. Not in a dive, the lobule or a card's zoom.)
-    // (A hand's move only (4 Nov 2026, Mohammad: "the slide figure flickers intermittently"). A glide the app runs steps its camera at 60 Hz
-    // (the governor), so on a 120 Hz screen every other frame has the same camera: those skip the lower pass and the beat's radius patches
-    // draw the layer whole, so the figure went soft, sharp, soft at 60 Hz through every slide change, and popped sharp as it landed. A morph
-    // between the views is left whole for the same reason as the tiers above.)
-    const morphing = live.morph !== live.morphTarget;
-    const moving = TIERS_ON && !morphing && live.gestureOn() && !(live.diveT > 0) && !live.lobuleOn && !live.drawCam && !live.lz?.isOpen();
-    const tk = TIERS_ON && !morphing ? tierK() : 0, mk = moving ? motionK() : 0;
-    const lk = tk && mk ? Math.min(tk, mk) : tk || mk;
-    live.veins.setLow?.(lk || (low ? PINCH_LOW_K : 0), lk ? true : low && live.gestureOn(), TIERS_ON ? TIER_TOP : 0, false);
     live.veins.draw(T, live.vLook, live.bloodLook(), rows);
-    if (live.veins.reused || live.veins.soft) live.veinsDirty = true;
     return true;
   }
-  return { JUMP_MMHG, LENS_FADE, NO_LIST, cavaAsOne, cssNum, drawVeins, et, glItems, glWanted, glowOnlyOk, itemRadii, lenOfArc, lensNow, mix3, sendRadii, smoothRunOn, sweepBin, syncGlowOnly, syncVeins, toRGB, veinJoins, veinsRows };
+  return { JUMP_MMHG, LENS_FADE, NO_LIST, cavaAsOne, cssNum, drawVeins, et, glItems, glWanted, glowOnlyOk, itemRadii, lenOfArc, lensNow, mix3, sendRadii, smoothRunOn, sweepBin, syncGlowOnly, syncVeins, toRGB, veinJoins, veinJoinsStep, veinsRows };
 }

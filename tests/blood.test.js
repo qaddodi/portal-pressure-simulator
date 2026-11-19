@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Engine } from '../src/engine/portal/engine.js';
 import { EDGES, NODES } from '../src/engine/portal/topology.js';
-import { displaySpeed, lanes, occupancy, advanceStream, originFractions, originFractionsInto, ORIGIN_PE_FADE, ORIGIN_N, createBolus, KAPPA, PERIOD, DYE_BINS, DYE_SECONDS, DYE_MAX_HOLD, DRIFT_PERIOD, createReversalHold } from '../src/ui/blood.js';
+import { displaySpeed, lanes, occupancy, advanceStream, originFractions, originFractionsInto, ORIGIN_PE_FADE, ORIGIN_RAMP, ORIGIN_N, createBolus, KAPPA, PERIOD, DYE_BINS, DYE_SECONDS, DYE_MAX_HOLD, DRIFT_PERIOD, createReversalHold } from '../src/ui/blood.js';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 
@@ -78,9 +78,12 @@ test('origin: portal blood is SMV, IMV and splenic, the hepatic veins add hepati
 
 test('origin: with hepatofugal flow, gut blood reaches the systemic veins', () => {
   const e = new Engine(); e.loadPreset('cirr-hepatofugal');
-  const f = originFractions(EDGES, NODES, e.Q, e.P);
   const azy = EI.AZY_SVC;
-  assert.ok(f[azy * ORIGIN_N] + f[azy * ORIGIN_N + 1] + f[azy * ORIGIN_N + 2] > 0.05, 'portal blood in the azygos');
+  // (Over 0.04 and well over a healthy patient's 0.012: 0.05 until 15 Nov 2026, when the preset's cirrhosis went from 0.95 to 0.84 to take
+  // its PPG off the 12 mmHg line (ENG-5), and the share went from 0.052 to 0.048.)
+  const gut = (eng) => { const g = originFractions(EDGES, NODES, eng.Q, eng.P); return g[azy * ORIGIN_N] + g[azy * ORIGIN_N + 1] + g[azy * ORIGIN_N + 2]; };
+  const h = new Engine(); h.loadPreset('healthy');
+  assert.ok(gut(e) > 0.04 && gut(e) > 3 * gut(h), `portal blood in the azygos (${gut(e).toFixed(3)}, healthy ${gut(h).toFixed(3)})`);
 });
 
 // The origin lens's mix along a vessel (stage-blood stepOriginFlow → originFractionsInto ends): the flow forward and back, each
@@ -97,11 +100,13 @@ function originMix(preset, params) {
   return { up: (id) => at(up, id), down: (id) => at(ends.down, id), pe: (id) => ends.pe[EI[id]] };
 }
 
-test('origin: a vessel whose flow only runs one way is one blood end to end', () => {
+// (A vessel whose flow only runs one way carries its upstream junction's blend all along and eases into its downstream junction's over its last stretch, ORIGIN_RAMP: no step at a
+// junction. The ramp is the one-way profile (a Pe from the ramp's own range, never the slosh's), and what it eases into is the blend the vessels leaving that junction start with.)
+test('origin: a vessel whose flow only runs one way is one blood, easing into its downstream junction\'s blend over its last stretch', () => {
   const m = originMix('healthy', {});
   for (const id of ['SV_CONF', 'SMV_CONF', 'PV_TRUNK', 'V_IMV', 'V_SPL', 'RHV_IVC']) {
-    assert.equal(m.pe(id), 0, `${id}: no mix along it`);
-    assert.deepEqual(m.down(id), m.up(id));
+    const pe = Math.abs(m.pe(id));
+    assert.ok(pe === 0 || (pe >= ORIGIN_RAMP[0] - 1e-6 && pe <= ORIGIN_RAMP[1] + 1e-6), `${id}: a ramp or none (Pe ${pe})`);
   }
   assert.ok(ORIGIN_PE_FADE[0] < ORIGIN_PE_FADE[1]);
 });
@@ -115,7 +120,9 @@ test('origin: after a splenectomy the to-and-fro proximal splenic vein mixes IMV
     assert.ok(imvEnd[1] > imvEnd[0], `splenic end carries IMV blood ${imvEnd}`);
     assert.ok(smvEnd[0] > 0.6, `confluence end carries SMV blood ${smvEnd}`);
     // The superior mesenteric vein beside it still runs one way: one blood.
-    assert.equal(m.pe('SMV_CONF'), 0);
+    // (One way is no pe, or the one-way ramp into the confluence's blend, never the to-and-fro mix's.)
+    const smvPe = Math.abs(m.pe('SMV_CONF'));
+    assert.ok(smvPe === 0 || smvPe >= ORIGIN_RAMP[0] - 1e-6, `SMV_CONF one way (Pe ${smvPe})`);
   }
 });
 
@@ -123,8 +130,8 @@ test('origin: after a splenectomy the to-and-fro proximal splenic vein mixes IMV
 // gastric collateral steadily, past the mix's fade, so it reads one blood end to end and no longer flips between IMV and SMV.)
 test('origin: after a Warren shunt the proximal splenic vein is one blood end to end, not flipping between IMV and SMV', () => {
   const m = originMix('cirr-decomp', { dsrs: true });
-  assert.equal(m.pe('SV_CONF'), 0);
-  assert.deepEqual(m.down('SV_CONF'), m.up('SV_CONF'));
+  const pe = Math.abs(m.pe('SV_CONF'));
+  assert.ok(pe === 0 || pe >= ORIGIN_RAMP[0] - 1e-6, `one way, not the to-and-fro mix (Pe ${pe})`);
 });
 
 test('dye bolus: travels downstream, keeps concentration through a split, dilutes at a merge', () => {
@@ -165,7 +172,7 @@ test('dye bolus: concentration is conserved along a vessel and mixes flow-weight
     const bb = createBolus(EDGES, NODES);
     for (const k of ks) bb.inject(k, 0, { seconds: 30 });
     for (let i = 0; i < 20 * 10; i++) bb.step(1 / 10, net);
-    bb.field(EI.PV_TRUNK, net, field);
+    bb.field(EI.PV_TRUNK_1, net, field);   // (the portal vein is cut where the coronary vein joins it: its first piece is the one the confluence feeds)
     return field[Math.floor(DYE_BINS / 2)];
   };
   const one = run([EI.SMV_CONF]), two = run([EI.SMV_CONF, EI.SV_CONF]);
@@ -276,19 +283,16 @@ test('first pass: the origin lens is unchanged by it', () => {
   assert.deepEqual(Array.from(b), Array.from(a));
 });
 
-// A shunt drawn into a vein's side part-way (the splenorenal shunt into the left renal vein's venules, stage-geo.js SIDE_HOSTS): from the
-// join on, the vein carries its downstream node's blend, which holds the shunt's blood (the renal vein stayed slate blue past the join).
+// A shunt drawn into a vein's side part-way (the splenorenal shunt into the left renal vein's venules): the vein is cut at the join into two pieces
+// (topology.js JUNCTIONS), so the piece before the join carries the kidney's blood and the piece after it starts at the junction, which holds the shunt's.
 test('origin: a vein a shunt runs into part-way carries the shunt\'s blood from the join on, in both lenses', () => {
   const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams({ ...e.params, spontaneous: { C6: true }, diuretics: false }); e.settle();
-  const n = EDGES.length, kh = EI.V_KID_L;
-  assert.ok(e.Q[EI.C6] > 1 && e.Q[kh] > 0, 'the shunt flows into the renal vein');
+  const before = EI.V_KID_L, after = EI.V_KID_L_1;
+  assert.ok(e.Q[EI.C6] > 1 && e.Q[after] > 0 && e.Q[before] > 0, 'the shunt flows into the renal vein');
   for (const pass of [false, true]) {
-    const mk = (j) => { const ends = { slosh: new Float64Array(n), down: new Float32Array(n * ORIGIN_N), pe: new Float32Array(n), join: new Float32Array(n) }; ends.join[kh] = j; const up = originFractionsInto(EDGES, NODES, e.Q, e.P, new Float32Array(n * ORIGIN_N), ends, pass); return { up, ends }; };
-    const none = mk(0), at = mk(0.4);
-    assert.equal(none.ends.pe[kh], 0, 'no join, no step');
-    assert.ok(Math.abs(at.ends.pe[kh] - 10.4) < 1e-4, `pe ${at.ends.pe[kh]}`);
-    const upK = Array.from(at.up.slice(kh * ORIGIN_N, (kh + 1) * ORIGIN_N)), dn = Array.from(at.ends.down.slice(kh * ORIGIN_N, (kh + 1) * ORIGIN_N));
-    assert.ok(upK[0] + upK[1] + upK[2] + upK[3] < 1e-4, `the kidney's blood is systemic ${upK}`);
-    assert.ok(dn[0] + dn[1] + dn[2] > 0.3, `after the join it holds the shunt's gut blood ${dn}`);
+    const up = originFractions(EDGES, NODES, e.Q, e.P, pass), at = (k) => Array.from(up.slice(k * ORIGIN_N, (k + 1) * ORIGIN_N));
+    const b = at(before), a = at(after);
+    assert.ok(b[0] + b[1] + b[2] + b[3] < 1e-4, `the kidney's blood is systemic ${b}`);
+    assert.ok(a[0] + a[1] + a[2] > 0.3, `after the join it holds the shunt's gut blood ${a}`);
   }
 });

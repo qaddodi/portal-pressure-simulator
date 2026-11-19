@@ -2,6 +2,7 @@
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { D_SMALL } from './ease.js';
 import { cams, camId, camSet, sceneCam, zoomRide } from './scene-cam.js';
+import { stageScope } from './stage-scope.js';
 
 export function createZoom(st, live) {
   const { applyVT, drawVeins, driftEnd, flushVT, refreshCTM, rideNow, rideStart, rideStop, svg, vCanvas, viewNow, wrap } = st;
@@ -9,6 +10,7 @@ export function createZoom(st, live) {
   const zoomM6 = [1, 0, 0, 1, 0, 0], zoomT = [0, 0];
   const zoomGlass = [], zoomHid = [], zoomAff = { s: 1, dx: 0, dy: 0, ox: 0, oy: 0 };   // (the callouts' glass bodies given the zoom, and the callouts that go out under the zoomed card; zoomAff: C in client px, written in place each frame, the record the glass reads through zoomRide)
   function zoomOpen() {
+    live.camLock?.release('card zoom');
     if (live.zoomBase) return false;
     if (live.lobuleOn && live.lz?.zoomOpen) { if (!live.lz.zoomOpen()) return false; live.zoomBase = { lz: true }; live.zoomLz = true; return true; }
     if (!viewNow()) return false;
@@ -63,6 +65,7 @@ export function createZoom(st, live) {
     if (live.drawCam && (Math.abs(live.drawCam[0] - S) > 1e-4 || Math.abs(live.drawCam[4] - tx) > 0.01 || Math.abs(live.drawCam[5] - ty) > 0.01)) zoomSharp(false);   // (the zoom moved: the rest picture carried again)
     if (!live.drawCam) live.veins?.setScene?.(S, tx * sx, ty * sy);
     for (const l of live.zoomLayers) l.el.style.transform = `matrix(${S.toFixed(5)},0,0,${S.toFixed(5)},${((S - 1) * (l.left - live.wrapRect.left) + tx).toFixed(2)},${((S - 1) * (l.top - live.wrapRect.top) + ty).toFixed(2)})`;
+    live.zoomAff = zoomAff; live.glassCut?.again();   // (the cut under the cards, carried back through the zoom: glass-cut.js)
     if (live.rideCTM) rideNow();   // (draws every label from the one ride matrix, card ∘ (the view now over the view they were laid out under): the stations' at C(their points), the rest carried)
     else live.labelGL?.pinDraw();
   }
@@ -90,9 +93,16 @@ export function createZoom(st, live) {
     if (live.drawCam) { live.drawCam = null; live.veinsDirty = true; live.CTM = null; refreshCTM(); drawVeins(true, 'zoom-end'); }   // (landed sharp: drawn for the rest view again before the camera is let go)
     live.veins?.setScene?.(1, 0, 0);
     for (const l of live.zoomLayers || []) { l.el.style.transform = ''; l.el.style.transformOrigin = ''; l.el.style.transition = ''; }
-    live.zoomLayers = null;
+    live.zoomLayers = null; live.zoomAff = null; live.glassCut?.again();
     for (const g of zoomGlass) zoomRide.drop(g);
-    for (const h of zoomHid) { h.el.style.opacity = h.was; h.el.style.transition = h.tr; }
+    // (The callouts that went out under the card come back through the same fade they went out by: their opacity returns under the transition set when they left, which
+    // is dropped only once it has run. Written together with the transition's own removal, the opacity went back to 1 under the stylesheet's transition, which for
+    // a callout is its translate only: one frame, a pop. 19 Nov 2026, bible review STG-6.)
+    if (zoomHid.length) {
+      const back = zoomHid.slice();   // alloc-rare: once as a card zoom closes
+      for (const h of back) { h.el.style.transition = `opacity ${D_SMALL}ms var(--ease)`; h.el.style.opacity = h.was; }
+      stageScope.timer(() => { for (const h of back) h.el.style.transition = h.tr; }, D_SMALL + 40);
+    }
     zoomGlass.length = 0; zoomHid.length = 0;
     live.frostWake();
     rideStop();

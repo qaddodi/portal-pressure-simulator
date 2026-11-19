@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const tb = read('src/ui/topbar-motion.js'), morph = read('src/ui/legend-morph.js'), css = read('styles/app.css');
+const tb = read('src/ui/topbar-motion.js'), morph = read('src/ui/legend-morph.js'), css = appCss();
 
 test('the lens pill glides its plate to a new key\'s width on the key\'s clock, hung from its right edge', () => {
   assert.doesNotMatch(tb, /KEYGLIDE|PLATEGLIDE|keyglide|plateglide/);

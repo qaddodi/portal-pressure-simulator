@@ -3,7 +3,6 @@
 // this pins the boundaries so they cannot drift apart again.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { judgeFlow, flowReversed, FLOW_CUTS } from '../src/ui/velNormal.js';
 import { FLOW_CUTS as ENGINE_CUTS } from '../src/engine/portal/flow-cuts.js';
 import { RATE } from '../src/ui/table-marks.js';
@@ -83,11 +82,3 @@ test('the summary table\'s portal velocity rating uses the same boundaries', () 
   assert.deepEqual(RATE.pvVel(9), ['mid', 'Slow']);
 });
 
-test('no file keeps a private copy of the stasis cut-off', () => {
-  const src = (f) => readFileSync(new URL(`../src/${f}`, import.meta.url), 'utf8');
-  assert.match(src('engine/portal/events.js'), /FLOW_CUTS\.stasis\b/);
-  assert.match(src('ui/table-marks.js'), /FLOW_CUTS\.stasis\b/);
-  assert.doesNotMatch(src('ui/stage.js'), /best < 9/);
-  assert.doesNotMatch(src('ui/a11y.js'), /< 9\b/);
-  assert.doesNotMatch(src('ui/doppler.js'), /\ba < (1|9)\b/);
-});

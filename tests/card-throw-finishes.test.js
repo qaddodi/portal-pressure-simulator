@@ -84,8 +84,9 @@ test('a card thrown out whose frames stop is out of sight, and the one waiting f
 // A move that ends any way but landing must still give the figure back (the dimmed figure stood behind a stopped card).
 import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
+import { presenterSource } from './split-src.js';
 test('presenter: a finished move that is the current one gives the figure back, whatever ended it', () => {
-  const presenter = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
+  const presenter = unsnap(presenterSource());
   const fin = presenter.slice(presenter.indexOf('try { await transitionRun(to); } finally {'), presenter.indexOf('async function transitionRun(to)'));
   assert.match(fin, /if \(mine && want === to && view\.classList\.contains\('pz-out'\)\) figureIn\(\);/);
   assert.ok(fin.indexOf('figureIn()') < fin.indexOf('tx.end()'), 'before the move is ended');
@@ -118,8 +119,8 @@ test('presses landing mid-move in any order leave no card moving or part way', a
   }
 });
 
-test('window.pps keeps caught(): main.js builds pps with it, so the counted errors can be read', () => {
+test('window.pps keeps caught(): main.js fills pps with it (extendHandle keeps what other modules put there first), so the counted errors can be read', () => {
   const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
   assert.match(main, /import \{ caught, caughtNow \} from '\.\/caught\.js/);
-  assert.match(main, /window\.pps = \{[^\n]*caught: caughtNow \}/);
+  assert.match(main, /extendHandle\(window\.pps \|\|= \{\}, \{[^\n]*caught: caughtNow[,} ]/);
 });

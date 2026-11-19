@@ -1,0 +1,619 @@
+/* Presenter (presenter.js): projector-first slides on the live model. Sizes follow the screen's height,
+   so a 720-line and a 1080-line projector show the same slide. The words sit at the left, the data at the
+   right; the figure frames itself in the space between (data-safe, --pz-l/--pz-r for the lobule). */
+.app.presenting .stage-bar,
+.app.presenting #zoomPill,
+.app.presenting .action-card,
+.app.presenting #toolHint,
+.app.presenting .stage-clock,
+.app.presenting .hover-tip,
+.app.presenting .cmp-badge,
+.app.presenting .big-overlay,
+.app.presenting .projector-exit,
+.app.presenting #stageCenter { display: none; }
+.app.presenting #stageView { z-index: 0; transition: opacity var(--d-surface) var(--ease); }   /* its own layer, so the slide's shade can lie over it and under the credit */
+/* The figure's dip as a case card comes up (presenter.js pz-out): every layer of the stage view but the canvas, whose share dips as an alpha in its
+   present (stage-dive.js dipSync, the same .22, D_SURFACE and curve), so the glass drawn in the canvas keeps its strength. (The view's own opacity
+   dimmed the cards' glass with the figure: 11 Nov 2026.) */
+.app.presenting #stageView.pz-out:not(.unframed) > :not(#veins) { opacity: .22; }
+.app.presenting #stageView > #overlay { transition: opacity var(--d-surface) var(--ease); }
+@media (prefers-reduced-motion: reduce) { .app.presenting #stageView > #overlay { transition-property: opacity; } }
+.app.presenting #labels .lb.focus .lb-bg { fill: var(--danger); }
+.app.presenting #labels .leader.focus { stroke: var(--danger); }
+/* Marks by kind (a slide's marks: [{ kind }]): block is the danger red above, treat the accent, note plain ink (their vessels glow in stage.js). */
+.app.presenting #labels .lb.focus.ring .lb-bg { stroke: var(--stage-bg); stroke-width: 4px; paint-order: stroke; }   /* (a pill with no spot off the vessels: they stop 2 px short of it) */
+.app.presenting #labels .lb.focus.k-treat .lb-bg { fill: var(--accent); } .app.presenting #labels .leader.focus.k-treat { stroke: var(--accent); }
+.app.presenting #labels .lb.focus.k-note .lb-bg { fill: var(--surface); stroke: var(--text-2); stroke-width: 1; } .app.presenting #labels .lb.focus.k-note text { fill: var(--text); }
+.app.presenting #labels .leader.focus.k-note { stroke: var(--text-2); }
+/* A slide's term (a pill in the words): the station's label in the same colour, eased in. */
+#labels .lb .lb-name, #labels .lb .lb-val, #labels .lb .lb-delta { transition: none; }
+#labels .lb.term .lb-name, #labels .lb.term .lb-val, #labels .lb.term .lb-unit, #labels .lb.term .lb-delta { fill: var(--term); }
+#labels .lb.term .lb-name { font-weight: 700; }
+/* A slide that lights terms: the stations it does not light, and their leaders, dim to 35 % and keep their places (V-LIT-3). */
+.app.presenting #labels .lb.unlit, .app.presenting #labels .lb-leaders > .unlit { opacity: var(--label-dim); }
+.app.presenting #labels .lb { animation: crossfade var(--d-surface) var(--ease) backwards; }
+.app.presenting #stageView { touch-action: none; }   /* no browser pan or pinch on the figure; the slide swipe reads touch events */
+.app.presenting .stage-credit { z-index: calc(var(--z-hud) + 1); }   /* over the slide's veil (outline slides); src/ui/credit.js keeps it clear of the cards */
+.app.presenting.pz-blacked .stage-credit { opacity: 0; }   /* (set with the black screen's own .on, presenter.js toggleBlack) */
+.pz { position: absolute; inset: 0; z-index: var(--z-hud); pointer-events: none; color: var(--text); }
+/* A pane of frosted glass: a crisp edge with a hairline highlight and a soft shadow onto the figure. */
+.pz-shade { position: absolute; left: 0; top: 0; bottom: 0; width: 0; z-index: var(--z-figure); pointer-events: none; --gl-glass: 1; --gl-tint: var(--glass-tint); background: var(--gl-tint); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); transition: opacity var(--d-small) var(--ease); }
+/* (Without a backdrop blur the words keep a plain backdrop of the page colour.) */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-shade { --gl-glass: 0; background: var(--glass-tint); } }
+@media (prefers-reduced-transparency: reduce) { .pz-shade { background: color-mix(in srgb, var(--stage-bg) 94%, transparent); } }
+/* The words' card (presenter.js TEXT_CARD): on a laptop or tablet the glass is a floating card like the data card, the same
+   margin from the screen's edge as the data card, and the words sit inside it. */
+:root { --pz-b: calc(clamp(17px, calc(2.311 * var(--pzh)), 28px) * var(--ts, 1));   /* (B: the teaching card's body text on a wide screen; the cards' geometry follows it) */
+  --pz-cm: clamp(16px, min(2.6vw, calc(1.8 * var(--pz-b))), 60px);   /* (one margin: sides, top, bottom and the nav pill) */
+  --pz-cp: clamp(18px, calc(1.4 * var(--pz-b)), 40px);   /* (one padding, both cards) */
+  --pz-cw: min(calc(clamp(340px, min(38vw, calc(23.5 * var(--pz-b))), 640px) * var(--pz-wk, 1)), 42vw);   /* (one card width, about 40 characters of body text) */
+  --pz-rw-outline: min(calc(50 * var(--pz-b)), 82%); --pz-rw-table: min(calc(54 * var(--pz-b)), 82%); --pz-rw-check: min(calc(42 * var(--pz-b)), 82%); --pz-rw-chart: min(calc(54 * var(--pz-b)), 82%); --pz-rw-plane: min(calc(48 * var(--pz-b)), 74%); }   /* (the reading cards' widths on a wide screen, below) */
+.pz-shade.pz-card:not(.stack) { --pz-r: clamp(16px, calc(2.2 * var(--pzh)), 28px); left: calc(var(--pz-cm) + var(--pz-sx, 0px)); top: var(--pz-cm); bottom: var(--pz-cm); --gl-tint: var(--glass-tint); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 22%, transparent); border-radius: var(--pz-r); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-shade.pz-card:not(.stack) { --gl-glass: 0; background: var(--glass-tint); } }
+@media (prefers-reduced-transparency: reduce) { .pz-shade.pz-card:not(.stack) { --gl-glass: 0; background: color-mix(in srgb, var(--surface) 96%, transparent); } }
+/* A card never changes shape in view: its size snaps while it is gone, and it leaves and arrives like the data card. */
+.pz-shade.pz-card:not(.stack) { transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
+.pz-shade.pz-card:not(.stack):not(.pz-leave) { transition-duration: var(--d-surface), var(--d-surface); transition-delay: .12s, .12s; }
+.pz-shade.pz-card.pz-leave:not(.stack) { opacity: 0 !important; transform: translateX(-18px); transition-delay: 0s; }
+.pz.pz-card:not(.stack) .pz-text, .pz.pz-card:not(.stack) .pz-data.under { left: calc(var(--pz-cm) + var(--pz-cp) + var(--pz-sx, 0px)); }   /* (--pz-sx: a phone on its side stands its cards in the middle of the screen, presenter-ladders.js; 0 everywhere else) */
+/* (The teaching card sits at the top left on every slide, one margin from the top as from the side, with or without a data card.) */
+.pz.pz-card:not(.stack) .pz-text { top: calc(var(--pz-cm) + var(--pz-cp)); bottom: auto; margin-block: 0; width: calc(var(--pz-cw) - 2 * var(--pz-cp)); max-height: calc(100% - 2 * var(--pz-cm) - 2 * var(--pz-cp)); }
+/* A phone held sideways (Mohammad, 17 Oct, I23): the words sit in the same floating card as on every other screen, not a
+   full-height panel at the edge. Fitted to a 390 px tall screen: 10 px from the top and bottom, 14 px of padding (the data
+   card's own, so the two cards' text edges match), clear of the notch or Dynamic Island on the left, and about 340 px wide as
+   the panel was. The deck's tab is the phone's own (12 px words) in the card's top right corner; the layout keeps the title
+   clear of it (presenter.js layout, padT). The data card stays a card of its own at the top right: there is no height to
+   stack it under the words. */
+.pz.low { --pz-cp: 14px; }
+.pz.low .pz-text, .pz-shade.low { --pz-cm: 10px; --pz-cp: 14px; --pz-cw: min(340px, calc(42vw + 28px)); }
+.pz-shade.pz-card.low { left: max(10px, env(safe-area-inset-left, 0px)); }
+.pz.pz-card.low .pz-text { left: calc(max(10px, env(safe-area-inset-left, 0px)) + var(--pz-cp)); }
+.pz-shade.low { --pz-tabh: calc(var(--pz-tabf) * 1.6); }
+/* The data card is the same glass: see-through tint, the same blur, crisp edge with a hairline highlight, soft shadow. */
+.pz-data.pz-data { --gl-glass: 1; --gl-tint: var(--glass-tint); background: var(--gl-tint); border-color: color-mix(in srgb, var(--text) 10%, transparent); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); }
+/* (4 Nov 2026: a zoomed card no longer cuts the teaching card's words away under it (card-zoom.js: that clip-path repainted the words every frame of the zoom). The words stay, and the card's frost is raised so they only ghost through it, as the glass's own tint: no per-frame work.) */
+/* Tiles sit lighter than the glass around them in light mode, darker in dark mode. */
+.pz-data .pz-tile, .pz-data .pz-tool .endo-read > div { background: color-mix(in srgb, var(--white) 78%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent); }
+:root[data-theme="soft"] .pz-data .pz-tile, :root[data-theme="soft"] .pz-data .pz-tool .endo-read > div { background: var(--tile-bg); box-shadow: inset 0 0 0 1px var(--tile-edge); }
+:root[data-theme="dark"] .pz-data .pz-tile, :root[data-theme="dark"] .pz-data .pz-tool .endo-read > div { background: color-mix(in srgb, var(--black) 30%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--white) 7%, transparent); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-data .pz-tile, :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-data .pz-tool .endo-read > div { background: color-mix(in srgb, var(--black) 30%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--white) 7%, transparent); } }
+/* A faint halo of the page colour keeps the words crisp over a busy figure. */
+.pz-text, .pz-data { text-shadow: 0 0 10px color-mix(in srgb, var(--stage-bg) 55%, transparent); }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-data.pz-data { --gl-glass: 0; background: var(--glass-tint); } }
+@media (prefers-reduced-transparency: reduce) { .pz-data.pz-data { --gl-glass: 0; background: color-mix(in srgb, var(--surface) 96%, transparent); } .pz-data.pz-data { background: var(--surface-2); } .pz-data .pz-tile, .pz-data .pz-tool .endo-read > div { background: var(--surface); } }
+.pz-safe { position: absolute; left: 0; top: 0; bottom: 0; width: 0; opacity: 0; pointer-events: none; }
+.pz.stack .pz-safe { right: 0; top: auto; bottom: 0; width: auto; }
+/* (Cards and sheets are contained, layout and style: a write inside one card (its words, a reading, a chart's numbers) or a card moving never
+   restyles or re-lays the figure or the other cards. Not paint: a card's tab, its glass and its text-shadow reach past its box, and a
+   clip there once painted solid strips (see model-contain above). A card moves by its one inline transform, written in card-throw.js.) */
+.pz-text, .pz-data, .pz-panel, .pz-case, .pz-shade, .menu, .umenu { contain: layout style; }
+.pz-text { position: absolute; left: clamp(20px, 3.4vw, 76px); top: clamp(20px, calc(8 * var(--pzh)), 110px); bottom: clamp(20px, calc(8 * var(--pzh)), 110px); height: fit-content; margin-block: auto; width: min(calc(clamp(300px, 29vw, 600px) * var(--pz-wk, 1)), 42vw); max-height: calc(100% - 2 * clamp(20px, calc(8 * var(--pzh)), 110px)); display: flex; flex-direction: column; gap: clamp(10px, calc(2.3 * var(--pzh)), 30px); transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
+.pz-panel.pz-leave { opacity: 0; transform: translateY(-6px); }
+/* The teaching card leaves and arrives like the data card: a fade with a short slide toward its own edge, same timing. */
+.pz-text.pz-leave { opacity: 0; transform: translateX(-18px); }
+/* New cards built and fitted unseen; their entrance plays once they are at their final size. */
+.pz.pz-prep .pz-text > * { animation-play-state: paused !important; }
+/* The teaching card comes in as one piece, like the data card: same pace, same start, no line-by-line stagger. */
+.pz-text.pz-enter > * { --edge-x: -18px; --edge-o: 0; animation: slide-from-edge var(--d-surface) var(--ease) both; animation-delay: .12s; }
+/* The data card comes in with the words (same pace, same start), never ahead of them. */
+.pz-data:not(.pz-hide) { transition-duration: var(--d-surface); transition-delay: .12s; }
+.pz-text > .pz-leave { opacity: 0; transform: translateX(-18px); transition: opacity var(--d-small) var(--ease-in), transform var(--d-small) var(--ease-in); }
+.pz-text.pz-enter > .pz-mon.pz-stay { animation: none; }
+/* Slide text: the six roles (tokens.css --t-*) at a slide's size: on a wide screen they follow the screen's height
+   (a laptop at 900 px: caption 15.6 · label 18.2 · body 20.8 · value 28.6 · big 41.6 · title 57.2); a phone's stacked
+   slide uses the roles as they are. Both times the text size setting (--ts). */
+.pz, .pz-text, .pz-panel { --s-cap: calc(clamp(12px, calc(1.733 * var(--pzh)), 21px) * var(--ts, 1) * var(--pk, 1)); --s-lab: calc(clamp(14px, calc(2.022 * var(--pzh)), 24.5px) * var(--ts, 1) * var(--pk, 1));
+  --s-body: calc(clamp(17px, calc(2.311 * var(--pzh)), 28px) * var(--ts, 1) * var(--pk, 1)); --s-val: calc(clamp(20px, calc(3.178 * var(--pzh)), 38.5px) * var(--ts, 1) * var(--pk, 1));
+  --s-big: calc(clamp(28px, calc(4.622 * var(--pzh)), 56px) * var(--ts, 1) * var(--pk, 1)); --s-title: calc(clamp(32px, calc(6.356 * var(--pzh)), 77px) * var(--ts, 1) * var(--pk, 1)); }
+/* (A wide screen's card; a phone held sideways keeps the phone's sizes, .pz.low below, in its card too.) */
+.pz.pz-card:not(.stack):not(.low) .pz-text { --s-title: calc(clamp(32px, calc(5.546 * var(--pzh)), 67px) * var(--ts, 1) * var(--pk, 1) * var(--pz-tk, 1));
+  --s-cap: max(12px, calc(clamp(12px, calc(1.733 * var(--pzh)), 21px) * var(--ts, 1) * var(--pk, 1) * var(--pz-bk, 1)));
+  --s-body: calc(clamp(17px, calc(2.311 * var(--pzh)), 28px) * var(--ts, 1) * var(--pk, 1) * var(--pz-bk, 1)); --s-lab: calc(clamp(14px, calc(2.022 * var(--pzh)), 24.5px) * var(--ts, 1) * var(--pk, 1) * var(--pz-bk, 1));
+  --s-val: calc(clamp(20px, calc(3.178 * var(--pzh)), 38.5px) * var(--ts, 1) * var(--pk, 1) * var(--pz-bk, 1)); }
+.pz.stack, .pz.stack .pz-text, .pz.stack .pz-panel { --s-cap: calc(var(--t-cap) * var(--ts, 1) * var(--pk, 1)); --s-lab: calc(var(--t-lab) * var(--ts, 1) * var(--pk, 1)); --s-body: calc(var(--t-body) * var(--ts, 1) * var(--pk, 1));
+  --s-val: calc(var(--t-val) * var(--ts, 1) * var(--pk, 1)); --s-big: calc(var(--t-big) * var(--ts, 1) * var(--pk, 1)); --s-title: calc(var(--t-title) * var(--ts, 1) * var(--pk, 1)); }
+/* A phone: the slide's words (its bottom panel, and the title panel) 1.45 times the roles' size upright: a 17.4 px body and a
+   23.2 px title on a 390 px phone (Mohammad, 17 Oct: "17 px body"; 1.7 before, a 20.4 px body that took most of the screen); the
+   data card keeps the roles' size. An upright iPad its own 1.39, a 19 px body as on an iPad held sideways (it took the phone's
+   1.7 before, a 23 px body). On its side 1.3 times, as more does not fit 390 px of height. */
+.pz.stack .pz-text, .pz.stack .pz-panel { --pk: 1.45; }
+.pz.stack.tab .pz-text, .pz.stack.tab .pz-panel { --pk: 1.39; }
+@media (orientation: landscape) and (max-height: 500px) { .pz-text, .pz-panel { --pk: 1.3; } }
+/* A phone held sideways (or a window under 500 px tall): the words use the phone's sizes, 1.4 times the roles, as upright
+   (a 22 px line under a 42 px title no longer crowds a 300 px column); the title is the value role, the lines the label role. */
+.pz.low .pz-text { --pk: 1.4; --s-cap: calc(var(--t-cap) * var(--ts, 1) * var(--pk)); --s-lab: calc(var(--t-lab) * var(--ts, 1) * var(--pk)); --s-body: calc(var(--t-body) * var(--ts, 1) * var(--pk));
+  --s-val: calc(var(--t-val) * var(--ts, 1) * var(--pk)); --s-big: calc(var(--t-big) * var(--ts, 1) * var(--pk)); --s-title: calc(var(--t-title) * var(--ts, 1) * var(--pk)); }
+.pz.low .pz-text .pz-h { font-size: var(--s-val); }
+.pz.low .pz-text :is(.pz-line, .pz-kick, .pz-check) { font-size: var(--s-lab); }
+.pz.low .pz-text .pz-eq math { font-size: calc(var(--s-lab) * 1.1 * var(--eq-k, 1)); }
+/* A phone held sideways, fitted to its 390 px of height (Mohammad, 3 Nov 2026, "size the cards so they fit iPhone landscape"): the Mac and iPad
+   landscape cards stacked at the left, but with the margins and padding the old sideways card had: 10 px from the top and bottom, 14 px of
+   padding, about 340 px wide, and the left edge clear of the Dynamic Island (presenter.js keeps the top and bottom margin without the inset). */
+@media (orientation: landscape) and (max-height: 500px) {
+  :root { --pz-cm: 10px; --pz-cp: 14px; --pz-cw: min(340px, calc(42vw + 28px)); }
+  .pz-shade.pz-card:not(.stack) { left: max(10px, env(safe-area-inset-left, 0px)); }
+  .pz.pz-card:not(.stack) .pz-text, .pz.pz-card:not(.stack) .pz-data.under { left: calc(max(10px, env(safe-area-inset-left, 0px)) + var(--pz-cp)); }
+}
+@media (orientation: landscape) and (max-height: 500px) { .pz.low .pz-data { top: 8px; max-height: calc(100% - 8px - max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)) - 44px - 4px); max-width: calc(58vw - 50px); }
+  .pz.low .pz-data.pz-sheet:not(.tool-open) { max-height: calc(100% - 8px - max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)) - 44px - 4px - 24px); } }   /* (partly open: its sheet's edge below it, .pz-lip) */
+/* (Except the summary table: its five to seven columns only fit a phone at the roles' own size.) */
+.pz.stack .pz-table { --s-cap: calc(var(--t-cap) * var(--ts, 1)); --s-lab: calc(var(--t-lab) * var(--ts, 1)); --s-body: calc(var(--t-body) * var(--ts, 1)); --s-val: calc(var(--t-val) * var(--ts, 1)); }
+@media (orientation: landscape) and (max-height: 500px) { .pz .pz-table { --s-cap: calc(clamp(12px, calc(1.733 * var(--pzh)), 21px) * var(--ts, 1)); --s-lab: calc(clamp(14px, calc(2.022 * var(--pzh)), 24.5px) * var(--ts, 1));
+  --s-body: calc(clamp(17px, calc(2.311 * var(--pzh)), 28px) * var(--ts, 1)); --s-val: calc(clamp(20px, calc(3.178 * var(--pzh)), 38.5px) * var(--ts, 1)); } }
+.pz-kick { display: flex; align-items: center; gap: .55em; font: var(--caps-w) var(--s-cap)/1.2 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--site, var(--text-3)); }
+/* The site tag above a slide's title: which level the block sits at, a quiet pill in the level's colour, smaller than any text on the card. */
+.pz-site { align-self: flex-start; display: inline-flex; align-items: center; gap: .45em; margin-bottom: -.15em; padding: .2em .6em; border-radius: var(--r-pill); font: 600 max(12px, calc(var(--s-cap) * .75))/1.1 var(--font-ui); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; color: color-mix(in srgb, var(--site) 80%, var(--text)); background: color-mix(in srgb, var(--site) 13%, transparent); }
+.pz:not(.stack) .pz-site { font-size: var(--s-cap); }   /* (a wide screen: the caption's size, the smallest on the card, never under 12 px) */
+/* The deck's short name (presenter.js deckTab): a tab in the top right corner of the teaching card's glass and of a visual
+   slide's card, a darker patch of the card itself, flush with its top and right edges (the card's corner rounds its top right),
+   only its bottom left corner rounded. It sits in the card's top padding, so it never meets the title; never under 12 px.
+   A phone's (and a phone on its side): 12 px at the text size, the glass reaching above the words to hold it (layout lift).
+   A laptop's or tablet's: about three quarters of the card's padding tall (--pz-cp), its words about half of that. A phone
+   on its side: its full-height panel's top right, above the words' top gap. */
+.pz-shade, .pz-panel { --pz-tabf: calc(12px * var(--ts, 1)); --pz-tabh: calc(var(--pz-tabf) * 1.85); --pz-tab-bg: color-mix(in srgb, var(--text) 8%, transparent); }
+:is(.pz-shade.pz-card:not(.stack):not(.low), .pz:not(.stack):not(.low) .pz-panel) { --pz-tabh: calc(var(--pz-cp) * .72); --pz-tabf: max(12px, calc(var(--pz-tabh) * .56)); }
+/* (A phone's deck tab is never wider than its card: 24 capitals at most (presenter.js deckTab) with the tab's padding are 18.5 times its size upright and 18.2 on its side.
+   At a large text size it grows as far as that and stops, never under 12 px; at the standard size it is 12 px on every phone, as it was.) */
+.pz-shade.stack, .pz.stack .pz-panel { --pz-tabf: min(calc(12px * var(--ts, 1)), max(12px, calc((100vw - 32px) / 18.5))); }
+.pz-shade.low { --pz-tabf: min(calc(12px * var(--ts, 1)), max(12px, calc((var(--pz-cw) - 16px) / 18.2))); }
+:root[data-theme="dark"] :is(.pz-shade, .pz-panel) { --pz-tab-bg: rgb(var(--black-rgb) / .26); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) :is(.pz-shade, .pz-panel) { --pz-tab-bg: rgb(var(--black-rgb) / .26); } }
+/* (A laptop or tablet card with a tab: half a tab's height of air between the tab strip and the title, presenter.js layout toggles pz-tabgap.) */
+.pz.pz-card:not(.stack):not(.low) .pz-text.pz-tabgap { padding-top: calc(var(--pz-cp) * .72 * .5); }
+/* (The tab gap is part of the card's cap, not overflow: the cap grows by the gap so the words keep their room and never shrink for it.) */
+.pz.pz-card:not(.stack):not(.low) .pz-text.pz-tabgap { max-height: calc(100% - 2 * var(--pz-cm) - 2 * var(--pz-cp) + var(--pz-cp) * .72 * .5); }
+.pz-tabname { position: absolute; top: 0; right: 0; z-index: 1; height: var(--pz-tabh); display: flex; align-items: center; padding: 0 calc(var(--pz-tabh) * .55 - .05em) 0 calc(var(--pz-tabh) * .55); border-radius: 0 var(--pz-tab-ro, 0px) 0 calc(var(--pz-tabh) * .5); background: var(--pz-tab-bg); font: var(--caps-w) var(--pz-tabf)/1 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; white-space: nowrap; color: var(--text-2); pointer-events: none; user-select: none; }
+.pz-panel > .pz-tabname { zoom: 1; }   /* (the panel's corner clips it to its curve; its fit zoom never shrinks the tab under 12 px) */
+.pz-panel.tabbed { padding-top: max(clamp(18px, calc(3.4 * var(--pzh)), 44px), calc(var(--pz-tabh) + 10px)); }
+.pz.stack .pz-panel.tabbed { padding-top: calc(var(--pz-tabh) + 10px); }
+/* (A phone on its side: the deck's tab is the teaching card's, its height and 6 px under it (presenter.js padT); a title that ends
+   clear of it stands level with it, so the six site rows of Sites 10 stay whole at 667 x 375: under the table's own tab the last
+   row was cut by 14 px.) */
+.pz.low .pz-panel { --pz-tabh: calc(var(--pz-tabf) * 1.6); }
+.pz.low .pz-panel.tabbed { padding-top: max(clamp(18px, calc(3.4 * var(--pzh)), 44px), calc(var(--pz-tabh) + 6px)); }
+.pz.low .pz-panel.tabbed.tab-beside { padding-top: clamp(18px, calc(3.4 * var(--pzh)), 44px); }   /* (its title clear of the tab: level with it, presenter.js tabBeside) */
+.app.pz-hi .pz-tabname { color: var(--text); }
+/* The slide's level (presenter.js wordsIn): the deck tab's mirror in the glass's top left corner, flush with its top and left
+   edges, only its bottom right corner rounded, the same height and words, tinted in the level's own colour. */
+.pz-sitetab { position: absolute; top: 0; left: 0; z-index: 1; height: var(--pz-tabh); display: flex; align-items: center; padding: 0 calc(var(--pz-tabh) * .55) 0 calc(var(--pz-tabh) * .55 - .05em); border-radius: var(--pz-tab-ro, 0px) 0 calc(var(--pz-tabh) * .5) 0; background: color-mix(in srgb, var(--site) 16%, transparent); font: var(--caps-w) var(--pz-tabf)/1 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; white-space: nowrap; color: color-mix(in srgb, var(--site) 80%, var(--text)); pointer-events: none; user-select: none; }
+.pz-sitetab[hidden], .pz-shade.pz-tabs-tight .pz-tabname { display: none; }
+.pz-shade:not(.stack) .pz-sitetab[data-rail] { display: none; }   /* (where the level rail shows, it names the level) */
+.app.pz-hi .pz-sitetab { color: var(--text); }
+/* (On the glass both tabs fill their corners inside its one outline: each tab's outer top corner takes the glass's inner
+   curve (its corner radius less the outline), so the tab's colour runs right up to the outline and stops there, top, side and
+   corner, with no clipping. The outline is the glass's only edge line, dark enough to show against the tab colours (22 %
+   text: at 10 % it matched them and vanished beside a tab, 17 Oct), and there is no lit top edge, so nothing runs between a
+   tab and the outline and the edge reads the same all the way round.) */
+.pz-shade:is(.stack, .pz-card) { --pz-tab-ro: calc(var(--pz-r) - 1px); }
+.pz-kick[data-site="none"] { color: var(--text-3); }
+.pz-h { margin: 0; font: 540 var(--s-title)/1.06 var(--font-display); letter-spacing: -.015em; text-wrap: pretty; color: var(--text); }   /* (a title fills the card's text width, as the lines under it do; balanced, a three-line title had kept to the left 60 % of a wide card (Mohammad, 19 Oct); pretty still keeps a lone word off its last line) */
+/* No rule under the title (17 Oct): its old room stays as space before the body. */
+.pz-text .pz-h, .pz-ph .pz-h { padding-bottom: calc(.3em + 2px); }
+.pz.stack .pz-h { padding-bottom: calc(.22em + 2px); }
+.pz-line { margin: 0; font: 400 var(--s-body)/1.4 var(--font-ui); color: var(--text-2); text-wrap: pretty; }
+/* A revealing slide's line (reveal.js): every clause is laid out from the start, so the card never refits; those not shown yet are transparent and fade in one by one. */
+.pz-cl { transition: opacity var(--d-small) var(--ease); }
+.pz-cl:not(.on) { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .pz-cl { transition-property: opacity; } }
+/* Body emphasis: key terms in the heading colour, values in a quiet pill with even figures. */
+.pz-line b { font-weight: 600; color: var(--text); }
+/* A slide's colour key (presenter.js keyNodes), a small frosted pill on the figure, not in the teaching card: the lens named, then its
+   ends, as the Explore legend shows them. src/ui/figure-key.js puts it on bare background, never over a vessel or a card; it
+   sits on one line, or stacked in a short column where the line will not fit. It fades in and out, and never takes a tap.
+   Its shell is the nav pill's, in every theme and on every screen: the same glass, outline, edge highlight, shadow, 16 px corners
+   and 14 px sides (Mohammad, 17 Oct: "Unify the style of those pills"). */
+.pz-fk { position: absolute; left: 0; top: 0; translate: var(--fx, 0px) var(--fy, 0px); display: flex; flex-wrap: nowrap; align-items: center; gap: .55em; box-sizing: border-box; padding: .22em 14px .26em; border-radius: var(--r-sheet); white-space: nowrap; font: 400 max(12px, calc(var(--s-cap) * .9))/1.25 var(--font-ui); color: var(--text-2); --gl-glass: 1; --gl-tint: var(--glass-tint); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); pointer-events: none; opacity: 0; transition: opacity var(--d-small) var(--ease); }
+.pz-fk.on { opacity: 1; transition: opacity var(--d-surface) var(--ease) .12s; }   /* (in with the teaching card: its pace and start, presenter.js cardsIn; out at the card's own .32 s) */
+.pz-fk[hidden] { display: none; }
+.pz-fk b { font-weight: 600; color: var(--text); margin-right: .1em; }
+.pz-fk.col { flex-direction: column; align-items: flex-start; gap: .12em; padding: .35em 14px .4em; }
+.pz-lens-bar { width: 4.4em; height: .55em; border-radius: var(--r-pill); flex: none; box-shadow: inset 0 0 0 1px var(--key-edge); }
+.pz-lens-sw { width: 1.1em; height: .4em; border-radius: .2em; flex: none; box-shadow: inset 0 0 0 1px var(--key-edge); }
+.pz-lens-k { display: inline-flex; align-items: center; gap: .35em; white-space: nowrap; }
+.pz-lens-items { display: inline-flex; align-items: center; gap: .55em; min-width: 0; }   /* (a key's named swatches, kept together: presenter.js keyNodes) */
+/* A key that wraps beside a phone's nav pill: its name on one line, its swatches together on the next (wrapped, evenly, only when
+   even a line of their own is too narrow: presenter.js balanceKey). */
+.pz.stack:is(.fk-two, .fk-wrap) .pz-fk:not(.grad) .pz-lens-items { flex-wrap: wrap; row-gap: .1em; flex-basis: 100%; }
+.pz-lens-ends { display: inline-flex; align-items: center; gap: .4em; white-space: nowrap; }   /* ("Low ▬▬ High": the pressure-drop key's ends, at the key's own size, 12 px or more) */
+.pz-lens-k + .pz-lens-k { margin-left: .15em; }
+.pz-lk-s { display: none; }   /* (a swatch's short name, shown only where a phone's key needs it beside the pill: presenter.js fitKey) */
+.pz.stack.fk-short .pz-fk .pz-lk-l { display: none; }
+.pz.stack.fk-short .pz-fk .pz-lk-s { display: inline; }
+.pz.stack.fk-two.fk-flow .pz-fk:not(.grad) .pz-lens-items { display: contents; }   /* (name and swatches flow over the two lines together) */
+.pz-fk.col .pz-lens-k + .pz-lens-k { margin-left: 0; }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-fk { background: var(--glass-tint); } }
+@media (prefers-reduced-transparency: reduce) { .pz-fk { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
+.app.pz-hi .pz-fk { background: color-mix(in srgb, var(--surface) 92%, transparent); border-color: color-mix(in srgb, var(--text) 32%, transparent); }
+/* (A slide with a colour key keeps its words' card to half the screen on a phone: the key is about the figure, so the figure must stay in view; the words fit a little smaller.) */
+.pz.stack .pz-text.pz-keyed { max-height: 50%; }
+.pz-caveat { margin: .5em 0 0; font: 400 var(--s-cap)/1.4 var(--font-ui); color: var(--text-3); text-wrap: pretty; }
+.pz-val { display: inline-block; padding: .02em .42em .06em; border-radius: var(--r-pill); background: color-mix(in srgb, var(--text) 7%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 12%, transparent); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
+/* Every pill (value or view name) is one box: the same size, line height and padding, so they match in height; slim enough to sit
+   inside the line's own 1.4 spacing, so a line holding one is spaced like any other and pills on adjacent lines never touch (M3).
+   Room after it, none before (the space before it is its gap, and a pill that starts a line sits on the text's edge), and only a
+   hair before a stop after it ("11.6 mmHg." not "11.6 mmHg ."). */
+.pz-val, .pz-term { display: inline-block; box-sizing: border-box; padding: .04em .45em; margin-inline: 0 .14em; font-size: 1em; line-height: 1.15; vertical-align: baseline; }
+.pz-stop > :is(.pz-val, .pz-term) { margin-inline-end: .08em; }
+.pz-eq { margin: 0; color: var(--text); }
+.pz-eq math { font-family: "STIX Two Math", "Cambria Math", "Latin Modern Math", math; font-size: calc(var(--s-val) * var(--eq-k, 1)); math-style: normal; }
+.pz:not(.stack) .pz-eq math { font-size: calc(var(--s-body) * 1.15 * var(--eq-k, 1)); }   /* (a wide screen: a little above the line's size, as on a phone; STIX runs small) */
+.pz-eq .eq-wedge { color: var(--tr-wedge-ink); } .pz-eq .eq-hv { color: var(--tr-hv-ink); } .pz-eq .eq-pv { color: var(--tr-pv-ink); } .pz-eq .eq-ivc { color: var(--tr-ivc-ink); } .pz-eq .eq-var { color: var(--tr-var-ink); }   /* (words, so the trace's ink form: LOOK-1, the WHVP term was 2.81:1 on Light's card and 2.36 on Soft's) */
+.pz-eqk { margin: 4px 0 0; font: 400 var(--s-cap)/1.4 var(--font-ui); color: var(--text-3); }
+.pz-nw { white-space: nowrap; }
+/* A figure's numbered marker ({#1} in a slide's line, presenter.js stepMark) as the figure draws it: a dark circle (--text) with the
+   numeral in the stage's own colour, so it turns light on dark in the dark theme as the figure's does. It sizes from its own type,
+   never under 12 px. Its baseline is its numeral's (the grid's first item), so the numeral stands on the words' baseline and the circle
+   centres on their x-height; the negative block margin keeps the circle inside the line's own 1.4 spacing, so a line holding one is
+   spaced like any other. No gap before it (the space ahead of it is its gap). */
+.pz-step { display: inline-grid; place-items: center; box-sizing: border-box; min-width: 1.5em; height: 1.5em; padding: 0 .3em; margin-block: -.3em; border-radius: var(--r-pill); background: var(--text); color: var(--stage-bg); font-family: var(--font-ui); font-size: max(12px, .68em); font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pz-stop > .pz-step { margin-inline-end: .1em; }
+.app.pz-hi .pz-val { background: color-mix(in srgb, var(--text) 12%, transparent); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 55%, transparent); }
+/* A pill in a station's colour (--tone): a live value ({pv}) or a term that points at the figure ([portal vein](pv)). */
+.pz-val.tone, .pz-term { background: color-mix(in srgb, var(--tone) 15%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 50%, transparent); color: color-mix(in srgb, var(--tone) 72%, var(--text)); }
+.pz-val.tone { transition: none; }
+/* A filled pill rated as its tile is (data-rate: ok, mid, hi) is tinted in its tile bar's colour, the number a little deeper so it
+   reads on both themes. */
+.pz-val.tone[data-rate] { color: color-mix(in srgb, var(--tone) 82%, var(--text)); }
+.pz-val.tone[data-rate="ok"] { color: var(--ok-ink); } .pz-val.tone[data-rate="mid"] { color: var(--caution-ink); } .pz-val.tone[data-rate="hi"] { color: var(--danger-ink); }   /* (a rated pill's number is its status ink, the one red, amber and green every tile, label and chart takes) */
+.pz-term { border-radius: var(--r-pill); font-weight: 600; white-space: nowrap; }
+/* A word that points at the figure ([portal vein](pv)) is not a pill: coloured text in its station's colour, no underline
+   (Mohammad, 17 Oct: "Underline terms", then "Remove the underlining please"). Pills stay for numbers and view names; disease
+   names keep their violet. */
+.pz-term:not(.pz-lens-t) { display: inline; padding: 0; margin: 0; border-radius: 0; background: none; box-shadow: none; font-weight: 600; color: color-mix(in srgb, var(--tone) 80%, var(--text)); }
+.app.pz-hi .pz-term:not(.pz-lens-t) { box-shadow: none; color: color-mix(in srgb, var(--tone) 65%, var(--text)); }
+/* A disease name: a soft tinted pill, inline and with no vertical padding that counts, so a line never grows or shifts. */
+.pz-dz { padding: 0 .3em; margin-inline: -.04em; border-radius: .5em; font-weight: 600; color: color-mix(in srgb, var(--disease) 62%, var(--text)); background: color-mix(in srgb, var(--disease) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--disease) 36%, transparent); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+/* In a title the name is only tinted: a box round big, tightly leaded letters would be clipped at the card's top. */
+.pz-h .pz-dz { padding: 0; margin: 0; background: none; box-shadow: none; border-radius: 0; font-weight: inherit; color: inherit; }   /* (titles stay one colour; disease names keep their violet in the body) */
+/* A cut-off ({>=10 mmHg}): an outline, no fill. Filled is this patient, outlined is the rule. */
+.pz-val.cut { background: transparent; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 45%, transparent); color: var(--text-2); }
+.app.pz-hi .pz-val.tone, .app.pz-hi .pz-term { box-shadow: inset 0 0 0 1.5px var(--tone); }
+.pz-sub { display: block; margin-bottom: .55em; font: var(--caps-w) var(--s-cap)/1.2 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-3); }
+/* A slide's causes: one plain line in the small size, its heading inline (no pills: four pills took four rows). */
+.pz-causes { margin: 0; font: 400 var(--s-cap)/1.4 var(--font-ui); color: var(--text-2); text-wrap: pretty; }
+.pz-causes .pz-sub { display: inline; margin: 0 .5em 0 0; }
+.pz-text.pz-nocauses .pz-causes { display: none; }   /* (a laptop or tablet pair still too tall at Compact: the line goes before the data card is cut off, presenter.js squeeze) */
+/* The six levels, portal vein to heart. */
+.pz-rail { --rp: .2em; position: relative; padding: 1.6em var(--rp) 0; font-size: var(--s-cap); }
+/* (--rp: side room so the block round the end bars (pre-hepatic, cardiac) is never clipped by the card's edge) */
+.pz-rail-liver { position: absolute; top: .25em; left: calc(var(--rp) + (100% - 2 * var(--rp)) / 6 + 3px); width: calc((100% - 2 * var(--rp)) / 2 - 6px); height: .95em; display: flex; align-items: flex-start; }
+/* (The bracket is two arms with the name between them, so the card's frosted glass shows through the label: no box behind it.) */
+.pz-rail-liver i { flex: 1 1 0; align-self: stretch; box-sizing: border-box; min-width: 0; border: 2px solid var(--border-strong); border-bottom: 0; }
+.pz-rail-liver i:first-child { border-right: 0; border-radius: .55em 0 0 0; }
+.pz-rail-liver i:last-child { border-left: 0; border-radius: 0 .55em 0 0; }
+.pz-rail-liver span { flex: none; margin-top: -.8em; padding: 0 .5em; font: var(--caps-w) 1em/1.3 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-3); }
+.pz-rail ol { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; margin: 0; padding: 0; list-style: none; }
+.pz-rail li { display: flex; flex-direction: column; align-items: center; gap: .5em; min-width: 0; text-align: center; }
+.pz-rail li > i { position: relative; width: 100%; height: .62em; border-radius: .31em; background: var(--site); opacity: .28; transition: opacity var(--d-surface) var(--ease); }
+.pz-rail.all li > i, .pz-rail li.on > i { opacity: 1; }
+/* (the block: the phone ladder's block wrapped round the blocked level's whole bar, a little taller than it, clear of the label) */
+.pz-rail li > i .pz-rail-blk { position: absolute; left: -.12em; top: 50%; width: calc(100% + .24em); height: 1.25em; translate: 0 -50%; overflow: visible; animation: fade-rise var(--d-surface) var(--ease) .35s both; }
+.pz-rail { container-type: inline-size; }
+/* (one line each, centred under its bar, all on one baseline; the size follows the column width so the longest name, Postsinusoidal, always fits) */
+.pz-rail .n { display: block; max-width: none; font-size: min(1em, calc((100cqw - 25px) / 6 / 7.9)); font-weight: 600; line-height: 1.15; white-space: nowrap; color: var(--text-3); }
+.pz-rail.all .n, .pz-rail li.on .n { color: var(--text); font-weight: 600; }
+/* (too narrow for flat names: tilt them 60° up from under the bar's centre, at the roles' own caption size, 12 px: the slide's
+   own caption would not fit under six bars.) */
+@container (max-width: 470px) {
+  .pz-rail ol { --s-cap: calc(var(--t-cap) * var(--ts, 1)); --s-lab: calc(var(--t-lab) * var(--ts, 1)); --s-body: calc(var(--t-body) * var(--ts, 1)); --s-val: calc(var(--t-val) * var(--ts, 1)); --s-big: calc(var(--t-big) * var(--ts, 1)); --s-title: calc(var(--t-title) * var(--ts, 1)); }
+  .pz-rail li { position: relative; min-height: 7.8em; }
+  .pz-rail .n { position: absolute; top: 1.1em; right: 50%; font-size: var(--s-cap); transform-origin: 100% 0; rotate: -60deg; }
+  /* (The first name, "Pre-hepatic", tilts down and to the left of its bar: the six columns start that far in from the card's edge, else its first letters
+     run out of the card, Sites and causes 2, 16 Nov 2026. 3.3 caption sizes is half its width; the liver's bracket follows the columns. A rule inside a container query cannot style the container itself, so `--pl` sits on the rail's children: it had sat on
+     .pz-rail, which the query never reaches, and the columns never moved in: Pre-hepatic ran 3 px out on a 1440 x 780 Mac, 19 Nov 2026.) */
+  .pz:not(.low) .pz-rail > :is(ol, .pz-rail-liver) { --pl: max(0px, calc((12 * 3.3 * var(--t-cap) * var(--ts, 1) - 100cqw) / 11)); }
+  .pz:not(.low) .pz-rail ol { padding-left: var(--pl); }
+  .pz:not(.low) .pz-rail-liver { left: calc(var(--rp) + var(--pl) + (100% - 2 * var(--rp) - var(--pl)) / 6 + 3px); width: calc((100% - 2 * var(--rp) - var(--pl)) / 2 - 6px); }
+}
+/* (A phone on its side: the bars at the Mac size, and the
+   Liver bracket's word is the body role at its own size, not the slide words' 1.4x, so it does not outweigh them.) */
+.pz.low .pz-rail li > i { height: calc(var(--t-cap) * var(--ts, 1) * .75); border-radius: calc(var(--t-cap) * var(--ts, 1) * .375); }   /* (the Mac's 9 px bars, not the 1.4x slide words' 11 px) */
+.pz.low .pz-rail-liver { --s-cap: calc(var(--t-cap) * var(--ts, 1)); --s-lab: calc(var(--t-lab) * var(--ts, 1)); --s-body: calc(var(--t-body) * var(--ts, 1)); --s-val: calc(var(--t-val) * var(--ts, 1)); --s-big: calc(var(--t-big) * var(--ts, 1)); --s-title: calc(var(--t-title) * var(--ts, 1)); }
+.pz.low .pz-rail-liver span { font-size: var(--s-body); }
+.pz.low .pz-rail .n { right: 100%; translate: 50% 0; top: calc(1.1em + 2px); }   /* (each name's lower-left end at its bar's left edge, so the first stays inside the card; 6 px under the bars) */
+/* (A phone on its side with one level lit (I12, 17 Oct): only that level is named, flat under its bar and kept inside the card at
+   either end; six tilted names took about a quarter of the teaching card. Its row is only as tall as the one name.) */
+.pz.low .pz-rail.one li { min-height: calc(var(--t-cap) * var(--ts, 1) * 2.7); }
+.pz.low .pz-rail.one li:not(.on) .n { display: none; }
+.pz.low .pz-rail.one li.on .n { right: auto; left: 50%; translate: -50% 0; rotate: none; transform-origin: 50% 0; }
+.pz.low .pz-rail.one li.on:first-child .n { left: 0; translate: none; }
+.pz.low .pz-rail.one li.on:last-child .n { left: auto; right: 0; translate: none; }
+/* The data card: the pressure ladder and its tiles. */
+.pz-data { position: absolute; right: var(--pz-cm); top: var(--pz-cm); width: min(calc(clamp(300px, 29vw, 600px) * var(--pz-wk, 1)), 42vw); max-height: calc(100% - 2 * var(--pz-cm)); --pz-gap: clamp(8px, calc(1.6 * var(--pzh)), 20px); display: flex; flex-direction: column; gap: var(--pz-gap); padding: clamp(14px, calc(2.1 * var(--pzh)), 28px); background: color-mix(in srgb, var(--surface) 96%, transparent); border: 1px solid var(--border); border-radius: clamp(16px, calc(2.2 * var(--pzh)), 28px); box-shadow: var(--shadow-3); transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
+.pz-data.pz-hide { opacity: 0; transform: translateX(18px); }
+.pz.low .pz-data { right: max(var(--pz-cm), env(safe-area-inset-right, 0px)); }   /* (a phone on its side: the numbers card keeps clear of the island or notch, as the teaching card does at the left; 0 on an SE, an iPad and a Mac) */
+.pz.pz-card:not(.stack) .pz-data { padding: var(--pz-cp); }   /* (the same padding as the teaching card, so the two cards' text edges line up) */
+.pz-dh { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; text-align: center; gap: 4px 12px; font: var(--caps-w) var(--s-cap)/1.25 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-3); }
+.pz-unit { text-transform: none; letter-spacing: normal; }   /* (a unit in a title: "mL/day", never "ML/DAY"; title-units.js) */
+.pz-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: clamp(8px, calc(1.2 * var(--pzh)), 14px); }
+.pz-tiles[data-n="0"] { display: none; }   /* (a ladder alone: its brackets give the HVPG and PPG) */
+.pz-tile { display: flex; flex-direction: column; align-items: center; text-align: center; gap: .2em; container-type: inline-size; padding: clamp(10px, calc(1.5 * var(--pzh)), 18px) clamp(12px, calc(1.6 * var(--pzh)), 20px); border-radius: clamp(12px, calc(1.6 * var(--pzh)), 18px); background: var(--surface-2); border: 2px solid transparent; min-width: 0; transition: none; }
+/* No tile is marked as the one a slide is about (17 Oct, Mohammad): every tile looks the same, the sentence's pill points at it.
+   (A ring read as "selected", a top accent line as stock generated design, greying the others he did not like.) */
+.pz-tile .pzt-r { transition: none; }
+.pz-tile .pzt-bar { transition: opacity var(--d-surface) var(--ease); }
+.pzt-k { font: var(--caps-w) var(--s-cap)/1.2 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-2); overflow-wrap: break-word; }
+/* The number shrinks with its tile (30cqi) and the unit drops under it rather than leave the box. */
+.pzt-vu { display: flex; flex-wrap: nowrap; align-items: baseline; justify-content: center; gap: 0 .3em; min-width: 0; }
+.pzt-v { font: 600 min(var(--s-big), 24cqi)/1.05 var(--font-ui); font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--text); transition: none; }
+/* (A tile is built before its number is written: empty, it lost this line and the card was fitted 17 px short, then grew and its glass with it, Mohammad 6 Nov 2026.) */
+.pzt-v:empty::before { content: '\200b'; }
+.pzt-vu small { font: 500 var(--s-cap) var(--font-ui); color: var(--text-3); white-space: nowrap; }
+.pzt-r { display: inline-flex; align-items: center; justify-content: center; gap: .45em; font: 600 var(--s-cap)/1.2 var(--font-ui); color: var(--text-2); }
+.pz-tile[data-rate="hi"] .pzt-v, .pz-tile[data-rate="hi"] .pzt-r { color: var(--danger-ink); }
+.pz-tile[data-rate="mid"] .pzt-v { color: var(--caution-ink); }
+.pz-tile[data-rate="mid"] .pzt-r { color: var(--caution-ink); }
+.pz-tile[data-rate="none"] .pzt-v { color: var(--text-3); }
+/* Tiles alone (no ladder), bigger; a tile's change from an earlier slide; the time-lapse counter. */
+.pz-data.tiles-only .pz-tiles { grid-template-columns: minmax(0, 1fr); }
+.pz-data.tiles-only .pz-tiles[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pz-data.tiles-only .pzt-v { font-size: var(--s-title); }
+/* Under the words (beside a sinusoid): the left column, the tiles two by two. */
+.pz-data.under { left: clamp(20px, 3.4vw, 76px); right: auto; width: clamp(300px, 29vw, 600px); }
+.pz-data.under.pz-hide { transform: translateY(14px); }
+.pz-data.under.tiles-only .pz-tiles, .pz-data.col.tiles-only .pz-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* On a laptop or tablet the data card can stack under the words' card (presenter.js layout sets its left, top and width):
+   it follows the words' card as that grows or shrinks, at the same pace. */
+.pz-data.col { right: auto; }
+/* Stacked under the words' card, it leaves the way that card does, toward the left edge (not away from it). */
+.pz-data.col:not(.under).pz-hide { transform: translateX(-18px); }
+.pz-data.col:not(.pz-hide) { transition-property: opacity, transform; transition-duration: var(--d-surface), var(--d-surface); transition-delay: .12s, .12s; }
+.pz.pz-turning .pz-data, .pz.pz-turning .pz-data .pz-tool, .pz.pz-turning .pz-data .pz-tiles { transition: none !important; }   /* (just after a resize or a turn: the data card takes its new place and size at once, never easing over the words; src/ui/presenter.js onResize) */
+.pz-data.under.tiles-only .pzt-v { font-size: var(--s-big); }
+/* Tiles alone, beside the words: the card is as wide as its tiles need (never wider than its old width). The tiles
+   drop their size container, which would make them measure as zero wide; the number keeps a width for four characters
+   so a changing number does not nudge the card. Two tiles go side by side when the screen is wide. */
+.pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) { width: fit-content; max-width: clamp(300px, 25vw, 500px); }
+.pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) .pz-tile { container-type: normal; }
+.pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) .pzt-v { font-size: var(--s-big); }
+.pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) .pzt-v { font-size: var(--s-title); min-width: 3.6ch; text-align: right; }   /* (its room held for the counting number, which sits at the right of it so the unit follows it straight on: "75%", never "75 … %", I5 17 Oct) */
+@media (orientation: portrait) { .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) { max-width: min(62vw, 520px); } }
+@media (min-width: 1100px) {
+  .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool):has(.pz-tiles[data-n="2"]) { max-width: min(46vw, 640px); }
+  .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) .pz-tiles[data-n="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.pzt-d { font: 600 var(--s-cap)/1.25 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-3); }
+.pzt-d[data-way="good"] { color: var(--ok-ink); }
+.pzt-d[data-way="bad"] { color: var(--danger-ink); }
+.pz-col { display: block; width: min(100%, 460px); height: auto; overflow: visible; font: 600 var(--s-cap) var(--font-ui); }
+.pz-lapse { display: flex; align-items: center; gap: .8em; font: 600 var(--s-lab)/1.2 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-2); }
+/* (The words beside the bar may wrap: "Distal splenorenal shunt (DSRS) → Four months later" is one line nowhere narrower than 352 px, and a nowrap box that wide stood 15 px past
+   an iPhone's card with the bar squeezed to nothing. The hidden widest copy (.pzv-s) wraps the same way in the same cell, so the row's height still never changes as the live words do.
+   The bar keeps 2.5 em; the words take what is left.) */
+.pz-lapse .pzl-t { min-width: 0; }
+.pz-lapse .pzl-t > :is(.pzv-s, .pzv-t) { white-space: normal; overflow-wrap: break-word; }
+.pzl-bar { position: relative; flex: 1 0 2.5em; max-width: 12em; height: .5em; border-radius: .25em; background: var(--hairline); overflow: hidden; }
+.pzl-bar i { position: absolute; inset: 0; transform-origin: left; transform: scaleX(var(--k, 0)); background: linear-gradient(90deg, var(--tour-portal), var(--tour-sys)); border-radius: inherit; transition: transform var(--d-small) linear /*own pace*/; }
+.pz-lapse.done { color: var(--text); }
+/* A compare slide's treatments: a segmented switch on the live model (the pressed one eases to the accent). */
+.pz-ab { display: flex; flex-wrap: wrap; gap: 6px; padding: 5px; width: fit-content; max-width: 100%; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border); border-radius: 22px; box-shadow: var(--shadow-2); pointer-events: auto; }
+/* (In the teaching card the switch sits centred, with no shadow: the card's own layer clipped a shadow to a hard-edged box.) */
+.pz-text .pz-ab { margin-inline: auto; align-self: center; box-shadow: none; background: none; border-color: transparent; }   /* (in the card: no track round the choices, the card is their ground; DG4 17 Oct) */
+.pz-ab-cap { flex: 0 0 100%; text-align: center; font: 600 var(--s-cap)/1.2 var(--font-ui); color: var(--text-3); }   /* (what the choices change, above them: variant-toggle.js) */
+.pz-abb { appearance: none; border: 1px solid color-mix(in srgb, var(--text) 22%, transparent); border-radius: 10px; padding: .5em 1.05em; min-height: 40px; font: 600 var(--s-lab)/1.1 var(--font-ui); color: var(--text-2); background: color-mix(in srgb, var(--surface) 55%, transparent); cursor: pointer; transition: scale var(--d-flip) var(--ease); }
+@media (hover: hover) { .pz-abb { --hv-bg: var(--hairline); } .pz-abb:hover::before { opacity: 1 } .pz-abb:hover { color: var(--text); } }
+/* Each option is its own outlined button, so it reads as something to tap; the chosen one is in full ink with an accent edge, the others grey.
+   No shared track and no filled pill, an iOS switch's look (DG4, 17 Oct). */
+.pz-abb[aria-pressed="true"] { color: var(--text); border-color: var(--accent); box-shadow: inset 0 0 0 .5px var(--accent); }
+.pz-strain-b { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; min-width: 11em; }   /* (hold-to-strain: a long press on a phone must not select, scroll or open a menu) */
+/* A procedure's steps (presenter.js procEl): a line of words, each after the slides' own step circle, progress only (Next plays
+   them). The step on show takes the text colour and an accent circle, the rest stay quiet; only colours change, so the line never
+   reflows. */
+.pz-procs { margin: 0; font: 400 var(--s-body)/1.4 var(--font-ui); color: var(--text-3); text-wrap: pretty; }
+.pz.stack .pz-procs { font-size: var(--s-lab); }
+.pz-proc { white-space: nowrap; transition: none; }
+.pz-proc .pz-step { transition: none; }
+.pz-proc.on { color: var(--text); }
+.pz-proc.on .pz-step { background: var(--accent); color: var(--on-accent); }
+/* Two marks (his ask, 13 Nov 2026): the fill, above, is the step the animation is on; the ring is the step Next or Back has navigated to, a thin accent ring a hair outside
+   its circle. An outline, so no layout moves and nothing animates (transition none above). The words' card clips at its own edge (overflow: clip, no padding), so the row starts
+   a ring's width in (--pz-ring) and has 2px below the last row: the ring of a step that opens a row, or sits on the last row, is whole, on the first line and on every wrapped one. */
+.pz-procs { --pz-ring: 3px; padding: 0 0 2px var(--pz-ring); }
+.pz-proc.at .pz-step { outline: 1.5px solid var(--accent); outline-offset: 1px; }
+.pz-procs[data-why] { opacity: .5; }
+/* EUS coils and glue lists its steps (presenter.js procEl, a short line on each): one row each, number, word, its line, all on the card from the
+   start at its full size (his ask, 10 Nov 2026). The steps played stay in full ink (.done) and the one on show is lit (.on), colours only, so the
+   list never reflows. On a phone's stacked card it is the one-line row again with the lines hidden, so that card does not grow. */
+.pz-procs-list .pz-proc { display: block; white-space: normal; padding-block: .18em; }
+.pz-procs-list .pz-proc.done { color: var(--text); }
+.pz-proc-line { margin-inline-start: .15em; }
+.pz.stack .pz-procs-list .pz-proc { display: inline; white-space: nowrap; padding-block: 0; }
+.pz.stack .pz-proc-line { display: none; }
+.pz-abb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Projector-size catheter readings. */
+.app.presenting .cath-label { padding: calc(7px * min(var(--label-k, 1), 1.7)) calc(16px * min(var(--label-k, 1), 1.7)) calc(8px * min(var(--label-k, 1), 1.7)); border-radius: calc(14px * min(var(--label-k, 1), 1.7)); }
+.app.presenting .cath-label small, .app.presenting .cath-label b + span { font-size: calc(var(--t-lab) * min(var(--label-scale, 1), 1.7)); }
+.app.presenting .cath-label b { font-size: calc(var(--t-big) * min(var(--label-scale, 1), 1.7)); }
+.app.presenting .cath-label.site { --sk: min(var(--label-k, 1), 1.7); padding: calc(5px * var(--sk)) calc(12px * var(--sk)) calc(6px * var(--sk)); border-radius: calc(12px * var(--sk)); }
+.app.presenting .cath-label.site b { font-size: calc(var(--t-val) * min(var(--label-scale, 1), 1.7)); }
+@media (max-width: 600px) {
+  .app.presenting .cath-label.site { padding: calc(3px * var(--sk)) calc(9px * var(--sk)); border-radius: calc(10px * var(--sk)); }
+  .app.presenting .cath-label.site small, .app.presenting .cath-label.site b + span { font-size: calc(var(--t-cap) * min(var(--label-scale, 1), 1.7)); }
+}
+/* The case card: a new patient's case, centred on the slide in the cards' glass, just big enough for its words (the figure shows above and below).
+   It enters and leaves whole (a fade and a short rise), never changing size. */
+.pz-case { position: absolute; inset: 0; margin: auto; width: min(calc(100% - 32px - 2 * max(env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px))), 920px); height: fit-content; max-height: calc(100% - 2 * max(84px, 11vh)); box-sizing: border-box; display: flex; flex-direction: column; align-items: flex-start; gap: clamp(10px, calc(1.6 * var(--pzh)), 20px); padding: clamp(20px, 4vw, 44px); overflow: hidden; --gl-glass: 1; --gl-tint: var(--glass-tint); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: clamp(16px, calc(2.2 * var(--pzh)), 28px); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); pointer-events: auto; cursor: pointer; opacity: 0; translate: 0 14px; }   /* (in and out are written by the frames, presenter.js caseFade: no transition) */
+.pz-case.on { opacity: 1; translate: none; }
+.pz-case:not(.on) { pointer-events: none; }   /* (lifted and fading while the patient still loads behind it: touches and clicks pass through) */
+.pz.stack .pz-case { border-radius: 18px; }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-case { background: var(--glass-tint); } }
+@media (prefers-reduced-transparency: reduce) { .pz-case { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .pz-case { translate: none; } }
+.pz-case-tag { --site: var(--accent); align-self: center; font-size: calc(var(--s-body) * 1.15); }
+.pz-case { --case-max: 2.5; }
+.pz.stack .pz-case { --case-max: 2; }   /* (a phone: the case words a fifth smaller, so the card no longer fills the screen) */
+/* An upright tablet: the case card is the teaching card's width (70%, centred as it is), as tall as its words need, centred both ways (Mohammad, 17 Oct). */
+.pz.stack.tab .pz-case { width: 70%; }
+.pz-case-p { align-self: stretch; margin: 0; text-align: center; font: 500 calc(var(--s-body) * var(--case-k, var(--case-max)))/1.25 var(--font-display); letter-spacing: -.01em; color: var(--text); text-wrap: pretty; }
+.pz-veil { position: absolute; inset: 0; background: color-mix(in srgb, var(--stage-bg) 92%, transparent); opacity: 0; transition: opacity var(--d-surface) var(--ease); }
+.pz-veil.on { opacity: 1; }
+.pz-panel { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: min(1560px, calc(100% - 2 * max(clamp(16px, 3vw, 64px), env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px)))); max-height: calc(100% - 2 * clamp(16px, calc(4 * var(--pzh)), 56px)); overflow: clip; display: flex; flex-direction: column; gap: clamp(12px, calc(2.4 * var(--pzh)), 32px); padding: clamp(18px, calc(3.4 * var(--pzh)), 44px) clamp(20px, 3vw, 52px); background: var(--surface); border: 1px solid var(--border); border-radius: clamp(18px, calc(2.6 * var(--pzh)), 32px); box-shadow: var(--shadow-3); pointer-events: auto; animation: fade-rise var(--d-surface) var(--ease) both; transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
+.pz-panel.pz-grows { top: calc(50% - var(--pz-open-h) / 2); translate: -50% 0; }   /* (a centred card that grows (the quick check's answers) hangs its top where its open height centres: it lengthens downward, nothing above moves: 7d) */
+.pz-panel .pz-ph { display: flex; flex-direction: column; gap: clamp(6px, calc(1.2 * var(--pzh)), 14px); }
+.pz-panel .pz-h { font-size: var(--s-big); }
+.pz-panel .pz-line { max-width: 70ch; }
+/* The opening slide: the deck's own title, centred and large, a short hairline under it; the slide's running head and heading are quieter below. It fades in with the slide. */
+.pz-panel[data-visual="outline"] .pz-ph { align-items: center; text-align: center; gap: clamp(8px, calc(1.4 * var(--pzh)), 16px); padding-top: clamp(4px, calc(1.6 * var(--pzh)), 22px); }
+.pz-panel .pz-dtitle { margin: 0; max-width: 20ch; font: 540 var(--s-title)/1.05 var(--font-display); letter-spacing: -.022em; text-wrap: balance; color: var(--text); animation: fade-rise var(--d-surface) var(--ease) both; }
+.pz-panel .pz-dtitle::after { content: ""; display: block; width: 3rem; height: 2px; margin: .42em auto 0; border-radius: 1px; background: var(--accent); opacity: .55; }
+.pz-panel[data-visual="outline"] .pz-kick { justify-content: center; margin-top: clamp(6px, calc(1.6 * var(--pzh)), 22px); }
+.pz-panel[data-visual="outline"] .pz-ph .pz-h { padding-bottom: 0; font-size: var(--s-body); font-weight: 500; color: var(--text-2); }
+.pz.stack .pz-panel .pz-dtitle { font-size: var(--s-big); text-wrap: wrap; max-width: none; }
+.pz.stack .pz-panel[data-visual="outline"] .pz-ph { align-items: stretch; text-align: left; padding-top: 0; }
+.pz.stack .pz-panel[data-visual="outline"] .pz-kick { justify-content: flex-start; margin-top: 0; }
+.pz.stack .pz-panel .pz-dtitle::after { margin-left: 0; }
+.pz-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(10px, calc(2 * var(--pzh)), 26px); }
+.pz-cell { display: flex; flex-direction: column; gap: clamp(4px, calc(.8 * var(--pzh)), 10px); padding: clamp(10px, calc(1.6 * var(--pzh)), 20px) clamp(12px, calc(1.6 * var(--pzh)), 20px) clamp(6px, calc(1 * var(--pzh)), 12px); border-radius: clamp(12px, calc(1.8 * var(--pzh)), 20px); background: var(--surface-2); min-width: 0; }
+/* (A long site name, POSTSINUSOIDAL, in a narrow cell steps its size down to fit the cell rather than run out of it.) */
+.pz-cell { container-type: inline-size; }
+.pz-cell .pz-kick { font-size: min(var(--s-cap), 8.4cqi); }
+.pz.stack .pz-cell .pz-kick { font-size: min(var(--s-lab), 8.4cqi); letter-spacing: .06em; white-space: nowrap; }
+.pz-cell-k { display: flex; align-items: baseline; gap: 0 .6em; flex-wrap: nowrap; }   /* (the site and the cause on one row, the cause stepping down to fit: presenter.js fitRow) */
+.pz-cell-k .pz-kick { flex: none; white-space: nowrap; font-size: max(min(var(--s-cap), 6.4cqi), calc(12.02px / var(--pz-fit, 1))); }   /* (never under 12 px on the screen: a short Mac window zooms the six ladders down by --pz-fit, and the site tag went to 9 px there) */
+.pz-cell-k .pz-cell-t { flex: none; white-space: nowrap; }
+.pz-cell-k.under { flex-wrap: wrap; }   /* (a cause too wide for the room beside its site even at 12 px goes under it, whole, rather than out of the card: presenter.js fitRow) */
+.pz.stack .pz-cell-k .pz-kick { font-size: min(var(--s-lab), 6.4cqi); letter-spacing: .05em; }
+/* (The HVPG is a pill, top right of every tile: it never wraps under the site tag; both shrink with the tile.) */
+.pz-cell-t { font: 600 var(--s-body)/1.15 var(--font-display); color: var(--text); }
+/* The six ladders: each chart has the instrument's own proportions (below), so the card is as tall as its two rows of them and no taller; only on a
+   window too short for that do the rows shrink to the room (the grid and the charts may shrink, never grow). */
+.pz-panel.fill .pz-grid { flex: 0 1 auto; min-height: 0; grid-template-rows: repeat(2, minmax(0, 1fr)); }
+.pz-panel.fill .pz-cell { min-height: 0; }
+/* (A wide screen's six ladders (Mohammad, 23 Oct: "the cards are wasting some space below sinusoidal within each card; also the title is wasting
+   space"): the title one step down, the Compact step of the other titles (card-type.js WIDE.title, 0.8), so it stands on one line where it had
+   a second for two words, and every case gets that height; each case's foot gives back what lay under its sinusoidal brace: the chart reaches
+   half its type size into the cell's bottom padding (its picture has that much blank under the brace's name, overflow visible), the padding
+   itself shorter. The name and the unit stay inside the cell, over 12 px from its edge.) */
+.pz:not(.stack):not(.low) .pz-panel.fill .pz-h { font-size: calc(var(--s-big) * .8); }
+.pz:not(.stack):not(.low) .pz-cell { padding-bottom: clamp(4px, calc(.6 * var(--pzh)), 8px); }
+.pz-cc { position: relative; width: 100%; flex: none; }   /* (the chart's holder: the instrument drawn at its own size inside it, scaled down whole to the cell's width: presenter.js fitChart) */
+.pz-cc > .pz-prof { position: absolute; left: 0; top: 0; width: var(--lad-w); height: calc(var(--lad-h) * var(--lad-s, 1)); min-height: 0; font-size: calc(var(--lad-f) * var(--lad-s, 1)); transform: scale(var(--lad-k, 1)); transform-origin: 0 0; }   /* (its own width, height and type are the instrument's: the cell's --lad-w, --lad-h and --lad-f; --lad-k is the scale, and --lad-s the larger type that keeps the scaled words at 12 px, in a box as much taller (1 where the instrument's own type holds, a few percent on a Mac, a third on an iPad on its side) so the plot keeps its room) */
+.pz:not(.stack) .pz-cc { height: calc((var(--lad-h) - .5 * var(--lad-f)) * var(--lad-s, 1) * var(--lad-k, 1)); }   /* (the scaled picture's height, less half a type size, overflow visible: the picture has that much blank under the brace's name) */
+:is(.pz.stack, .pz.low) .pz-cell > .pz-cc { display: none; }   /* (a phone draws each case on one line instead) */
+:is(.pz.stack, .pz.low) .pz-cell > .pz-pstrip { display: block; margin-top: 3px; font-size: var(--s-lab); }
+.pz-grid-head { display: none; }
+:is(.pz.stack, .pz.low) .pz-grid-head { display: grid; grid-column: 1 / -1; grid-template-columns: inherit; gap: inherit; }   /* (the stations named once over the six lines, each over its column) */
+:is(.pz.stack, .pz.low) .pz-grid-head > .pz-pstrip { display: block; width: auto; margin: 0 12px; font-size: var(--s-cap); }
+.pz.stack .pz-grid-head > :nth-child(2) { display: none; }
+/* (A big screen's six ladders are the data card's instrument, drawn once and scaled down as one piece to each cell (Mohammad, 28 Oct, Sites 10, after "looks
+   wrong": "each cell the instrument drawn exactly, scaled down", the slide 8 card as the reference): the instrument's own width (a card's width less its
+   padding), type size (the data card's chart size, 12 px at least) and height (62 % of its width, its floor of 28 % of the window's height, less the 1.6 em the
+   chart gave back; the same formulas as the instrument's), then scaled by presenter.js fitChart. The cell's chart then has the instrument's layout, label
+   places, plot shape and relative type; the card hugs the six. This took back the 26 Oct larger lettering (4.5 cqi, to 20 px) and the first 28 Oct try, which
+   laid the chart out afresh at the cell's size and crowded its plot.) */
+.pz:not(.stack) .pz-cell { --ch-cap: max(12px, calc(var(--s-cap) * .74)); --ch-lab: calc(var(--ch-cap) * 1.5); --lad-w: calc(var(--pz-cw) - 2 * var(--pz-cp)); --lad-f: var(--ch-cap); --lad-h: calc(min(max(.62 * var(--lad-w), 28 * var(--pzh)), 40 * var(--pzh)) - 1.6 * var(--lad-f)); }
+/* (What the card spends in height round the charts is kept short (Mohammad, 23 Oct, "wasting some space"): the gap under the title, the foot, the gap
+   between the two rows and each cell's top and first gap. The card's width, its side padding and the columns' gap are as they were.) */
+.pz:not(.stack):not(.low) .pz-panel.fill { gap: clamp(8px, calc(1.2 * var(--pzh)), 16px); padding-bottom: clamp(12px, calc(1.8 * var(--pzh)), 24px); }
+.pz:not(.stack):not(.low) .pz-panel.fill .pz-grid { row-gap: clamp(8px, calc(1.2 * var(--pzh)), 16px); }
+.pz:not(.stack):not(.low) .pz-panel.fill .pz-cell { padding-top: clamp(8px, calc(1.1 * var(--pzh)), 14px); gap: clamp(3px, calc(.6 * var(--pzh)), 8px); }
+/* (Its lines grow with its type, never thinner than the data card's: the line 3 px, the healthy and earlier lines 1.75, the brackets and the brace 1.5,
+   the axis and the gridlines 1 px, at the 12 px type they were drawn for. The value halos and the red hatching stay: the chart's label placing
+   counts a halo as 2 px.) */
+/* (A card never scrolls, in any direction: a table that is too wide or too tall is zoomed by the card's fit (presenter.js overflowOf reads its
+   sideways overflow), never scrolled inside its card, and what a finger or a trackpad might pan is clipped. Mohammad, 25 Oct: on an iPad
+   on its side the summary table "scrolls right and left. They should not ever scroll.") */
+.pz-table { overflow: hidden; border: 1px solid var(--border); border-radius: clamp(12px, calc(1.8 * var(--pzh)), 20px); }
+.pz-table table { width: 100%; border-collapse: collapse; font: 500 var(--s-body)/1.25 var(--font-ui); }
+.pz-table th, .pz-table td { padding: .55em .75em; text-align: left; vertical-align: middle; }
+.pz-table thead th { background: var(--surface-2); font: var(--caps-w) var(--s-cap)/1.2 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-3); }   /* (a heading wraps between its words when the card is tight; it never breaks inside one) */
+.pz-table .num { text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* A wide screen's value columns keep less padding at the sides than the row names: their arrows and numbers are centred, so a roomy table
+   looks as before, and a tight one (nine columns on an iPad on its side) gives the room to the columns instead of scrolling. */
+.pz:not(.stack) .pz-table :is(thead th.num, tbody td.num) { padding-inline: .45em; }
+.pz-table tbody tr { border-top: 1px solid var(--border); cursor: pointer; transition: none; }
+@media (hover: hover) { .pz-table tbody tr:hover { background: var(--accent-soft); } }
+.pz-table tbody th .pz-kick { font-size: var(--s-cap); }
+.pz-table .tn { display: block; margin-top: .15em; font: 600 1em/1.2 var(--font-display); color: var(--text); }
+.pz-table td[data-rate="hi"] { color: var(--danger-ink); font-weight: 600; }
+.pz-table td[data-rate="mid"] { color: var(--caution-ink); font-weight: 600; }
+.pz-table .asc { white-space: nowrap; color: var(--text-3); }
+.pz-table .asc b { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.pz-table .asc b[data-rate="hi"] { color: var(--danger-ink); }
+.pz-table .asc small { font-size: .72em; }
+.pz-table .asc .none { color: var(--text-3); }
+.pz-table .pz-foot { position: sticky; left: 0; bottom: 0; padding: .7em 1em .8em; border-top: 1px solid var(--border); background: var(--surface); }
+/* (A long table's rows sit closer, so its legend fits under it; the legend stays pinned at the bottom if it still would not.) */
+.pz-table.long tbody :is(th, td) { padding-block: .36em; }
+.pz-foot { margin: 0; font: 500 var(--s-cap)/1.4 var(--font-ui); color: var(--text-3); }
+/* Counter, progress, controls, notes, black screen. */
+.pz-table td.note { font-size: .8em; color: var(--text-2); }
+.pz-table td.blank { color: var(--text-3); }
+.pz-nm { display: inline-block; width: .6em; height: .6em; border: 1.6px solid currentColor; border-radius: 50%; vertical-align: -.02em; box-sizing: border-box; }
+.pz-table .vs { display: block; margin-top: .1em; font: 500 max(12px, .7em)/1.2 var(--font-ui); color: var(--text-3); }   /* (never under 12 px: it was 11 on a 1440 Mac, sweep 16 Oct) */
+.pz-table td.none { color: var(--text-3); font-size: .85em; }
+.pz-table thead abbr { text-decoration: none; cursor: help; }
+.pz-table tbody tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--accent-soft); }
+.pz-table td.dir { text-align: center; }
+.pz-table td.dir:not([data-rate]) { color: var(--text-2); }
+.pz-table td.dir.zero { color: var(--text-3); }
+/* A gradient that misses this patient's resistance (a row's miss / missPart, the Gradients talk's summary): the arrow quiet, an outlined tag beside it. */
+.pz-table td.dir.miss > :first-child { opacity: .45; }
+.pz-table .pz-miss { display: inline-block; margin-left: .4em; padding: .1em .45em; border-radius: 999px; box-shadow: inset 0 0 0 1.2px var(--text-3); color: var(--text-2); font-size: .78em; font-weight: 600; line-height: 1.3; white-space: nowrap; vertical-align: .1em; }
+.pz-table td.asc.dir { text-align: left; }
+.pz-arr { display: inline-block; line-height: 0; vertical-align: -.14em; }
+.pz-arr .pz-ag { position: relative; display: flex; height: 1.05em; width: .79em; }
+.pz-arr.two .pz-ag { width: 1.25em; }
+/* (The arrow as a shape: a box of the text's colour cut to a head and a shaft, the old 12 x 16 drawing's own lines, its head's
+   rounded edge included; two arrows share a 19 x 16 box; level is a short round-ended dash.) */
+.pz-ag > i { flex: 1; background: currentColor; clip-path: polygon(50% 3.75%, 90% 53.75%, 60.42% 53.75%, 60.42% 95%, 39.58% 95%, 39.58% 53.75%, 10% 53.75%); }
+.pz-arr.two .pz-ag > i { clip-path: polygon(50% 3.75%, 95.26% 53.75%, 63.16% 53.75%, 63.16% 95%, 36.84% 95%, 36.84% 53.75%, 4.74% 53.75%); }
+.pz-arr.zero .pz-ag > i { position: absolute; left: 16.67%; width: 66.67%; top: 48.75%; height: 10%; border-radius: 99px; clip-path: none; }
+.pz-table td.dir[data-eff="good"] { color: var(--ok-ink); }
+.pz-table td.dir[data-eff="bad"] { color: var(--danger-ink); }
+.pz-arr.dn .pz-ag { transform: rotate(180deg); }
+.pz-arr.zero { opacity: .5; }
+.pz-table .pz-foot .pz-arr .pz-ag { height: 1em; width: .75em; }
+.pz-table .pz-foot .pz-arr.two .pz-ag { width: 1.19em; }
+.pz-table td.asc .pz-arr .pz-ag { height: .95em; width: .71em; }
+.pz-table th.num { text-align: center; }
+.pz-table thead th[tabindex] { cursor: help; }
+.pz-cutl:not(:empty) { display: block; margin-top: .3em; color: var(--text-2); }
+.pz-cutl b { font-weight: 600; }
+.pz-table td.rel[data-rate] { color: var(--text); }
+@media (max-width: 520px) { .pz-table th, .pz-table td { padding: .5em .35em; } .pz-table tbody th { padding-left: .7em; } .pz-table thead th { letter-spacing: .02em; } .pz-table tbody th .pz-kick { letter-spacing: .02em; } }
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
+  .pz-table th, .pz-table td { padding: .5em .5em; }
+  /* A phone (and an upright tablet) fits the table to its width, one compact line per row: the name (under its heading, in the site's colour, where the row starts one), the value columns,
+     then ascites as a narrow last column; a note goes on a small line under. The column heads stay in view.
+     --nc: the number of value columns; --asc-w: the ascites column (0 when there is none). */
+  .pz-table { overflow: clip; border-radius: 12px; }   /* (clip, not hidden: the heads still stick to the card) */
+  .pz-table table, .pz-table thead, .pz-table tbody { display: block; }
+  .pz-table table { font-size: var(--s-body); }
+  .pz-table tr { display: grid; grid-template-columns: minmax(7.5rem, 1.8fr) repeat(var(--nc, 7), minmax(0, 1fr)) var(--asc-w, 0px); align-items: center; }
+  .pz-table td[colspan="2"] { grid-column: span 2; }
+  .pz-table thead th.num { padding-inline: 2px; font-size: 12px; letter-spacing: -.01em; }   /* (12 px: where a column is too narrow for the word the row's heads stand upright, below, presenter.js fitHeads) */
+  .pz .pz-table thead tr.th-up th.num { writing-mode: vertical-rl; rotate: 180deg; line-height: 1; padding: .4em 0; justify-self: center; text-align: start; }
+
+  .pz-table tbody th[scope="row"] { padding-right: 8px !important; }
+  .pz-table thead { position: sticky; top: -16px; z-index: 2; }   /* (the card's padding: the heads stick to its top edge) */
+  .pz-table thead tr { background: var(--surface-2); border-radius: 12px 12px 0 0; }
+  .pz-table thead th { padding: .7em 1px; font-size: var(--s-cap); line-height: 1.15; letter-spacing: 0; overflow-wrap: normal; white-space: normal; text-align: center; }
+  .pz-table thead th:first-child { text-align: left; padding-left: 10px; }
+  .pz-table thead th:not(.num):not(:first-child):not(.ah) { display: none; }
+  .pz-table th, .pz-table td { padding: .5em .1em; }
+  .pz-table tbody th[scope="row"] { display: block; padding: .55em 4px .55em 10px; min-width: 0; }
+  .pz .pz-table tbody th .pz-kick { display: block; width: auto; background: none; font-size: var(--s-cap); overflow-wrap: normal; }   /* (the heading in words and its site's colour over the name, as on the wide table and the tablet's note columns: a coloured stroke said nothing on its own, and the same stroke on every row of a treatment table said even less) */
+  .pz-table .tn { min-width: 0; margin: 0; font-size: var(--s-lab); line-height: 1.15; overflow-wrap: normal; -webkit-hyphens: manual; hyphens: manual; }
+  .pz-table .tw { display: block; min-width: 0; }
+  .pz-table .vs { font-size: var(--s-cap); }
+  .pz-table td.num { font-size: var(--s-body); } .pz-table td.num.bp { white-space: normal; text-wrap: balance; padding-inline: 2px; }   /* ("117/69 (82)" is wider than a phone's column: it breaks at its space, and no longer runs into the next, 16 Nov 2026) */
+  .pz-table .pz-arr .pz-ag { height: .85em; }
+  .pz-table td.asc { padding: .3em 6px .3em 2px; font-size: var(--s-cap); line-height: 1.3; white-space: normal; text-align: left; }
+  .pz-table td.asc .ap { display: block; white-space: nowrap; }
+  .pz-table td.asc small { font-size: .85em; text-transform: uppercase; letter-spacing: .03em; color: var(--text-3); }
+  .pz-table td.asc .sep { display: none; }   /* (no separator between the two stacked lines) */
+  .pz-table td.note { grid-column: 1 / -1; padding: 0 10px .6em 10px; font-size: var(--s-cap); text-align: left; }   /* (under the name) */
+}
+.pz-table tbody tr.static { cursor: default; }
+@media (hover: hover) { .pz-table tbody tr.static:hover { background: none; } }
+/* A row still computing has empty cells (never "…"); when its patient arrives the numbers fade in. */
+.pz-table td.pend { color: var(--text-3); text-align: center; }
+.pz-table tr[data-arrived] td { animation: crossfade var(--d-surface) var(--ease) both; }
+/* A continued row (class pz-cont): one under a row with the same heading in the same site's colour (presenter.js sameHead) draws the heading once, over the first of them.
+   The heading stays in the row for a screen reader and takes no room: font-size 0 (no box, no text to measure, no height), so the
+   wide table, the tablet's note columns, the short inline rows and the phone's compact rows all close up.
+   The rows follow under a lighter rule, and the name takes the heading's place. (tests/table-continued-rows.test.js) */
+.pz-table tbody tr.pz-cont { border-top-color: color-mix(in srgb, var(--border) 42%, transparent); }
+.pz-table tbody tr.pz-cont th .pz-kick { font-size: 0; }
+.pz-table tbody tr.pz-cont .tn { margin-top: 0; }

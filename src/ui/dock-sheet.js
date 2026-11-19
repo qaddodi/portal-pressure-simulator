@@ -11,11 +11,13 @@ import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet, dragShe
 import { SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, releaseSpeed, isFlick, flickAim, carryCurve, D_SMALL } from './ease.js';
 import { moverOf, cancelMoves } from './num-move.js';
 import { restPass } from './rest-pass.js';
+import { testsHalfPx } from './stack-plan.js';
 import { classSoon } from './class-soon.js';
 import { readBox, readMetric, readStyle } from './layout-snap.js';
 import { reduceMotionMQ } from './motion.js';
 import { sheetDockVars } from './dock-vars.js';
 import { growProgress, lerpAt, clipAt, r2, pullOffset } from './sheet-grow-math.js';
+import { capture } from './pointer-capture.js';
 
 const app = $('#app');
 const isPhone = isPhoneLayout;
@@ -43,10 +45,21 @@ function releaseFrame(el) {
 }
 
 const sheetInner = (c) => { const l = c.lastElementChild; if (!l) return 0; const b = parseFloat(readStyle(c).paddingBottom) + parseFloat(readStyle(l).marginBottom); return readBox(l).bottom - readBox(c).top + readMetric(c, 'scrollTop') + b; };
+/** The height a sheet is given at one of its stops, as a CSS value (pure, tests/sheet-height.test.js). stops: the shares of the room, half: the index of Half, area: the px those shares are of, room: the thumb room
+ *  in px (0: none, the stops are shares of the screen), need: the height of the sheet's words (Infinity: not asked), page: a page is open in it (Treat's Changes on a phone, treat-page.js). A sheet is at least
+ *  as tall as its words need up to its Full (18 Nov 2026, the tester at 390 px: it stood at Half with 726 px of words and 270 px of room), and Full while a page stands. */
+export function sheetHeight({ size, half, stops, room, area, need, page }) {
+  const last = stops[stops.length - 1], halfPx = stops[half] * area, fullPx = last * area;
+  if (page && size === half) return room ? `${Math.round(last * room)}px` : `${Math.round(last * 100)}%`;
+  if (need < halfPx) return `${Math.ceil(need)}px`;
+  if (need !== Infinity && size === half) return `${Math.ceil(Math.min(need, fullPx))}px`;
+  return room ? `${Math.round(stops[size] * room)}px` : `${Math.round(stops[size] * 100)}%`;
+}
 export function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = null, anywhere = false, grow = false }) {
   const SIZES = [0.32, 0.56, 0.9], THUMB = [0.62, 1], TABLET = [0.45, 0.62];
   const TESTS_HALF_PX = 520;   // (13 Nov 2026, the Tests card on a phone: one fixed height at rest, as the laptop's card is one fixed 560 px)
   const thumb = () => app.classList.contains('thumb') && isPhone();
+  const vesselCard = () => thumb() && document.documentElement.classList.contains('vessel-card');   // (card.js: the vessel's card is up over the foot of the screen)
   // (17 Oct, Mohammad: an upright iPad's cards open "proportional to the ipad proportions vertically" and never fill the whole
   // screen: Half takes the share of the screen's height an iPhone's Half takes, 45 %, and Full stops at 62 %, the figure in view
   // above it. As shares of the room, like the phone's, so a drag and its release are measured the same way.)
@@ -56,11 +69,12 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
     if (!thumb()) return SIZES;
     if (!tabletMQ.matches) {
       if (!grow) return THUMB;
-      PHN_NOW[0] = Math.min(0.9, TESTS_HALF_PX / (room() || readMetric(app, 'clientHeight')));
+      const R = room() || readMetric(app, 'clientHeight');
+      PHN_NOW[0] = Math.min(0.9, testsHalfPx(R, TESTS_HALF_PX, vesselCard()) / R);   // (a vessel's card above leaves the figure its band: stack-plan.js)
       return PHN_NOW;
     }
     const H = readMetric(app, 'clientHeight'), R = room() || H;
-    for (let i = 0; i < 2; i++) TAB_NOW[i] = Math.min(1, (TABLET[i] * H) / R);
+    for (let i = 0; i < 2; i++) TAB_NOW[i] = Math.min(1, (i ? TABLET[i] * H : testsHalfPx(R, TABLET[i] * H, vesselCard())) / R);
     return TAB_NOW;
   };
   const half = () => stops().length - 2;
@@ -231,7 +245,7 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
     const cs = readStyle(el);
     // The body fills the sheet, so its own height says nothing: measure down to its last child.
     let sum = 0;
-    for (let i = 0; i < el.children.length; i++) { const c = el.children[i]; sum += c.classList.contains('sheet-plate') ? 0 : c.matches(fit) ? sheetInner(c) : readMetric(c, 'offsetHeight'); }
+    for (let i = 0; i < el.children.length; i++) { const c = el.children[i]; sum += c.classList.contains('sheet-plate') || c.classList.contains('tc-page') ? 0 : c.matches(fit) ? sheetInner(c) : readMetric(c, 'offsetHeight'); }
     return sum + parseFloat(cs.paddingBottom) + parseFloat(cs.paddingTop);
   };
   // (A phone turned upright or sideways changes the stops, three sideways and two over the thumb dock: Half stays Half and the top stays the top.)
@@ -241,9 +255,10 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
     remap();
     const S = stops(), r = room();
     size = Math.min(size, S.length - 1);
-    const need = size === half() && !grow ? natural() : Infinity;   // (the Tests card keeps its one height: it never shrinks to its content)
+    const page = el.hasAttribute('data-page');
+    const need = !page && size === half() && !grow ? natural() : Infinity;   // (the Tests card keeps its one height: it never shrinks to its content)
     // alloc-rare: the sheet's height as a CSS value, made when a gesture starts or ends or the sheet opens, not while it moves
-    return need < S[half()] * (r || readMetric(app, 'clientHeight')) ? `${Math.ceil(need)}px` : r ? `${Math.round(S[size] * r)}px` : `${Math.round(S[size] * 100)}%`;
+    return sheetHeight({ size, half: half(), stops: S, room: r, area: r || readMetric(app, 'clientHeight'), need, page });
   };
   const pxOf = (v) => (/px$/.test(v) ? parseFloat(v) : (parseFloat(v) / 100) * readMetric(app, 'clientHeight'));
   // Commits the sheet at rest: its own height, the content in place (the same picture: what was drawn lay - off tall now is).
@@ -259,24 +274,30 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
   };
   // Takes the sheet to its size. glide: from the height it is drawn at (h0), the box held at the taller of the two for the ease and
   // committed once landed; otherwise at once (a turn of the device, an opening).
-  const apply = (glide = false, h0 = 0, easing) => {
+  // (after: told when this move has landed, the sheet still at its new height: a page that waits for the sheet to be still before it slides in (treat-page.js) is the one that asks. A move
+  // another takes over is never told: the asker has its own time limit.)
+  const apply = (glide = false, h0 = 0, easing, after) => {
     const v = sizeValue();
-    if (!glide || !isPhone() || reduceMotionMQ.matches) { stopSheet(el); commit(v); return; }
+    if (!glide || !isPhone() || reduceMotionMQ.matches) { stopSheet(el); commit(v); after?.(); return; }
     const h1 = pxOf(v), H = Math.max(h0, h1);
-    if (Math.abs(h1 - h0) < 1) { stopSheet(el); commit(v); return; }
+    if (Math.abs(h1 - h0) < 1) { stopSheet(el); commit(v); after?.(); return; }
     if (lay !== H) { stopSheet(el); hold(); el.style.height = `${H}px`; lay = H; growLaid(); setSheetOffset(el, H - h0); }
-    glideSheet(el, H - h1, { easing, done: () => commit(v), frame: growTo });
+    glideSheet(el, H - h1, { easing, done: () => { commit(v); after?.(); }, frame: growTo });
   };
   const drawnHeight = () => (lay || readMetric(el, 'offsetHeight')) - sheetOffset(el);
   // A new tab refits the sheet to its content (the height eases).
   if (fit) el.addEventListener('click', (e) => { if (size === half() && e.target.closest('[role="tab"]')) restPass(refitTab); });   // (measured between frames, rest-pass.js)
-  const refitTab = () => apply(true, drawnHeight());
+  const refitTab = (after) => apply(true, drawnHeight(), undefined, after);
+  // A section that opens or closes in the sheet (Treat's Changes) refits it the same way: 18 Nov 2026, the tester at 390 px, Procedures with four changes: Changes opened in a sheet 530 px tall with 124 px of room left
+  // above it, and its rows scrolled inside it. The refit is measured between frames, once the section has its new height.
+  if (fit) el.addEventListener('sheet-refit', (e) => { const after = e.detail?.landed; if (size === half()) restPass(() => refitTab(after)); else after?.(); });   // (detail.landed: called once the refit has landed, or at once when there is none)
   apply();
   // A turn of the device or a new window size changes the stops and the room (px over the thumb dock): a sheet takes its size
   // again once the size has held for a moment (a sheet in the hand is left to its release).
   let retakeT = 0;
   const retake = () => { if (!start && isPhone()) apply(); };   // (measured between frames, rest-pass.js)
   addEventListener('resize', () => { clearTimeout(retakeT); retakeT = setTimeout(() => restPass(retake), 220); });
+  addEventListener('pps:vessel-card', () => restPass(() => { if (!start && isPhone() && active()) apply(true, drawnHeight()); }));   // (the vessel's card came or went: the sheet's Half gives way to its strip, or takes the room back, gliding)
   handle.addEventListener('click', () => { if (!isPhone() || !active()) return; const h0 = drawnHeight(); remap(); size = (size + 1) % stops().length; apply(true, h0); });
   let start = null, swallow = 0;
   // Controls keep their own gestures. With `anywhere` (a phone sheet), a vertical drag from any other spot on the
@@ -331,7 +352,7 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
       stopSheet(el); el._sheetOff = start.off0;
       if (!start.phone) start.mv = moverOf(el, 'translate', 'xy', true);   // alloc-rare: once, at the pull's first move
       if (grow && start.full && start.phone) { hold(); growLaid(); }   // (from Full the pane is held at Full size: a pull down shrinks the chart with the finger)
-      el.setPointerCapture?.(e.pointerId);   // (only once it moves: captured at once, a tap's click would land on the sheet, not the grabber)
+      capture(el, e.pointerId);   // (only once it moves: captured at once, a tap's click would land on the sheet, not the grabber)
     }
     classSoon(el, 'dragging', true);
     start.dy = dy;

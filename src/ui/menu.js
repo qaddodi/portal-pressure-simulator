@@ -19,6 +19,7 @@ import { restPass } from './rest-pass.js';
 import { classSoon, classNow, removeSoon } from './class-soon.js';
 import { slideFold } from './fold-slide.js';
 import { leaveFromHere } from './menu-leave.js';
+import { rideIn, rideOut } from './sheet-ride.js';
 import { plateFor } from './plate-gl.js';
 import { glassPlate } from './menu-glass.js';
 import { releaseSpeed, carryCurve, cssCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, RISE_PX } from './ease.js';
@@ -32,7 +33,7 @@ const profFrame = frameFor('menu-profile');
 // ?pvglide=0 path, which did, is gone, 1 Nov: nothing laid out in motion.)
 
 // Where each group's resistance sits along the pathway from the gut to the heart.
-const GROUP_WHERE = { Normal: 'No added resistance', 'Pre-hepatic': 'Before the liver', Presinusoidal: 'In the portal tracts', Sinusoidal: 'In the sinusoids', Postsinusoidal: 'At the central veins', 'Post-hepatic': 'Hepatic veins and IVC', Cardiac: 'The right heart' };
+const GROUP_WHERE = { Yours: 'Made from your readings', Normal: 'No added resistance', 'Pre-hepatic': 'Before the liver', Presinusoidal: 'In the portal tracts', Sinusoidal: 'In the sinusoids', Postsinusoidal: 'At the central veins', 'Post-hepatic': 'Hepatic veins and IVC', Cardiac: 'The right heart' };
 
 // A patient's pressure profile from the gut to the right atrium (a hydraulic grade line): blood runs
 // downhill, and the steepest fall is where the resistance sits. Drawn by the GPU (trace-gl.js; 1 Nov 2026, move everything to GPU):
@@ -92,7 +93,10 @@ function paintProfile(ctx, W, H, snap) {
 // The standing cut-offs: HVPG amber from 5, red from 10; PPG amber from 6, red from 12.
 const sev = (cuts, v) => ({ ok: 'ok', caution: 'low', danger: 'high' })[sevOfCuts(cuts, v)];
 const one = (v) => fmt(v, 1);   // (one decimal, as the tiles and the bar print the same gradients: "17.2", never "17")
+// (Set by the open menu: what a patient made from readings adds to its preview, a Delete; the others add nothing.)
+let previewAct = null;
 function patientPreview(p) {
+  const act = previewAct?.(p) ?? null;
   const s = SNAPSHOTS[p.id], fp = s?.fp;
   return h('div', { class: 'um-pv-in pt' },
     h('span', { class: 'um-pv-meta' }, `${p.group} · ${GROUP_WHERE[p.group] || ''}`),
@@ -104,17 +108,20 @@ function patientPreview(p) {
       fp?.ppg != null ? h('span', { class: 'hp-chip ' + sev(PPG_CUTS, shownOf(fp.ppg)), title: 'Portal pressure gradient (portal vein − IVC)' }, 'PPG ', h('b', {}, one(fp.ppg))) : null,
       h('span', { class: 'hp-chip', title: 'Portal vein pressure' }, 'PV ', h('b', {}, fmt(s.pv, 1))),
       s.pvFlow < -0.05 ? h('span', { class: 'hp-chip rev', title: 'Portal flow is reversed, away from the liver' }, 'Hepatofugal') : null) : null,
-    h('p', {}, p.summary || ''));
+    h('p', {}, p.summary || ''), act);
 }
 
 // Search: every word typed must appear somewhere in the row's words (case, accents, spaces and hyphens ignored).
 const fold = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '');
 const matches = (hay, words) => words.every((w) => hay.includes(w));
 
-export function createMenu({ anchor, library, libraryNow, onPreset, share, help, onToggle }) {
+export function createMenu({ anchor, library, libraryNow, onPreset, onFromReadings, onForget, share, help, onToggle }) {
   const reduce = reduceMotionMQ;
   const sheetMQ = matchMedia(STACK_MQ);
   const fine = matchMedia('(hover: hover) and (pointer: fine)');
+  // (The menu is a sheet or a popover by the window as it is now: a window that crosses the breakpoint with the menu up closes it and opens it again in the other form, 16 Nov 2026.)
+  let reopen = null;
+  const followMQ = () => reopen?.();
   let el = null, back = null, plate = null, pv = null, coldOpen = false, open = false, hoverT = 0, hideT = 0, pvKey = null, pvTok = 0, mark = null, query = '', tab = 'present';
 
   const close = (o = {}) => {
@@ -124,6 +131,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     releaseSurface(surf);
     removeEventListener('keydown', typed, true);
     removeEventListener('resize', place);
+    sheetMQ.removeEventListener('change', followMQ); reopen = null;
     vv?.removeEventListener('resize', fitSheet); vv?.removeEventListener('scroll', fitSheet);
     const panel = el, scrim = back, gone = plate, done = () => { panel.remove(); scrim?.remove(); gone?.dispose(); };
     el = back = plate = null;
@@ -141,6 +149,10 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         panel.style.transform = 'translateY(100%)';
         if (!sheet) panel.style.opacity = '0';
       }
+    } else if (sheet) {
+      // (The sheet goes down on the page's frames, from wherever its entrance had got to, so its glass goes with it: sheet-ride.js.)
+      rideOut(panel, reduce.matches);
+      panel.classList.remove('pulling'); panel.classList.add('out');
     } else if (leaveFromHere(panel, () => { panel.classList.remove('pulling'); panel.classList.add('out'); })) gone?.leaveAlong();   // (.pulling, left by an earlier pull, would hold off the exit: menu recs C1)   // (the plate under it follows by its twin rules; one put away while still coming in follows the menu's exit from where it had got to)
     // (Inert from the first frame of its exit, as the popovers are; a menu opened again before it has gone leaves it fading, below.)
     panel.inert = true;
@@ -163,15 +175,18 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     const r = resumeOf(d, lib, script);
     const row = h('button', { class: 'um-row', 'data-k': (script ? 's:' : 'd:') + d.id, 'aria-current': lib.current() === d.id ? 'true' : null, onclick: () => { close(); lib.start(d.id, r?.at ?? 0); } },
       svgIcon('play', 'um-play'), h('span', { class: 'um-t' }, script ? d.title : d.short || d.title),
-      script ? h('span', { class: 'um-m' }, `${(d.steps || d.deck.slides).length} slides`) : levelWord(d.level, lib.levels),
+      script ? h('span', { class: 'um-m' }, `${d.steps ? d.steps.length : lib.count(d.deck)} slides`) : levelWord(d.level, lib.levels),
       script ? null : r ? h('span', { class: 'um-m um-res' }, `Resume ${r.at + 1} / ${r.n}`) : h('span', { class: 'um-m' }, `${d.minutes} min`));
     row.dataset.find = fold([d.title, d.short, script ? 'script' : ''].join(' ')); row.dataset.more = fold(d.summary);
     const info = h('button', { class: 'um-info', 'aria-label': `About ${d.short || d.title}`, 'aria-expanded': 'false', onclick: () => toggleInline(li, () => (script ? scriptPreview(d, lib) : deckPreview(d, lib)), info) }, icon('info'));
     const li = h('li', {}, row, info);
     hoverable(row, () => (script ? scriptPreview(d, lib) : deckPreview(d, lib)), 'present');
+    if (!script) for (const ev of ['pointerenter', 'focus', 'pointerdown']) row.addEventListener(ev, () => lib.warm?.(d.id), { passive: true });   // (the deck's patients are worked out behind the menu, so the press finds them: presenter.js warm)
     if (mark && mark === d.id) li.classList.add('um-new');
     return li;
   }
+  // A patient made from readings can be deleted from its preview (the others are the app's own). The list is made again by whoever forgets it.
+  previewAct = (p) => (p.group === 'Yours' && onForget ? h('div', { class: 'um-acts' }, h('button', { class: 'btn ghost sm', onclick: () => onForget(p.id) }, 'Delete')) : null);
   function patientRow(p, cur) {
     const row = h('button', { class: 'um-row', 'data-k': 'p:' + p.id, 'aria-current': p.id === cur ? 'true' : null, onclick: () => { close(); if (p.id !== store.get().presetId || store.get().mode !== 'explore') onPreset(p.id); } },
       h('span', { class: 'um-t' }, p.label), p.id === cur ? svgIcon('check', 'um-check') : null);
@@ -183,7 +198,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     return li;
   }
   const deckPreview = (d, lib, r = resumeOf(d, lib)) => h('div', { class: 'um-pv-in pt' },
-    h('span', { class: 'um-pv-meta' }, `${lib.levels[d.level] || ''} · ${d.slides.length + 1} slides · ${d.minutes} min`),
+    h('span', { class: 'um-pv-meta' }, `${lib.levels[d.level] || ''} · ${lib.count(d)} slides · ${d.minutes} min`),
     h('h3', {}, d.title), h('p', {}, d.summary || ''),
     d.objectives?.length ? h('ul', {}, d.objectives.map((o) => h('li', {}, o))) : null,
     h('div', { class: 'um-acts' },
@@ -193,7 +208,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       h('button', { class: 'btn ghost sm', onclick: () => lib.shareDeck(d) }, svgIcon('share', 'mi-ic'), 'Copy link'),
       h('button', { class: 'btn ghost sm', title: 'Speaker notes and discussion questions, one row per slide', onclick: () => lib.notes(d) }, svgIcon('print', 'mi-ic'), 'Print notes')));
   const scriptPreview = (s, lib) => h('div', { class: 'um-pv-in' },
-    h('span', { class: 'um-pv-meta' }, `${s.test ? 'Test deck, preview only' : s.deck ? 'Your deck' : 'Your script'} · ${(s.steps || s.deck.slides).length} slides`),
+    h('span', { class: 'um-pv-meta' }, `${s.test ? 'Test deck, preview only' : s.deck ? 'Your deck' : 'Your script'} · ${s.steps ? s.steps.length : lib.count(s.deck)} slides`),
     h('h3', {}, s.title), h('p', {}, s.summary || ''),
     h('div', { class: 'um-acts' },
       h('button', { class: 'btn sm primary', onclick: () => { close(); lib.start(s.id); } }, svgIcon('play', 'mi-ic'), 'Present'),
@@ -388,8 +403,15 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     const st = store.get(), cur = st.presetId;
     const groups = {};
     for (const p of st.presetList || []) (groups[p.group] ||= []).push(p);
-    const patients = h('section', { class: 'um-col', 'data-col': 'patients' },
-      Object.entries(groups).map(([g, ps]) => h('div', { class: 'um-g' },
+    // (Work backward's door heads the list; the patients made from readings are the first group under it, then the app's own, by site.)
+    const door = onFromReadings ? h('div', { class: 'um-g um-fr' }, h('ul', {}, h('li', {}, (() => {
+      const row = h('button', { class: 'um-row um-fromread', 'data-k': 'from-readings', onclick: () => { close(); onFromReadings(anchor); } },
+        svgIcon('rewind', 'um-play'), h('span', { class: 'um-t' }, 'From readings'), h('span', { class: 'um-m' }, 'Work backward'));
+      row.dataset.find = fold('From readings work backward enter measured pressures stiffness reverse search scenarios'); row.dataset.more = fold('Enter what you measured and see which lesions could give it');
+      return row;
+    })()))) : null;
+    const patients = h('section', { class: 'um-col', 'data-col': 'patients' }, door,
+      Object.entries(groups).sort(([a], [b]) => (b === 'Yours') - (a === 'Yours')).map(([g, ps]) => h('div', { class: 'um-g' },
         h('div', { class: 'um-gl', id: 'umg-' + g }, h('b', {}, g), h('span', {}, GROUP_WHERE[g] || '')),
         h('ul', { 'aria-labelledby': 'umg-' + g }, ps.map((p) => patientRowK(p, cur))))));
     let present;
@@ -569,7 +591,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     if (left > 0 && !reduce.matches) { renderT = setTimeout(render, left); return; }
     const lib = libraryNow(), keep = el.querySelector('.um-cols')?.scrollTop, focus = document.activeElement?.classList.contains('um-q') ? 'q' : document.activeElement?.dataset?.k, sheet = el.classList.contains('sheet');
     const next = build(lib);
-    if (sheet) next.classList.add('sheet');
+    if (sheet) { next.classList.add('sheet'); next.setAttribute('aria-modal', 'true'); }
     next.classList.add('still');
     // A first open before the presentations had arrived: the frame and the Patients list were already up; the presentations now rise into place (the tab change's own 4 px fade-rise) instead of replacing the note at once.
     if (coldOpen && lib) { coldOpen = false; if (!reduce.matches) next.querySelector('.um-col[data-col="present"]')?.classList.add('um-in'); }
@@ -613,13 +635,16 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         el = sp && sp.key === spareKey(lib) ? sp.el : null;
         if (!el) el = build(lib); coldOpen = !lib;
         // (In the one sheet layer, cut on the dock's top line, with its scrim: sheet-layer.js.)
-        if (sheet) { el.classList.add('sheet'); back = h('div', { class: 'um-scrim', onclick: () => close() }); sheetLayer().append(back); }
+        if (sheet) { el.classList.add('sheet'); el.setAttribute('aria-modal', 'true'); back = h('div', { class: 'um-scrim', onclick: () => close() }); sheetLayer().append(back); }
         sheetLayer().append(el);
+        if (sheet) rideIn(el, reduce.matches);   // (its entrance is written in the frames, not run by the compositor: the glass and the words cannot part, sheet-ride.js)
         plate = glassPlate(el) || plateFor(el, 'umenu');   // (its fill, ring and shadow are the GPU's, a plate laid under it: plate-gl.js)
         openAt = performance.now(); place(); filter(); groupsIn(el);
         anchor.setAttribute('aria-expanded', 'true');
         claimSurface(surf);
         addEventListener('resize', place);
+        reopen = () => { if (!open || !el || sheetMQ.matches === el.classList.contains('sheet')) return; const keepTab = tab, keepQ = query; close(); setTimeout(() => this.open(keepTab, { query: keepQ }), 0); };
+        sheetMQ.addEventListener('change', followMQ);
         vv?.addEventListener('resize', fitSheet); vv?.addEventListener('scroll', fitSheet);
         if (sheet) { el._top = null; sheetLiftSoon(); }   // (where the sheet's top rests as it opens: the first lift eases from there)
         addEventListener('keydown', typed, true);

@@ -1,21 +1,23 @@
 // The clamp labels and overlays: where each clamp's label sits, the overlay paint and its commit.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { isOccluded } from '../engine/portal/topology.js';
+import { stentOpen } from '../engine/portal/stent-ease.js';
+import { firstPiece, piecesOf } from './part-names.js';
 import { SPLEEN_CENTER, SPLEEN_PSE_BADGE } from './anatomy.js';
-import { CLOT_EDGE, clotLayers, clotRadius, clotShift, clotSide, clotSpan, hashSeed } from './clot-shape.js';
+import { CLOT_EDGE, clotLayers, clotRadius, clotShift, clotSide, clotStretch, hashSeed } from './clot-shape.js';
 import { bandRing } from './band-ring.js';
 import { pressureColor } from './colormap.js';
 import { heldBin } from './idle-keys.js';
 import { D_SMALL } from './ease.js';
-import { reduceMotionMQ as reduceMotion } from './motion.js';
+import { fadeMs } from './motion.js';
 import { restPass } from './rest-pass.js';
 import { store } from './store.js';
 import { glyphsReady, loadGlyphs, textBox, textPolys } from './text-gl.js';
 import { s } from './util.js';
 import { EUS_GLUE_TARGET } from './eus-scope.js';
 import { ringShapes } from './scope-lens-rule.js';
-
 import { stageScope } from './stage-scope.js';
+import { WAIST_KEY, stenosisText, waistText } from './stent-waist.js';
 // The embolized spleen badge's fill: the part of a circle of radius 9 below a chord 1.8 above its centre (about 60% of it), as M/L
 // points only (the marks' GPU reader takes M, L, C, Q and Z: an arc would leave the mark on the SVG).
 const PSE_A = Math.asin(1.8 / 9);
@@ -35,7 +37,7 @@ function pseFillD(x, y) {
 const CORONARY_TIE = 0.75;
 
 export function createClamps(st, live) {
-  const { E, LIGATED, NI, N_SAMPLES, anastomoses, applyClampFs, clampA, clampD, clampFading, clampMv, clampShade, clampW, clampWOut, findingHidden, geo, ligature, markA, marksSync, mk, ov, placeClampLabels, pointAt, polyD, polysD, putMark, recruitFrac, rotDeg, stenosisAt, stentMesh, tubeOutline, updateLabels, venousSync, worldToLocalInto } = st;
+  const { E, EI, LIGATED, NI, N_SAMPLES, anastomoses, applyClampFs, clampA, clampD, clampFading, clampMv, clampShade, clampW, clampWOut, findingHidden, geo, ligature, markA, marksSync, mk, ov, placeClampLabels, pointAt, polyD, polysD, putMark, recruitFrac, rotDeg, stenosisAt, stentBracket, stentMesh, tubeOutline, updateLabels, venousSync, worldToLocalInto } = st;
   // How far a point's callout stands from its dot: clear of the stent's body, its leader 16 px at most.
   const colGap = (sid) => Math.min(16, ((E[sid]?.width || 4) * live.CTM.sc) / 2 + 7);
   // (The "60 %" is drawn in the figure's own units, in the labels' own name size on screen (fontPx 11.5: 12 px at least, the text size
@@ -59,7 +61,7 @@ export function createClamps(st, live) {
     if (same(m.cur, want)) return;
     const els = () => [...clampW.querySelectorAll(`.clamp-label[data-id="${id}"]`)];
     m.busy = true;
-    const dur = reduceMotion.matches ? 0 : D_SMALL;
+    const dur = fadeMs(D_SMALL);
     // (From and to its own opacity as it stands, the keyframe left out: no style read for it. 1 Nov 2026.)
     // (2 Nov 2026: the fade it ran is kept and cancelled by name, not looked up with getAnimations, which read the page's styles.)
     for (const el of els()) { clampFades.get(el)?.cancel(); const a = el.animate?.([{ opacity: 0 }], { duration: dur, fill: 'forwards' }); if (a) clampFades.set(el, a); }
@@ -126,7 +128,8 @@ export function createClamps(st, live) {
     const p0x = c.x + c.nx * 1 * d - c.ny * t, p0y = c.y + c.ny * 1 * d + c.nx * t, p1x = c.x + c.nx * -1 * d - c.ny * t, p1y = c.y + c.ny * -1 * d + c.nx * t;
     const xs = clampXs;
     xs[0] = worldToLocalInto(clampTmp, p0x, p0y)[0]; xs[1] = worldToLocalInto(clampTmp, p1x, p1y)[0];
-    const k = away && (away === 'W') !== (xs[0] < xs[1]) ? 1 : 0, left = xs[k] < xs[1 - k] - 0.5;
+    const sib = c.opp && c.vessel === live.clampFor ? live.clampAway : null;   // (the end's words in the stent's column: the waist takes the column's other side)
+    const side = (a) => ((a === 'W') !== (xs[0] < xs[1]) ? 1 : 0), k = away ? side(away) : sib ? 1 - side(sib) : c.opp ? 1 : 0, left = xs[k] < xs[1 - k] - 0.5;
     const q = clampPos;   // (kept, rewritten: every caller reads it at once)
     q.x = k ? p1x : p0x; q.y = k ? p1y : p0y; q.left = left;
     const gap = (6 * live.clampBase) / 12 / Math.max(live.CTM?.sc || 1, 1e-3), deg = rotDeg();   // (6 px on screen at 12 px text, the text's own offset from its spot, in step with the text's size)
@@ -157,7 +160,7 @@ export function createClamps(st, live) {
     o.length = 0;
     if (t !== okT) { okT = t; okTs = t.toFixed(3); }
     o.push(okTs, live.isImaging(), findingHidden('clot'));
-    okFlat(o, p.stenosis); okFlat(o, p.stenosisSite); okFlat(o, p.thrombus); okFlat(o, p.occluded); o.push(p.splenicRx | 0);
+    okFlat(o, p.stenosis); okFlat(o, p.stenosisSite); okFlat(o, p.stentSiteU); okFlat(o, p.stentGeom); okFlat(o, p.thrombus); okFlat(o, p.occluded); o.push(p.splenicRx | 0);
     okFlat(o, p.tips); okFlat(o, p.dips); o.push(!!p.portocavalSide); okFlat(o, p.customShunts); okFlat(o, p.balloonEso); okFlat(o, p.balloonGas);
     for (const id in p.stenosis) okLesion(o, id);
     for (const id in p.thrombus) okLesion(o, id);
@@ -182,6 +185,7 @@ export function createClamps(st, live) {
     if (!same) { okNext = okCur; okCur = o; ovInVer++; }
     return ovInVer;
   }
+  const clotIds = [];   // (the vessels whose clot the last build drew: wanted again while the clots' key holds)
   const vxBin = [NaN, NaN];   // (the bins --vx shows now: varices, gastric varices)
   const setVar = (el, k, v) => { const c = el._v || (el._v = {}); if (c[k] === v) return; c[k] = v; el.style.setProperty(k, v); };
   function updateOverlays(f, p, gain, t) {
@@ -215,7 +219,11 @@ export function createClamps(st, live) {
     const hideDx = store.get().found ? findingHidden('clot') : live.isImaging();
     // (A narrowing that goes leaves its clamp and "60 %" to fade out in ov.clampsOut, under other classes so the label
     // layout never counts them; one that comes, or comes back, fades in from where it stands.)
+    // (A stent's waist is a narrowing of its own, mid stent (stentGeom.red, stent-geom.js): its clamp and label are keyed `<stent>~waist`, beside
+    // the end stenosis's `<stent>`, so each comes and goes on its own.)
     const want = new Set(Object.entries(p.stenosis).filter(([id, v]) => !hideDx && v > 0 && E[id]?.vis).map(([id]) => id));
+    const waists = [];
+    for (const [id, g] of Object.entries(p.stentGeom || {})) if (!hideDx && g?.red > 0.004 && E[id]?.vis && E[id].e?.kind === 'shunt') { want.add(`${id}${WAIST_KEY}`); waists.push([id, g.red]); }
     if (!clampFading()) live.clampLast = performance.now();
     for (const el of [...ov.clamps.children, ...clampW.children]) {
       const id = el.dataset.id;
@@ -223,7 +231,7 @@ export function createClamps(st, live) {
       const c = clampA.get(id);
       if (!c) { el.remove(); continue; }
       c.on = false;
-      el.classList.replace('clamp', 'clamp-out'); el.classList.replace('clamp-label', 'clamp-label-out');
+      el.classList.replace('clamp', 'clamp-out'); el.classList.replace('clamp-span', 'clamp-span-out'); el.classList.replace('clamp-label', 'clamp-label-out');
       (el._c ? clampWOut : ov.clampsOut).append(el);
     }
     for (const id of want) {
@@ -231,30 +239,55 @@ export function createClamps(st, live) {
       if (!c) clampA.set(id, { a: 0, on: true });
       else if (!c.on) { c.on = true; for (const el of [...ov.clampsOut.querySelectorAll(`[data-id="${id}"]`), ...clampWOut.querySelectorAll(`[data-id="${id}"]`)]) el.remove(); }
     }
-    ov.clamps.innerHTML = ''; clampW.replaceChildren(); ov.stents.innerHTML = ''; ov.plugs.innerHTML = '';
+    ov.clamps.innerHTML = ''; clampW.replaceChildren(); ov.stents.innerHTML = ''; ov.plugs.innerHTML = ''; live.dimBoxes.clear();   // (the stents' dimension boxes: made again with their marks, stentBracket)
     if (!markA.moving()) live.markLast = performance.now();
     markA.begin(); live.ovT = t;
     // Clots keep their own key: growing varices (the disease clock) rebuild the rest, not them.
     const tk = JSON.stringify([t.toFixed(3), hideDx, p.thrombus, Object.keys(p.thrombus).map((id) => (E[id] ? [E[id].vis, held[`w${id}`]] : 0))]);
     const clots = tk !== live.thrombiKey;
     if (clots) { live.thrombiKey = tk; ov.thrombi.innerHTML = ''; }
-    for (const [id, v] of Object.entries(p.stenosis)) {
-      if (!want.has(id)) continue;
-      const [x, y, dx, dy] = pointAt(geo[id].cur, stenosisAt(id, p));
+    // (A clot is a mark of its own, `clot:<vessel>` (mark-fade.js): it fades in when it forms and out when it goes, under Reduce Motion and in
+    // imaging too, and is never inserted or taken out whole. Clots keep their own key, so while it holds the clots standing are wanted again as
+    // they are: the marks each build wants are the ones that stay. Mohammad, 16 Nov 2026: nothing pops.)
+    if (!clots) for (const id of clotIds) markA.want(`clot:${id}`, { host: ov.thrombi, vessel: id, anatOnly: false, t: live.ovT });
+    const clampAt = (id, vessel, u, v, txt) => {   // (id: the clamp's key, the vessel's own id or `<stent>~waist`)
+      // (The TIPS's and the DIPS's words are its own figure label (stage-label-items.js geomItem: diameter, waist, length, stenosis), none a clamp's; a waist is marked by
+      // its bracket alone, no arrowheads; its end stenosis keeps its arrowheads. Mohammad, 17 Nov. A drawn stent keeps its clamp's words.)
+      const own = vessel === 'TIPS' || vessel === 'DIPS';
+      if (own && id !== vessel) return;
+      const [x, y, dx, dy] = pointAt(geo[vessel].cur, u);
       const n = Math.hypot(dx, dy) || 1, nx = -dy / n, ny = dx / n;
-      const off = (E[id].width / 2) * (1 - v) + 3;
+      const off = (E[vessel].width / 2) * (1 - v) + 3;
       for (const sgn of [1, -1]) {
         const bx = x + nx * sgn * (off + 8), by = y + ny * sgn * (off + 8);
         const tx = x + nx * sgn * off, ty = y + ny * sgn * off;
         const ux = dx / n * 4.5, uy = dy / n * 4.5;
         ov.clamps.append(s('path', { class: 'clamp', 'data-id': id, d: `M${tx} ${ty} L ${bx + ux} ${by + uy} L ${bx - ux} ${by - uy} Z` }));
       }
+      if (own) { clampShade(id); return; }
       // (A group of two outline paths, the halo and the glyphs, drawn by the overlay painter: words are not its own, clampGlyphs.)
       const lab = s('g', { class: 'clamp-label', 'data-id': id });
-      lab._txt = `${Math.round(v * 100)}%`;
-      lab._c = { id, x, y, nx, ny, off }; clampLabelAt(lab); clampFontAt(lab);
+      lab._txt = txt;
+      // (A waist whose stent is also narrowed at an end stands on the other side of the stent from the end's words, so the two never crowd one
+      // side: F20, 17 Nov 2026.)
+      const opp = id !== vessel && want.has(vessel);
+      lab._c = { id, vessel, x, y, nx, ny, off, opp }; clampLabelAt(lab); clampFontAt(lab);   // (id: the clamp's key; vessel: the vessel it narrows, which differs for a stent's waist, `<stent>~waist`: its own stent is the one vessel its words may stand over)
       clampW.append(lab);
       clampShade(id);
+    };
+    for (const [id, v] of Object.entries(p.stenosis)) {
+      if (!want.has(id)) continue;
+      // (a stent's reads its end and its lumen there, stent-waist.js; any other vessel's its percentage: a number alone says nothing, every figure label carries a word or a unit)
+      clampAt(id, id, stenosisAt(id, p), v, (E[id].e?.kind === 'shunt' && stenosisText(E[id].e, p)) || `${Math.round(v * 100)}% narrowed`);
+    }
+    for (const [id, red] of waists) clampAt(`${id}${WAIST_KEY}`, id, 0.5, red, waistText(E[id].e, p) || `${Math.round(red * 100)}% waist`);
+    // (A stent's waist also draws its length: a hairline bracket along it, one of the waist clamp's own marks (its id, so the same fade in and out and the same
+    // GPU read as its arrows); the words are the waist's label, which the label solver places.)
+    for (const [id] of waists) {
+      const span = stentBracket(id, p);
+      if (!span) continue;
+      const key = `${id}${WAIST_KEY}`;
+      span.setAttribute('data-id', key); ov.clamps.append(span); clampShade(key);
     }
     placeClampLabels();
     // Thrombus: a lumpy clot lying against one wall of the lumen, drawn as soft stacked layers of one
@@ -263,27 +296,30 @@ export function createClamps(st, live) {
     // as resting on the wall. Below full occlusion the vessel's own blood shows down the open side.
     // Its thickness, length and lumps are smooth in the occlusion (see clot-shape.js), so an eased change
     // eases the clot: it thickens from the wall inwards, then lengthens.
+    if (clots) clotIds.length = 0;
     for (const [id, v] of Object.entries(clots ? p.thrombus : {})) {
       if (hideDx || !(v > 0) || !E[id] || !E[id].vis) continue;
       // W is a little inside the drawn lumen, so the clot's soft edge never spills onto the vessel wall.
-      const g = geo[id], lit = g.lit, W = E[id].width * 0.9;
-      const seed = hashSeed(id), side = clotSide(seed), { u0, u1 } = clotSpan(v);
-      const i0 = Math.round(u0 * (N_SAMPLES - 1)), i1 = Math.round(u1 * (N_SAMPLES - 1));
-      const pts = g.cur.slice(i0, i1 + 1), ln = lit.slice(i0, i1 + 1), n = pts.length;
+      // (A vein cut in pieces where a shunt joins it has one clot, over the whole vein's length: piecesOf, clotStretch.)
+      const ids = piecesOf(id), W = (ids.reduce((a, q) => a + (E[q]?.width || E[id].width), 0) / ids.length) * 0.9;
+      const seed = hashSeed(id), side = clotSide(seed);
+      const { pts, lit: ln } = clotStretch(ids.map((q) => ({ pts: geo[q].cur, lit: geo[q].lit })), v), n = pts.length;
       if (n < 3) continue;
       const rOf = (f) => clotRadius(v, W, f, seed);
       const mid = pts.map((q, i) => { const sh = clotShift(W, rOf(i / (n - 1)), side); return [q[0] + ln[i][0] * sh, q[1] + ln[i][1] * sh]; });
-      for (const { cls, k } of clotLayers) ov.thrombi.append(s('path', { class: cls, d: tubeOutline(mid, ln, (f) => rOf(f) * k) }));
+      const els = clotLayers.map(({ cls, k }) => s('path', { class: cls, d: tubeOutline(mid, ln, (f) => rOf(f) * k) }));
       const edge = mid.map((q, i) => { const r = rOf(i / (n - 1)) * CLOT_EDGE; return [q[0] - ln[i][0] * side * r, q[1] - ln[i][1] * side * r]; });
-      ov.thrombi.append(s('path', { class: 'thrombus-edge', d: polyD(edge) }));
+      els.push(s('path', { class: 'thrombus-edge', d: polyD(edge) }));
+      putMark(ov.thrombi, `clot:${id}`, id, els);
+      clotIds.push(id);
     }
     for (const id of ['TIPS', 'DIPS', 'S_PC', 'S_DSR', 'S_MC', 'REX', ...Object.keys(p.customShunts || {})]) {
-      if (!E[id].vis || E[id].reveal) continue;
+      if (!E[id].vis || E[id].reveal || (id === 'DIPS' && !stentOpen(f, EI.DIPS))) continue;
       if (id === 'TIPS' || id === 'DIPS' || id.startsWith('X_')) stentMesh(id, p); else anastomoses(id, anat);
     }
     // The stump of the vessel each surgical shunt divides, a clear gap past where the shunt leaves it.
     // (A side-to-side portocaval shunt divides nothing: the trunk stays whole and untied.)
-    for (const [shunt, vein] of LIGATED) if (E[shunt].vis && !E[shunt].reveal && E[vein]?.vis && !(vein === 'PV_TRUNK' && p.portocavalSide)) ligature(vein, shunt);
+    for (const [shunt, vein] of LIGATED) if (E[shunt].vis && !E[shunt].reveal && E[vein]?.vis && !(vein === firstPiece('PV_TRUNK') && p.portocavalSide)) ligature(vein, shunt);
     // The Warren shunt also ties off the coronary vein (the engine closes it too): two ties and the plug's cross, three quarters of the way to the portal vein.
     if (E.S_DSR.vis && !E.S_DSR.reveal && E.LGV_CONF?.vis) ligature('LGV_CONF', 'S_DSR', CORONARY_TIE);
     for (const id of new Set([...Object.keys(p.occluded), ...(p.occluded.C5 ? ['C2'] : [])])) {

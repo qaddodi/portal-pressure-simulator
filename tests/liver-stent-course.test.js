@@ -3,11 +3,13 @@
 // figure holds them (custom-shunt-paths.js) and the vessels' runs (anatomy.js).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { EDGES, isCoveredStent, isLiverStent } from '../src/engine/portal/topology.js';
+import { EDGES, JUNCTION_PIECES, isCoveredStent, isLiverStent } from '../src/engine/portal/topology.js';
 import { EDGE_PATH } from '../src/ui/anatomy.js';
 import { CUSTOM_SHUNT_PATH } from '../src/ui/custom-shunt-paths.js';
 import { sampleD } from '../scripts/shunt-route-lib.mjs';
 
+// (A vein the TIPS joins part-way is drawn as pieces end to end, topology.js JUNCTIONS: its course is all of them.)
+const course = (id) => (JUNCTION_PIECES[id] || [id]).flatMap((p, i) => sampleD(EDGE_PATH[p], 1).slice(i ? 1 : 0));
 const HEPATIC = { RHV: 'RHV_IVC', MHV: 'MHV_IVC', LHV: 'LHV_IVC' }, PORTAL = { RPV: 'PVH_R', LPV: 'PVH_L' };
 const stents = EDGES.filter(isLiverStent);
 const dist = (P, p) => { let m = Infinity; for (let i = 1; i < P.length; i++) { const dx = P[i][0] - P[i - 1][0], dy = P[i][1] - P[i - 1][1], u = Math.max(0, Math.min(1, ((p[0] - P[i - 1][0]) * dx + (p[1] - P[i - 1][1]) * dy) / (dx * dx + dy * dy || 1))); m = Math.min(m, Math.hypot(P[i - 1][0] + dx * u - p[0], P[i - 1][1] + dy * u - p[1])); } return m; };
@@ -22,8 +24,8 @@ test('the covered Viatorr look: the TIPS, the DIPS and the eight portal vein to 
 
 for (const e of stents) {
   test(`${e.id} runs vessel to vessel: the portal end on its branch's centre line (or the hilum's node), the hepatic end on the vein's, inside its near wall, and bows`, () => {
-    const P = sampleD(CUSTOM_SHUNT_PATH[e.id], 1), s = P[0], t = P.at(-1), H = sampleD(EDGE_PATH[HEPATIC[e.to]], 1);
-    if (PORTAL[e.from]) assert.ok(dist(sampleD(EDGE_PATH[PORTAL[e.from]], 1), s) <= 0.6, `${e.id} starts ${dist(sampleD(EDGE_PATH[PORTAL[e.from]], 1), s).toFixed(2)} off the ${e.from} run`);
+    const P = sampleD(CUSTOM_SHUNT_PATH[e.id], 1), s = P[0], t = P.at(-1), H = course(HEPATIC[e.to]);
+    if (PORTAL[e.from]) assert.ok(dist(course(PORTAL[e.from]), s) <= 0.6, `${e.id} starts ${dist(course(PORTAL[e.from]), s).toFixed(2)} off the ${e.from} run`);
     else assert.deepEqual(s, [602, 442], `${e.id} starts at the hilum`);
     assert.ok(dist(H, t) <= 2, `${e.id} ends ${dist(H, t).toFixed(2)} off the ${e.to} run`);
     // not at the vein's end or the stent's own node: well inside the run
@@ -34,7 +36,7 @@ for (const e of stents) {
     assert.ok(dev / L >= 0.06 && dev / L < 0.3, `${e.id} bows ${(dev / L).toFixed(3)} of its chord`);
   });
   test(`${e.id} meets the hepatic vein at an acute angle, heading the way the blood goes (never against it)`, () => {
-    const P = sampleD(CUSTOM_SHUNT_PATH[e.id], 1), H = sampleD(EDGE_PATH[HEPATIC[e.to]], 1), t = P.at(-1), tg = unit(P.at(-8), t);
+    const P = sampleD(CUSTOM_SHUNT_PATH[e.id], 1), H = course(HEPATIC[e.to]), t = P.at(-1), tg = unit(P.at(-8), t);
     let j = 0, m = Infinity;
     for (let i = 0; i < H.length; i++) { const d = Math.hypot(H[i][0] - t[0], H[i][1] - t[1]); if (d < m) { m = d; j = i; } }
     const run = unit(H[Math.max(0, j - 4)], H[Math.min(H.length - 1, j + 4)]);

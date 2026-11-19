@@ -44,3 +44,16 @@ test('a leader that leaves its own vessel at an angle may brush the rest of a be
   assert.equal(leaderVesselHits(bent, 100, 60, 150, 90), 0, 'out of the vertical run, over the elbow\'s horizontal run');
   assert.equal(leaderVesselHits(bent, 100, 60, 170, 60), 0, 'across, past the elbow');
 });
+
+test('the vessels under an anchor are kept per anchor and per picture: the same answers repeated, another anchor recomputed, a rebuilt picture seen', () => {
+  const id = (x, y) => [x, y];
+  const a = lineIndex([{ pts: [[100, 0], [100, 200]], flat: 8, id: 'A' }, { pts: [[300, 0], [300, 200]], flat: 8, id: 'B' }], id, 1);
+  assert.equal(leaderVesselHits(a, 50, 100, 150, 100), 1, 'through A');
+  assert.equal(leaderVesselHits(a, 50, 100, 150, 100), 1, 'again from the same anchor');
+  assert.equal(leaderVesselHits(a, 50, 100, 50, 150), 0, 'same anchor, another end');
+  assert.equal(leaderVesselHits(a, 250, 100, 350, 100), 1, 'another anchor: through B');
+  // The same buffer rebuilt with other lines (the anchor unchanged) is not answered from the old list:
+  const c = lineIndex([{ pts: [[70, 0], [70, 200]], flat: 8, id: 'Z' }], id, 1, 64, a);
+  assert.equal(leaderVesselHits(c, 50, 100, 150, 100), 1, 'the vessel now at x = 70 counts, A is gone');
+  assert.equal(leaderVesselHits(c, 50, 100, 60, 100), 0, 'ends before it');
+});

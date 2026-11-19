@@ -1,22 +1,28 @@
 // DOM & formatting helpers.
 import { saver, frame, readFrame } from './frame.js';
+import { enterWhenReady } from './widget-ready.js';
 import { restPass, restAttr, restRemove } from './rest-pass.js';
 import { glWords } from './gl-words.js';
 import { slideFold } from './fold-slide.js';
-import { classSoon } from './class-soon.js';
+import { keyboardSheet } from './sheet-keyboard.js';
+import { classSoon, runSoon } from './class-soon.js';
 import { moverOf } from './num-move.js';
 import { pullRelease, pullAt, pullStop } from './sheet-pull.js';
 import { SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, releaseSpeed, isFlick, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js';
 import { reduceMotionMQ, easeArrive, COUNT_MS } from './motion.js';
-import { fmt, clamp, lerp } from './num.js';
+import { pushPage } from './page-push.js';
+import { fmt, fmtG, clamp, lerp } from './num.js';
 import { leaveFromHere } from './menu-leave.js';
+import { rideStop, rideIn, rideOut, menuRide } from './sheet-ride.js';
 export { themeChanged, rideChanged } from './label-theme.js';   // (the page's look, told to the labels drawn on the GPU)
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js';
 import { measure as measureWords } from './glyph-measure.js';
 import { caught } from './caught.js';
+import { focusIn, focusBack } from './focus-flow.js';
 import { widgetGL } from './widget-gl.js';
 import { layoutToast, paintToast, inkOf } from './toast-gl.js';
-import { readMetric, readBox } from './layout-snap.js';
+import { readMetric, readBox, readStyle } from './layout-snap.js';
+import { freeStage, bandWidth } from './free-stage.js';
 import { sliderOf, sliderFor, dotWidth, jump, glide, gliding, setHover, setHeld, setFocus, releaseAll, followInput } from './slider-gl.js';
 import { plateFor } from './plate-gl.js';
 import { glassPlate } from './menu-glass.js';
@@ -26,6 +32,7 @@ import { tipDraw, tipUndrawn } from './tip-gl.js';
 import { darkMQ } from './look.js';
 import { NOT_SHOWN, INK_SHARE } from '../engine/portal/pressure-cuts.js';
 import { labelWritten } from './label-theme.js';
+import { capture } from './pointer-capture.js';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
 // (Nodes and strings alone, the usual call, go straight through: the flattened copy is made only for a list that holds an array, null or false.)
@@ -154,12 +161,12 @@ function dropToast(t) {
   const at = TOASTS.indexOf(t); if (at >= 0) TOASTS.splice(at, 1);
   t._glassMo?.disconnect(); t._glassMo = null;
   if (!wrap) return;
-  const others = [...wrap.children].filter((c) => c !== t), tops = others.map((c) => c.getBoundingClientRect().top);
+  const others = [...wrap.children].filter((c) => c !== t), tops = others.map((c) => readBox(c).top);
   t._wgl?.dispose(); t._wgl = null;
   t.remove();
   if (reduceMotionMQ.matches) return;
   others.forEach((c, i) => {
-    const dy = tops[i] - c.getBoundingClientRect().top;
+    const dy = tops[i] - readBox(c).top;
     if (Math.abs(dy) > 0.5) c.animate?.([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: D_SMALL, easing: EASE_MOVE, composite: 'add' });
   });
 }
@@ -170,7 +177,7 @@ addEventListener('resize', () => { const wrap = document.getElementById('toastsF
 function toastFit(wrap, t, msg, actions, sub = null) {
   if (!t.isConnected) return;
   const bad = t.classList.contains('bad');
-  const L = layoutToast({ msg, sub, bad, acts: actions?.map((a) => a[0]), W: innerWidth });
+  const fs = freeStage(), L = layoutToast({ msg, sub, bad, acts: actions?.map((a) => a[0]), W: fs?.foot ? bandWidth(fs, fs.foot[0], fs.foot[1], 8) + 16 : innerWidth });   // (the room the cards beside the toast's rows leave: free-stage.js)
   t._L = L;
   t.querySelector('.toast-msg').style.fontSize = `${L.px}px`;
   { const s = t.querySelector('.toast-sub'); if (s) s.style.fontSize = '12.5px'; }
@@ -189,24 +196,25 @@ function toastFit(wrap, t, msg, actions, sub = null) {
   }
   t._refit = () => restPass(() => toastFit(wrap, t, msg, actions, sub));
   t._wgl?.paint();
-  t.style.visibility = '';
+  // (Seen once its picture is up (.wgl-on), not a frame before: the first frame of a toast showed its page look, the words in the plain ink on the plain card, before the GPU's picture replaced them. 18 Nov 2026, widget-ready.js.)
+  enterWhenReady(t, () => { t.style.visibility = ''; });
 }
 // (Since 2 Nov 2026 the card is built and put on the page as a task between frames (rest-pass.js), never inside the frame that asked
 // for it: toast is reached from the tick, and the build wrote the page there. The returned close works at once: asked before the card
 // exists, it closes the card as soon as it is built. ?restpass=0 runs it on a plain zero timer instead, still never in a frame.)
 const toastBuildRest = (job) => { job.close = toastBuild(job.msg, job.kind, job.opts); if (job.early) job.close(job.early); };
 const NO_TOAST = Object.freeze({}), NOOP_CLOSE = () => {};
-export function toast(msg, kind = '', { actions = null, sticky = false, onClose = null, present = false, sub = null } = NO_TOAST) {
+export function toast(msg, kind = '', { actions = null, sticky = false, onClose = null, present = false, sub = null, holdInTalk = false } = NO_TOAST) {
   if (!msg) return NOOP_CLOSE;
   // While presenting, the projected figure stays clear: only errors, cards with buttons and what the presenter asked for
   // (present: a link copied, a slide number typed) show.
   if (kind !== 'bad' && !actions?.length && !present && document.getElementById('app')?.classList.contains('presenting')) return NOOP_CLOSE;
-  const opts = { actions, sticky, onClose, sub };   // alloc-rare: one record for each message raised (a message, not a frame)
+  const opts = { actions, sticky, onClose, sub, holdInTalk };   // alloc-rare: one record for each message raised (a message, not a frame)
   const job = { msg, kind, opts, close: null, early: null };   // alloc-rare: one record for each message raised
   restPass(() => toastBuildRest(job));   // alloc-rare: one closure for each message raised
   return (why = 'user') => { if (job.close) job.close(why); else job.early ||= why; };   // alloc-rare: the close handed back with each message raised
 }
-function toastBuild(msg, kind, { actions, sticky, onClose, sub }) {
+function toastBuild(msg, kind, { actions, sticky, onClose, sub, holdInTalk }) {
   // (Every message is a note (Mohammad, 13 Nov 2026, "new pop up for everything"): at the foot, a dot or the error's mark, the words, the buttons under them, no ×.
   // index.html has the one wrap, #toastsFoot; the wrap at the top was taken out.)
   const wrap = document.getElementById('toastsFoot');
@@ -219,9 +227,16 @@ function toastBuild(msg, kind, { actions, sticky, onClose, sub }) {
   if (mark) mark.setAttribute('class', 'toast-ic');
   const t = h('div', { class: kind === 'bad' ? 'toast note bad' : 'toast note', role: kind === 'bad' ? 'alert' : 'status' }, h('span', { class: 'toast-msg' }, mark, msg), sub ? h('span', { class: 'toast-sub' }, sub) : null);
   let timer = 0, gone = false;
-  const close = (why = 'user') => { if (gone) return; gone = true; clearTimeout(timer); onClose?.(why); t.classList.add('leaving'); t.addEventListener('animationend', function gone1(e) { if (e.target !== t) return; t.removeEventListener('animationend', gone1); restPass(away); }); setTimeout(() => restPass(away), 340); };   // (it leaves as its own exit ends, the timer only a fallback: the cards below no longer wait out the timer)   // (the others' places are read in a rest pass, between frames)
+  let holdMo = null;
+  const close = (why = 'user') => { if (gone) return; gone = true; clearTimeout(timer); holdMo?.disconnect(); onClose?.(why); t.classList.add('leaving'); t.addEventListener('animationend', function gone1(e) { if (e.target !== t) return; t.removeEventListener('animationend', gone1); restPass(away); }); setTimeout(() => restPass(away), 340); };   // (it leaves as its own exit ends, the timer only a fallback: the cards below no longer wait out the timer)   // (the others' places are read in a rest pass, between frames)
   const away = () => dropToast(t);
   t._close = close;
+  // (A prompt that asks for the person's attention (an update, the feedback ask) is held while a talk plays: it stood over a slide's teaching card and its tag, and over
+  // the figure the room is looking at. It leaves as the talk begins, closed with why 'held', and its owner asks again once the talk is over. 16 Nov 2026.)
+  if (holdInTalk) {
+    const app = document.getElementById('app');
+    if (app) { holdMo = new MutationObserver(() => { if (app.classList.contains('presenting')) close('held'); }); holdMo.observe(app, { attributes: true, attributeFilter: ['class'] }); }
+  }
   if (actions?.length) {
     t.classList.add('has-acts');
     t.append(h('span', { class: 'toast-acts' }, ...actions.map(([label, fn]) => {
@@ -253,8 +268,9 @@ function toastBuild(msg, kind, { actions, sticky, onClose, sub }) {
   wrap.append(t);
   TOASTS.push(t);
   restPass(() => toastFit(wrap, t, msg, actions, sub));
-  // A toast with buttons stays longer, and stays while the pointer or the keyboard is on it, so its button can be reached.
-  const life = actions?.length ? 9000 : sub ? 5200 : 4200, arm = () => { clearTimeout(timer); if (!sticky && !gone) timer = setTimeout(close, life); };
+  // A toast with buttons stays until it is dismissed or its button is pressed (WCAG 2.2.1: a keyboard or switch user needs more than 9 s to tab down to it,
+  // and a missed update offer never comes back); one without lasts a few seconds, and stays while the pointer or the keyboard is on it.
+  const keep = sticky || !!actions?.length, life = sub ? 5200 : 4200, arm = () => { clearTimeout(timer); if (!keep && !gone) timer = setTimeout(close, life); };
   t.addEventListener('pointerenter', () => clearTimeout(timer)); t.addEventListener('focusin', () => clearTimeout(timer));
   t.addEventListener('pointerleave', arm); t.addEventListener('focusout', arm);
   arm();
@@ -323,7 +339,7 @@ export function tooltipFor(el, text, side = 'right') {
 // (3 Nov 2026: the tip is laid out in script from Inter's own advances (tip-gl.js), so no page measure fits it, and drawn on the GPU; the
 // page's own words, in a span beside the picture, stay for the screen reader and until the GPU has drawn it.)
 function tipShow(el, text, side, tip) {
-  const r = el.getBoundingClientRect();
+  const r = readBox(el);
   const v = typeof text === 'function' ? text() : text;
   const words = typeof v === 'object' ? v.text : v, key = typeof v === 'object' ? v.key : null;
   let span = tip._words;
@@ -333,6 +349,7 @@ function tipShow(el, text, side, tip) {
   // this button's side, not from the previous tip's: the transition starts when .show is added.)
   const L = layoutTip(words, key, innerWidth);
   const tr = { width: L.w, height: L.h };
+  tip.classList.toggle('one-line', L.lines.length === 1);   // (a one-line tip never wraps in the page's own words: they are a hair wider than the layout's advances, and "Zoom out" broke to "Zoom / out")
   if (covers(words) && (!key || covers(key))) tipDraw(tip, L); else { tipUndrawn(tip); tip.style.width = ''; tip.style.height = ''; }
   // A side that would run off the window takes the opposite one (a top-bar button's tip had sat on its own button when
   // 'top' ran off; a timeline tip clipped at a short window's foot), and the tip rises from the side it came from.
@@ -404,6 +421,10 @@ export function switchIn(el) {
 // popover; pass false for a menu that lays itself out.
 /** The bottom of what is visible: above the on-screen keyboard on iOS, where innerHeight does not shrink. */
 export const visibleBottom = () => { const v = window.visualViewport; if (!v) return innerHeight; const { offsetTop: top, height } = v; return Math.min(innerHeight, top + height); };   // (the visual viewport's own numbers, not an element's layout)
+/** The lowest a floating menu or card may reach (16 Nov 2026): the free stage's foot, above the bottom bar and the view switch, for one that
+ *  opens from the top bars (the Patients menu and From readings ended 17 px under the play bar at 1024 x 768); the visible bottom for one
+ *  that opens from the dock itself, and before the first layout. */
+export const stageBottom = (anchor) => { const fs = freeStage(), vb = visibleBottom(); return fs && fs.H > 0 && !anchor?.closest?.('.vdock, .thumb-bar') ? Math.min(vb, fs.H - fs.b) : vb; };
 /** The one placer for a floating menu or card beside its button (the popover, the main menu and the Why card; menu motion recs 5, 4 Nov 2026).
  *  Puts el by translate from the window's corner (left and top are never written, so nothing is laid out), clear of the notch (env() is 0
  *  elsewhere), and returns the top it took. side: 'below' | 'above' the button; align: 'start' | 'center' | 'end'; gap: px between the two;
@@ -411,9 +432,9 @@ export const visibleBottom = () => { const v = window.visualViewport; if (!v) re
  *  flip: opens on the other side, and keeps clear of the bottom, where there is no room (false: placed where asked, only its left held in).
  *  Its entrance is opacity alone (app.css scale-settle) or a sheet's slide, so no transform-origin is set. */
 export function placeAt(el, anchor, { side = 'below', align = 'start', gap = 8, margin = 8, edge = null, flip = true } = {}) {
-  const r = anchor.getBoundingClientRect();
+  const r = readBox(anchor);
   // (Layout size, not the rectangle: an entrance may be moving the box.)
-  const w = el.offsetWidth, hh = el.offsetHeight, vb = visibleBottom(), cw = document.documentElement.clientWidth || innerWidth;
+  const w = el.offsetWidth, hh = el.offsetHeight, vb = stageBottom(anchor), cw = document.documentElement.clientWidth || innerWidth;
   const x = align === 'end' ? r.right - w : align === 'center' ? r.left + r.width / 2 - w / 2 : r.left;
   const top0 = edge ?? r.top;
   let y = side === 'above' ? top0 - hh - gap : r.bottom + gap;
@@ -426,19 +447,24 @@ export function placeAt(el, anchor, { side = 'below', align = 'start', gap = 8, 
   return y;
 }
 
-export function popover(anchor, content, { cls = '', align = 'start', place = 'below', onClose, sheet = true, title = null } = {}) {
+export function popover(anchor, content, { cls = '', align = 'start', place = 'below', onClose, sheet = true, title = null, safe = null } = {}) {
   if (openMenu) { const same = openMenu.anchor === anchor; closePopover(); if (same) return null; }
+  // (Never two menus in the page: one still fading out from a quick close and open (three taps 30 ms apart on Settings) is taken out at once, as the new one comes in. 16 Nov 2026.)
+  for (const old of sheetLayer().querySelectorAll(':scope > .menu.leaving, :scope > .um-scrim.out')) old.remove();
   const asSheet = sheet && matchMedia(STACK_MQ).matches;   // (the one breakpoint, shared with the main menu: a phone held sideways is a popover, as on a Mac)
   // (from-dock: over the thumb dock a sheet, or a menu from the dock, rises from behind the tab row; one from the top bar,
   // the Colored-by key on an upright iPad, pops in where it rests, as everywhere else, never sliding up from below it.)
   const fromDock = asSheet || !!anchor.closest?.('.vdock');
-  const el = h('div', { class: 'menu ' + cls + (asSheet ? ' as-sheet' : '') + (fromDock ? ' from-dock' : ''), role: 'dialog', 'aria-label': anchor.getAttribute?.('aria-label') || anchor.title || anchor.textContent?.trim().slice(0, 40) || 'Menu' }, content);
+  const el = h('div', { class: 'menu ' + cls + (asSheet ? ' as-sheet' : '') + (fromDock ? ' from-dock' : ''), role: 'dialog', 'aria-modal': asSheet ? 'true' : null, 'aria-label': anchor.getAttribute?.('aria-label') || anchor.title || anchor.textContent?.trim().slice(0, 40) || 'Menu' }, content);
   // (A sheet's head, menu recs P2: its title and a close button, as the cards have. A heading of the menu's own that says the same goes.)
   if (asSheet) {
     if (title) { const t = el.querySelector(':scope > .menu-title'); if (t && t.textContent.trim() === title) t.remove(); }
     el.prepend(h('div', { class: 'sheet-head' }, h('span', { class: 'sheet-t' }, title || ''), h('button', { class: 'ib', type: 'button', 'aria-label': 'Close', onclick: () => closePopover() }, icon('close'))));
   }
-  switchIn(el);
+  // (`safe`: a menu sheet whose rows change the figure (Layers, Blood) is a card the camera frames around, as Tests and Treat are: the figure sits in the strip above it
+  // and each toggle shows. It counts where it rests, not mid-ride (data-rest-translate), and stops counting once it is leaving: stage-fit.js cardsRead. 16 Nov 2026.)
+  if (asSheet && safe) { el.dataset.safe = safe; el.dataset.safeRest = ''; el.dataset.restTranslate = '0 0'; }
+  // (A menu's entrance waits for its widgets too, enterWhenReady: held where it cannot be seen, then its ride and its glass begin together.)
   // A sheet has a scrim that takes the tap away, as the main menu's does (it dims nothing: menu recs C5).
   const scrim = asSheet ? h('div', { class: 'um-scrim' }) : null;
   // (In the one sheet layer, cut on the dock's top line: sheet-layer.js. The scrim too, so the dock is never dimmed or covered.)
@@ -446,25 +472,25 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   sheetLayer().append(el);
   const put = () => {
     if (asSheet) return;
-    const r = anchor.getBoundingClientRect(), w0 = el.offsetWidth;
+    const r = readBox(anchor), w0 = el.offsetWidth;
     const x = align === 'end' ? r.right - w0 : align === 'center' ? r.left + r.width / 2 - w0 / 2 : r.left;
     // A scrolling menu below its button may use all the room down to the 8 px margin, so it ends whole where it fits; never
     // over the bottom bar where the two meet (a phone held sideways: Settings had run 87 px over it; sweep 04 #01).
     let barTop = null, at = place;
     if (place === 'below' && el.classList.contains('app-menu')) {
-      const dock = document.getElementById('vdock'), d = dock?.offsetParent ? dock.getBoundingClientRect() : null, xl = clamp(x, 8, innerWidth - w0 - 8);
+      const dock = document.getElementById('vdock'), d = dock?.offsetParent ? readBox(dock) : null, xl = clamp(x, 8, innerWidth - w0 - 8);
       if (d && d.height && d.left < xl + w0 && d.right > xl && d.top < visibleBottom()) barTop = d.top;
       // A button low on the screen (the deck nav pill's gear on a Mac or iPad) opens it above, at its full height: below
       // it the room was the 160 px floor, which cut Settings off at "Text size on the figure".
-      const below = (barTop ?? visibleBottom()) - r.bottom - 16;
+      const below = (barTop ?? stageBottom(anchor)) - r.bottom - 16;
       if (below < el.scrollHeight && r.top - 16 > below) { at = 'above'; barTop = null; el.style.maxHeight = (r.top - 16) + 'px'; }
       else el.style.maxHeight = Math.max(160, below) + 'px';
     }
     // A menu from the thumb dock's tab row rests 8 px above the whole dock (the play bar and timeline stay up under it, 4 Nov),
     // like the cards and the phone's sheets: it rises from behind the dock and is cut on the dock's top line.
     const bar = anchor.closest('.thumb-bar'), dockEl = bar && bar.closest('.vdock'), tabTop = bar ? (dockEl || bar).getBoundingClientRect().top : null;
-    if (bar && /auto|scroll/.test(getComputedStyle(el).overflowY)) el.style.maxHeight = Math.max(160, tabTop - 16) + 'px';
-    const vb = visibleBottom();
+    if (bar && /auto|scroll/.test(readStyle(el).overflowY)) el.style.maxHeight = Math.max(160, tabTop - 16) + 'px';
+    const vb = stageBottom(anchor);
     // A menu with no height rule of its own (Blood and Colored-by on a phone held sideways: 511-560 px of rows in 284-332 px of
     // room) takes the larger side of its button and scrolls inside it, never off the screen. One that fits is left as it was.
     if (!bar && !el.classList.contains('app-menu')) {
@@ -493,6 +519,8 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   };
   if (el.classList.contains('app-menu')) { const ro = new ResizeObserver(() => { if (!el.isConnected) ro.disconnect(); else clipBar(); }); ro.observe(el); }
   put();
+  switchIn(el);
+  const cancelEnter = enterWhenReady(el, () => { if (el.isConnected && asSheet) rideIn(el, reduceMotionMQ.matches, ...menuRide(reduceMotionMQ.matches)); });   // (a menu sheet comes up on the page's frames, so its glass and its words are one piece: sheet-ride.js)
   // (Its fill, ring and shadow are the GPU's, a plate laid under it: plate-gl.js. It reads the look from this menu's own CSS.)
   const plate = glassPlate(el) || plateFor(el, 'menu');
   // Arrow keys walk the rows (Up, Down, Home, End; wrapping at the ends), as every native menu does; Tab still leaves.
@@ -503,15 +531,24 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   // The keyboard opening or closing (a search field) moves the visible bottom: place the menu again.
   const vv = window.visualViewport, onVV = () => { if (!asSheet) put(); };
   // (Armed after this task, so the tap that opened the menu does not close it; a close before then cancels it.)
-  const me = { close: closePopover, has: (n) => el.contains(n) || anchor.contains(n), anchor, el, box: () => (asSheet ? null : el.getBoundingClientRect()) };
+  const me = { close: closePopover, has: (n) => el.contains(n) || anchor.contains(n), anchor, el, box: () => (asSheet ? null : readBox(el)) };
   claimSurface(me);
   vv?.addEventListener('resize', onVV);
-  openMenu = { el, anchor, put, plate, scrim, cleanup: () => { releaseSurface(me); vv?.removeEventListener('resize', onVV); onClose?.(); } };
+  // (A sheet rests on the page's foot, which iOS leaves under the keyboard: any field in it is kept above the keyboard here, once, for every sheet: sheet-keyboard.js.)
+  const kbSheet = asSheet ? keyboardSheet(el) : null;
+  // (A popover is a sheet or a floating card by the window as it is now, not as it was when it opened: crossing the breakpoint, a window dragged
+  // wider with the menu up, takes the other form, and a resize places a floating one again. 16 Nov 2026: a phone sheet stayed on a desktop window.)
+  const mq = sheet ? matchMedia(STACK_MQ) : null;
+  const swap = () => { if (openMenu?.el !== el || mq.matches === asSheet) return; openMenu.swapping = true; closePopover(); popover(anchor, content, { cls, align, place, onClose, sheet, title }); };
+  const onResize = () => { if (!asSheet && openMenu?.el === el) put(); };
+  mq?.addEventListener('change', swap); addEventListener('resize', onResize);
+  openMenu = { el, anchor, put, plate, scrim, cleanup: () => { cancelEnter(); releaseSurface(me); vv?.removeEventListener('resize', onVV); mq?.removeEventListener('change', swap); removeEventListener('resize', onResize); kbSheet?.off(); if (!openMenu?.swapping) onClose?.(); } };
   restAttr(anchor, 'aria-expanded', 'true');   // (a screen reader's state, written between frames)
-  // Opened from the keyboard (the button shows its focus ring): focus goes in, so Tab does not have to cross the whole page to reach
-  // the menu. A mouse or a touch leaves focus where it was.
-  // alloc-rare: only a menu opened from the keyboard, once, as it opens
-  if (anchor.matches?.(':focus-visible')) setTimeout(() => { if (openMenu?.el === el) el.querySelector('button, input, [tabindex="0"]')?.focus({ preventScroll: true }); }, 0);
+  // Focus goes in however it was opened (focus-flow.js): from the keyboard to its first control, from a mouse or a finger to the menu itself, so the keys
+  // act on it and Tab starts inside it, not on the button behind it. (Whether it was the keyboard is read now: a mouse click moves :focus-visible by the timer.)
+  // alloc-rare: once as a menu opens
+  const byKey = !!anchor.matches?.(':focus-visible');
+  setTimeout(() => { if (openMenu?.el === el) focusIn(el, { keyboard: byKey }); }, 0);
   return el;
 }
 /** A list that scrolls fades at its bottom edge while there is more below it (class .more), as the docked
@@ -531,7 +568,7 @@ function moreFlush() { const lists = [...moreAsks]; moreAsks.clear(); for (const
 function moreSync(el) {
   moreAsks.delete(el);   // (a check made now answers one that was waiting)
   // (Both read before either is written: the class would dirty the style and the padding read after it would lay the list out again.)
-  const more = el.scrollHeight - el.clientHeight - el.scrollTop > 4, pb = getComputedStyle(el).paddingBottom;
+  const more = el.scrollHeight - el.clientHeight - el.scrollTop > 4, pb = readStyle(el).paddingBottom;
   el.classList.toggle('more', more); el.style.setProperty('--fade-pb', pb);
 }
 // Whether an element has a box (neither it nor an ancestor display: none), as getClientRects().length says, without laying
@@ -650,7 +687,8 @@ function morphRow(o, r, fade) {
 }
 /** Updates a list in place from freshly built rows (MOTION_HEAT_REVIEW P18): a row whose data-row is already shown stays
  *  (replaced where it stands if its data-sig changed), a new row rises in over .22 s, and a row no longer wanted fades and
- *  folds away before it leaves. Rows without a key are simply replaced. The list was rebuilt whole, every row popping. */
+ *  folds away before it leaves; the rows that stay glide to their new places. Rows without a key are simply replaced. The list
+ *  was rebuilt whole, every row popping. A row passed in that is already shown (the same node) stays as it is. */
 export function reconcile(list, rows) {
   const old = new Map();
   for (const c of list.children) if (c.dataset.row && !c.classList.contains('rc-out')) old.set(c.dataset.row, c);
@@ -665,9 +703,13 @@ export function reconcile(list, rows) {
   const keep = new Set(want);
   const going = [...list.children].filter((c) => !keep.has(c) && !c.classList.contains('rc-out'));
   // A row that goes leaves the flow at once and fades where it stood; the rows under it slide up into its room (FLIP, by
-  // transform). Nothing's height is eased: no layout per frame.
-  const fly = shown && !still && going.some((g) => g.dataset.row);
-  const was = fly ? new Map(want.filter((e) => e.parentNode === list).map((e) => [e, e.offsetTop])) : null;
+  // transform). A row that comes in, or rows that change order, push the others the same way: they glide to their new places
+  // (the Tests card's trials, TC-M1 and TC-M3: an open trial pushed the rows under it down in one frame). Nothing's height is
+  // eased: no layout per frame.
+  const kept = want.filter((e) => e.parentNode === list), seen = kept.length ? [...list.children].filter((c) => keep.has(c)) : kept;
+  const moved = kept.some((e, i) => seen[i] !== e);
+  const fly = shown && !still && (going.some((g) => g.dataset.row) || moved || [...fresh].some((r) => r.dataset.row));
+  const was = fly ? new Map(kept.map((e) => [e, e.offsetTop])) : null;
   let cur = list.firstChild;
   for (const e of want) {
     while (cur && cur !== e && (going.includes(cur) || cur.classList?.contains('rc-out'))) cur = cur.nextSibling;
@@ -683,12 +725,15 @@ export function reconcile(list, rows) {
     const a = g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: D_FLIP, easing: EASE_IN, fill: 'forwards' });
     a.finished.then(() => g.remove(), () => g.remove());
   }
+  // (A row that comes in takes its room at once, so the rows under it slide down into place over the whole of its entrance, and it fades in only as
+  // they get there: it never stands drawn over the row it pushes, 16 Nov 2026. A row that only goes or moves keeps the short slide.)
+  const slide = fresh.size ? D_SMALL : D_FLIP, hold = fresh.size && was ? D_FLIP : 0;
   if (was) for (const [e, y0] of was) {
     const dy = y0 - e.offsetTop;
-    if (Math.abs(dy) > 0.5) e.animate([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: D_FLIP, easing: EASE_MOVE, composite: 'add' });
+    if (Math.abs(dy) > 0.5) e.animate([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: slide, easing: EASE_MOVE, composite: 'add' });
   }
   if (shown) {
-    for (const r of fresh) if (r.dataset.row) r.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: `translateY(${RISE_PX}px)` }, { opacity: 1, transform: 'none' }], { duration: D_SMALL, easing: EASE_ARRIVE, delay: going.length ? 80 : 0, fill: 'backwards' });
+    for (const r of fresh) if (r.dataset.row) r.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: `translateY(${RISE_PX}px)` }, { opacity: 1, transform: 'none' }], { duration: D_SMALL, easing: EASE_ARRIVE, delay: Math.max(going.length ? 80 : 0, hold), fill: 'backwards' });
   }
 }
 /**
@@ -715,14 +760,14 @@ function foldRun(el, hide) {
   if (cur ? cur.hide === hide : el.hidden === hide) return;
   let now = null;   // (turning round mid-way: from what is drawn now)
   if (cur) {
-    const c = getComputedStyle(el);
+    const c = readStyle(el);
     now = { opacity: +c.opacity, height: `${el.offsetHeight}px`, ...Object.fromEntries(FOLD_PROPS.map((k) => [k, c[k]])) };
     cur.anim.cancel(); folds.delete(el); el.style.overflow = '';
   }
   const drawn = el.animate && el.isConnected && (cur || (hide ? hasBox(el) : !!el.parentElement && hasBox(el.parentElement)));
   if (!drawn) { el.hidden = hide; return; }
   if (!hide) el.hidden = false;
-  const c = getComputedStyle(el);
+  const c = readStyle(el);
   const open = { opacity: 1, height: `${el.offsetHeight}px`, ...Object.fromEntries(FOLD_PROPS.map((k) => [k, c[k]])) };
   const shut = { opacity: 0, height: '0px', ...Object.fromEntries(FOLD_PROPS.map((k) => [k, '0px'])) };
   const from = now || (hide ? open : shut), to = hide ? shut : open;
@@ -808,8 +853,31 @@ export function releaseWords(root) {
   for (const el of implicitW) if (el === root || root.contains?.(el)) n += dropWords(el);   // (a Set may lose its current member while it is walked)
   return n;
 }
+/** The words putText made over `el` read the page's colour again (its tile changed band: the number is drawn in the colour it now has). A no-op where none were made. */
+export const recolorWords = (el) => { wordsOfEl.get(el)?.recolor(); };
+/**
+ * A tile's band taken under its number without a snap (16 Nov 2026, "nothing pops": the number's GPU words keep one colour, so a band change redrew
+ * them in the new colour at once): the elements that hold the numbers fade out as the band word does (swapFade), `apply` writes the band (the attribute
+ * that recolours the number, the word, the marker) while they are clear, the numbers' GPU words read their ink again (`words`: glWords wrappers, or the
+ * elements putText made them over), and the elements fade back in. Reduce Motion keeps the fade (a fade is not motion). An element that cannot fade
+ * (hidden, no box) takes the band at once. apply runs once, at the first dip.
+ */
+export function bandSwap(fades, apply, words = fades) {
+  let done = false;
+  const once = () => {
+    if (done) return;
+    done = true;
+    apply();
+    runSoon(() => { for (const w of words) { if (w && typeof w.recolor === 'function') w.recolor(); else recolorWords(w); } });   // (after the writes apply asked for are made, in the same task)
+  };
+  if (!fades.length) once();
+  else for (const e of fades) swapFade(e, once);
+}
 /** How many implicit wrappers putText holds (the teardown checks read it). */
 export const implicitWordsLive = () => implicitW.size;
+/** The glyph a number prints in place of no reading (countTo(el, null)): '?' unless an element asks for another (a reading that cannot be taken at all prints a dash). */
+const nones = new WeakMap();
+export const setNone = (el, glyph) => { if (nones.get(el) !== glyph) nones.set(el, glyph); };
 export const putText = (el, t) => {
   if (typeof t !== 'string') t = t == null ? '' : String(t);   // alloc-rare: only a value that is not already text (the callers pass text)
   if (putPend.has(el)) { putPend.set(el, t); return; }
@@ -841,16 +909,43 @@ function rollStep(now) {
     // number it started from, and a patient load showed an HVPG of -50 for a moment.)
     const u = Math.max(0, Math.min(1, (now - c.t0) / COUNT_MS)), k = easeArrive(u);
     c.shown = u >= 1 ? c.to : c.from + (c.to - c.from) * k;
-    putNum(el, fmt(c.shown, c.d));
+    putNum(el, (c.g ? fmtG : fmt)(c.shown, c.d));
     if (u >= 1 || !el.isConnected) { c.t0 = null; rolling.delete(el); }
   }
   if (rolling.size) rollRaf = frame(rollStep, 'numbers');
 }
 // A number that appears where "?" was (a tile measured again), or "?" where a number was, fades in rather than popping: the roll
 // above moves a number between two numbers, and this is the step it cannot take.
-/** An element that has just been shown comes up from nothing over a small step (Reduce Motion: at once). */
-export function fadeIn(el) { if (!reduceMotionMQ.matches && el.animate && el.isConnected && hasBox(el)) el.animate(FADE_IN, SMALL_ARRIVE); }
+/** An element that has just been shown comes up from nothing over a small step (Reduce Motion too: a fade is not motion). */
+export function fadeIn(el) { if (el.animate && el.isConnected && hasBox(el)) el.animate(FADE_IN, SMALL_ARRIVE); }
 const fadeNum = fadeIn;
+/** The one way a piece of the page is shown or hidden without a pop (owner, 15 Nov 2026: nothing pops in or out). show: `hidden` comes off and it
+ *  fades in over D_SMALL; hide: it fades out over D_FLIP (exit curve) and only then takes `hidden`. `hidden` stays the source of truth for CSS
+ *  and tests. Opacity only, on the compositor: no layout read, no height fold (fold() and foldHidden() are for a piece whose height should glide).
+ *  Reduce Motion fades too. A piece with nothing drawn (not in the page, under a hidden parent) is set at once: no one sees it. A turn part-way
+ *  carries on from where the fade stands. */
+const shownJobs = new WeakMap(), FADE_ONE = [{ opacity: 1 }], FADE_ZERO = [{ opacity: 0 }], FLIP_OUT = { duration: D_FLIP, easing: EASE_IN, fill: 'forwards' };
+export function fadeShown(el, show) {
+  if (!el) return;
+  const job = shownJobs.get(el);
+  if (job ? job.show === show : el.hidden === !show) return;
+  if (job) { job.anim.cancel(); shownJobs.delete(el); }
+  if (!el.animate || !el.isConnected || !(show ? !el.parentElement?.closest?.('[hidden]') : hasBox(el))) { el.hidden = !show; return; }
+  if (show) {
+    el.hidden = false;
+    // alloc-rare: a fade starts only when the shown state changes (the early return above otherwise)
+    const anim = el.animate(job ? [{ opacity: 0 }, ...FADE_ONE] : FADE_IN, SMALL_ARRIVE);
+    const me = { show, anim };
+    shownJobs.set(el, me);
+    anim.finished.then(() => { if (shownJobs.get(el) === me) shownJobs.delete(el); }, () => {});
+    return;
+  }
+  const anim = el.animate(FADE_ZERO, FLIP_OUT);
+  const me = { show, anim };
+  shownJobs.set(el, me);
+  anim.finished.then(() => { if (shownJobs.get(el) !== me) return; shownJobs.delete(el); el.hidden = true; anim.cancel(); }, () => {});
+}
+
 // (Since 1 Nov 2026 (Mohammad: "Move everything to GPU"; a 120 Hz frame budget) a roll no longer rewrites the number's text on every
 // frame, which laid its tile out again each frame of a slide change. Each digit that changes rolls in its own column, a strip of the
 // digits between the old one and the new one moved by a transform the compositor eases on the GPU (app.css .odo), and the text is
@@ -920,13 +1015,15 @@ function odoBuildRest(el, o, a, b, up, ms, easing) {
 export const odoOn = () => true;   // (switch deleted; kept for presenter.js until its own pass)
 function odoRoll(el, c, from, to) {
   c.shown = to;
-  if (!odoSwap(el, fmt(from, c.d), fmt(to, c.d), to > from)) { putNum(el, fmt(to, c.d)); fadeNum(el); }
+  const f = c.g ? fmtG : fmt;
+  if (!odoSwap(el, f(from, c.d), f(to, c.d), to > from)) { putNum(el, f(to, c.d)); fadeNum(el); }
 }
 const NO_COUNT = Object.freeze({});
-export function countTo(el, v, d = 1, { eased = false } = NO_COUNT) {
+export function countTo(el, v, d = 1, { eased = false, g = false } = NO_COUNT) {
   let c = counts.get(el);
-  if (!c) counts.set(el, c = { shown: null, from: 0, to: 0, t0: null, d });   // alloc-rare: a number's first count on this element, kept in counts
-  c.d = d;
+  if (!c) counts.set(el, c = { shown: null, from: 0, to: 0, t0: null, d, g: false });   // alloc-rare: a number's first count on this element, kept in counts
+  c.d = d; c.g = g;   // (g: the thousands comma, num.js fmtG: a big number such as the lymph's mL/day)
+  const fm = g ? fmtG : fmt;
   // A number being worked out again (NaN or Infinity while the model recomputes after a change; not null, which is a reading that is not taken)
   // keeps the last number on show, dimmed (.recompute), and is never swapped for a mark. It lands, undimmed, on the next number that is whole.
   if (v != null && !Number.isFinite(v) && c.shown != null) { if (!c.stale) { c.stale = true; classSoon(el, 'recompute', true); } return; }
@@ -936,23 +1033,25 @@ export function countTo(el, v, d = 1, { eased = false } = NO_COUNT) {
   if (!eased && v != null && Number.isFinite(v) && c.t0 == null) {
     // (A roll under way that is asked for the value it rolls to keeps going; any other value rolls on from the one it lands on.)
     if (odo) { if (Math.abs(v - c.shown) < Math.pow(10, -d) * 0.5) return; odoEnd(el); }
-    const same = c.shown != null && fmt(c.shown, d) === fmt(v, d);
+    const same = c.shown != null && fm(c.shown, d) === fm(v, d);
     // (Not on a readout the GPU words own (putText made them): a roll's strips replace the element's children, picture and canvases with
     // them, while the page's words are clear, so the number vanished for the roll's length. Such a number counts up through GPU words instead.)
     if (!same && c.shown != null && !reduceMotionMQ.matches && el.isConnected && hasBox(el) && !wordsOfEl.has(el)) { odoRoll(el, c, c.shown, v); return; }
   }
-  if (v == null || !Number.isFinite(v)) { rolling.delete(el); c.t0 = null; const was = c.shown != null; c.shown = null; putNum(el, '?'); if (was) fadeNum(el); return; }
+  if (v == null || !Number.isFinite(v)) { rolling.delete(el); c.t0 = null; const was = c.shown != null; c.shown = null; putNum(el, nones.get(el) ?? '?'); if (was) fadeNum(el); return; }
   if (c.t0 != null) {   // (a roll under way)
-    if (eased || reduceMotionMQ.matches) { if (reduceMotionMQ.matches) { rolling.delete(el); c.t0 = null; c.shown = v; putNum(el, fmt(v, d)); } else c.to = v; return; }
+    if (eased || reduceMotionMQ.matches) { if (reduceMotionMQ.matches) { rolling.delete(el); c.t0 = null; c.shown = v; putNum(el, fm(v, d)); } else c.to = v; return; }
     if (Math.abs(v - c.to) < Math.pow(10, -d) * 0.5) return;
     c.from = c.shown; c.to = v; c.t0 = performance.now(); return;
   }
-  const same = c.shown != null && fmt(c.shown, d) === fmt(v, d);
-  if (eased || same || c.shown == null || reduceMotionMQ.matches || !el.isConnected || !hasBox(el)) { const fresh = c.shown == null; c.shown = v; putNum(el, fmt(v, d)); if (fresh) fadeNum(el); return; }
+  const same = c.shown != null && fm(c.shown, d) === fm(v, d);
+  if (eased || same || c.shown == null || reduceMotionMQ.matches || !el.isConnected || !hasBox(el)) { const fresh = c.shown == null; c.shown = v; putNum(el, fm(v, d)); if (fresh) fadeNum(el); return; }
   c.from = c.shown; c.to = v; c.t0 = performance.now();
   rolling.add(el);
   if (!rollRaf) rollRaf = frame(rollStep, 'numbers');
 }
+/** Whether a number countTo writes is still rolling to its value (band-settle.js: a band changes once its number has landed). */
+export const numberMoving = (el) => rolling.has(el) || odos.has(el);
 export const popoverOpen = () => !!openMenu;
 /** Places the open menu again, after something it is anchored to has moved or resized. */
 export function repositionPopover() { if (openMenu) { openMenu.put(); } }
@@ -973,7 +1072,7 @@ export function closePopover() {
   // The menu fades out (it is inert at once, so nothing under it waits), then leaves the page.
   const el = openMenu.el;
   // (Focus inside the menu goes back to its button before the menu is made inert; otherwise it would fall to the page.)
-  if (el.contains(document.activeElement) && openMenu.anchor.isConnected) openMenu.anchor.focus?.(NO_SCROLL);
+  focusBack(el, openMenu.anchor);
   // (A menu already out of the page has nothing to fade or remove. With Reduce Motion it still fades: app.css turns popOut into a fade.)
   // A sheet swiped away is already sliding down; it leaves when it is out of sight.
   // (Over the thumb dock it sinks behind the dock, as the cards do, in the same step: a leave is one flip, app.css dock-sheet-out.)
@@ -982,7 +1081,7 @@ export function closePopover() {
     // (A sheet pulled once and let go keeps .pulling, whose animation: none would also hold off its exit: it hung where it was and blinked out
     // when its timer ended, 13 Nov, menu recs C1. The close takes it off with the leaving class, so the exit plays from where the sheet rests.)
     const ms = menuExitMs(el), plate = openMenu.plate, scrim = openMenu.scrim; const leave = () => { if (!el.dataset.swiped) el.classList.remove('pulling'); el.classList.add('leaving'); };
-    if (el.dataset.swiped) leave(); else if (leaveFromHere(el, leave)) plate?.leaveAlong();   // (the plate follows by its twin rules; one put away while still coming in follows the menu's exit from where it had got to)
+    if (el.dataset.swiped) leave(); else if (el.classList.contains('as-sheet')) { rideOut(el, reduceMotionMQ.matches, ...menuRide(reduceMotionMQ.matches)); leave(); } else if (leaveFromHere(el, leave)) plate?.leaveAlong();   // (the plate follows by its twin rules; one put away while still coming in follows the menu's exit from where it had got to)
     if (scrim) leaveFromHere(scrim, () => scrim.classList.add('out'));
     el.inert = true; markGone(el.dataset.swiped ? 0 : ms, el); setTimeout(() => { releaseWords(el); restRemove(el); if (scrim) restRemove(scrim); plate?.dispose(); }, el.dataset.swiped ? D_SMALL + 20 : ms + 10);   // (a swiped sheet: once its let-go has landed behind the dock, never in its last frames)
   } else { openMenu.plate?.dispose(); if (openMenu.scrim) restRemove(openMenu.scrim); }
@@ -1006,26 +1105,14 @@ export function menuPush(back, title, kids) {
   const backBtn = h('button', { class: 'menu-item menu-back', type: 'button' }, icon('chev-left'), back);
   const head = h('div', { class: 'sheet-head' }, backBtn, h('span', { class: 'sheet-t' }, title), h('button', { class: 'ib', type: 'button', 'aria-label': 'Close', onclick: () => closePopover() }, icon('close')));
   const page = h('div', { class: 'menu-page', role: 'group', 'aria-label': title, style: { top: `${top}px`, height: `${ch}px` } }, head, kids);
-  el.append(page); el.classList.add('pushed'); root.inert = true;
-  const still = reduceMotionMQ.matches, opt = { duration: D_SMALL, easing: EASE_ARRIVE, fill: 'both' };
-  page.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ transform: 'translateX(100%)' }, { transform: 'none' }], opt);
-  const away = root.animate(still ? [{ opacity: 1 }, { opacity: 0 }] : [{ transform: 'none', opacity: 1 }, { transform: 'translateX(-30%)', opacity: 0 }], opt);
-  const pop = () => {
-    if (!page.isConnected) return;
-    away.cancel();
-    const o = { duration: D_SMALL, easing: EASE_ARRIVE, fill: 'both' };
-    root.inert = false; el.classList.remove('pushed');
-    const home = root.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ transform: 'translateX(-30%)', opacity: 0 }, { transform: 'none', opacity: 1 }], o);
-    home.finished.then(() => home.cancel()).catch(() => {});
-    page.inert = true;
-    page.animate(still ? [{ opacity: 1 }, { opacity: 0 }] : [{ transform: 'none' }, { transform: 'translateX(100%)' }], o).finished.then(() => page.remove()).catch(() => page.remove());
-    backBtn.blur();
-  };
-  backBtn.addEventListener('click', pop);
-  // (A swipe right from the page's left part goes back, as a pushed page does on iOS.)
-  let sx = null;
-  page.addEventListener('touchstart', (e) => { const t = e.touches[0]; sx = e.touches.length === 1 ? [t.clientX, t.clientY] : null; }, { passive: true });
-  page.addEventListener('touchend', (e) => { const t = e.changedTouches[0]; if (sx && t.clientX - sx[0] > 70 && Math.abs(t.clientY - sx[1]) < 40) pop(); sx = null; }, { passive: true });
+  el.append(page); el.classList.add('pushed');
+  // (The slide, a swipe right that follows the finger and its let-go are page-push.js, in the cards' frames: the same mover as Treat's Changes page.)
+  root.inert = true;
+  const push = pushPage(page, [root], readMetric(el, 'offsetWidth'), {
+    onPop: () => { root.inert = false; el.classList.remove('pushed'); page.inert = true; backBtn.blur(); },
+    onGone: () => page.remove(),
+  });
+  backBtn.addEventListener('click', () => push.pop(0));
   if (m.anchor.matches?.(':focus-visible')) backBtn.focus(NO_SCROLL);
 }
 /** A phone's bottom sheet follows a vertical drag from anywhere on it and closes past a short pull (or a quick
@@ -1035,7 +1122,7 @@ export function menuPush(back, title, kids) {
 /** How far a panel is drawn from where it sits along y right now (px), mid-transition or mid-animation included. */
 function liveShift(panel) {
   try {
-    const m = getComputedStyle(panel).transform;
+    const m = readStyle(panel).transform;
     return !m || m === 'none' ? 0 : Math.max(0, new DOMMatrixReadOnly(m).m42 || 0);
   } catch { return 0; }
 }
@@ -1044,7 +1131,7 @@ function liveShift(panel) {
 // page; a sheet not easing is drawn where the page puts it, read once here, at the touch.)
 function sheetGrab(panel, target, t, thumb, easing) {
   let sc = null;
-  for (let n = target; n && n !== panel.parentElement; n = n.parentElement) if (n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(n).overflowY)) { sc = n; break; }
+  for (let n = target; n && n !== panel.parentElement; n = n.parentElement) if (n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(readStyle(n).overflowY)) { sc = n; break; }
   return { sc, x: t.clientX, y: t.clientY, top: !sc || sc.scrollTop <= 0, on: false, dy: 0, t: 0, trail: [], shift: easing ? pullAt(easing) : thumb ? 0 : liveShift(panel), h: panel.offsetHeight, thumb, pull: null };
 }
 export function swipeSheet(panel, onClose, enabled = null) {   // (enabled: a card that is a sheet only on a phone says when it is one)
@@ -1083,13 +1170,14 @@ export function swipeSheet(panel, onClose, enabled = null) {   // (enabled: a ca
       // (Caught while it is still easing back: the pull carries on from where the sheet is, without a jump. The new pull is laid under the
       // old let-go's place before that is taken away, so no frame shows the sheet anywhere else.)
       // (Where it is drawn now, from the let-go's own clock: it has kept easing since the touch, so the place read at the touch is behind it.)
-      const here = easing && !easing.over ? pullAt(easing) : s.shift;
+      // (A sheet still coming in on the page's frames (sheet-ride.js) is taken from where it is: the ride stops and says how far down it stood.)
+      const rode = rideStop(panel), here = easing && !easing.over ? pullAt(easing) : rode > 0 ? rode : s.shift;
       s.on = true; s.y = e.clientY - here; s.t = performance.now();
       classSoon(panel, 'pulling', true);   // (the stylesheet's entrance, if it is still playing, gives way to the finger: a class, written between frames, app.css .pulling)
       s.pull = moverOf(panel, s.thumb ? 'translate' : 'transform', 'y', true);   // (glass: the sheet's GPU glass reads the finger's number, num-move driven(); without it the glass held the pull's paused animation at its first clock and drew the frost where the sheet no longer was: 13 Nov 2026)   // (no cut of its own: the sheet layer cuts it on the dock's line, sheet-layer.js)   // (num-move.js: one paused animation, its clock the finger's distance)
       s.pull.set(0, here);
       pullStop(easing); easing = null;
-      panel.setPointerCapture?.(e.pointerId);
+      capture(panel, e.pointerId);
     }
     const raw = e.clientY - s.y;
     s.dy = raw >= 0 ? raw : raw * 0.25;   // (past its own height a pull up stretches with resistance, 0.25, as a card does past Full)
@@ -1124,7 +1212,9 @@ export function menuItem(label, { checked, onClick, kb, icon: ic } = {}) {
   // A toggle with an icon keeps its icon (so every row in a group has one) and shows its state
   // as a trailing check.
   const toggle = checked != null && ic;
-  const b = h('button', { class: 'menu-item', role: toggle ? 'menuitemcheckbox' : checked != null ? 'menuitemradio' : 'menuitem', 'aria-checked': checked != null ? String(!!checked) : null },
+  // (A menu here is a dialog of buttons, so its rows are no `menuitem` (that role is valid only inside a `menu`): a plain button, a switch for a toggle,
+  // and a radio, in a radiogroup (menuSection), for a choice. SHELL-7.)
+  const b = h('button', { class: 'menu-item', type: 'button', role: toggle ? 'switch' : checked != null ? 'radio' : null, 'aria-checked': checked != null ? String(!!checked) : null },
     toggle ? svgIcon(ic, 'mi-ic') : checked != null ? svgIcon('check', 'mi-check') : ic ? svgIcon(ic, 'mi-ic') : null, h('span', {}, label), kb ? h('span', { class: 'kb' }, kb) : null,
     toggle ? svgIcon('check', 'mi-check mi-trail') : null);
   b.addEventListener('click', (e) => { onClick?.(e); });
@@ -1135,7 +1225,9 @@ export function menuItem(label, { checked, onClick, kb, icon: ic } = {}) {
 let sectionN = 0;
 export function menuSection(title, ...rows) {
   const id = title ? 'mg-' + (++sectionN) : null;   // alloc-rare: a menu opens
-  return h('div', { class: 'menu-group', role: 'group', 'aria-labelledby': id }, title ? h('div', { class: 'menu-title', id }, title) : null, rows);
+  // (Rows that are all choices are one radio group, the one the radios need as a parent.)
+  const kids = rows.flat(Infinity).filter(Boolean), choice = kids.length > 0 && kids.every((r) => r.getAttribute?.('role') === 'radio');
+  return h('div', { class: 'menu-group', role: choice ? 'radiogroup' : 'group', 'aria-labelledby': id }, title ? h('div', { class: 'menu-title', id }, title) : null, rows);
 }
 export function svgIcon(id, cls = '') {
   const el = icon(id);
@@ -1302,7 +1394,7 @@ function readVars() {
   const root = document.documentElement;
   for (const sh of document.styleSheets || NO_RULES) { let rules = null; try { rules = sh.cssRules; } catch (e) { caught('util:1024', e); /* (another origin) */ } collectVarNames(rules); }
   collectVarNames([root]);   // alloc-rare: a theme change reads every token once. (The root's own style: --label-k and the like.)
-  const cs = getComputedStyle(root);
+  const cs = readStyle(root);
   for (const n of varNames) varCache.set(n, cs.getPropertyValue(n).trim());   // alloc-rare: a theme change reads every token once
   alphaCache.clear();
 }
@@ -1507,6 +1599,14 @@ export function redrawSized(canvas) {
   if (!(z.w >= 1 && z.h >= 1) || (Math.abs(z.w - d.api.drawnW) < 0.25 && Math.abs(z.h - d.api.drawnH) < 0.25)) return false;
   try { d.redraw(); } catch (e) { setTimeout(() => { throw e; }); }
   return true;
+}
+/** Gives a canvas its box now, read here between frames, instead of waiting for the observer's first report: a card built to be opened has its widgets drawn before it is shown (card.js prepBegin, 18 Nov 2026, the
+ *  tester: "the card waits half a second"). The observer's own reports carry on from it. */
+export function primeCanvasSize(canvas) {
+  const b = readBox(canvas);
+  let r = boxes.get(canvas);
+  if (!r) { boxes.set(canvas, { width: 0, height: 0 }); boxObserver.observe(canvas); r = boxes.get(canvas); }   // alloc-rare: a canvas met for the first time
+  r.width = b.width; r.height = b.height;
 }
 export function canvasSize(canvas) {
   let r = boxes.get(canvas);
@@ -1728,15 +1828,15 @@ export const axisTop = (max, min = 10) => Math.max(min, Math.ceil((max + 2) / 5)
 // way, else the shift it has now. (The zoom pill glides aside with a side card by a transform; a fit read mid-glide had the
 // circuit map dip and rise; round 2 review, RF2.)
 export function transformEndX(el) {
-  const now = getComputedStyle(el).transform;
+  const now = readStyle(el).transform;
   let t = now;
   const tr = el.getAnimations?.().find((a) => a.transitionProperty === 'transform');
   if (tr) t = tr.effect?.getKeyframes?.().at(-1)?.transform ?? now;
   try { return t && t !== 'none' ? new DOMMatrixReadOnly(t).e : 0; } catch { return 0; }
 }
 // An element's box with its horizontal transform at its end (see transformEndX).
-export function settledBox(el, q = el.getBoundingClientRect()) {
-  const t = getComputedStyle(el).transform, cur = t && t !== 'none' ? new DOMMatrixReadOnly(t).e : 0, end = transformEndX(el);
+export function settledBox(el, q = readBox(el)) {
+  const t = readStyle(el).transform, cur = t && t !== 'none' ? new DOMMatrixReadOnly(t).e : 0, end = transformEndX(el);
   if (end === cur) return q;
   const z = el.offsetWidth ? q.width / el.offsetWidth : 1;
   return new DOMRect(q.x + (end - cur) * z, q.y, q.width, q.height);
@@ -1751,18 +1851,18 @@ export function parseTranslate(t) {
 // it has this frame. The phone's data card opens and closes by a translate set frame by frame (presenter.js dockTo): the camera
 // framed 60 ms into that glide counted the card where it stood then, so the figure sat high under a card opening and low under one
 // closing, off the middle of the room between the cards (Ascites 8 on an iPhone, 21 Oct).
-export function translateRest(el, q = el.getBoundingClientRect()) {
+export function translateRest(el, q = readBox(el)) {
   const rest = el.dataset?.restTranslate;
   if (rest == null) return q;
-  const [cx, cy] = parseTranslate(getComputedStyle(el).translate), [ex, ey] = parseTranslate(rest);
+  const [cx, cy] = parseTranslate(readStyle(el).translate), [ex, ey] = parseTranslate(rest);
   if (cx === ex && cy === ey) return q;
   const z = el.offsetHeight ? q.height / el.offsetHeight : 1;
   return new DOMRect(q.x + (ex - cx) * z, q.y + (ey - cy) * z, q.width, q.height);
 }
 // An element's box without its own transform (a card's entrance offset): where it rests.
-export function restBox(el, q = el.getBoundingClientRect()) {
+export function restBox(el, q = readBox(el)) {
   if (el.dataset?.zoomed != null) return q;   // (a zoomed card, card-zoom.js, reports the place it rests: its glide is no entrance to take off)
-  const t = getComputedStyle(el).transform;
+  const t = readStyle(el).transform;
   if (!t || t === 'none') return q;
   const m = new DOMMatrixReadOnly(t), z = el.offsetHeight ? q.height / el.offsetHeight : 1;
   return new DOMRect(q.x - m.e * z, q.y - m.f * z, q.width, q.height);

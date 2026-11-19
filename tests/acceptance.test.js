@@ -95,7 +95,7 @@ test('T7 decompensated cirrhosis + splenorenal shunt: splenic vein reverses', ()
   assert.ok(Q(e, 'SV_CONF') < 0, `SV flow ${Q(e, 'SV_CONF')}`);
 });
 
-test('T8 end-stage cirrhosis with arterioportal shunting: hepatofugal portal vein', () => {
+test('T8 cirrhosis with arterioportal shunting and reversed portal flow: hepatofugal portal vein', () => {
   const e = preset('cirr-hepatofugal');
   assert.ok(Q(e, 'PV_TRUNK') < 0, `PV flow ${Q(e, 'PV_TRUNK')}`);
 });
@@ -318,4 +318,22 @@ test('T-MASLD part of the resistance is before the sinusoids: the HVPG under-rea
   assert.ok(m.ascites.volume < 150, `ascites ${m.ascites.volume} mL`);
   const csph = M(preset('csph'));
   assert.ok(m.ppg - m.hvpg > csph.ppg - csph.hvpg, 'the gap is wider than in sinusoidal CSPH');
+});
+
+test('T-PVT acute portal vein thrombosis keeps a near-normal output (the congested bed gives its blood back), HVPG normal', () => {
+  const m = M(preset('pvt-acute'));
+  within(m.co, 4.5, 5.3, 'CO');
+  within(m.map, 88, 96, 'MAP');
+  within(m.pvFlow, -0.05, 0.05, 'portal flow');
+  within(m.hvpg, 0, 4, 'HVPG');
+});
+
+test('T-CON constrictive pericarditis: RA 15+ with a low-normal output, normal HVPG, ascites', () => {
+  const m = M(preset('constrictive'));
+  within(m.ra, 15, 20, 'RA');
+  within(m.co, 3.4, 4.5, 'CO');
+  within(m.map, 80, 92, 'MAP');
+  within(m.fhvp - m.ra, 0, 2, 'FHVP over RA');
+  within(m.hvpg, 0, 3, 'HVPG');
+  assert.ok(m.ascites.volume > 1000, `ascites ${m.ascites.volume}`);
 });

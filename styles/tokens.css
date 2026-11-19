@@ -9,6 +9,7 @@
 
   /* anatomy */
   --cap-ink: var(--text);   /* (what a name's own colour is mixed with, so it reads on the theme's label halo: the theme's text ink, dark on the light halo, light on the dark one) */
+  --label-dim: .65;   /* (what a label the slide does not light, or one not explained, steps back to: it must still read 3:1 over the vessels behind it in every look, tests/label-dim-contrast.test.js; was .35, about 2:1)  */
   --cap-outline: var(--label-halo);   /* (the outline of a lobule or sinusoid name: the theme's one label halo, as the Anatomy and Circuit labels have it) */
   --dop-mark: #FFFFFF; --dop-rim: #000000;   /* the Doppler probe and sample gate: white lines on a black rim, every theme (the probe's front band, --dop-face, is the look's: theme-tokens.js) */
   --module-fill: rgba(255, 255, 255, .02); --module-fill-open: rgba(124, 150, 255, .05); --module-line: rgba(150, 172, 255, .3);
@@ -78,11 +79,6 @@
   --z-figure: 1; --z-hud: 5; --z-panel: 10; --z-popover: 60; --z-dialog: 80; --z-toast: 100; --z-cover: 200; --z-ring: 250; --z-diag: 300;   /* (the boot cover over every layer of the app; the focus ring over every surface it can mark; the measuring panels and a boot error over both. One scale, no 2147483000s; the preview badge is injected at deploy and stays above all) */
   /* ink on filled controls and badges */
   --on-caution: #1B1300;
-  /* Amber as text: --caution itself is 2.95:1 on white (a fill and a stroke, not ink); mixed 30 % toward the text colour it is 4.5:1 or more on every surface, in all three themes (tests/token-contrast.test.js). */
-  --caution-ink: color-mix(in srgb, var(--caution) 70%, var(--text));
-  /* Green and red as text, the same way: --ok is 4.0:1 on the paper-grey surface and --danger 4.2:1 (fills and strokes stay as they are); 12 % toward the text colour is 4.5:1 or more on every surface. */
-  --ok-ink: color-mix(in srgb, var(--ok) 88%, var(--text)); --danger-ink: color-mix(in srgb, var(--danger) 88%, var(--text));
-  --critical-ink: color-mix(in srgb, var(--critical) 88%, var(--text));   /* bright red as text: the dark theme's --critical is 4.3:1 on a raised surface; a step toward the text colour clears 4.5 */
   /* light and shade in the anatomy (sheens, glints, occlusion) */
   --light-ink: #FFFFFF; --shade-ink: #000000; --tube-shade-ink: #0A0612; --lit-lo-ink: #1A0D14;
   /* pathology and devices on the plate */
@@ -121,7 +117,7 @@
   --lz-congestion: #8C283C; --lz-nutmeg: #80162C;
   --lz-zone-1: #E86854; --lz-zone-2: #D6A05C; --lz-zone-3: #7C62CE;
   --lz-hsc-body: #96603E; --lz-hsc-nucleus: #603628; --lz-casing: rgba(30, 24, 40, .45); --lz-bile-duct: var(--bile-duct); --lz-select: rgba(59, 108, 246, .45);
-  --lz-streak-shadow: rgba(60, 30, 50, .35); --lz-albumin: var(--albumin);
+  --lz-albumin: var(--albumin);
   /* sinusoid art (WebGL): cells, lymph by protein (low, mid, high), albumin */
   --sv-gl-bile: var(--bile-duct);
   --sv-gl-albumin: var(--albumin);
@@ -162,6 +158,9 @@
 :root {
   --bg: #F1EBE0;
   --stage-bg: #F1EBE0;
+  --vg-keep: 83%;
+  --vg-tint: #5A3C1E;
+  --vg-lift: 0%;
   --surface: #FCF9F3;
   --surface-2: #F5F0E6;
   --surface-3: #E9E2D4;
@@ -196,13 +195,29 @@
   --mon-ecg: #43D98B;
   --mon-art: #FF6E62;
   --mon-free: #5CA4F2;
-  --mon-wedge: #DA7EDD;
+  --mon-wedge: #EDA100;
   --mon-ok: #34C38F;
   --mon-caution: #F0B43C;
   --mon-pv: #F0649E;
   --mon-ivc: #4CC2D6;
   --flow-normal: #16988F;
   --flow-reversed: #EC7424;
+  --flow-reversed-ink: color-mix(in srgb, var(--flow-reversed) 62%, var(--text));
+  --caution-ink: color-mix(in srgb, var(--caution) 70%, var(--text));
+  --ok-ink: color-mix(in srgb, var(--ok) 88%, var(--text));
+  --danger-ink: color-mix(in srgb, var(--danger) 88%, var(--text));
+  --critical-ink: color-mix(in srgb, var(--critical) 88%, var(--text));
+  --tr-pv-ink: color-mix(in srgb, var(--tr-pv) 62%, var(--text));
+  --tr-ppg-ink: color-mix(in srgb, var(--tr-ppg) 62%, var(--text));
+  --tr-hvpg-ink: color-mix(in srgb, var(--tr-hvpg) 62%, var(--text));
+  --tr-wedge-ink: color-mix(in srgb, var(--tr-wedge) 62%, var(--text));
+  --tr-sin-ink: color-mix(in srgb, var(--tr-sin) 62%, var(--text));
+  --tr-hv-ink: color-mix(in srgb, var(--tr-hv) 62%, var(--text));
+  --tr-ra-ink: color-mix(in srgb, var(--tr-ra) 62%, var(--text));
+  --tr-ivc-ink: color-mix(in srgb, var(--tr-ivc) 62%, var(--text));
+  --tr-var-ink: color-mix(in srgb, var(--tr-var) 62%, var(--text));
+  --tr-cav-ink: color-mix(in srgb, var(--tr-cav) 62%, var(--text));
+  --tr-scler-ink: color-mix(in srgb, var(--tr-scler) 62%, var(--text));
   --ramp-pressure: #B8D5ED 0, #85B6E9 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30;
   --ramp-flow: #9CC7B5 0, #72BFA4 .25, #3EAA98 .5, #1E6F8C .75, #1B366A 1;
   --ramp-velocity: #C9973F 0, #E2CF9A .2, #5DB4A4 .5, #9A7ED6 .8, #4A2A8C 1;
@@ -229,9 +244,9 @@
   --og-gb-1: #cad8a4;
   --og-gb-2: #98b16d;
   --og-gb-3: #627d40;
-  --og-gut-1: #eed2c2;
-  --og-gut-2: #dcad95;
-  --og-gut-3: #a77960;
+  --og-gut-1: #f4cfc1;
+  --og-gut-2: #e5a893;
+  --og-gut-3: #af745e;
   --og-heart-1: #e9aca1;
   --og-heart-2: #ca7768;
   --og-heart-3: #94483d;
@@ -253,7 +268,7 @@
   --organ-body-line: #CFC1AA;
   --organ-liver: #905b49;
   --organ-spleen: #7a5f78;
-  --organ-gut: #a88570;
+  --organ-gut: #af826e;
   --organ-stomach: #a67a6c;
   --organ-heart: #9d575c;
   --organ-kidney: #895f7a;
@@ -285,6 +300,7 @@
   --vel-ink: 45%;
   --shadow-rgb: 46 22 34;
   --shadow-a: .15;
+  --card-shadow-a: .45;
   --vessel-shadow: rgb(var(--shadow-rgb) / var(--shadow-a));
   --tube-shade: .24;
   --tube-sheen: .42;
@@ -305,7 +321,7 @@
   --stent-glint: .24;
   --stent-rail-w: 1.15;
   --stent-strut-w: .8;
-  --dev-poly: #9AA9BC;
+  --dev-poly: #E2E4E7;
   --dev-poly-edge: #2A303B;
   --dev-scope: #2B2E33;
   --dev-scope-tip: #5C5E66;
@@ -316,7 +332,7 @@
   --dev-latex-edge: #8F6A33;
   --dev-latex-a: .45;
   --dev-nylon: #C9D9EE;
-  --dev-steel: #7C8696;
+  --dev-steel: #9096A0;
   --dev-platinum: #8E949E;
   --dev-glue: #3B4E6B;
   --dev-ptfe: #D9DEE5;
@@ -335,7 +351,9 @@
   --s8: #e34948;
   --grid: #E2DACB;
   --tr-pv: #B01E62;
-  --tr-wedge: #A52DA9;
+  --tr-ppg: #8F6A00;
+  --tr-hvpg: #4a3aa7;
+  --tr-wedge: #C98500;
   --tr-sin: #A52DA9;
   --tr-hv: #2A78D6;
   --tr-ra: #5B6270;
@@ -354,7 +372,6 @@
   --shadow-3: var(--shadow-dialog);
   --on-accent: #FFFFFF;
   --on-status: #FFFFFF;
-  --skin: #E9C9B4;
   --bile-duct: #7C8040;
   --lv-sep: #FFF4E6;
   --lv-nod: #C9955C;
@@ -436,9 +453,11 @@
     --surface: #242321;
     --surface-2: #2B2A27;
     --surface-3: #333130;
+    --vg-keep: 62%;
+    --vg-tint: #000000;
+    --vg-lift: 0%;
     --on-accent: #15140F;
     --on-status: #15140F;
-    --skin: #7A5E55;
     --shadow-menu: calc(6px * var(--light-slant)) 6px 20px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 1.2));
     --shadow-dialog: calc(24px * var(--light-slant)) 24px 60px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 1.6));
     --glass: rgba(30, 29, 27, .95);
@@ -465,6 +484,19 @@
     --disease: #D2A2F2;
     --flow-normal: #2CC5BD;
     --flow-reversed: #FF8C42;
+    --flow-reversed-ink: var(--flow-reversed);
+    --tr-pv-ink: var(--tr-pv);
+    --tr-ppg-ink: var(--tr-ppg);
+    --tr-hvpg-ink: color-mix(in srgb, var(--tr-hvpg) 70%, var(--text));
+    --tr-wedge-ink: var(--tr-wedge);
+    --tr-sin-ink: var(--tr-sin);
+    --tr-hv-ink: var(--tr-hv);
+    --tr-ra-ink: var(--tr-ra);
+    --tr-ivc-ink: var(--tr-ivc);
+    --tr-var-ink: var(--tr-var);
+    --tr-cav-ink: var(--tr-cav);
+    --tr-scler-ink: var(--tr-scler);
+    --critical-ink: color-mix(in srgb, var(--critical) 75%, var(--text));
     --ramp-pressure: #D7E7F4 0, #9DC9F7 5, #7BA1FC 10, #A074F4 12, #BD2C92 20, #B31553 30;
     --ramp-flow: #9CC7B5 0, #72BFA4 .25, #3EAA98 .5, #1E6F8C .75, #3F5C94 1;
     --ramp-velocity: #C9973F 0, #E2CF9A .2, #5DB4A4 .5, #9A7ED6 .8, #684DB1 1;
@@ -491,9 +523,9 @@
     --og-gb-1: #6F7A42;
     --og-gb-2: #4C5E1B;
     --og-gb-3: #ACB788;
-    --og-gut-1: #917465;
-    --og-gut-2: #855C48;
-    --og-gut-3: #CCB3A5;
+    --og-gut-1: #967164;
+    --og-gut-2: #8c5847;
+    --og-gut-3: #d1b1a4;
     --og-heart-1: #8D4F47;
     --og-heart-2: #712820;
     --og-heart-3: #C58E86;
@@ -514,7 +546,7 @@
     --organ-body-line: #3A3733;
     --organ-liver: #A88C82;
     --organ-spleen: #93889A;
-    --organ-gut: #A8948A;
+    --organ-gut: #ac9289;
     --organ-stomach: #A99088;
     --organ-heart: #AE8387;
     --organ-kidney: #A07E8E;
@@ -526,6 +558,7 @@
     --organ-tint: 20%;
     --diaphragm: #9C8C84;
     --artery: #E4606C;
+    --artery-wall-k: .5;
     --casing-rgb: 14 11 9;
     --casing-a: .3;
     --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a));
@@ -555,7 +588,9 @@
     --grid: #2B2926;
     --axis: #4A4641;
     --tr-pv: #F0649E;
-    --tr-wedge: #DA7EDD;
+    --tr-ppg: #FFD166;
+    --tr-hvpg: #8466E8;
+    --tr-wedge: #EDA100;
     --tr-sin: #DA7EDD;
     --tr-hv: #5CA4F2;
     --tr-ra: #B7B1A8;
@@ -571,6 +606,7 @@
     --shadow-3: var(--shadow-dialog);
     --shadow-rgb: 0 0 0;
     --shadow-a: .38;
+    --card-shadow-a: .75;
     --vessel-shadow: rgb(var(--shadow-rgb) / var(--shadow-a));
     --tube-shade: .3;
     --tube-sheen: .38;
@@ -677,9 +713,11 @@
   --surface: #242321;
   --surface-2: #2B2A27;
   --surface-3: #333130;
+  --vg-keep: 62%;
+  --vg-tint: #000000;
+  --vg-lift: 0%;
   --on-accent: #15140F;
   --on-status: #15140F;
-  --skin: #7A5E55;
   --shadow-menu: calc(6px * var(--light-slant)) 6px 20px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 1.2));
   --shadow-dialog: calc(24px * var(--light-slant)) 24px 60px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 1.6));
   --glass: rgba(30, 29, 27, .95);
@@ -706,6 +744,19 @@
   --disease: #D2A2F2;
   --flow-normal: #2CC5BD;
   --flow-reversed: #FF8C42;
+  --flow-reversed-ink: var(--flow-reversed);
+  --tr-pv-ink: var(--tr-pv);
+  --tr-ppg-ink: var(--tr-ppg);
+  --tr-hvpg-ink: color-mix(in srgb, var(--tr-hvpg) 70%, var(--text));
+  --tr-wedge-ink: var(--tr-wedge);
+  --tr-sin-ink: var(--tr-sin);
+  --tr-hv-ink: var(--tr-hv);
+  --tr-ra-ink: var(--tr-ra);
+  --tr-ivc-ink: var(--tr-ivc);
+  --tr-var-ink: var(--tr-var);
+  --tr-cav-ink: var(--tr-cav);
+  --tr-scler-ink: var(--tr-scler);
+  --critical-ink: color-mix(in srgb, var(--critical) 75%, var(--text));
   --ramp-pressure: #D7E7F4 0, #9DC9F7 5, #7BA1FC 10, #A074F4 12, #BD2C92 20, #B31553 30;
   --ramp-flow: #9CC7B5 0, #72BFA4 .25, #3EAA98 .5, #1E6F8C .75, #3F5C94 1;
   --ramp-velocity: #C9973F 0, #E2CF9A .2, #5DB4A4 .5, #9A7ED6 .8, #684DB1 1;
@@ -732,9 +783,9 @@
   --og-gb-1: #6F7A42;
   --og-gb-2: #4C5E1B;
   --og-gb-3: #ACB788;
-  --og-gut-1: #917465;
-  --og-gut-2: #855C48;
-  --og-gut-3: #CCB3A5;
+  --og-gut-1: #967164;
+  --og-gut-2: #8c5847;
+  --og-gut-3: #d1b1a4;
   --og-heart-1: #8D4F47;
   --og-heart-2: #712820;
   --og-heart-3: #C58E86;
@@ -755,7 +806,7 @@
   --organ-body-line: #3A3733;
   --organ-liver: #A88C82;
   --organ-spleen: #93889A;
-  --organ-gut: #A8948A;
+  --organ-gut: #ac9289;
   --organ-stomach: #A99088;
   --organ-heart: #AE8387;
   --organ-kidney: #A07E8E;
@@ -767,6 +818,7 @@
   --organ-tint: 20%;
   --diaphragm: #9C8C84;
   --artery: #E4606C;
+  --artery-wall-k: .5;
   --casing-rgb: 14 11 9;
   --casing-a: .3;
   --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a));
@@ -796,7 +848,9 @@
   --grid: #2B2926;
   --axis: #4A4641;
   --tr-pv: #F0649E;
-  --tr-wedge: #DA7EDD;
+  --tr-ppg: #FFD166;
+  --tr-hvpg: #8466E8;
+  --tr-wedge: #EDA100;
   --tr-sin: #DA7EDD;
   --tr-hv: #5CA4F2;
   --tr-ra: #B7B1A8;
@@ -812,6 +866,7 @@
   --shadow-3: var(--shadow-dialog);
   --shadow-rgb: 0 0 0;
   --shadow-a: .38;
+  --card-shadow-a: .75;
   --vessel-shadow: rgb(var(--shadow-rgb) / var(--shadow-a));
   --tube-shade: .3;
   --tube-sheen: .38;
@@ -913,11 +968,31 @@
 }
 /* Soft light: warm, low-glare paper with frosted cards and softer ink. */
 :root[data-theme="soft"] {
-  --ramp-pressure: #DCEBF7 0, #99C2ED 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30;
-  --gut-a: .80;
+  --card-shadow-a: .5;
+  --ramp-pressure: #8DB8E2 0, #6A9FDE 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30;
+  --gut-a: .70;
   --organ-a: .52;
   --bg: #DDD0B9;
+  --flow-reversed-ink: color-mix(in srgb, var(--flow-reversed) 50%, var(--text));
+  --tr-pv-ink: color-mix(in srgb, var(--tr-pv) 55%, var(--text));
+  --tr-ppg-ink: color-mix(in srgb, var(--tr-ppg) 55%, var(--text));
+  --tr-hvpg-ink: color-mix(in srgb, var(--tr-hvpg) 55%, var(--text));
+  --tr-wedge-ink: color-mix(in srgb, var(--tr-wedge) 55%, var(--text));
+  --tr-sin-ink: color-mix(in srgb, var(--tr-sin) 55%, var(--text));
+  --tr-hv-ink: color-mix(in srgb, var(--tr-hv) 55%, var(--text));
+  --tr-ra-ink: color-mix(in srgb, var(--tr-ra) 55%, var(--text));
+  --tr-ivc-ink: color-mix(in srgb, var(--tr-ivc) 55%, var(--text));
+  --tr-var-ink: color-mix(in srgb, var(--tr-var) 55%, var(--text));
+  --tr-cav-ink: color-mix(in srgb, var(--tr-cav) 55%, var(--text));
+  --tr-scler-ink: color-mix(in srgb, var(--tr-scler) 55%, var(--text));
+  --ok-ink: color-mix(in srgb, var(--ok) 80%, var(--text));
+  --danger-ink: color-mix(in srgb, var(--danger) 80%, var(--text));
+  --critical-ink: color-mix(in srgb, var(--critical) 80%, var(--text));
+  --on-caution: #FFFFFF;
+  --lapse-ink: #744500;
   --stage-bg: #DDD0B9;
+  --vg-keep: 80%;
+  --vg-tint: #5A3C19;
   --surface: #F0E9DC;
   --surface-2: #E5D9C3;
   --surface-3: #D3C5AB;
@@ -948,6 +1023,7 @@
   --tile-edge: rgba(110, 82, 46, .12);
   --inst-panel: #F5EFE2;
   --tr-ra: #526074;
+  --tr-ppg: #7F5E00;
   --tr-ivc: #188ea1;
   --tr-var: #dd5610;
   --tr-cav: #678a2b;
@@ -963,41 +1039,41 @@
   --tube-shade: .2;
   --leader: rgba(40, 42, 52, .42);
   --og-dark: rgba(60, 22, 18, .22);
-  --og-liver-1: #c89e8e;
-  --og-liver-2: #ab6955;
-  --og-liver-3: #7d3a28;
-  --og-stomach-1: #d2b4a8;
-  --og-stomach-2: #be8773;
-  --og-stomach-3: #8a513d;
-  --og-eso-1: #cfad9e;
-  --og-eso-2: #ba836f;
-  --og-eso-3: #885444;
-  --og-spleen-1: #ba9baf;
-  --og-spleen-2: #8d607e;
-  --og-spleen-3: #5e3651;
-  --og-panc-1: #cfbb8b;
-  --og-panc-2: #ba9955;
-  --og-panc-3: #87671e;
-  --og-kidney-1: #c08ca4;
-  --og-kidney-2: #8c486e;
-  --og-kidney-3: #531c3f;
-  --og-gb-1: #afbc89;
-  --og-gb-2: #7f9754;
-  --og-gb-3: #4b6528;
-  --og-gut-1: #d3b8a8;
-  --og-gut-2: #c1937c;
-  --og-gut-3: #8e6149;
-  --og-heart-1: #ce9288;
-  --og-heart-2: #af5e50;
-  --og-heart-3: #7a3127;
-  --og-ra-1: #c68076;
-  --og-ra-2: #a54b3f;
-  --og-ra-3: #6f251d;
+  --og-liver-1: #bb7c61;
+  --og-liver-2: #9e5331;
+  --og-liver-3: #6b3115;
+  --og-stomach-1: #b38068;
+  --og-stomach-2: #96583b;
+  --og-stomach-3: #65351d;
+  --og-eso-1: #b38068;
+  --og-eso-2: #96583b;
+  --og-eso-3: #65351d;
+  --og-spleen-1: #aa7e9b;
+  --og-spleen-2: #8c557a;
+  --og-spleen-3: #5d3350;
+  --og-panc-1: #b49651;
+  --og-panc-2: #93700d;
+  --og-panc-3: #5f4807;
+  --og-kidney-1: #b37996;
+  --og-kidney-2: #964f75;
+  --og-kidney-3: #642f4c;
+  --og-gb-1: #88a16a;
+  --og-gb-2: #607b3a;
+  --og-gb-3: #3c511c;
+  --og-gut-1: #cfae9f;
+  --og-gut-2: #b58873;
+  --og-gut-3: #825844;
+  --og-heart-1: #b78373;
+  --og-heart-2: #985c49;
+  --og-heart-3: #66392b;
+  --og-ra-1: #ba8272;
+  --og-ra-2: #9a5a49;
+  --og-ra-3: #68372a;
   --organ-body: #cec6b7;
   --organ-body-line: #b5a791;
   --organ-liver: #774433;
   --organ-spleen: #634962;
-  --organ-gut: #8f6d59;
+  --organ-gut: #956a57;
   --organ-stomach: #8d6255;
   --organ-heart: #834046;
   --organ-kidney: #724963;
@@ -1041,6 +1117,7 @@
   --flow-normal: #2CC5BD;
   --flow-reversed: #FF8C42;
   --artery: #E4606C;
+  --artery-wall-k: .5;
   --casing-rgb: 0 0 0;
   --casing-a: .38;
   --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a));
@@ -1096,6 +1173,7 @@
     --flow-normal: #2CC5BD;
     --flow-reversed: #FF8C42;
     --artery: #E4606C;
+    --artery-wall-k: .5;
     --casing-rgb: 0 0 0;
     --casing-a: .38;
     --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a));
@@ -1129,6 +1207,8 @@
   --surface: #161E30;
   --surface-2: #1B2438;
   --surface-3: #232D44;
+  --vg-keep: 58%;
+  --vg-tint: #00000A;
   --on-accent: #0B1120;
   --on-status: #0B1120;
   --glass: rgba(16, 23, 42, .95);
@@ -1163,9 +1243,9 @@
   --og-gb-1: #56704A;
   --og-gb-2: #3A4C3A;
   --og-gb-3: #93B07E;
-  --og-gut-1: #7C5D5F;
-  --og-gut-2: #553F47;
-  --og-gut-3: #B79A9A;
+  --og-gut-1: #7f5b62;
+  --og-gut-2: #563e4a;
+  --og-gut-3: #ba989c;
   --og-heart-1: #8E4A52;
   --og-heart-2: #5E2E3C;
   --og-heart-3: #CE8C92;
@@ -1215,6 +1295,8 @@
   --surface: #0D0D0E;
   --surface-2: #141416;
   --surface-3: #1C1C1F;
+  --vg-keep: 100%;
+  --vg-lift: 7.5%;
   --on-accent: #0A0A0B;
   --on-status: #0A0A0B;
   --glass: rgba(10, 10, 11, .95);

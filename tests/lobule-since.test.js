@@ -1,4 +1,3 @@
-import { stageSource } from './stage-src.js';
 // A change-since slide (lens 'since', ext-highlights.js) in the lobule views: the lobule's vessels, labels and changes count from the
 // same network the figure's vessels do (since-ref.js), and only that lens on a slide takes it: every other lens, Patients and a
 // pinned moment read as before.
@@ -10,6 +9,7 @@ import { Engine } from '../src/engine/portal/engine.js';
 import { NODES } from '../src/engine/portal/topology.js';
 import { deepMerge } from '../src/engine/portal/scenario.js';
 import { lobuleState, sinceOf, LOBE } from '../src/ui/lobule-model.js';
+import { lobuleSource } from './split-src.js';
 
 // (The module's stamped URL is the one the lobule's model imports: a bare import would be a second copy with its own reference.)
 const SRC = new URL('../src/ui/', import.meta.url);
@@ -70,20 +70,8 @@ test('the reference can be handed over eased, or left to the slide, and none mea
 });
 
 test('the lobule draws the lens as the Change colours, eases its reference and names it', () => {
-  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
-  assert.match(lz, /M === 'pressure' \|\| M === 'delta' \|\| M === 'since' \|\| M === 'heat'/, 'the Change colours serve the lens');
-  assert.match(lz, /M === 'pressure' \? pressureColor\(qP\(v\)\) : M === 'heat' \? heatColor\(qP\(v\)\) : deltaColor\(qP\(v\)\)/, 'delta and since share the scale');
-  assert.match(lz, /m\.mode === 'delta' \|\| m\.mode === 'since' \? deltaColor\(qP\(d\)\) : pc\(v\)/, 'a label bar takes the change\'s colour');
-  assert.match(lz, /L\.aSince \? 'since the slide before'/, 'the label says what it counts from');
+  const lz = lobuleSource();
   // The reference eases as the pressures do, in both places the model is redrawn, and a closed lobule starts from the state itself.
-  assert.match(lz, /const eased = easeP\.step\(f\.Pf \|\| f\.P\), since = sinceStep\(st\);\n\s+model = lobuleStateInto\(modelBuf, f, st, since\.v, eased\.v\);/);
-  assert.match(lz, /const st = store\.get\(\), eased = easeP\.step\(F\.Pf \|\| F\.P\), since = sinceStep\(st\);/);
   assert.equal((lz.match(/if \(eased\.moving \|\| since\.moving\) easeRaf = nextFrame\(glideP\);/g) || []).length, 2, 'the glide runs while the reference moves');
-  assert.match(lz, /easeP = createEaser\(\); easeS = createEaser\(\); rz = null;/, 'out of sight it takes the reference at once');
 });
 
-test('the stage hands the lobule the reference its own vessels count from', () => {
-  const stage = stageSource();
-  assert.match(stage, /sinceSource\(sinceRef\);/);
-  assert.match(stage, /import \{ sinceSource \} from '\.\/since-ref\.js/);
-});

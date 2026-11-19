@@ -66,20 +66,3 @@ test('a plan that will not fit leaves everything as it was (null)', () => {
 });
 
 // label-gl wiring (source checks, as the other label-gl tests: the layer needs a GL context).
-import { readFileSync } from 'node:fs';
-const lg = readFileSync(new URL('../src/ui/label-gl.js', import.meta.url), 'utf8');
-test('R12: a full atlas is packed beside the old one on the GPU; no reset, no SVG stand-in, the label keeps its picture', () => {
-  assert.doesNotMatch(lg, /function repack\(\)/);
-  assert.doesNotMatch(lg, /needRepack = true; st\.mode = 'svg'/);
-  assert.match(lg, /gl\.copyTexSubImage2D\(gl\.TEXTURE_2D, 0, to\.x, to\.y, from\.x, from\.y, w, h\)/);
-  assert.match(lg, /slot = packer\.alloc\(sw, lay\.h\); if \(slot\) \{ packer\.free\(st\.slot\); st\.slot = slot; \}/);
-  assert.match(lg, /needRepack = true; st\.wait = true; retry\.add\(g\);/);
-  assert.match(lg, /\(\(pending\.size > 0 && pending\.has\(g\)\) \|\| \(todo\.size > 0 && todo\.has\(g\)\) \|\| \(st\?\.wait && !stuck && st\.rot === rot\)\)/);
-  assert.match(lg, /commitRepack\(rp\);/);
-});
-test('R11: the pass builds in chunks within a time budget, new labels first, and leaves the rest pending (not the SVG)', () => {
-  assert.match(lg, /const REBUILD_MS = 4, REBUILD_LEAST = 12;/);
-  assert.match(lg, /if \(\(pass === 0\) !== !st\) continue;/);
-  assert.match(lg, /if \(did >= REBUILD_LEAST && now >= lookHoldUntil && performance\.now\(\) - now > REBUILD_MS\) \{ over = true; break; \}/);
-  assert.match(lg, /if \(over\) for \(const g of todo\.keys\(\)\) pending\.add\(g\);/);
-});

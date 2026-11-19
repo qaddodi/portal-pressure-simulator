@@ -137,6 +137,25 @@ test('hosted: a font coming in, a resize of a glass, and the slow look while asl
   }
 });
 
+// A card moved by number (the wallet's swap, a pull: num-move.js signalMove) is never a glass the partial present (veins-gl restBox, GPU-4) may leave as the
+// last present drew it: every frame of the move asks first whether the pass is steady, and must be told no, so the whole present lays the glass at its new
+// place (19 Nov 2026: the play-test's "last rows hung below the glass at 70% of a swap, partial on only"; this pins that the glass cannot be left behind).
+test('hosted: a glass moved by number is not steady in any frame of its move, and is again two quiet frames after it', async () => {
+  const { signalMove } = await import('../src/ui/num-move.js');
+  clock += 1000; await frames(6);
+  assert.ok(tops.length && tops.every((t) => t.steady()), 'asleep, it is steady');
+  for (let i = 0; i < 12; i++) {
+    signalMove();
+    assert.ok(tops.every((t) => !t.steady()), `signalled in frame ${i}: not steady before the present`);
+    seq++; for (const f of figure) f();
+    assert.ok(tops.every((t) => !t.steady()), `a blood frame beside it in frame ${i}: not steady`);
+    present(); frame(); await flush();
+    assert.ok(tops.every((t) => !t.steady()), `drawn in frame ${i}: not steady until it has drawn the same twice`);
+  }
+  clock += 100; await frames(1); await blood(1); await frames(2);
+  assert.ok(tops.every((t) => t.steady()), 'two frames of the same picture later it is steady again');
+});
+
 test('let go: its page-wide listeners go with it', () => {
   G.dispose();
   for (const [t, s] of docListeners) assert.equal(s.size, 0, t);

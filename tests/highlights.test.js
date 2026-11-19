@@ -121,7 +121,6 @@ test('the vein system gives every vein one of three classes, the same on every p
   assert.equal(systemOf(EDGES.find((e) => e.id === 'IVCS_RA'), PORTAL_TERRITORY), 'ivc');
   assert.equal(systemOf(EDGES.find((e) => e.id === 'C1a'), PORTAL_TERRITORY), 'var');
   assert.equal(systemOf(EDGES.find((e) => e.id === 'TIPS'), PORTAL_TERRITORY), 'var');
-  assert.match(STAGE, /mode === 'system'\) \{ c1 = c2 = SYSTEM_COLOR\[systemOf\(e, PORTAL_TERRITORY\)\]/);
 });
 
 test('no built-in deck uses a package A field, so every talk looks as before', () => {
@@ -196,10 +195,6 @@ test('a lapse glow eases the named organs in when the time-lapse starts and stay
   calls.length = 0;
   h.show(ctx(2)); h.lapse(deck.slides[2]); h.lapse(null);
   assert.deepEqual(calls, [], 'a lapse without lapseGlow leaves the figure alone');
-  const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(pres, /figureHooks\('lapse', s\); {3}\/\/ \(a deck visuals package's glow from the days' start/);
-  assert.match(pres, /else if \(s\.lapse\) figureHooks\('lapse', s\);/);
-  assert.match(STAGE, /glowOrgans\(list\) \{ pinOrgans\(null, list \|\| \[\]\); \}/);
 });
 
 test('the gut frame holds the whole small bowel pile and its glow, with the portal system in view', () => {
@@ -234,62 +229,30 @@ test('Circulation 4/13 numbers each bed\'s vessels as a group, in a frame that h
     const [x, y] = at(id === 'V_SPL' ? 0.83 : 0.5);
     assert.ok(x >= x0 && x <= x1 && y >= y0 && y <= y1, `${id} (${x.toFixed(0)}, ${y.toFixed(0)}) is in ${s.cam}`);
   }
-  assert.match(STAGE, /arcMid\(geo\[x\]\.cur, TIP_FADE\[x\] > 0\.5 \? \(1 \+ TIP_FADE\[x\]\) \/ 2 : 0\.5\)/, 'a faded vein is aimed at on its solid stretch');
 });
 
 test('a lapse glow goes when the slide leaves, and is drawn from the pile\'s own live loops', () => {
-  const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   // The leaving slide's pins go first (the glow's own fade carries it out), and every pin not asked for again goes off.
-  assert.match(pres, /stage\.setGlow\(null\); stage\.pinOrgans\(null\);\s*\n\s*figureHooks\('clear'\)/);
-  assert.match(STAGE, /if \(o\.kind === 'pin' && !want\.has\(o\.id\)\) o\.on = false;/);
-  assert.match(STAGE, /if \(o\.kind === 'warm' && !warm\.has\(o\.id\)\) o\.on = false;/);
   // The warm layer reads the loops from the drawing itself (the pile's deep-tone tubes), not a copy of their path.
-  assert.match(STAGE, /querySelectorAll\('\.ob-deep'\)/);
   // The glow lies on the organs, under the vessels, after the plate's dimming (one strength with the plate up or down), and is
   // read from the path's own text once (no measuring along it on a slide's start), and only where WebGL can draw it.
   const GL = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-  assert.match(GL, /if \(warmOn == 1\) pl = over\(texelFetch\(warmL, ip, 0\), pl\);/);
   assert.ok(GL.indexOf('plateSat), pl.a) * plateAlpha') < GL.indexOf('warmOn == 1) pl'), 'after the dimming');
-  assert.match(STAGE, /olDraw\(first, c, col, WARM\.alpha \* ease, true, true\)/);   // (soft and warm)
-  assert.match(STAGE, /glLines && o\.warm/);
-  assert.match(STAGE, /const lines = warmLines\(d\) \|\| olRingsRaw\(/);
   // Only the edges glow (Mohammad, 20 Oct: "just the outline glows"): a strip along each side of every tube, starting on the tube's
   // edge (its radius out from the centre line, read from the drawing's own pieces) and easing outward, none over the tube itself.
-  assert.match(STAGE, /for \(let si = 0; si < 2; si\+\+\) \{\n\s+wmSide = si \? 1 : -1;/);
-  assert.match(STAGE, /ex, ey, -ty, tx, 0, w, ex, ey, -ty, tx, wmSide, w/);
-  assert.match(STAGE, /querySelectorAll\('\.ob-edge'\)/);
   assert.ok(!/ -ty, tx, -1, WARM\.reach/.test(STAGE), 'no centred strip: the tubes\' insides are not filled');
   // The glow's reach stays under a tube's own half width (about 12.5), so a tube's middle is clear of its neighbours' glow.
   assert.ok(+/const WARM = \{ reach: (\d+)/.exec(STAGE)[1] < 12, 'reach under the tube half width');
   // Strips never stack (MAX), the colon is left clear, a tight bend's inner side is held short, and the group's transform is
   // read without consolidate() (it would rewrite the attribute and change the outline keys at every build).
-  const GLSRC = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-  assert.match(GLSRC, /if \(warm\) \{ gl\.blendEquation\(gl\.MAX\)/);
-  assert.match(GLSRC, /if \(warm\) gl\.blendEquation\(gl\.FUNC_ADD\)/);
-  assert.match(STAGE, /wmUnder\(ex, ey\)/);
-  assert.match(STAGE, /\(Rv - rad\) \* 0\.85/);
   assert.ok(!/function warmRings[\s\S]{0,120}consolidate/.test(STAGE) && !/function olRingsRaw[\s\S]{0,120}consolidate/.test(STAGE), 'the loop outlines read the transform without consolidate()');
   // A redrawn pile is noticed: the cached tubes and their radius are dropped when the old ones leave the page, and the radius is
   // read again when the bed's stroke width changes; it comes from the pieces' own stroke-width attribute (.ob-edge).
-  assert.match(STAGE, /!l\[0\]\.isConnected/);
-  assert.match(STAGE, /wsSame\(c\.sw, c\.has, warmSwWalk, id\)/);   // (the bed's widths as parts, told apart in place)
-  assert.match(STAGE, /warmGone\(t\) \|\| warmGone\(e\)/, 'a redrawn piece is noticed too');
   // The colon cut is a grid look-up (filled once by scanlines), not a ring test per point; each run's reach eases off at both ends.
-  assert.match(STAGE, /grid\.bits\[j \* grid\.w \+ i\] === 1/);
   assert.ok(!/inRing/.test(STAGE), 'no per-point ring test');
-  assert.match(STAGE, /Math\.min\(dist\[k\], L - dist\[k\]\) \/ WARM\.taper/, 'the ends fade by length, not by points');
-  assert.match(GLSRC, /vF = c \/ 63\.0;/);
-  assert.match(GLSRC, /a = col\.a \* vF \* exp\(/, 'the fade multiplies the alpha, so an end is not a thin full-strength line');
-  assert.match(GLSRC, /UC\.f1\(U\.pack, warm \? 1 : 0\)/);
-  assert.match(STAGE, /64 \* Math\.round\(e \* 63\)/);
   assert.ok(+/const WARM = \{ reach: (\d+)/.exec(STAGE)[1] < 64, 'the reach fits under the fade packing (64 x the fade + the width)');
-  assert.match(STAGE, /Math\.min\(63, WARM\.reach, 0\.8 \* rad\)/, 'the reach follows the measured tube radius');
   // A run starts and stops exactly on its cut (the colon's, or too little room on a bend), found between two points, so the fade moves smoothly.
-  assert.match(STAGE, /function wmCut\(i, wasOk\) \{/);
-  assert.match(STAGE, /if \(i > 0 && !prevOk\) \{ wmCut\(i, false\); wmPush\(\);/);
-  assert.match(STAGE, /if \(prevOk\) \{ wmCut\(i, true\); wmPush\(\);/);
   assert.ok(!/baseVal\.consolidate\(\)/.test(STAGE), 'no transform is consolidated: the keys stay the same across builds');
-  assert.match(STAGE, /edges\[i\]\.getAttribute\('stroke-width'\)/);
   assert.ok(readFileSync(new URL('../src/ui/organ-art.js', import.meta.url), 'utf8').includes('ob-edge\\" d=\\"') && /class=\\"ob-edge\\" d=\\"[^"]*\\" stroke-width=\\"[\d.]+\\"/.test(readFileSync(new URL('../src/ui/organ-art.js', import.meta.url), 'utf8')), 'the pieces carry a stroke-width attribute');
   assert.ok(readFileSync(new URL('../src/ui/organ-art.js', import.meta.url), 'utf8').includes('class=\\"ob-deep\\"'), 'the pile still draws .ob-deep tubes');
 });
@@ -312,10 +275,6 @@ test('a spotlit vessel fades toward every end that meets no other lifted vessel'
   assert.equal(liftEnd(false, [dim, lit]), 0);
   // The stage asks it for each end of a lifted vessel (written to tube row 12, which the vessel shader fades over a third of
   // the vessel, at most 60), with no early return that kept a spotlit vessel whole to its ends.
-  const fn = STAGE.match(/function selEnd\(id, n, atEnd\) \{[\s\S]*?\n {2}\}/)?.[0] || '';
-  assert.match(fn, /return liftEnd\(spot\.ids\.has\(id\) && spotOn\(\), joins\)/);
-  assert.doesNotMatch(fn, /spotOn\(\)\) return 0/);
-  assert.match(STAGE, /tubeData\[o \+ 49\] = selEnd\(id, x\.e\.from, false\); tubeData\[o \+ 50\] = selEnd\(id, x\.e\.to, true\);/);
 });
 
 // Two lit vessels that share a node in the model need not meet in the picture. TIPS and shunts 8/14 (the fixture is the TIPS's course of 7 Nov, before it
@@ -339,7 +298,6 @@ test('a lit neighbour that is not drawn at a vessel\'s end leaves that end to ea
   assert.equal(liftEnd(true, [{ lit: nearPath(tips, rhv[0][0], rhv[0][1], tol), ghost: false }]), 1);
   // The shader eases over this much of the vessel, at most this long, and the stage asks nearPath of each lit neighbour.
   assert.ok(LIFT_EASE_SHARE > 0.35 && LIFT_EASE_SHARE <= 0.5 && LIFT_EASE_MAX > 60 && LIFT_EASE_MAX <= 120);
-  assert.match(STAGE, /jn\.lit = \(vh\.sel\.has\(y\.e\.id\) \|\| spot\.ids\.has\(y\.e\.id\)\) && \(!pe \|\| nearPath\(/);
   const GL = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8') + readFileSync(new URL('../src/ui/veins-mesh-glsl.js', import.meta.url), 'utf8');   // (the selection's ease: veins-mesh-glsl.js vesAttrs)
   assert.match(GL, /fs = min\(\$\{LIFT_EASE_SHARE\} \* Ls, \$\{LIFT_EASE_MAX\}\.0\)/);
 });

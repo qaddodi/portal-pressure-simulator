@@ -5,9 +5,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { presenterSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
-const main = read('src/ui/main.js'), pres = read('src/ui/presenter.js');
+const main = read('src/ui/main.js'), pres = presenterSource();
 
 function rig(viewTransitions) {
   const src = main.slice(main.indexOf('let projWant = false;'), main.indexOf('function flipProjector()'));
@@ -44,28 +45,13 @@ test('projector: asked for what it already is, nothing is flipped; asked twice b
   assert.equal(p.api.state(), false);
 });
 
-test('the explore shortcuts do not reach a talk, except Search and the guide; the figure\'s keyboard zoom stays out too', () => {
-  assert.match(main, /if \(presenter\.active\(\) && e\.key !== '\/' && e\.key !== '\?'\) return;/);
-  const at = main.indexOf("if (presenter.active() && e.key !== '/'");
-  assert.ok(at > main.indexOf("if (isModalOpen() || mainMenu.isOpen()) return;"), 'after the dialog and menu rule');
-  assert.ok(at < main.indexOf("(e.shiftKey ? doRedo : doUndo)()"), 'before undo');
-  assert.ok(at < main.indexOf("if (e.key === '[' || e.key === ']')"), 'before the speed keys');
-  assert.match(main, /tag !== 'select' && !presenter\.active\(\) && !isModalOpen\(\) && !mainMenu\.isOpen\(\)\) \{[^\n]*\n\s+const z =/);
-  assert.match(main, /projectorOn: \(\) => toggleProjector\(true\), projectorOff: \(\) => toggleProjector\(false\)/);
-});
+// (The explore shortcuts do not reach a talk, and the figure's keyboard zoom stays out too: tests/keyboard.test.js runs the keys.)
 
 test('a ?script=test- link waits once for the test deck, then says it was not found; a talk\'s link is dropped when it ends', () => {
   assert.match(pres, /async function start\(id, at = 0, opts = null\) \{/);
-  assert.match(pres, /!TESTING\.length && !opts\?\.waited\) return testingLoad\.then\(\(\) => start\(id, at, \{ \.\.\.opts, waited: true \}\)\);/);
+  assert.match(pres, /!(?:live\.)?TESTING\.length && !opts\?\.waited\) return testingLoad\.then\(\(\) => start\(id, at, \{ \.\.\.opts, waited: true \}\)\);/);
   const stop = pres.slice(pres.indexOf('function stopNow('), pres.indexOf('// When the show ends'));
   assert.match(stop, /if \(restore\) \{ try \{ const u = new URL\(location\.href\); if \(u\.searchParams\.has\('script'\)\) \{ u\.searchParams\.delete\('script'\); u\.searchParams\.delete\('slide'\); history\.replaceState\(null, '', u\.pathname \+ u\.search \+ u\.hash\); \}/);
 });
 
-test('a shared link with a value out of range still applies its view, selection and camera; the copy fallback keeps the page\'s path', () => {
-  const fn = main.slice(main.indexOf('async function loadShared('), main.indexOf('// The orange PREVIEW pill'));
-  assert.doesNotMatch(fn, /return;\s*\}\s*\n\s*\}/, 'no early return in the clamp branch');
-  assert.match(fn, /clamped = true; \}/);
-  assert.ok(fn.indexOf('clamped = true') < fn.indexOf('if (s.view) store.set({ view: s.view });'));
-  assert.match(fn, /if \(clamped\) toast\(missing \|\| 'This link had values out of range;/);
-  assert.match(main, /catch \{ history\.replaceState\(null, '', location\.pathname \+ location\.search \+ `#s=\$\{encodeShare\(\)\}`\);/);
-});
+// (A shared link with a value out of range, and the copy fallback's path: tests/share-flow.test.js runs them.)

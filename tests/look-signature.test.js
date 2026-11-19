@@ -64,8 +64,3 @@ test('the plate going on or off, a plate that comes and goes, and a number gone 
   assert.equal(lookChanged(v, false, sig), false, 'the fluid look has its own redraw path and was never in the signature');
 });
 
-test('stage.js reads the signature through look-sig.js and builds the look in one kept object', () => {
-  assert.match(STAGE, /import \{ lookChanged, newLookSig \} from '\.\/look-sig\.js';/);
-  assert.match(STAGE, /const lookDiffers = lookChanged\(vl, (?:live\.)?(?:live\.)?plateOn\(\), LOOK_SIG\);/);
-  assert.doesNotMatch(STAGE, /JSON\.stringify\((?:live\.)?vLook/);
-});

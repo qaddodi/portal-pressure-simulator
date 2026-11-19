@@ -5,8 +5,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const tokens = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
 
 const block = (re) => { const m = tokens.match(re); assert.ok(m, `token block ${re}`); return m[1]; };
@@ -78,5 +79,5 @@ test('the balance keeps its meaning colours: amber rising, teal falling', () => 
   assert.match(decl(`${RATE}[data-dir="up"]`, 'color'), /--caution/);
   assert.match(decl(`${RATE}[data-dir="down"]`, 'color'), /--vel-normal/);
   assert.match(css, /\.ab-rate\[data-dir="up"\] \.ab-rate-a \{ color: var\(--caution-ink\); \}/);
-  assert.match(css, /\.ab-rate\[data-dir="down"\] \.ab-rate-a \{ color: var\(--vel-normal\); \}/);
+  assert.match(css, /\.ab-rate\[data-dir="down"\] \.ab-rate-a \{ color: color-mix\(in srgb, var\(--vel-normal\) 60%, var\(--text\)\); \}/);
 });

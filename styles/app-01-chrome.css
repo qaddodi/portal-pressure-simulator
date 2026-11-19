@@ -1,0 +1,546 @@
+/* Layout & components (blueprint §4, §5). Reads only the roles defined in tokens.css.
+   Hierarchy: the figure dominates; tools, time and legend frame it in bands that never
+   cover the anatomy; one contextual panel; instruments in a drawer that opens on demand. */
+*, *::before, *::after { box-sizing: border-box; }
+/* Hover tints ease without a repaint (1 Nov 2026, move everything to GPU; nothing snaps): the hover look is a layer under the
+   content, painted once with --hv-bg (and --hv-bd over a 1px border, --hv-bw), that fades in and out by its opacity. */
+:where(.brand, .chip-btn, .lens-btn, .metric, .ib, .btn, .menu-item, .lens, .tl-pin, .tl-ff, .tl-hist, .tl-pop-ic, .menu-credit, button.finding, .order-btn, .pz-abb, .pzj-list button, .pal-btn, .tb-act, .menu-btn, .um-row, .um-link, button.pzb-n, .pzc-q) { position: relative; isolation: isolate; }
+:where(.brand, .chip-btn, .lens-btn, .metric, .ib, .btn, .menu-item, .lens, .tl-pin, .tl-ff, .tl-hist, .tl-pop-ic, .menu-credit, button.finding, .order-btn, .pz-abb, .pzj-list button, .pal-btn, .tb-act, .menu-btn, .um-row, .um-link, button.pzb-n)::before, :where(.pzc-q)::after { content: ''; position: absolute; inset: calc(-1 * var(--hv-bw, 0px)); border-radius: inherit; background: var(--hv-bg, transparent); box-shadow: inset 0 0 0 var(--hv-bw, 0px) var(--hv-bd, transparent); opacity: 0; transition: opacity var(--d-flip) var(--ease); pointer-events: none; z-index: -1; }
+/* Hover and selection ink ease without a repaint (1 Nov 2026, nothing snaps): a quiet icon button, tab or menu link draws its content
+   in the full ink (--text) at the quiet ink's strength (--ink-rest, text-2 over the surface) and comes up to full by its opacity when it
+   is hovered, or chosen (a pressed, selected or open one keeps its own ink, at full strength). */
+:is(.ib, .tl-pop-ic, .tb-act, .nb-tab, .instr-tab, .um-tab, .um-link):not(:disabled, .pzb-next, .play, .lapse) { color: var(--text); --ink-rest: .76; }
+:is(.ib, .tl-pop-ic, .tb-act, .nb-tab, .instr-tab, .um-tab, .um-link):not(:disabled, .pzb-next, .play, .lapse) > :not(.tb-hc) { opacity: var(--ink-rest); transition: opacity var(--d-flip) var(--ease); }
+:is(.ib, .tl-pop-ic, .tb-act, .nb-tab, .instr-tab, .um-tab, .um-link):not(:disabled, .pzb-next, .play, .lapse):is([aria-pressed="true"], [aria-selected="true"], [aria-expanded="true"], .on) > :not(.tb-hc) { opacity: 1; }
+@media (hover: hover) { :is(.ib, .tl-pop-ic, .tb-act, .nb-tab, .instr-tab, .um-tab, .um-link):not(:disabled, .pzb-next, .play, .lapse):hover > :not(.tb-hc) { opacity: 1; } }
+.app.pz-hi .pz-bar .ib > * { opacity: 1; }   /* (full ink there: its quiet ink is --text) */
+html, body { height: 100%; }
+/* Installed on an iPhone or iPad, the page runs edge to edge under the status bar. The top bar
+   owns that strip (its own color runs up behind the clock), and the document never scrolls, so
+   nothing slides up under the status bar. */
+:root { --safe-top: env(safe-area-inset-top, 0px);
+  /* The phone's teaching card and its controls sit above the bottom safe area; installed to the Home Screen on an iPhone (class `iphone-app`, set in src/ui/main.js)
+     the card drops to 8 px above the screen's edge instead, its bottom corners concentric with the screen's (iOS gives pages no corner radius: 55 px is the iPhone 14 Pro to 16 size). */
+  --pz-sb: env(safe-area-inset-bottom, 0px); --pz-card-br: 18px; --screen-r: 55px; }
+/* The presenter sizes its type by the screen height; an upright tablet is tall and narrow, so there it follows the width (as tall as a landscape screen of that width), or the words outgrow their column. A phone (< 700 px) keeps its own stack layout. */
+:root { --pzh: 1vh; }
+@media (orientation: portrait) and (min-width: 700px) { :root { --pzh: min(1vh, .75vw); } }
+html { overflow: hidden; overscroll-behavior: none; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }   /* (iOS never re-sizes text on its own) */
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: var(--fs-14)/1.45 var(--font-ui); font-feature-settings: 'cv11', 'ss01'; font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; overflow: hidden;
+}
+button, input, select { font: inherit; color: inherit; }
+/* the interface has three weights (400 · 500 · 600): nothing falls back to the browser's bold */
+b, strong, h1, h2, h3, h4, th, summary { font-weight: 600; }
+html { -webkit-tap-highlight-color: transparent; }   /* (inherited: no new button, tile or row flashes grey on iOS) */
+button { -webkit-tap-highlight-color: transparent; }
+svg { flex: none; }
+.num { font-variant-numeric: tabular-nums; }
+.unit { color: var(--text-3); font-weight: 500; font-size: var(--fs-12); margin-left: 4px; letter-spacing: 0; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r-control); }
+/* Rings alike (src/ui/focus-ring.js puts html.fr on the page): the controls whose ring was the accent colour, or 1 px off, wear the focus colour and the 2 px of the rest. The inset ones (rows, tabs) keep their place. */
+html.fr :is(.ps-btn, .tl-pop-ic, .pz-zbtn, .ask-field):focus-visible { outline-offset: 2px; }
+html.fr :is(.lens-btn, .ps-btn, .tl-pop-ic, .pz-zbtn, .ask-field, .pz-abb, .pzc-q, .chg-go, .nb-tab, .pz-table tbody tr):focus-visible { outline-color: var(--focus); }
+.overline { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); }
+.muted { color: var(--text-3); }
+.sub { font-size: var(--fs-14); color: var(--text-2); line-height: 1.5; }
+.disclaimer { font-size: var(--fs-12); color: var(--text-3); line-height: 1.5; }
+[hidden] { display: none !important; }
+::selection { background: var(--accent-soft); }
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+
+/* ── App grid ─────────────────────────────────────
+   The figure is the page, on every screen: it fills the whole window. Everything else floats
+   over it as small pills and cards (the top bar, the vitals dock with the play bar and the key
+   readouts, the patient chart, the Treat card, the instruments), and the figure's Fit frames the
+   anatomy in the part they leave free (see safeInsets in stage.js). */
+.app {
+  --panel-w: 360px; --card-head-pad: 12px 8px 8px 16px; --top-h: 56px; --gap: 12px; --top-safe: 64px; --vdock-h: 120px;
+  /* Fixed to the viewport, like the start screen: iOS 26 keeps a fixed header sharp under the
+     status bar but blurs ordinary page content that sits there. */
+  position: fixed; inset: 0;
+  display: grid; height: 100dvh; width: 100%;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: "stage";
+  background: var(--stage-bg);
+}
+
+/* ── Top bar ────────────────────────────────────── */
+.topbar {
+  position: absolute; top: 0; left: 0; right: 0; z-index: var(--z-panel);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding: calc(var(--safe-top) + 10px) calc(env(safe-area-inset-right) + 12px) 0 calc(env(safe-area-inset-left) + 12px);
+  min-width: 0; pointer-events: none;
+}
+.topbar > * { pointer-events: auto; }
+.brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; flex: none; margin-left: -8px; padding: 4px 8px 4px 8px; border: 1px solid transparent; border-radius: var(--r-card); transition: none; }
+@media (hover: hover) { .brand { --hv-bg: var(--surface-2); --hv-bd: var(--border); --hv-bw: 1px; } .brand:hover::before { opacity: 1 } }
+.brand:active { --hv-bg: var(--surface-3); } .brand:active::before { opacity: 1 }
+.brand-mark { width: 32px; height: 32px; flex: none; }
+/* The logo opens the start screen: say so with a "Modes" chevron beside it. */
+.brand-mark { background-color: var(--brand-bg); }
+.modes button {
+  display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; padding: 0 12px; height: 100%; cursor: pointer;
+  color: var(--text-2); font-weight: 500; font-size: var(--fs-14); position: relative; transition: none;
+}
+.modes button :is(svg, .ic) { width: var(--ic-s); height: var(--ic-s); opacity: .8; }
+@media (hover: hover) { .modes button:hover { color: var(--text); } }
+.modes button[aria-selected="true"] { color: var(--text); }
+.modes button[aria-selected="true"]::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--text); }
+.top-right { margin-left: auto; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.scenario-v { font-size: var(--fs-14); font-weight: 600; white-space: nowrap; overflow: hidden; }
+/* The name's form, picked by main.js (fitScenarioName) as the first that fits whole: never cut with "…". */
+.scenario-v .sn-s, .scenario-v .sn-c { display: none; }
+.scenario-v:is([data-form="s"], [data-form="s2"], [data-form="c2"]) .sn-l { display: none; }
+.scenario-v:is([data-form="s"], [data-form="s2"]) .sn-s, .scenario-v[data-form="c2"] .sn-c { display: inline; }
+.topbar .scenario-v:is([data-form="s2"], [data-form="c2"]) { white-space: normal; font-size: 12px; line-height: 1.15; max-height: 2.3em; }
+/* (No transition, not even the 1 ms one reduced motion gives every property: main.js reads each form's own size at once.) */
+.scenario-v, .scenario-v * { transition: none !important; }
+
+/* ── Figure (stage) ─────────────────────────────── */
+.stage-wrap { grid-area: stage; position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; background: radial-gradient(ellipse 58% 52% at 50% 48%, color-mix(in srgb, white var(--vg-lift), transparent), transparent 74%), radial-gradient(ellipse 78% 72% at 50% 48%, transparent 42%, color-mix(in srgb, var(--stage-bg) var(--vg-keep), var(--vg-tint)) 100%), var(--stage-bg); color: var(--text); overflow: hidden; }   /* (the edge vignette: a static gradient on the ground, tokens vg-* in theme-tokens.js) */
+/* Organ texture patterns take their organ's hue. */
+#texLiver { color: var(--organ-liver); } #texRugae { color: var(--organ-stomach); } #texLobules { color: var(--organ-pancreas); } #texMuscle { color: var(--organ-heart); } #texFine { color: var(--organ-spleen); }
+.stage-bar { flex: none; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: var(--stage-bg); position: relative; z-index: var(--z-hud); min-width: 0; }
+.stage-bar.top { height: 52px; container-type: inline-size; container-name: figbar; }
+/* The figure header adapts to its own width (the side panel may be open or closed). */
+@container figbar (max-width: 1180px) { .lg-note { display: none; } }
+@container figbar (max-width: 1000px) { .lg-title { display: none; } }
+@container figbar (max-width: 860px) { #colorModeLabel { display: none; } .lg-scale { width: 128px; } }
+.stage-bar.bottom { height: 60px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; }
+.stage-bar.bottom .toolbar { min-width: 0; }
+.sb-left, .sb-right { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sb-right { margin-left: auto; }
+.sb-center { flex: 1; min-width: 0; display: flex; justify-content: center; align-items: center; gap: 8px; }
+.sb-banner { display: flex; min-width: 0; justify-content: center; align-items: center; gap: 8px; }
+.sb-banner:empty { display: none; }
+.stage-view { position: relative; flex: 1; min-height: 0; touch-action: none; overflow: hidden; }
+/* (iOS Safari ignores user-scalable=no: a quick double tap on a bar button or a menu zoomed the fixed page, which has no scroll to come back. The figure, sliders and sheets' handles keep their own touch-action, which wins inside.) */
+.app, .menu, .umenu, .modal-back, .pal-back, .toast-wrap, #whyPop { touch-action: manipulation; }
+.stage-view svg#stage, .stage-view svg#stageOver, .stage-view canvas, .stage-view svg#labels { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* Vessels on the GPU (veins-gl.js): in the anatomy the WebGL2 layer draws the tubes; their SVG hit strokes stay. */
+.stage-view svg#stageOver { pointer-events: none; }
+/* An overlay group the GPU paints in the vessel canvas (stage-over.js, ?stageover=gpu): its SVG copy drawn nowhere, by an empty clip,
+   which leaves every style the painter reads of it as it is. */
+.stage-view svg#stageOver .gpu-over { clip-path: inset(50%) !important; }
+.stage-view svg#stageOver.gpu-all { opacity: 0 !important; }   /* (all it shows painted on the GPU: stage-over.js OVER_ALL) */
+/* The plate (backdrop, organs, ascites) is drawn by the GPU from a raster; the SVG stays for picking and exports. */
+.stage-view.gl-plate :is(#backdrop, #organs, #ascites, #ghosts) { visibility: hidden; }
+/* (The organs leave the page's layout altogether while the GPU draws them (plan "Holding 120 Hz" §3.5): nothing reads their layout (their
+   boxes, frames and picking are worked out in script from their own numbers), and the painter reads their styles, computed as well under
+   display: none. The SVG organs come back the moment the plate goes.) */
+.stage-view.gl-plate #organs { display: none; }
+/* (So do the backdrop (the diaphragm and the flank) under the plate, and the ascites and the ghosts whenever the GPU draws the vessels: nothing
+   reads their layout (the home framing's boxes are worked out in script, elBox; the painter and the grey read their styles, computed as
+   well under display: none; picking is in script), and hidden they were still styled, laid out and their masks built on every frame
+   (plan rev 2 step 2). They come back the moment the plate or the GPU goes.) */
+.stage-view.gl-plate #backdrop { display: none; }
+.stage-view.gl-on :is(#ascites, #ghosts) { display: none; }
+/* The ghosts (a faint copy of a vein behind an organ) are SVG <use> copies of its group. While the GPU draws the vessels it fades
+   them behind the organs itself (veins-gl VEIL_K), and the copies, whose styles under gl-on do not reach into a <use>, filled the
+   vessels' outline paths black at the layer's 34 %: a dark grey blob on the cava (the veins of Retzius), a wedge over the liver
+   (HVPG, Budd–Chiari). They stay for picking, unseen. */
+/* While the GPU draws the figure the browser paints nothing in the two SVG model trees, but every write into them still
+   invalidated style and layout of the whole page. Containing them keeps those writes inside (no size containment: their
+   size comes from layout; no visibility:hidden: it would turn off the hit paths). ?modelcontain=0 drops the class. No `paint` containment: on the phone (the stage inset 12 px each side, overflow visible) it painted solid black strips down both edges. */
+html.model-contain .stage-view.gl-on :is(svg#stage, svg#labels) { contain: layout style; }
+.stage-view.gl-on #ghosts { visibility: hidden; }
+/* The ascites is drawn by the GPU whenever it draws the vessels, plate or not (veins-gl.js fluidInk): its SVG copy, whose
+   surface line was brighter, would show under the canvas while the plate is down. */
+.stage-view.gl-on #ascites { visibility: hidden; }
+/* Hidden like that, its clip and its masks (the liver's cut, ascLv) were still built on every repaint, the size of the pool, more
+   with every zoom step (Mohammad's iPhone ?perf, 21 Oct: 250 ms frames at zoom 1.7 with the live organs left out). It shows nothing
+   under gl-on, so they are off: the same pixels. */
+.stage-view.gl-on :is(#ascites, #ascites [mask]) { mask: none; clip-path: none; }
+/* Hidden, a group's mask is still built on every repaint of the svg (an offscreen layer as big as what it masks, on each pan
+   frame), so the masks under the hidden plate are off while the GPU draws it. The diaphragm's (#backdrop) covered the dome
+   over the liver and spleen, and with ascites the flank stretched it over the whole abdomen. The organs' copy for the GPU
+   is cloned with the mask attributes, which this rule does not change, so the plate keeps them. */
+.stage-view.gl-plate :is(#backdrop, #backdrop [mask], #organs [mask], #ascites [mask], #ghosts [mask]) { mask: none; }
+.stage-view canvas { pointer-events: none; }
+.stage-view svg#labels { pointer-events: none; overflow: visible; }
+#overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.stage-view[class*="tool-"]:not(.tool-select):not(.tool-probe) #stage { cursor: crosshair; }
+.stage-view #stage { cursor: grab; }
+.stage-view.over-vessel #stage { cursor: pointer; }
+/* A press, drag or pinch on the figure focuses it, and the browser's ring then framed the whole view (sweeps 01 #19,
+   02 #08, #16, #18, #30; after a Ctrl+wheel the browser even counted it as keyboard focus). The figure itself is never
+   reached by the keyboard (tabindex -1: Tab goes through the vessels, which keep their own ring), so it shows no ring. */
+.stage-view #stage:focus, .stage-view #stage:focus-visible { outline: none; }
+.stage-view > :is(#stage, #stageOver, #labels, canvas:not(#veins)) { transition: opacity var(--d-small) var(--ease); }   /* (#veins is eased as an alpha in the renderer's present: stage.js camShowTo_) */
+.stage-view.unframed > :is(#stage, #stageOver, #labels, canvas:not(#veins)) { opacity: 0; }
+/* The label layers show and hide at once (4 Nov: no fade after a view change, a camera move or a zoom). */
+.stage-view > #labels { transition: none; }
+/* A camera ride (stage-ride.js) carries the leaders and their dots on the GPU with their labels (label-gl.js drawMarks): they no longer
+   fade for it, so a pinned label's leader and an unpinned one's stay alike through a card zoom (5 Nov 2026 review #10). */
+/* (A label the SVG still draws cannot ride on the GPU: it eases out with the leaders and back at the landing.) */
+.stage-view .lb:not([data-gl]) { transition: opacity var(--d-small) var(--ease); }
+.stage-view.lb-ride .lb:not([data-gl]) { opacity: 0; }
+/* The labels the GPU draws (label-gl.js): their SVG copy stays, for its layout, clicks, focus and screen readers, but paints nothing;
+   the canvas over it takes the label layer's rules (unframed, the lobule, the catheter) and never takes a pointer. */
+#labels .lb[data-gl] > * { opacity: 0; }
+#labels :is(.lb-leaders, .lb-scan) > [data-gl] { visibility: hidden; }   /* (a leader or dot the GPU draws: its fades still run here, and are read) */
+.stage-view.panning #stage { cursor: grabbing; }
+
+.chip-btn {
+  display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--r-card);
+  background: var(--surface); color: var(--text); font-size: var(--fs-14); font-weight: 500; cursor: pointer; white-space: nowrap;
+  transition: scale var(--d-flip) var(--ease);
+}
+@media (hover: hover) { .chip-btn { --hv-bg: var(--surface-2); --hv-bd: var(--border-strong); --hv-bw: 1px; } .chip-btn:hover::before { opacity: 1 } }
+.chip-btn :is(svg, .ic) { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--text-2); } .chip-btn .ic { -webkit-mask-image: url("../brand/icons/icons-r.png"); mask-image: url("../brand/icons/icons-r.png"); background-color: currentColor; }
+.chip-btn .chev { width: var(--ic-s); height: var(--ic-s); color: var(--text-3); }
+/* A chip whose menu is open answers it: the chevron turns over (as the patient pill's does) and the chip holds the pressed tint, both easing back as the menu goes. (Read from aria-expanded alone: a class on the root for it, `chip-open`, stayed there after the menu closed. `html:root` keeps the weight the root class gave the rules.) */
+html:root :is(.chip-btn, .lens-btn) .chev { transition: rotate var(--d-small) var(--ease-move); }
+html:root :is(.chip-btn, .lens-btn)[aria-expanded="true"] .chev { rotate: 180deg; }
+html:root :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var(--surface-2); }
+@media (prefers-reduced-motion: reduce) { html:root :is(.chip-btn, .lens-btn) .chev { transition: none; rotate: none; } }
+.chip-btn[aria-pressed="true"] { background: var(--text); color: var(--stage-bg); border-color: transparent; --hv-bg: var(--text); --hv-bd: transparent; }   /* (--hv-bg: the hover tint lies over the button's own fill, so a light one hid the light words on the dark pill: Stop, Compare on, 16 Nov 2026) */
+.chip-btn[aria-pressed="true"] :is(svg, .ic) { color: currentColor; }
+
+/* Legend: a horizontal scale that sits in the figure header, never on the anatomy */
+.lens-btn { position: relative; display: flex; align-items: center; gap: 4px; height: 42px; padding: 0 8px 0 8px; border-radius: var(--r-card); border: 1px solid transparent; cursor: pointer; transition: scale var(--d-flip) var(--ease); }
+@media (hover: hover) { .lens-btn { --hv-bg: var(--surface); --hv-bd: var(--border); --hv-bw: 1px; } .lens-btn:hover::before { opacity: 1 } }
+.lens-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.lens-btn .chev { width: var(--ic-s); height: var(--ic-s); flex: none; stroke: var(--text-3); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; } .lens-btn .chev.ic { -webkit-mask-image: url("../brand/icons/icons-s.png"); mask-image: url("../brand/icons/icons-s.png"); background-color: var(--text-3); }
+.lens-name { display: none; }
+.chip-btn.icon-only { width: 32px; padding: 0; justify-content: center; }
+.legend { display: flex; align-items: center; gap: 12px; padding: 0 4px; border-radius: var(--r-control); pointer-events: none; }
+.lg-title { display: flex; flex-direction: column; line-height: 1.15; font-size: var(--fs-12); color: var(--text-2); font-weight: 600; text-align: right; white-space: nowrap; margin-right: 4px; }
+.lg-title small { font-size: var(--fs-12); color: var(--text-3); font-weight: 500; }
+.lg-cap { display: none; flex-direction: column; line-height: 1.1; font-size: var(--fs-12); color: var(--text-2); font-weight: 600; text-align: right; white-space: nowrap; margin-right: -4px; }
+.lg-cap small { font-size: var(--fs-12); color: var(--text-3); font-weight: 500; }
+@container figbar (max-width: 1000px) { .legend .lg-cap { display: flex; } }
+@media (max-width: 1599px) { .legend .lg-cap { display: flex; } }
+.lg-scale { position: relative; width: 168px; height: 30px; }
+.lg-bar { position: absolute; left: 0; right: 0; top: 4px; height: 8px; border-radius: 2px; box-shadow: inset 0 0 0 1px var(--key-edge); }
+/* (the old ramp, painted once, fading out over the new by opacity as a new lens lands: legend-morph.js) */
+.lg-bar-was { position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px var(--key-edge); pointer-events: none; will-change: opacity; }
+.lg-tick { position: absolute; top: 12px; width: 1px; height: 3px; margin-left: -.5px; background: var(--text-2); opacity: .7; }   /* (a notch under the bar at each number between its ends, never across the colours) */
+.lg-num { position: absolute; top: 15px; transform: translateX(-50%); font-size: var(--fs-12); font-weight: 600; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.lg-cats { display: flex; gap: 12px; font-size: var(--fs-12); color: var(--text-2); }
+.lg-cats span { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.lg-cats i { flex: none; width: 18px; height: 4px; border-radius: 2px; box-shadow: inset 0 0 0 1px var(--key-edge); }
+.lg-dots { gap: 10px; }
+.lg-dots span { gap: 5px; }
+.lg-dots i { width: 12px; }
+.lg-dots b { font-weight: 500; }
+@media (max-width: 760px) {
+  /* Shorter swatches on a narrow screen. */
+  .lg-dots { gap: 6px; }
+  .lg-dots span { gap: 3px; }
+  .lg-dots i { width: 9px; height: 3px; }
+}
+.lg-note { color: var(--text-3); font-style: italic; }
+.lg-note :is(svg, .ic) { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; } .lg-note .ic { -webkit-mask-image: url("../brand/icons/icons-r.png"); mask-image: url("../brand/icons/icons-r.png"); background-color: currentColor; }
+
+/* SVG label layer (screen space) */
+/* Labels fade in where they come, fade out where they go (stage.js renderBlock, layoutLabels), and glide when moved (labelGlide);
+   their leader lines and dots fade with them (paintLeaders). The entry fade fills backwards only: one filling forwards stays on the
+   label's opacity after it ends, and the browser then starts no transition of it, so every later hide or show (lb-off, ld-gone) snapped
+   off and on at once (2 Nov, "labels turn on and off randomly"). */
+#labels .lb { transition: none; animation: none; }   /* (4 Nov: a label shows and goes at once, no entry fade) */
+/* Tap a label to explain it (stage.js explainApply, label-explain.js): the others step back to 35 %, their leaders with them. Before .lb-off and .ld-gone, which stay at 0. */
+#labels .lb.spot-dim, .lb-leaders > .spot-dim { opacity: var(--label-dim); }
+#labels .lb.lb-off { opacity: 0; pointer-events: none; }
+.lb-leaders > * { transition: none; animation: none; }
+.lb-leaders > .ld-gone { opacity: 0; }
+.lb-leaders > .dpr-hid { opacity: 0; transition-duration: var(--d-surface); }   /* (the station dot under the Doppler's gate fades with the probe, stage.js dprDots) */
+@media (prefers-reduced-motion: reduce) { #labels .lb, .lb-leaders > * { transition-property: opacity; } }   /* (Reduce Motion: they fade, never slide; never pop, 15 Nov 2026) */
+/* The halo grows with the text (--lbk: the labels' size, set by the stage), so large text still reads over the art. */
+#capLabelGl { position: absolute; left: 0; top: 0; pointer-events: none; }
+.cap-model { position: absolute; inset: 0; width: 100%; height: 100%; visibility: hidden; pointer-events: none; overflow: visible; }
+:is(#labels, .cap-model) text { font-family: var(--font-ui); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--label-halo); stroke-width: max(2px, calc(3px * var(--lbk, 1))); stroke-linejoin: round; }
+#labels .lb.inline text, #labels .lb.focus text { stroke: none; }
+/* A label's pill is its fill alone, no hairline round it (Mohammad, 31 Oct); the ones that want an outline (a note mark, a selected or focused name, the liver card) say so themselves below. */
+#labels .lb-bg { fill: var(--label-panel); stroke: none; }
+.lb.inline .lb-bg { filter: drop-shadow(0 1px 1.5px rgb(var(--night-rgb) / .1)); }
+.lb-name { fill: var(--text-2); }
+.lb-val { fill: var(--text); }
+.lb-unit { fill: var(--text-3); }
+.lb-explain { fill: var(--text); }   /* (a tapped label's own line, label-explain.js: the name's ink on the same halo, the term's colour on a lit one) */
+#labels .lb.term .lb-explain { fill: var(--term); }
+.lb-delta { fill: var(--text); }   /* (a change is in its reading's colour: 17 Oct design review) */
+.lb-alert { fill: var(--danger-ink); }   /* (text takes the ink form of its colour, 4.5:1 on the paper looks: tokens.css; the vessels' and the arrowheads' orange and red stay the strokes' colour) */
+.lb-rev { fill: var(--flow-reversed-ink); }
+.lb-organ { fill: var(--text-3); }
+/* On a phone the organ captions and the readings' names share the 12 px floor, so the captions step back in ink instead (looks review L8). */
+@media (max-width: 760px) { .lb-organ { fill: color-mix(in srgb, var(--text-3) 68%, var(--stage-bg)); } }
+.lb-zone { fill: var(--text-3); }
+.lb.node { pointer-events: auto; cursor: pointer; outline: none; }
+.lb.node.sel .lb-name { fill: var(--accent-ink); }
+@media (hover: hover) { .lb.node:is(:hover, .ui-hover) .lb-name { fill: var(--accent-ink); } }
+/* The hover link (hover-link.js, stage.js linkSync): a reading and its vessel light together. The reading whose vessel is
+   hovered, or that is itself hovered or focused, lifts one step on --d-small: its name to full ink, its unit to the name's ink, its leader a step darker. No panel,
+   no border, no glow on the label, and never in a talk (its slides set the lights). A label under the pointer keeps its accent name (above); a selected one its own. */
+@media (hover: hover) {
+  .app:not(.presenting) #labels.hovlink .lb :is(.lb-name, .lb-unit) { transition: none; }
+  .app:not(.presenting) #labels.hovlink .lb-leaders > .leader { transition: opacity var(--d-small) var(--ease); }
+  #labels.hovlink .lb.hov-link:not(.sel):not(:hover):not(.ui-hover) .lb-name { fill: var(--text); }
+  #labels.hovlink .lb.hov-link .lb-unit { fill: var(--text-2); }
+  #labels.hovlink .lb-leaders > .leader.hov-link:not(.hl, .focus) { stroke: color-mix(in srgb, var(--text) 62%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) { .app:not(.presenting) #labels.hovlink .lb :is(.lb-name, .lb-unit), .app:not(.presenting) #labels.hovlink .lb-leaders > .leader { transition: none; } }
+/* A stent called out at its three points: the point the Doppler samples is named in the Doppler's green, as its third glows. */
+.lb.node:is(:focus-visible, .ui-fv) .lb-bg, .lb.node.sel.inline .lb-bg { stroke: var(--accent); stroke-width: 1.5; }
+.lb.node.atlas:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+#labels .lb.focus .lb-bg { fill: var(--accent); stroke: none; }
+.lb.focus text { fill: var(--on-accent); }
+.lb-sw { stroke: rgb(var(--black-rgb) / .08); stroke-width: .5; }
+.leader { fill: none; stroke: var(--leader); stroke-width: 1; }
+.leader.hl { stroke: var(--accent); stroke-width: 1.4; }
+.leader.focus { stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 3 3; }
+.leader-dot { fill: var(--stage-bg); stroke: var(--text-2); stroke-width: 1.3; }
+.leader-dot-halo { fill: var(--stage-bg); }
+/* The FibroScan probe's callout: a pill in the waves' orange (--fibroscan, the colour of the card's readout) with a leader to the waves. It eases in
+   and out with the probe; its own layer (.lb-scan) carries the leader, so neither ever pops. */
+#labels .lb.scan { transition: opacity var(--d-surface) var(--ease); animation: crossfade var(--d-surface) var(--ease) backwards; }
+#labels .lb.scan text { stroke: none; }
+#labels .lb.scan .lb-bg { fill: var(--fibroscan); stroke: none; filter: drop-shadow(0 1px 2px color-mix(in srgb, black 25%, transparent)); }
+#labels .lb-scan-val { fill: color-mix(in srgb, var(--fibroscan) 12%, black); } #labels .lb-scan-unit { fill: color-mix(in srgb, var(--fibroscan) 30%, black); }
+#labels .lb-scan { transition: opacity var(--d-surface) var(--ease); }
+#labels .lb-scan.off { opacity: 0; }
+.leader.scan { stroke: var(--fibroscan); stroke-width: 1.5; }
+.leader-dot.scan { stroke: var(--fibroscan); stroke-width: 1.6; }
+@media (prefers-reduced-motion: reduce) { #labels .lb.scan, #labels .lb-scan { transition-property: opacity; } }
+.chips-off .lb-val { display: none; }
+.lb.module { pointer-events: auto; cursor: pointer; outline: none; }
+.lb.zonecap.link { pointer-events: auto; cursor: pointer; outline: none; }
+/* (R09: while a camera ride or a landing glide has the GPU pictures off their DOM labels, label-gl.js sets #labels.lb-displaced: a click or a
+   hover would land where the label was, so the labels' pointer events wait. Keyboard and focus are untouched.) */
+#labels.lb-displaced .lb.node, #labels.lb-displaced .lb.module, #labels.lb-displaced .lb.zonecap.link { pointer-events: none; }
+.lb-hit, .lb-pick { fill: transparent; }   /* (.lb-pick: the pointer's target of a label label-gl draws, which holds only its name, L3 P10; ui-hover and ui-fv: its look's sample hovered or focused as it, label-gl.js mirror) */
+.lb.zonecap.link.sel .lb-zone { fill: var(--accent-ink); }
+@media (hover: hover) { .lb.zonecap.link:is(:hover, .ui-hover) .lb-zone { fill: var(--accent-ink); } }
+.lb.zonecap.link:is(:focus-visible, .ui-fv) .lb-hit { stroke: var(--focus); stroke-width: 2; }
+#labels .lb.module .lb-bg { fill: transparent; stroke: var(--module-line); }
+.lb.module:is(:focus-visible, .ui-fv) .lb-bg { stroke: var(--accent); }
+@media (hover: hover) { .lb.module:is(:hover, .ui-hover) .lb-bg { stroke: var(--accent); } }
+.lb-lane { fill: var(--text-3); font-style: italic; }
+
+/* Figure header: the compare switch */
+.cmp-label { font-size: var(--fs-12); font-weight: 600; color: var(--text-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cmp-seg button { min-width: 44px; font-variant-numeric: tabular-nums; }
+.cmp-seg button b { font-weight: 600; }
+.cmp-badge.leaving { animation: crossfade-out var(--d-flip) var(--ease-in) forwards; }
+.cmp-badge { animation: crossfade var(--d-small) var(--ease); position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: var(--z-hud); padding: 4px 12px; border-radius: var(--r-pill); font-size: var(--fs-12); font-weight: 600; background: var(--text); color: var(--stage-bg); pointer-events: none; box-shadow: var(--shadow-2); }
+/* On a desktop the top bar floats over the figure: the badge stands under it and under the Compare switch, not hidden behind
+   the bar's centre pill (round 2 review, NP9). */
+@media (min-width: 1024px) { .cmp-badge { top: calc(var(--top-safe, 0px) + 6px + var(--cmp-h, 0px)); } }
+
+/* Transport (bottom-left of the figure) */
+.transport { display: flex; align-items: center; gap: 8px; justify-self: start; min-width: 0; }
+.transport .play { width: 36px; height: 36px; border-radius: var(--r-card); background: var(--text); color: var(--stage-bg); flex: none; }
+@media (hover: hover) { .transport .play:hover { background: var(--text); color: var(--stage-bg); opacity: .88; } }
+.transport .play :is(svg, .ic) { width: var(--ic-s); height: var(--ic-s); }
+/* (Both icons share one cell while the old fades out under the new: RF7.) */
+.ib.play > :is(svg, .ic) { grid-area: 1 / 1; }
+
+/* Tools: Select plus three named groups; a group opens a tray listing its tools by name */
+.toolbar { display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: var(--r-sheet); background: var(--surface); box-shadow: var(--shadow-1), inset 0 0 0 1px var(--hairline); justify-self: center; }
+.tb-sep { width: 1px; height: 22px; background: var(--hairline); margin: 0 2px; }
+
+.zoom { display: flex; gap: 2px; justify-self: end; }
+.zoom .ib { width: 32px; height: 32px; }
+
+/* Contextual cards floating over the figure (they are label-layout obstacles) */
+.tool-card {
+  position: absolute; left: 12px; bottom: calc(var(--vdock-top, 0px) + 12px);   /* (above the transport bar and the vitals dock, not under them: the shunt help ran over the play buttons, V10) */ z-index: var(--z-hud); width: min(300px, calc(100% - 24px)); padding: 12px 12px 12px 16px;
+  background: var(--surface); border-radius: var(--r-card); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline);
+  font-size: var(--fs-14); color: var(--text-2); line-height: 1.5; animation: fade-rise var(--d-small) var(--ease);
+}
+.tool-card.leaving { pointer-events: none; animation: fade-rise-out var(--d-flip) var(--ease-in) forwards; }
+.tool-card .tc-title { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: var(--fs-14); color: var(--text); margin-bottom: 2px; }
+.tool-card .tc-title :is(svg, .ic) { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; } .tool-card .tc-title .ic { -webkit-mask-image: url("../brand/icons/icons-r.png"); mask-image: url("../brand/icons/icons-r.png"); background-color: currentColor; }
+.tool-card .tc-title .tc-sp { flex: 1; }
+.tool-card .tc-title .ib { width: 26px; height: 26px; margin: -4px -8px -4px 0; }
+.tool-card .tc-title .ib :is(svg, .ic) { width: var(--ic-s); height: var(--ic-s); }
+.tool-card kbd { font: 500 var(--fs-12) var(--font-mono); color: var(--text-3); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; background: var(--surface); }
+.tool-card .seg { margin-top: 8px; }
+
+/* ── Motion primitives (premium-feel R11): everything that enters or leaves is one of four, each with its exit. An exit is
+   the entrance reversed, played at the step below (ease.js, tokens.css) and toward where the piece came from.
+   fade-rise: words, rows, chips and panes rise 6 px into place.   slide-from-edge: a sheet, a side card
+   come from their edge (--edge-x / --edge-y: how far, --edge-o: the opacity it starts at; a sheet keeps 1).
+   scale-settle: a card or popover settles by its opacity alone (since 2 Nov 2026; placed by util.js placeAt).
+   crossfade: a swap of text, a lens, the figure's dim. Every other @keyframes below is a loop, an attention cue or a
+   scene that teaches, or it moves a registered variable some other code also reads (motion-scale.test.js keeps the list). ── */
+@property --rise-x { syntax: '<length-percentage>'; inherits: false; initial-value: 0px; }
+@property --rise-y { syntax: '<length-percentage>'; inherits: false; initial-value: 6px; }
+@property --edge-x { syntax: '<length-percentage>'; inherits: false; initial-value: 0px; }
+@property --edge-y { syntax: '<length-percentage>'; inherits: false; initial-value: 0px; }
+@property --edge-o { syntax: '<number>'; inherits: false; initial-value: 1; }
+/* (scroll-edges.js: 1 while a list has more beyond its top / bottom; they inherit so a menu's veils, its ::before and ::after, read them) */
+@property --sedge-t { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --sedge-b { syntax: '<number>'; inherits: true; initial-value: 0; }
+@keyframes fade-rise { from { opacity: 0; transform: translate(var(--rise-x, 0px), var(--rise-y, 6px)); } }
+@keyframes fade-rise-b { from { opacity: 0; transform: translate(var(--rise-x, 0px), var(--rise-y, 6px)); } }   /* (the same under a second name: swapping names restarts it with no reflow, menu.js setTab) */
+@keyframes fade-rise-out { to { opacity: 0; transform: translate(var(--rise-x, 0px), var(--rise-y, 6px)); } }
+@keyframes slide-from-edge { from { opacity: var(--edge-o, 1); transform: translate(var(--edge-x, 0px), var(--edge-y, 0px)); } }
+@keyframes slide-to-edge { to { opacity: var(--edge-o, 1); transform: translate(var(--edge-x, 0px), var(--edge-y, 0px)); } }
+/* (2 Nov 2026, "stop text jiggling": a card or popover settles by its opacity alone. Its text was scaled from .98 to 1 as it came in, and a
+   browser draws text in a scaled layer a little soft, then sharp at the end of the entrance (WebKit rasterises it at the scale it has, then again at
+   rest): the words popped as they arrived. Opacity runs on the compositor with no re-raster, and the name and the origin of the keyframes are kept
+   for everything that reads them (menu-leave.js).) */
+@keyframes scale-settle { from { opacity: 0; } }
+@keyframes scale-settle-out { to { opacity: 0; } }
+@keyframes crossfade { from { opacity: 0; } }
+@keyframes crossfade-out { to { opacity: 0; } }
+.hover-tip { position: absolute; left: 0; top: 0; pointer-events: none; padding: 10px 12px 9px; font-size: var(--fs-12); min-width: 188px; max-width: min(280px, calc(100% - 16px)); z-index: var(--z-hud); border-radius: var(--r-card); background: var(--surface); box-shadow: var(--shadow-menu, var(--shadow-2)), 0 0 0 1px var(--hairline); opacity: 0; visibility: hidden; transform: translateY(4px); transform-origin: top left; transition: opacity var(--d-flip) var(--ease), transform var(--d-flip) var(--ease), visibility 0s linear var(--d-flip); }
+.hover-tip.on { opacity: 1; visibility: visible; transform: none; transition: opacity var(--d-flip) var(--ease), transform var(--d-flip) var(--ease), visibility 0s; }
+.hover-tip .t { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 13px; line-height: 1.3; color: var(--text); padding-bottom: 7px; margin-bottom: 6px; border-bottom: 1px solid var(--hairline); }
+.hover-tip .r { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; color: var(--text-2); line-height: 1.7; }
+.hover-tip .r b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.hover-tip .r .u { margin-left: 3px; font-size: var(--fs-12); font-weight: 500; color: var(--text-3); }
+.glass { background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); border-radius: var(--r-card); }
+.stage-clock { display: none; }
+
+/* The credit: a faint line in the figure's lower-left, shifted in from the corner. It draws over the figure in every view
+   (the lobule included) and is never covered by it or by a card: it rides above the dock, a docked card or sheet
+   (--sheet-h), a phone's chart sheet (--panel-h) and a stacked presenter card. Only a full-screen menu, popover or dialog
+   passes over it while open. Decorative and non-interactive. */
+.stage-credit { position: absolute; left: 0; top: 0; translate: var(--cx, 24px) var(--cy, 24px); z-index: var(--z-figure); font-size: var(--fs-12); font-weight: 500; line-height: 1.4; letter-spacing: .01em; white-space: nowrap; color: color-mix(in srgb, var(--text) 45%, transparent); pointer-events: none; user-select: none; }
+/* (13 Nov 2026) Over the thumb dock a menu sheet or the Search sheet has no fill of its own (its frost is drawn in the figure's canvas, under the page),
+   so the credit, which is page text over the figure, showed through the Search list. It steps out while any of them is up. */
+html.thumb-ui:has(.sheet-layer > :is(.menu, .umenu, .why-pop.show), body > .pal-back:not([hidden])) .stage-credit { visibility: hidden; }
+/* (13 Nov 2026) The message card at the foot is the same: its frost is in the figure's canvas, so on a phone the credit read through the card. It steps out while a message is up. */
+html.thumb-ui:has(#toastsFoot > .toast) .stage-credit { visibility: hidden; }
+
+/* ── Readouts: the live monitor under the figure ─────
+   One fixed set in teaching order: pressure → flow → consequences → systemic. Nothing joins or
+   leaves as values change; narrower screens fold whole groups behind the chevron. Each value has
+   a bar: where it sits between its clinical cut-offs (the ticks). */
+.readouts { container-type: inline-size; min-width: 0; position: relative; touch-action: pan-x; }
+.ro-row { display: flex; align-items: stretch; padding: 0 4px; }
+.ro-group { flex: var(--n, 3) 1 0; min-width: 0; display: flex; flex-direction: column; padding: 6px 4px 8px; position: relative; }
+.ro-group + .ro-group::before { content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; width: 1px; background: var(--hairline); }
+.ro-cap { font-size: var(--fs-12); font-weight: 500; color: var(--text-3); padding: 0 8px; line-height: 16px; white-space: nowrap; }
+.ro-tiles { display: flex; flex: 1; min-width: 0; }
+.ro-group[data-group="effects"] { --n: 3.4; }
+.metric[data-id="varix"] { flex-grow: 1.4; }
+.metric {
+  flex: 1 1 0; min-width: 0; padding: 2px 6px 2px; border: 0; border-radius: var(--r-control); background: transparent; text-align: left; cursor: pointer; color: var(--text);
+  display: flex; flex-direction: column; gap: 0; transition: none;
+}
+@media (hover: hover) { .metric { --hv-bg: var(--surface-2); } .metric:hover::before { opacity: 1 } }
+.metric.inert { cursor: default; }
+@media (hover: hover) { .metric.inert { --hv-bg: transparent; } .metric.inert:hover::before { opacity: 1 } }
+.metric .k { font-size: var(--fs-12); font-weight: 500; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.4; }
+.metric .v { font-size: var(--fs-20); font-weight: 600; letter-spacing: -.015em; white-space: nowrap; display: flex; align-items: baseline; line-height: 1.25; min-width: 0; overflow: hidden; }
+.metric .v .unit { font-size: var(--fs-12); font-weight: 500; color: var(--text-3); margin-left: 3px; letter-spacing: 0; }
+.metric .tr { font-size: var(--fs-12); margin-left: 4px; color: var(--text-3); flex: none; }
+/* A tile's colours ease into a new band with its number rolling to the new value (dock.js countTo, P17). */
+.metric .val, .metric .status { transition: none; }
+.rb { position: relative; display: block; height: 4px; margin: 4px 0 5px; border-radius: 2px; background: var(--surface-3); }
+.rb-fill { position: absolute; top: 0; bottom: 0; left: 0; width: 100%; border-radius: 2px; background: var(--sev); transform-origin: 0 50%; translate: calc(var(--fl, 0) * 100%) 0; scale: var(--fw, 0) 1; transition: opacity var(--d-small) var(--ease); }   /* dock.js sets --fl (start) and --fw (length) as 0..1 shares of the track: the bar moves by transform, not layout. Its glide is the shown state's, frame by frame (display-state.js, premium-feel R4), not a transition trailing each model frame */
+.rb-tick { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--surface); }
+.metric.hidden-val .rb-fill { scale: 0 1; }
+.table-wrap { overflow-x: auto; margin: 4px 0 8px; }
+.cut-table { width: 100%; border-collapse: collapse; font-size: var(--fs-14); }
+.cut-table th, .cut-table td { text-align: left; padding: 8px 8px; border-bottom: 1px solid var(--hairline); vertical-align: top; }
+.cut-table th { font-weight: 600; color: var(--text-2); white-space: nowrap; }
+.cut-table td:first-child { font-weight: 600; color: var(--text); white-space: nowrap; }
+.cut-h { display: inline-flex; align-items: center; gap: 8px; }
+/* On a phone the status table stacks: the readout on its own line, then one labelled line for each band that has a value (the five columns were wider than the dialog and it scrolled sideways, cut off at the edge). */
+@media (max-width: 560px) {
+  .cut-table thead { display: none; }
+  .cut-table, .cut-table tbody, .cut-table tr, .cut-table td { display: block; width: 100%; }
+  .cut-table tr { padding: 12px 0; border-bottom: 1px solid var(--hairline); }
+  .cut-table td { padding: 2px 0; border: 0; }
+  .cut-table td:first-child { min-width: 0; padding-bottom: 4px; }
+  .cut-table td[data-label] { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); column-gap: 12px; }
+  .cut-table td[data-label]::before { content: attr(data-label); font-size: var(--fs-12); font-weight: 600; line-height: 1.7; }
+  .cut-table td.none { display: none; }
+  .cut-table td[data-sev="ok"]::before { color: var(--ok-ink); } .cut-table td[data-sev="caution"]::before { color: var(--caution-ink); }
+  .cut-table td[data-sev="danger"]::before { color: var(--danger-ink); } .cut-table td[data-sev="critical"]::before { color: var(--critical-ink); }
+}
+.cut-h[data-sev="ok"] { color: var(--ok-ink); } .cut-h[data-sev="caution"] { color: var(--caution-ink); } .cut-h[data-sev="danger"] { color: var(--danger-ink); } .cut-h[data-sev="critical"] { color: var(--critical-ink); }
+.metric .s { display: flex; align-items: center; gap: 4px; font-size: var(--fs-12); color: var(--text-3); white-space: nowrap; overflow: hidden; line-height: 1.35; }
+.metric .status { overflow: hidden; text-overflow: ellipsis; }
+.status { display: inline-flex; align-items: center; gap: 4px; font-weight: 500; }
+.metric[data-sev="ok"] { --sev: var(--ok); } .metric[data-sev="caution"] { --sev: var(--caution); }
+.metric[data-sev="danger"] { --sev: var(--danger); } .metric[data-sev="critical"] { --sev: var(--critical); } .metric[data-sev="none"] { --sev: var(--border-strong); }
+.metric[data-sev="danger"] .status { color: var(--danger-ink); font-weight: 600; } .metric[data-sev="critical"] .status { color: var(--critical-ink); font-weight: 600; }   /* (a reading's text colour is its status ink, tokens.css: one red for the tile, the play bar and the chart) */
+.metric[data-sev="caution"] .status { color: var(--caution-ink); }
+.metric[data-sev="ok"] .rb-fill { opacity: .55; }
+.metric.hidden-val .v { color: var(--text-3); }
+/* A reading not in yet (before the first frame) is blank, never a dash with a unit after it; one being worked out again keeps its last number, dimmed. */
+.metric .v:has(> .val:empty) > .unit { visibility: hidden; }
+.vital b:empty, .metric .val:empty { min-width: var(--vr, 0px); }
+.metric .val.recompute, .vital b.recompute { opacity: .5; }
+.metric .cmp { font-size: var(--fs-12); font-weight: 600; font-variant-numeric: tabular-nums; transition: none; }   /* (up, down and same trade colours as the change crosses zero) */
+.metric .cmp.up { color: var(--danger-ink); } .metric .cmp.down { color: var(--accent-ink); } .metric .cmp.same { color: var(--text-3); font-weight: 500; }
+.ro-systemic { flex: 0 0 auto; padding-right: 4px; }
+.vb-grid { display: grid; grid-template-columns: repeat(2, auto); gap: 1px 16px; padding: 3px 8px 0; align-content: start; }
+.vital { display: flex; align-items: baseline; gap: 4px; border: 0; background: none; padding: 1px 0; font-size: var(--fs-12); color: var(--text-3); cursor: pointer; text-align: left; white-space: nowrap; }
+div.vital { cursor: default; }
+.vital span { min-width: 22px; }
+.vital b { font-weight: 600; color: var(--text); font-size: var(--fs-14); font-variant-numeric: tabular-nums; }
+.vital b { transition: none; }
+.vital.bad b { color: var(--danger-ink); }
+/* The blood pressure, BP 120/80 (93): its systolic/diastolic and the bracket sit against the mean, with no gap (vital-read.js bpText). */
+.vital .v-bp { margin: 0 -4px 0 0; } .vital b + .v-bp { margin: 0 0 0 -4px; } .vital .v-bp:empty { display: none; }
+/* Where the hemoglobin is heading once the plasma refills (vital-read.js `to`): amber after a bleed, green after a unit. */
+.vital .v-to { display: none; font-style: normal; font-size: var(--fs-12); color: var(--caution-ink); } .vital .v-to em { font-style: normal; font-weight: 600; margin-left: 2px; } .vital.heading .v-to { display: inline; } .vital.heading-up .v-to { color: var(--ok-ink); }
+@media (hover: hover) { button.vital:hover b { text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; } }
+/* Narrower: the systemic block folds behind the chevron. */
+@container (max-width: 1000px) {
+  .readouts:not(.all) .ro-systemic { display: none; }
+  .readouts.all .ro-row { flex-wrap: wrap; }   /* full width: the chevron sits over the first caption line, not in a column of its own */
+  .readouts.all .ro-systemic { flex: 1 1 100%; border-top: 1px solid var(--hairline); padding-bottom: 10px; }
+  .readouts.all .ro-systemic::before { display: none; }
+  .readouts.all .vb-grid { grid-template-columns: repeat(5, auto); justify-content: start; }
+}
+/* Phone: the four key readouts in one row; the chevron opens every group. */
+@container (max-width: 720px) {
+  .readouts:not(.all) .ro-cap { display: none; }
+  .readouts:not(.all) .metric:not(.primary) { display: none; }
+  .readouts:not(.all) .ro-group { --n: 1; padding-top: 8px; }
+  .readouts:not(.all) .ro-group[data-group="pressure"] { --n: 3; }
+.readouts:not(.all) .ro-group:not(:has(.metric.primary)) { display: none; }
+  .readouts.all .ro-group { flex: 1 1 100%; }
+  .readouts.all .ro-group + .ro-group { border-top: 1px solid var(--hairline); }
+  .ro-group + .ro-group::before { display: none; }   /* hidden groups still count as siblings: no stray divider at the left */
+  .readouts.all .vb-grid { grid-template-columns: repeat(5, auto); justify-content: space-between; column-gap: 8px; }   /* the five vitals share one row */
+  .metric { padding: 2px 6px; }
+  .metric .v { font-size: var(--fs-16); }
+  .metric .k, .metric .s { font-size: var(--fs-12); }
+  .readouts:not(.all) .u-x { display: none; }
+}
+
+/* ── Instrument drawer ──────────────────────────── */
+.dock { background: var(--surface); display: none; flex-direction: column; flex: 1; min-height: 0; min-width: 0; position: relative; }
+.app.dock-open .dock { display: flex; }
+
+.dock-head { display: flex; align-items: center; gap: 12px; flex: none; height: 43px; padding: 0 8px 0 12px; min-width: 0; }
+.dock-title { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-12); font-weight: 600; color: var(--text); white-space: nowrap; border: 0; background: none; cursor: pointer; padding: 8px 4px; border-radius: var(--r-control); }
+.dock-title { position: relative; }
+.dock-body { flex: 1; min-height: 0; position: relative; overflow: hidden; border-top: 1px solid var(--hairline); }
+.dock-pane { position: absolute; inset: 0; display: none; padding: 12px 16px 20px; overflow: auto; }
+.dock-pane.active { display: flex; flex-direction: column; gap: 16px; }
+.dock-pane .chart-box { flex: none; height: clamp(240px, 42vh, 420px); }
+.chart-box.square { max-width: 420px; }
+.dock-pane .chart-box.square { max-width: none; }
+.dock-pane .chart-side { width: auto; overflow: visible; }
+.chart-box { position: relative; flex: 1; min-width: 0; min-height: 120px; }
+.chart-box canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.chart-box[hidden] { display: none; }
+.chart-box.dark { background: var(--scope-bg); border-radius: var(--r-card); }
+.chart-side { width: 256px; flex: none; display: flex; flex-direction: column; gap: 12px; font-size: var(--fs-14); overflow-y: auto; padding-right: 2px; }
+.chart-side > * { flex-shrink: 0; }
+.legend-inline { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: var(--fs-12); color: var(--text-2); }
+.legend-inline i { display: inline-block; width: 16px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 8px; }
+.empty { color: var(--text-3); font-size: var(--fs-14); padding: 20px 2px; }
+.kv { display: grid; grid-template-columns: 1fr auto; font-size: var(--fs-14); margin: 0; }
+.kv dt { color: var(--text-2); padding: 4px 0; border-bottom: 1px solid var(--hairline); }
+.kv dd { margin: 0; font-weight: 600; text-align: right; padding: 4px 0 4px 12px; border-bottom: 1px solid var(--hairline); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kv > :nth-last-child(-n+2) { border-bottom: 0; }
+.kv.wrap { grid-template-columns: minmax(0, 1fr) auto; }
+.kv.wrap dd { white-space: normal; }   /* long readouts wrap instead of running out of a narrow pane */
+.kv.compact dt, .kv.compact dd { padding: 4px 0; }
+.formula { font: var(--fs-12)/1.6 var(--font-mono); background: var(--surface-2); border-radius: var(--r-control); padding: 8px 12px; overflow-x: auto; color: var(--text-2); }
+

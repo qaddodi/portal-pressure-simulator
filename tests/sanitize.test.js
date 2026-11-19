@@ -6,7 +6,7 @@ import { Engine } from '../src/engine/portal/engine.js';
 import { computeMetrics } from '../src/engine/portal/metrics.js';
 
 test('share-link params are clamped to the control ranges', () => {
-  const p = sanitizeParams({ systemicTone: 0, cirrhosis: 7, albumin: 'x', drugs: 'yes', tips: { on: 1, d: 99 }, thrombus: { PV_TRUNK: -3 } });
+  const p = sanitizeParams({ systemicTone: 0, cirrhosis: 7, albumin: 'x', drugs: 'yes', tips: { on: true, d: 99 }, thrombus: { PV_TRUNK: -3 } });
   assert.equal(p.systemicTone, 0.4);
   assert.equal(p.cirrhosis, 1);
   assert.equal(p.albumin, defaultParams().albumin);

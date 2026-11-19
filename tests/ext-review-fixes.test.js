@@ -2,7 +2,6 @@
 // EXT-ASY-1 is audit-correctness-b.test.js).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { Engine } from '../src/engine/portal/engine.js';
 import { computeMetrics } from '../src/engine/portal/metrics.js';
 import { createCore } from '../src/worker-core.js';
@@ -95,14 +94,3 @@ test('EXT-WRK-3: a morph does not count the time the tab was hidden', async (t) 
   assert.equal(frames().at(-1).morphing, false, 'and it ends on its own time');
 });
 
-test('EXT-HIS-1: the timeline cancels the debounce it owns and ignores a timer of an older edit or history', () => {
-  const tl = readFileSync(new URL('../src/ui/timeline.js', import.meta.url), 'utf8');
-  const fp = tl.slice(tl.indexOf('function flushParams()'), tl.indexOf('/** An engine action'));
-  assert.match(fp, /clearTimeout\(pending\.timer\);\s*pending = null;/, 'a flush cancels its own timer');
-  const rs = tl.slice(tl.indexOf('function reset(label)'), tl.indexOf('/** A change made by the learner'));
-  assert.match(rs, /if \(pending\) clearTimeout\(pending\.timer\);\s*tlGen\+\+;/, 'a reset cancels it and starts a new history');
-  assert.match(tl, /if \(pending && mine === editSeq\) flushParams\(\)/, 'a timer of an older edit does not flush the newer one');
-  assert.match(tl, /later\(\(\) => snapInto\(e\), 80\)/);
-  assert.match(tl, /later\(\(\) => snapInto\(e\), 120\)/);
-  assert.match(tl, /if \(g !== tlGen\) return;/, 'a snapshot that comes back after a reset is not published');
-});

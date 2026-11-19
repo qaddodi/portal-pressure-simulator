@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { LOOKS } from '../src/ui/chart-looks/index.js';
 import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const ctx = (over = {}) => withCtx(makeCtx({ host: 'col', layout: 'wide', scale: { cap: 14 } }), { theme: 'light', dark: false, palette: 'navy', ...over });
 const P = (k, st = {}, c = ctx()) => resolveProps(LOOKS[k], c, st, {});
@@ -51,10 +52,10 @@ test('the walls: the flow is thicker in the sinusoid, albumin crossing a pore st
   assert.equal(P('card.walls.alb').fill, P('card.walls.cross').fill);
 });
 test('every piece presenter.js builds for these diagrams names a look that exists, and the sheet keeps no model rule', () => {
-  const src = read('src/ui/presenter.js') + read('src/ui/presenter-visuals.js');
+  const src = presenterSource() + read('src/ui/presenter-visuals.js') + read('src/ui/calc-client.js');
   const names = [...src.matchAll(/'data-look': '(card\.[\w.]+)'/g)].map((m) => m[1]);
   assert.ok(names.length >= 30);
   for (const n of names) assert.ok(LOOKS[n], `look ${n}`);
-  const css = read('styles/app.css');
+  const css = appCss();
   assert.doesNotMatch(css, /\.c-(top|pv|flow|lane|link-b|edge|fill|bal|cath|tip|brk|blk|lead|blkt)\b|\.pzq-(q|n|cut|axis|t|ax|pt)\b|\.pzw-(l|lumen|wall|bm|tissue|hep|disse|alb|flow|head|dots|cross)\b/, 'the diagrams\' model rules are gone');
 });

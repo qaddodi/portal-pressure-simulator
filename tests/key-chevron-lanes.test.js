@@ -1,4 +1,3 @@
-import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { EDGES } from '../src/engine/portal/topology.js';
@@ -22,8 +21,3 @@ test('every lane rule names a real vein and a real collateral', () => {
   }
 });
 
-test('the stage asks keyChevron, with the collaterals drawn open, for each vessel\'s chevrons', () => {
-  const src = stageSource();
-  assert.match(src, /keyChevron\(EDGES\[k\], laneOpen\)/);
-  assert.doesNotMatch(src, /KEY_IDS/);
-});

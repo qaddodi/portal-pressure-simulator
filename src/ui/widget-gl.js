@@ -15,9 +15,10 @@
 // `pad`: CSS px of picture around the element's box (a shadow reaches past it). The picture is the box plus pad on every side; the paint
 // callback draws the box at (pad, pad).
 
+import { widgetState } from './widget-ready.js';
 import { createTraceGL, fitPen } from './trace-gl.js';
 import { onTheme } from './theme-epoch.js';
-import { onCanvasResized } from './util.js';
+import { onCanvasResized, primeCanvasSize } from './util.js';
 import { caught } from './caught.js';
 
 const ALL = new Set();   // alloc-rare: the widgets alive (a toast, a menu: each added once when built)
@@ -48,13 +49,15 @@ export function widgetGL(el, paint, { pad = 0 } = {}) {
   const api = {
     live: false,
     pad,
+    /** The picture's box read now (between frames), so the first paint need not wait for the observer's report. */
+    prime() { if (!dead) primeCanvasSize(host); },
     paint() {
       if (dead) return false;
       const p = fitPen(host, gpu), ctx = p.ctx;
       if (!ctx || ctx.onGPU !== true) return false;
       try { paint(ctx, p.w, p.h, pad); } catch (e) { caught('widget-gl:paint', e); }
       const ok = ctx.end?.() !== false;
-      if (ok && !api.live) { api.live = true; el.classList.add('wgl-on'); }
+      if (ok && !api.live) { api.live = true; widgetState.live++; el.classList.add('wgl-on'); }
       return ok;
     },
     dispose() {

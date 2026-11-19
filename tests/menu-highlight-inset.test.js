@@ -3,8 +3,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 
 test('the patient pill pads its button the same on every side', () => {
   const pads = [...css.matchAll(/^\s*\.tb-id \{ padding: ([^;]+); \}/gm)].map((m) => m[1]);

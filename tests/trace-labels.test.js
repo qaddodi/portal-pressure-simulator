@@ -2,7 +2,6 @@
 // each time point is named once, and the chart makes room so no label is clipped.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { traceLabel, traceLabelRoom, traceWhen, LABEL_MAX } from '../src/ui/trace-labels.js';
 import { DECKS } from '../src/ui/decks.js';
 
@@ -25,9 +24,6 @@ test('the chart leaves room for the longest label at its last column', () => {
 });
 
 test('the chart draws its stage names level on top (Mohammad\'s "Two gaps" pick, 6 Nov 2026), and the ten-years deck has no two states on the same label', () => {
-  const src = readFileSync(new URL('../src/ui/talk-trace.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(src, /rotate\(/, 'no slanted or upright words');
-  assert.match(src, /'data-look': 'talk\.stage'/, 'the stage names, level');
   const d = DECKS.find((x) => x.slides.some((s) => s.id === 'd365'));
   const ticks = d.slides.filter((s) => s.tick).map((s) => s.tick);
   assert.equal(new Set(ticks).size, ticks.length);

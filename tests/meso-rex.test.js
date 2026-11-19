@@ -21,7 +21,8 @@ test('the graft is one edge from the superior mesenteric vein to the left portal
   const off = chronic();
   assert.equal(off.Q[EI.REX], 0, 'no flow while it is closed');
   assert.equal(off.diameter('REX'), 0, 'not drawn while it is closed');
-  assert.equal(sanitizeParams({ rex: 'yes' }).rex, true);
+  assert.equal(sanitizeParams({ rex: true }).rex, true);
+  assert.equal(sanitizeParams({ rex: 'yes' }).rex, false, 'a string is not a switch (R07)');
   assert.equal(sanitizeParams({ rex: 0 }).rex, false);
 });
 

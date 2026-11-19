@@ -4,9 +4,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss, presenterSource } from './split-src.js';
 
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const css = appCss();
+const src = presenterSource();
 
 const VISUALS = ['outline', 'table', 'check', 'plane'];   // (plane: an illustration, narrower than the table, Mohammad 29 Oct)
 const ALL = [...VISUALS, 'chart'];

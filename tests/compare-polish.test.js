@@ -3,9 +3,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const src = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
-const compare = src('src/ui/compare.js'), css = src('styles/app.css'), dock = src('src/ui/dock.js');
+const compare = src('src/ui/compare.js'), css = appCss(), dock = src('src/ui/dock.js');
 
 test('the groups cover every row of the table, in order', () => {
   const groups = [...compare.match(/const GROUPS = \[(.*)\];/)[1].matchAll(/\['(\w+)', (\d+)\]/g)].map((m) => [m[1], +m[2]]);

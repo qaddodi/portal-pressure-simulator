@@ -16,15 +16,9 @@ async function isolatedHost() {
 
 // ── B1, B2: a load that was replaced or failed applies and announces nothing ──
 test('B1/B2: loadPreset says whether it applied; a link, "Restarted" and a patient toast wait for that', () => {
-  const lp = main.slice(main.indexOf('async function loadPreset('), main.indexOf('function encodeShare'));
-  assert.match(lp, /catch \{.*return false;/, 'a failed load answers false');
-  assert.match(lp, /if \(gen !== presetGen\) return false;/, 'a replaced load answers false');
-  assert.match(lp, /return true;\s*\/\/[^\n]*\n\}/, 'an applied load answers true');
-  const ls = main.slice(main.indexOf('async function loadShared('), main.indexOf('// The orange PREVIEW pill'));
-  assert.ok(ls.indexOf('if (!(await loadPreset(s.preset))) return false;') > 0 && ls.indexOf('if (!(await loadPreset(s.preset)))') < ls.indexOf('s.params'), 'the link stops before its settings when its patient did not load');
+  // (A link stops before its settings when its patient did not load: tests/share-flow.test.js runs it.)
   const rs = main.slice(main.indexOf('async function restartPatient('), main.indexOf('function resetEverything'));
   assert.ok(rs.indexOf('if (!(await loadPreset(id))) return;') < rs.indexOf('toast(`Restarted'), 'no Restarted toast for a load that did not apply');
-  assert.match(main, /if \(await loadPreset\(id\)\) \{ const pr = store\.get\(\)\.presetList\.find\(\(p\) => p\.id === id\); toast\(pr\?\.label/, 'the palette toasts the patient only when it loaded');
 });
 
 // ── B3: sends during a restart are kept and told in order ──
@@ -52,7 +46,6 @@ test('B3: messages sent while the engine restarts reach the new engine in order'
   await restarting;
   assert.deepEqual(workers[1].sent.map((m) => m.type), ['init', 'run', 'probe'], 'told after init, in order');
   assert.equal(workers[1].sent[2].id, 'SV');
-  assert.match(main, /if \(s\.frame\?\.probe\) host\.send\(\{ type: 'probe', id: s\.frame\.probe \}\)/, 'restartPatient tells the probe vessel again');
 });
 
 // ── B5: no worker: an engine error is a crash, not an exception in the sender ──
@@ -72,21 +65,11 @@ test('B5: on the main-thread fallback an engine error is reported as a crash and
 });
 
 // ── B4: a snapshot that fails is marked and shown ──
-test('B4: a failed timeline snapshot marks the entry and the History row says it cannot be gone back to', () => {
-  const tl = read('timeline.js');
-  const s = tl.slice(tl.indexOf('async function snapInto('), tl.indexOf('function truncateFuture'));
-  assert.match(s, /try \{ \(\{ snap \} = await host\.request\('snapshot'\)\); \} catch \{ snap = null; \}/);
-  assert.match(s, /e\.snapFailed = true/);
-  assert.match(tl, /e\.snapFailed && !e\.snap \? h\('div', \{ class: 'tl-pop-d tl-nogo' \}, 'Can’t go back here/);
-});
 
 // ── B6: a link pasted into an open tab is applied ──
 test('B6: a new #s= in the address of an open tab is read and loaded as at start', () => {
   const at = main.indexOf("window.addEventListener('hashchange'");
   assert.ok(at > 0, 'there is a hashchange handler');
-  const h = main.slice(at, at + 600);
-  assert.match(h, /readShare\(\)/);
-  assert.match(h, /loadShared\(next\)/);
 });
 
 // ── B7: unknown vessels and keys are dropped ──

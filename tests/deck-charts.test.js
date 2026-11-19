@@ -474,6 +474,13 @@ function checkInflow(parts, w, f, hParts, at) {
   assert.ok(Math.abs(sp.at(-1).b - w) < 1e-9 && sp[0].a === 0, `${at}: the bar spans the card`);
   labs.forEach((l, i) => {
     const s = sp[i], v = `${s.pct}%`, vw = m(v, f, 700), full = s.id === 'portal' ? 'Portal vein' : 'Hepatic artery', short = s.id === 'portal' ? 'Portal' : 'Artery';
+    // (A segment too narrow for its percent, the Doppler slide's 1% portal share, is named in one line above the bar on a lead line: tier 3, inside the card and clear of the Healthy words.)
+    if (l.tier === 3) {
+      assert.ok(l.cx - l.tw / 2 >= -1e-9 && l.cx + l.tw / 2 <= w + 1e-9, `${at}: ${s.id}'s lead-line name inside the card`);
+      assert.ok(l.lead >= s.a - 1e-9 && l.lead <= s.b + 1e-9, `${at}: ${s.id}'s lead line stands on its segment`);
+      assert.ok(l.cx + l.tw / 2 <= mark.L - g + 1e-9 || l.cx - l.tw / 2 >= mark.R + g - 1e-9 || l.cx + l.tw / 2 <= mark.x - LABEL_GAP + 1e-9 || l.cx - l.tw / 2 >= mark.x + LABEL_GAP - 1e-9, `${at}: ${s.id}'s lead-line name clear of the Healthy words`);
+      return;
+    }
     assert.ok(l.tier <= 2, `${at}: ${s.id} named on its segment (tier ${l.tier})`);
     const tw = [Math.max(m(full, f, 500), vw), Math.max(m(short, f, 500), vw), vw][l.tier];
     assert.ok(l.cx - tw / 2 >= s.a + g - 1e-9 && l.cx + tw / 2 <= s.b - g + 1e-9, `${at}: ${s.id} clear of its segment's edges`);

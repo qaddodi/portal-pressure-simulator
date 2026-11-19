@@ -4,8 +4,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { VIEW_CHANGE_S, VIEW_CHANGE_MS, viewXfCamU, viewXfDetach, viewXfLeftMs, viewXfRetarget } from '../src/ui/view-xf.js';
 import { lerpVT } from '../src/ui/cam-arc.js';
-import { D_SMALL } from '../src/ui/ease.js';
-import { RAIL_MS, easeRail } from '../src/ui/card-throw.js';
+import { D_SMALL, easeArrive } from '../src/ui/ease.js';
+import { RAIL_MS } from '../src/ui/card-throw.js';
 
 const near = (a, b, e = 1e-6) => Math.abs(a - b) <= e;
 const closeVT = (a, b) => near(a.k, b.k, 1e-9) && near(a.x, b.x, 1e-6) && near(a.y, b.y, 1e-6);
@@ -63,7 +63,7 @@ test('a hand on the view takes the camera from the change: it is not retargeted,
 test('hand-overs (item 4): a thrown card needs no fixed floor, it is out of sight well inside the floor that was', () => {
   // The rail curve: a leaving card's opacity hits 0 at 85 % of its way (card-throw.js throwInto).
   let t = 0;
-  while (t < RAIL_MS && easeRail(t / RAIL_MS) < 0.85) t++;
+  while (t < RAIL_MS && easeArrive(t / RAIL_MS) < 0.85) t++;
   assert.ok(t >= 150 && t <= 190, `out of sight at ${t} ms of ${RAIL_MS}`);
   const floor = D_SMALL + 20;   // (what wordsOut asked of a thrown card before)
   assert.ok(floor - t >= 60, 'about 90 ms were spent on an empty slot');

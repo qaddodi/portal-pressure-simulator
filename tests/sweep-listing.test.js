@@ -60,3 +60,14 @@ test('a vessel that stands still is listed by its distance, not everywhere', () 
   const b = binSwept([{ id: 3, path: [P, P, P], reach: 8, core: 4 }], [], { rows: 16, samples: N, slack: SLACK });
   assert.ok(b.nCells > 0 && b.nCells < 80, `${b.nCells} cells`);
 });
+
+test('tubes sent as flat typed arrays come back as the same nested paths and bin the same', async () => {
+  const { flatPath, tubesFromFlat } = await import('../src/ui/veins-sweep.js');
+  const nested = [3, 7].map((id, k) => ({ id, path: course(k ? 3 : 5), reach: 12, core: 5 }));
+  const sent = nested.map((t) => ({ id: t.id, flat: flatPath(t.path), np: t.path.length, n: t.path[0].length, reach: t.reach, core: t.core }));
+  assert.ok(sent[0].flat instanceof Float64Array);
+  const back = tubesFromFlat(sent);
+  for (let i = 0; i < nested.length; i++) { assert.deepEqual(back[i].path, nested[i].path); assert.equal(back[i].flat, null); }
+  const opts = { rows: 32, samples: N, slack: SLACK, tight: true };
+  assert.deepEqual(binSwept(back, [], opts), binSwept(nested, [], opts));
+});

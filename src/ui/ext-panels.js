@@ -6,6 +6,7 @@
 //   visual: 'allpatients'   every patient's HVPG over two years on one chart, with a key of three readings (visual-allpatients.js), cohort: [{ name, c, slides, pace? }]
 //   table column 'wave' (col-wave.js)
 
+import { lcFirst } from '../engine/portal/lc-first.js';
 import { planeVisual, createPlaneTool, toolPlane } from './visual-plane.js';
 import { waveColumn } from './col-wave.js';
 import { allPatientsVisual, warmAllPatients } from './visual-allpatients.js';
@@ -56,7 +57,7 @@ export function rowsFp(s, ctx, done) {
 
 // (The card's heading: the two readings by name, 'Stiffness and platelets'; an acronym keeps its capitals.)
 const word = (a) => (a.short || a.name || a.key).split(',')[0];
-const lc = (t) => (/^[A-Z]{2}/.test(t) ? t : t.charAt(0).toLowerCase() + t.slice(1));
+const lc = lcFirst;
 export const planeTitle = (p) => (p ? `${word(p.x)} and ${lc(word(p.y))}` : 'Two readings');
 
 export default {

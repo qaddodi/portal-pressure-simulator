@@ -3,8 +3,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const noglass = css.split('\n').filter((l) => l.startsWith(':root[data-noglass]'));
 
 test('with the blur off, a lit lobule or sinusoid name is the same outlined text as with it: no pill in either setting', () => {

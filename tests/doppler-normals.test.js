@@ -5,14 +5,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PROBE_NORMAL, DOPPLER_NORMAL, STENT_PV_NORMAL, velNormal } from '../src/ui/velNormal.js';
-import { EDGES } from '../src/engine/portal/topology.js';
+import { EDGES, JUNCTION_PIECES, partOf } from '../src/engine/portal/topology.js';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const noStent = { D: EDGES.map((e) => (e.id === 'TIPS' || e.id === 'DIPS' ? 0 : 1)) };   // (the shunts closed: no stent in)
 
 test('the figure\'s table and the Doppler\'s agree for every vessel in both: the same arrays', () => {
   for (const [id, n] of Object.entries(DOPPLER_NORMAL)) {
-    assert.equal(n, PROBE_NORMAL[id], `${id}: the same array as the Doppler's`);
+    assert.equal(n, PROBE_NORMAL[partOf(id)], `${id}: the same array as the Doppler's`);   // (a vein cut where a shunt joins it, topology.js JUNCTIONS: every piece reads the vein's range)
     assert.ok(EI[id] != null, `${id} is a vessel`);
   }
   for (const id of Object.keys(PROBE_NORMAL)) assert.ok(EI[id] != null, `${id} is a vessel`);
@@ -20,7 +20,7 @@ test('the figure\'s table and the Doppler\'s agree for every vessel in both: the
 });
 
 test('the figure reads the Doppler\'s range for the vessels it fixes, and the main portal vein\'s stent range with a stent in', () => {
-  for (const id of Object.keys(DOPPLER_NORMAL)) assert.equal(velNormal(EI[id], noStent, null), PROBE_NORMAL[id], id);
+  for (const id of Object.keys(DOPPLER_NORMAL)) assert.equal(velNormal(EI[id], noStent, null), PROBE_NORMAL[partOf(id)], id);
   const D = noStent.D.slice(); D[EI.TIPS] = 10;
   assert.equal(velNormal(EI.PV_TRUNK, { D }, null), STENT_PV_NORMAL);
   assert.equal(velNormal(EI.TIPS, { D }, null), PROBE_NORMAL.TIPS);
@@ -34,7 +34,7 @@ test('the numbers did not move in the merge: the Doppler\'s ranges as they were,
   };
   assert.deepEqual({ ...PROBE_NORMAL }, was);
   assert.deepEqual(Object.keys(DOPPLER_NORMAL).sort(),
-    ['DIPS', 'IVCS_RA', 'LHV_IVC', 'MHV_IVC', 'PVH_L', 'PVH_R', 'PV_TRUNK', 'RHV_IVC', 'SMV_CONF', 'SV_CONF', 'TIPS', 'V_SPL']);
+    ['DIPS', 'IVCS_RA', 'LHV_IVC', 'MHV_IVC', 'PVH_L', 'PVH_R', 'PV_TRUNK', 'RHV_IVC', 'SMV_CONF', 'SV_CONF', 'TIPS', 'V_SPL'].flatMap((id) => JUNCTION_PIECES[id] || [id]).sort());
   // (two the Doppler samples stay out of the figure's colours, as before: the lumped jejunal and ileal veins, compared with their own healthy
   // velocity, and the hepatic arteries, which the figure leaves neutral)
   for (const id of ['V_INT', 'A_HEP', 'A_HR', 'A_HL']) assert.equal(DOPPLER_NORMAL[id], undefined, id);

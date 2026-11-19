@@ -387,3 +387,42 @@ test('transition lists are read for repainting properties wherever the name stan
   const real = scan().filter((h) => (h.cat === 'paintAnim' || h.cat === 'layoutAnim') && h.file.endsWith('.css'));
   assert.deepEqual(real.map((h) => `${h.file}:${h.line} ${h.detail}`), [], 'styles/*.css transitions stay on transform and opacity');
 });
+
+// SF-1 (full app review, 15 Nov 2026): the stage split turned methods into factories (createX(st, live)) whose functions are reached through
+// destructuring and the shared `live` object's getters. The scan followed neither, so it filed per-frame stage work as "setup".
+test('a factory\'s returned function is followed through a destructuring and through live\'s getter: the frame path reaches it', () => {
+  const hits = fixture({
+    'src/ui/part.js': `
+export function createPart(st, live) {
+  function paintPart(t) { document.body.setAttribute('d', 'M' + t); }
+  function syncPart(t) { document.body.style.opacity = t; }
+  return { paintPart, syncPart };
+}
+`,
+    'src/ui/mid.js': `
+import { createPart } from './part.js';
+export function createMid(st, live) {
+  const { paintPart, syncPart } = createPart(st, live);
+  return { paintPart, syncPart, other: 1 };
+}
+`,
+    'src/ui/app.js': `
+import { frame } from './frame.js';
+import { createMid } from './mid.js';
+export function createApp() {
+  const live = {};
+  const { paintPart, syncPart } = createMid({}, live);
+  Object.assign(live, { get syncPart() { return syncPart; } });
+  function animate(t) { paintPart(t); live.syncPart(t); frame(animate); }
+  frame(animate);
+}
+`,
+    'src/ui/other.js': `
+export function stepOther(live, t) { let live2 = 1; const live_ = live2; if (live.syncPart) live.syncPart(t); }
+`,
+  });
+  const frameHit = (re) => hits.some((h) => h.file === 'src/ui/part.js' && re.test(h.detail) && / path: .*animate/.test(h.detail));
+  assert.ok(frameHit(/setAttribute\('d'\)|attrWrite/), 'a function called by its destructured name is on the frame path (two factories deep)');
+  assert.ok(hits.some((h) => h.file === 'src/ui/part.js' && /style\.opacity/.test(h.detail) && / path: /.test(h.detail)), 'and one called as live.name(), through the getter');
+  assert.ok(!hits.setup.some((h) => h.file === 'src/ui/part.js'), 'neither is left out as setup');
+});

@@ -1,7 +1,7 @@
 # What to add next, from first principles (second pass, 10 Nov 2026)
 
 > **Status (11 Nov 2026).** A list to pick from; Mohammad picks and each pick is built as written. Built so far: item 1 (three scales on
-> one plate, `src/ui/cutouts.js`, described in `docs/cutouts.md`) and item 14 (a new patient dips the figure and comes back as someone
+> one plate; built 11 Nov and removed 13 Nov 2026 at Mohammad's word: a slide now dives into the lobule instead) and item 14 (a new patient dips the figure and comes back as someone
 > else). Item 20 (the heart shows the circulation) is partly there as the quiet rate and output reading on the heart's label
 > (`heart-reading.js`, `heart-label.js`). Not built: items 2 to 13, 15 to 19 and 21 to 26. Where an item says Tube it means the only
 > vessel renderer; the Classic, Mesh and Vector renderers it mentions are gone.

@@ -3,9 +3,10 @@
 import { EDGES, dMinOf, edgePresent } from '../engine/portal/topology.js';
 import { ANAT_HIDDEN, NEEDS_C3, STRAND_FROM, STRAND_HOLD, STRAND_PLATEAU, STRAND_SOFT, VB_ANAT, VB_CIRC, WIG_CAP } from './anatomy.js';
 import { smooth01 } from './motion.js';
-import { tiedStrand } from './cavernoma-strand.js';
+import { cavStrand, trunkFrame } from './cavernoma-strand.js';
+import { viewBoxAt } from './view-xf.js';
 import { chordPointInto, peelAt, reverses } from './flow-peel.js';
-import { reduceMotionMQ as reduceMotion, easeMove } from './motion.js';
+import { easeMove } from './motion.js';
 import { OVER_ALL } from './stage-over.js';
 import { store, varixGrowth } from './store.js';
 import { clamp, lerp, themeChanged } from './util.js';
@@ -62,11 +63,8 @@ export function createFrame(st, live) {
   function setViewBox(t) {
     const rr = rotEase(live.rotU);
     let vbChanged = false;
-    for (let i = 0; i < 4; i++) {
-      const v = lerp(VB_ANAT[i], lerp(VB_CIRC[i], VB_CIRC_R[i], rr), t);
-      vbNow[i] = v;
-      if (v !== vbSeen[i]) { vbSeen[i] = v; vbChanged = true; }
-    }
+    viewBoxAt(t, rr, VB_ANAT, VB_CIRC, VB_CIRC_R, vbNow);   // (view-xf.js: the one formula, the camera through a change reads it too)
+    for (let i = 0; i < 4; i++) { const v = vbNow[i]; if (v !== vbSeen[i]) { vbSeen[i] = v; vbChanged = true; } }
     if (vbChanged) {
       vbTxt = `${vbNow[0].toFixed(1)} ${vbNow[1].toFixed(1)} ${vbNow[2].toFixed(1)} ${vbNow[3].toFixed(1)}`;
       vbBox.x = +vbNow[0].toFixed(1); vbBox.y = +vbNow[1].toFixed(1); vbBox.width = +vbNow[2].toFixed(1); vbBox.height = +vbNow[3].toFixed(1);
@@ -170,8 +168,28 @@ export function createFrame(st, live) {
   }
   // Strands fan out from the shared ends (or from where the trunk breaks up) and fold back
   // onto the lane in the circuit.
+  // The clotted trunk's drawn course at t, the frame the cavernoma's channels are drawn in (cavernoma-strand.js): its two pieces end to end, kept for the t it was made at
+  // (the anatomy's from the kept samples; between the views the pieces as vesselAt moves them, made once for each t).
+  const CAV_TRUNK = ['PV_TRUNK_1', 'PV_TRUNK'];
+  let cavF = null, cavT = NaN, cavA = null, cavX = null;
+  function cavFrame(t) {
+    const g1 = geo.PV_TRUNK_1;
+    if (cavF && cavT === t && cavA === g1.A) return cavF;
+    let p1 = g1.A, p2 = geo.PV_TRUNK.A;
+    if (t > 0) {
+      cavX ||= CAV_TRUNK.map((id) => EV.find((y) => y.e.id === id));
+      // (vesselAt writes its answer into one kept record that the caller is still reading: put it back as it was.)
+      const k0 = vesOut.pts, k1 = vesOut.base, k2 = vesOut.u0;
+      p1 = vesselAt(cavX[0], t).pts; p2 = vesselAt(cavX[1], t).pts;
+      vesOut.pts = k0; vesOut.base = k1; vesOut.u0 = k2;
+    }
+    cavF = trunkFrame([p1, p2]); cavT = t; cavA = g1.A;   // alloc-rare: made when the change between the views moves (or the course is made again)
+    return cavF;
+  }
   function strandAt(x, sd, t, { pts, base, u0 }) {
     const g = geo[x.e.id];
+    // (The cavernoma's channels: each in the frame of the trunk, folding onto the main channel's lane as the circuit comes in.)
+    if (sd.cav) return cavStrand(cavFrame(t < 1 ? t : 0), sd.cav, pts.length, t, pts);   // alloc-rare: as braid's own list, made when the course changes
     // (The varices' strands fan out as far as their varix is big: g.spr, eased, see varix-look.js.)
     const fan = sd.off * (1 - t) * (g.spr ?? 1);
     // (A plateau strand: its offset, off the chord's one normal, follows the main channel's own plateau, read by how far along the chord each sample
@@ -181,7 +199,6 @@ export function createFrame(st, live) {
     if (pa0) {
       const pa = sd.wave?.[3] ?? pa0;
       const n0 = base.length - 1, A = base[0], B = base[n0], cl = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1, nx = -(B[1] - A[1]) / cl, ny = (B[0] - A[0]) / cl;
-      if (sd.tie) return tiedStrand(base, fan, sd.tie[2] * (1 - t), pa, sd.tie);
       const ride = sd.ph ? 1 : 0, w = sd.wave, wv = w ? w[0] * (1 - t) : 0, wc = w ? w[1] : 0, wp = w ? w[2] : 0;
       return base.map((p, i) => { const v = clamp(((p[0] - A[0]) * ny - (p[1] - A[1]) * nx) / cl, 0, 1), o = (fan + wv * Math.sin(Math.PI * 2 * wc * v + wp)) * smooth01(v / pa) * smooth01((1 - v) / pa); return [p[0] + nx * o + ride * (pts[i][0] - p[0]), p[1] + ny * o + ride * (pts[i][1] - p[1])]; });   // alloc-rare: as braid's own list, made when the course changes
     }
@@ -228,12 +245,15 @@ export function createFrame(st, live) {
     setG(gAscites, 'style:opacity', ascTxt);
     svg.classList.toggle('circuit', t > 0.5);
     live.svgOver?.classList.toggle('circuit', t > 0.5);
-    if (recs.show(t > 0.5 ? 1 : 0, performance.now(), reduceMotion.matches)) live.recKick();   // (the kept shapes of the circuit fade in and out as .circuit-only did: D_SURFACE, the page's ease)
+    if (recs.show(t > 0.5 ? 1 : 0, performance.now())) live.recKick();   // (the kept shapes of the circuit fade in and out as .circuit-only did: D_SURFACE, the page's ease)
     // The circuit is a dark hemodynamic map; the anatomy an atlas plate on paper.
     if (stageWrap.classList.contains('cmap') !== t > 0.5) { stageWrap.classList.toggle('cmap', t > 0.5); themeChanged(); }   // (the map's tokens are the labels' too: label-theme.js)
     if (gFxC.firstChild || t === 0 || t === 1) { if (t !== fxcT) { fxcT = t; fxcTxt = String(t); } setG(gFxC, 'style:opacity', fxcTxt); }   // (an empty layer takes no opacity through the change between the views; its value lands with the view)
     // (The map and the dots fade with t on the GPU: at 0 neither is drawn nor read.)
-    if (MAP.a !== t) { MAP.a = t; nd.dirty = true; }
+    // (The zone bands and dots come in over the second half of the change, as the organs are gone from the first (1 - t): over the plate they showed as a faint
+    // rectangle behind the half-turned vessels before it settled, play-test 16 Nov 2026. The same ramp runs back out over the first half of the way to the Anatomy.)
+    const ma = t <= 0.5 ? 0 : t >= 1 ? 1 : (2 * t - 1) * (2 * t - 1) * (3 - 2 * (2 * t - 1));
+    if (MAP.a !== ma) { MAP.a = ma; nd.dirty = true; }
     live.CTM = null;
   }
   // (The change between the views, the label layer's glide, the callouts' room glide and the dive's lobule share all run on the camera's curve, the

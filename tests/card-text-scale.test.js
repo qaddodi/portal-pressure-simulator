@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss, presenterSource } from './split-src.js';
 
 // The cards' text levels stay close together on every layout (audit/card-layout-recs.md).
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 
 test('wide screens: title 2.4 times the body, captions shrink with the words and never under 12 px, site tag at the caption size', () => {
   assert.match(css, /\.pz\.pz-card:not\(\.stack\):not\(\.low\) \.pz-text \{ --s-title: calc\(clamp\(32px, calc\(5\.546 \* var\(--pzh\)/);
@@ -36,7 +37,7 @@ test('phone slide words at 1.45, upright iPad at 1.39, one line spacing with sli
 // A tight phone slide (upright or on its side): the whole card at Compact, title, words and buttons together, never the title alone
 // (Mohammad, 19 Oct: "Two fixed sizes"; tests/card-type.test.js checks the sizes' order).
 test('a tight phone slide steps the whole card to Compact, never its title alone', () => {
-  const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const js = presenterSource();
   assert.match(js, /const mins = \[lowFloor \|\| floor\];/);
   assert.match(js, /if \(small && fits\(\)\) \{ k = over = Math\.max\(COMPACT, floor\);/, 'the whole card steps to Compact first');
   assert.doesNotMatch(js, /--pz-ptk/, 'no title step of its own');
@@ -47,7 +48,7 @@ test('a phone\'s captions under the words read smaller than the words, never und
 });
 
 test('a sideways phone: figure terms are coloured text with no underline, and the data card never zooms its lettering under 12 px', () => {
-  const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const js = presenterSource();
   const term = css.match(/\.pz-term:not\(\.pz-lens-t\) \{[^}]*\}/)[0];
   assert.match(term, /background: none;/);
   assert.doesNotMatch(term, /text-decoration/, 'terms carry no underline (Mohammad, 17 Oct)');
@@ -57,6 +58,6 @@ test('a sideways phone: figure terms are coloured text with no underline, and th
   assert.match(low, /for \(const c of \['pz-lt', 'pz-lt2'\]\)/);
   assert.match(low, /return done\(!!el\.querySelector\(':scope > :not\(\.pz-dh\):not\(\.pz-grip\):not\(\.pz-lip\)'\), 0\.5\);/);
   assert.doesNotMatch(low, /pz-folds/, 'never folded to its header');
-  assert.match(js, /const lowFloor = el === ui\.data && ui\.root\.classList\.contains\('low'\) \? lowData\(el\) : 0;/);
+  assert.match(js, /const lowFloor = el === (?:live\.)?ui\.data && (?:live\.)?ui\.root\.classList\.contains\('low'\) \? lowData\(el\) : 0;/);
   assert.doesNotMatch(css, /\.pz:is\(\.stack, \.low\) \.pz-data\.pz-folds/, 'no Show or Hide on a phone');
 });

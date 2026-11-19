@@ -1,5 +1,6 @@
 // The Doppler probe on the figure: its stand-off, line of sight, sample bars, cards, monitor and paint.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
+import { BLOCKER_SEL } from './blockers.js';
 import { STENT_SITES } from '../engine/portal/topology.js';
 import { ORGANS } from './anatomy.js';
 import { NONE_MS, PROBE, PROBE_MODEL, SLACK, awayFromProbe, beamBoxes, createProbeMind, fitPoseInto, gateBoxes, gateFrac, probeFade, probeGeomInto, probeSwing, probeTurn, wedgeBoxes } from './dop-probe.js';
@@ -48,7 +49,7 @@ export function createDoppler(st, live) {
     dprCardsAsk = 0;
     live.dprCardsAt = performance.now();
     const wr = stageBox();
-    live.dprCardsList = [...scanCardsRead(), ...[...document.querySelectorAll('[data-safe], .stage-blocker:not([hidden])')].map((el) => {
+    live.dprCardsList = [...scanCardsRead(), ...[...document.querySelectorAll(`[data-safe], ${BLOCKER_SEL}`)].map((el) => {
       // (A card hidden by visibility is not there, as the framing reads it (unseenCard): the closed Details sheet stays in place on
       // a phone, invisible, as tall as it was last opened, and kept the probe off the whole figure in Tests › Doppler, 20 Oct.)
       if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving') || el.classList.contains('vd-out') || unseenCard(el)) return null;
@@ -72,6 +73,8 @@ export function createDoppler(st, live) {
     // (A narrowing's "60 %" too: the probe stands on the side whose line of sight and flow axis keep off it: Mohammad, 20 Oct.)
     const cl = clampW.children;
     for (let i = 0; i < cl.length; i++) if (cl[i]._box && cl[i].classList.contains('clamp-label')) DPR_AVOID[n++] = cl[i]._box;
+    // (A stent's dimension words and bracket too (stage-label-solve.js dimRects).)
+    for (let i = 0; i < live.dimRects.length; i++) DPR_AVOID[n++] = live.dimRects[i];
     DPR_AVOID.length = n;
     return DPR_AVOID;
   }
@@ -229,7 +232,8 @@ export function createDoppler(st, live) {
   function dprLeave() {
     if (!dpr.on) return;
     dpr.on = false;
-    if (reduceMotion.matches || !dpr.has || !dpr.gate) dpr.oP = 1; else dpr.leaving = true;
+    // (Reduce Motion: it fades out where it stands, no swing (its turn is 0): never gone in one frame. Owner, 15 Nov 2026.)
+    if (!dpr.has || !dpr.gate) dpr.oP = 1; else dpr.leaving = true;
     dprShape();   // (starts the move)
   }
   const dprHide = () => { dprLeave(); dpr.box = null; dpr.marks.length = 0; dpr.keyOn = false; dpr.gate = null; dprDots(); };
@@ -285,7 +289,7 @@ export function createDoppler(st, live) {
     // A new vessel or third: it swings out where it stood and comes in at the new place.
     if (dpr.on && !sameKey) {
       dprLeave(); dpr.box = null; dpr.marks.length = 0; dprDots(); dprMind.hide();
-      dpr.swap = stageScope.timer(dprSwapDone, reduceMotion.matches ? 0 : PROBE.OUT_MS + 40);
+      dpr.swap = stageScope.timer(dprSwapDone, PROBE.OUT_MS + 40);
       return;
     }
     // A new place on the same vessel: the probe swings round the gate to it, its distance and size easing with it (Mohammad,
@@ -311,13 +315,14 @@ export function createDoppler(st, live) {
     if (act === 'wait') return;
     if (act === 'jump') {
       dprLeave(); dpr.box = null; dpr.marks.length = 0; dprDots();
-      dpr.swap = stageScope.timer(dprSwapDone, reduceMotion.matches ? 0 : PROBE.OUT_MS + 40);
+      dpr.swap = stageScope.timer(dprSwapDone, PROBE.OUT_MS + 40);
       return;
     }
     // (Shown afresh it stands turned out of the way about the target and swings in to its place, the target where it will be.)
     const c = dpr.cur, t = dpr.tgt;
     if (!dpr.on || !dpr.has || reduceMotion.matches) {
-      dpr.oP = reduceMotion.matches ? 0 : 1; dpr.has = true;
+      if (!dpr.on || !dpr.has) dpr.oP = 1;   // (shown afresh: it comes in from out, fading, and with motion swinging; Reduce Motion: a fade alone, never at once)
+      dpr.has = true;
       c.ang = n.ang; c.d = n.d; c.k = n.k; c.o = 0;
       dpr.headP = pose.headOff ? 0 : 1;
     } else c.ang = n.ang + angTo(n.ang, c.ang);   // (the short way round)
@@ -351,7 +356,7 @@ export function createDoppler(st, live) {
   function dprShape() {
     const c = dpr.cur, t = dpr.tgt, dw = dpr.draw;
     c.o = outEase(dpr.oP);
-    dw.ang = probeTurn(c.ang, t.sw, c.o);   // (the whole probe swings round the target as it goes, and back to exactly c.ang as it returns)
+    dw.ang = probeTurn(c.ang, reduceMotion.matches ? 0 : t.sw, c.o);   // (Reduce Motion: no swing, the fade alone)   // (the whole probe swings round the target as it goes, and back to exactly c.ang as it returns)
     probeGeomInto(dw.g, Math.max(0, t.r) + c.d, t.r, angTo(dw.ang, t.ax), c.k, c.o);   // (the flow axis stays along the flow)
     dw.op = probeFade(dpr.oP); dw.headOp = smooth01(dpr.headP);
     live.labelGL?.redraw();

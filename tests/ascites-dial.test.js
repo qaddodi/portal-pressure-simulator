@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 // Ascites tab: the abdominal pressure dial left of the belly and the drain right of it.
 const js = readFileSync(new URL('../src/ui/instruments.js', import.meta.url), 'utf8');
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 
 test('the dial bands sit at the real cut-offs: 12 (intra-abdominal hypertension) and 20 (compartment syndrome) on 0-30', () => {
   assert.ok(js.includes("const IAP_MAX = 30, IAP_BANDS = [[0, 12, 'ok'], [12, 20, 'caution'], [20, 30, 'danger']];"));

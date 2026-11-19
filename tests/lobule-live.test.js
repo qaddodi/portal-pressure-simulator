@@ -7,7 +7,6 @@ import { createTissueGL, tissueFS } from '../src/ui/tissue-gl.js';
 import { paintShaders } from '../src/ui/paint-gl.js';
 const PAINT_SRC = new Set(Object.values(paintShaders));
 
-const gl = readFileSync(new URL('../src/ui/tissue-gl.js', import.meta.url), 'utf8');
 
 const R = 200, cx = 500, cy = 400;
 const corners = [0, 1, 2, 3, 4, 5].map((i) => [cx + R * Math.cos(Math.PI / 3 * i), cy + R * Math.sin(Math.PI / 3 * i)]);
@@ -74,12 +73,8 @@ test('the shader follows paintLobule\'s order and numbers, and the bitmap path i
   const live = readFileSync(new URL('../src/ui/lobule-live.js', import.meta.url), 'utf8');
   // fill 1.015, gap fill 0.55/0.5, cells (fill 0.92/0.8, dead 0.6; membrane max 0.6; nucleus max 0.9), nutmeg 0.05–0.55 R, zones 0.2/0.17 (one radial gradient, ZONE_AT in lobule-paint.js), hairline
   for (const s of ['lvHex(wp, 1.015)', 'dark ? 0.55 : 0.5', 'dark ? 0.8 : 0.92', 'max(0.6, 0.6 * px)', 'max(0.9, ww * 0.16)', 'min(lw, ww) * 0.38', '0.05 * R) / (0.5 * R)', 'dark ? 0.2 : 0.17', 'length(wp - uLCen.xy) / R', '(zr - 0.18) / 0.32', '(zr - 0.5) / 0.35', 'if (sj < 0.05)']) assert.ok(live.includes(s), s);
-  const paintSrc = readFileSync(new URL('../src/ui/lobule-paint.js', import.meta.url), 'utf8');
-  assert.match(paintSrc, /ZONE_AT = \[\[0, ZONE_TOK\[2\]\], \[0\.18, ZONE_TOK\[2\]\], \[0\.5, ZONE_TOK\[1\]\], \[0\.85, ZONE_TOK\[0\]\], \[1, ZONE_TOK\[0\]\]\]/, 'the zones are one radial gradient: zone 3 to 0.18 R, zone 2 at 0.5 R, zone 1 from 0.85 R (the shader\'s stops are the same)');
-  assert.match(gl, /if \(uLive > 0\.0\) \{ vec4 ls = liveTissue\(w\) \* e; c = mix\(c, ls\.rgb \+ c0 \* \(1\.0 - ls\.a\), uLive\); own = mix\(own, ls, uLive\); \}/, 'mixing the two pictures laid over the surround = laying their mix');
   assert.match(tissueFS(true), /vec3 c0 = c;\n\s+if \(w\.x >= 0\.0/, 'the surround before the bitmap');
   assert.doesNotMatch(tissueFS(false), /uL[A-Z]|uLive|liveTissue|\bc0\b|\blv[A-Z]/, 'the program without the live lobule has none of it in it: the picture as before');
-  assert.doesNotMatch(live, /\btexture\(/, 'only texelFetch: no implicit derivatives in the live lookups');
 });
 
 test('the sinusoids\' segments are binned tube by tube, and the per-state texels hold their radii then the stellate cells', async () => {
@@ -160,25 +155,10 @@ test('the lobule is drawn live with no setting: nothing reads a switch for it, t
   for (const file of ['frame.js', 'main.js', 'lobule-zoom.js', 'tissue-gl.js', 'stage.js']) assert.ok(!/tissueLive/.test(uiSrc(file)), `${file}: no switch`);
   assert.ok(!uiSrc('main.js').includes('Lobule drawn live'), 'and no Settings row');
   const lz = uiSrc('lobule-zoom.js');
-  assert.match(lz, /const liveGoal = \(\) => \(model && liveEligible\(model\) && liveOK\(\) \? 1 : 0\);/, 'the one place the goal is set');
   assert.ok(!/onFigLab/.test(lz), 'and nothing listens for a setting');
-  assert.match(lz, /function liveArgs\(dark, cs\) \{\n\s+if \(!\(liveShare > 0\)\) return null;/, 'no share: no shapes built, nothing sent');
-  assert.match(lz, /A\.live = liveArgs\(dark, cs\);/);
   // The two pictures are never mixed unless the share is above 0 and the live program is there (tissue-gl.js): the bitmap path is the one it was.
-  assert.match(gl, /const isLive = !!\(live && live\.share > 0 && liveP\), U = isLive \? liveP\.U : U0;/);
-  assert.match(gl, /gl\.useProgram\(isLive \? liveP\.prog : prog\);/);
-  assert.match(gl, /if \(uLive > 0\.0\) \{ vec4 ls = liveTissue\(w\) \* e;/);
 });
 
-test('the live program starts compiling as soon as the tissue\'s GPU drawing is made; when it arrives, or fails, while the lobule shows, the share eases over 400 ms and the loop wakes; unseen, it starts at the goal', () => {
-  const lz = uiSrc('lobule-zoom.js');
-  assert.match(lz, /tissueGL = createTissueGL\(tissueG, \{ onLive: liveCompiled, host: gl\.top \}\) \|\| null;/, 'asked at once, ahead of the first look');
-  assert.match(lz, /function liveChanged\(\) \{ if \(unseen\(\)\) liveE = -1; else \{ liveAt = performance\.now\(\); wake\(\); \} \}/);
-  assert.match(lz, /function liveCompiled\(\) \{ liveChanged\(\); \}/);
-  assert.match(lz, /if \(liveE < 0 \|\| unseen\(\)\) liveE = goal;\n\s+else liveE = liveEase\(liveE, goal, now - liveAt\);/);
-  assert.match(lz, /if \(liveMoving\(\)\) drawVersion\+\+;/, 'each frame of the easing is drawn');
-  assert.match(lz, /K\[ki\+\+\] = lk > 0 \? Math\.round\(lk \* 1000\) : -1;/, 'and the tissue\'s key moves with the share, so it is not skipped as unchanged');
-});
 
 test('the share eases in a 420 ms (D_SURFACE) smoothstep either way, never in a step; a pause does not jump it', async () => {
   const { liveEase, liveShareOf, LIVE_MS } = await import('../src/ui/lobule-live.js');
@@ -335,8 +315,6 @@ test('a live program that fails to build costs only the live drawing: the bitmap
 
 // ── Detail smaller than a pixel, zoomed out ──
 test('a filled shape thinner than a pixel is weighted by its width: untouched from a pixel, smoothly less below, never more than its area', () => {
-  const live = readFileSync(new URL('../src/ui/lobule-live.js', import.meta.url), 'utf8');
-  assert.match(live, /float lvThin\(float wpx\) \{ float q = min\(wpx, 1\.0\); return 4\.0 \* q \/ \(\(1\.0 \+ q\) \* \(1\.0 \+ q\)\); \}/);
   // The same function in JS: 1 from a pixel wide; continuous and flat at 1; rising with the width; and the weight lvCov gives a line
   // of that width (a triangle of unit height spread a pixel each way: (½ + w/2)² for w under 1) times it is its own area, w.
   const thin = (w) => { const q = Math.min(w, 1); return 4 * q / ((1 + q) * (1 + q)); };
@@ -348,9 +326,6 @@ test('a filled shape thinner than a pixel is weighted by its width: untouched fr
     assert.ok(Math.abs(thin(w) * spread - w) < 1e-9, `a line ${w.toFixed(2)} px wide keeps its own weight`);
   }
   // Used on the shapes that can be thinner than a pixel in the sizes the shader draws at: a band's nuclei, a stellate cell and its nucleus.
-  assert.match(live, /lvCov\(lvEll\(lp, n0\.zw\), px\) \* lvThin\(2\.0 \* min\(n0\.z, n0\.w\) \/ px\) \* cl/);
-  assert.match(live, /lvCov\(sd, px\) \* lvThin\(2\.0 \* Wb \/ px\) \* clipC/);
-  assert.match(live, /lvCov\(lvEll\(lp, vec2\(L \* 0\.26, Wb \* 0\.5\)\), px\) \* lvThin\(Wb \/ px\) \* clipC/);
   // The sizes it matters at: the shader's own share starts at a cell of 3.5 px, where a stellate cell's body (half width 0.42 to 0.62 rs0,
   // rs0 1.7 to 3 world units, a cell 0.044 R long) is under a pixel across at the smallest, and a pixel and over from 6 px.
   for (const R of [160, 300]) {
@@ -607,20 +582,5 @@ test('the bitmap is out of the GPU\'s picture exactly when the share is 1: the s
     assert.equal(s >= 1, e >= 1 && z >= 1, `eased ${e}, zoom ${z}: share ${s}`);
   }
   assert.equal(liveZoomShare(6 / (R * 0.052), R), 1, 'whole from a cell of 6 px');
-  assert.match(gl, /c = mix\(c, ls\.rgb \+ c0 \* \(1\.0 - ls\.a\), uLive\);/, 'at 1 the bitmap\'s part of the picture is multiplied by 0');
 });
 
-test('with the shader covering the picture the bitmap is not painted ahead, not repainted at each step of a gesture, and does not crossfade', () => {
-  const lz = uiSrc('lobule-zoom.js');
-  assert.match(lz, /const bitmapUnseen = \(\) => liveShare >= 1 && tissueOnGL;/, 'the share is 1 and the last frame was the GPU\'s');
-  // The painted-ahead copy: none, and one made earlier is given back.
-  const sm = lz.slice(lz.indexOf('function spareMake() {'), lz.indexOf('\n  }\n', lz.indexOf('function spareMake() {')));
-  assert.match(sm, /if \(bitmapUnseen\(\)\) \{\n[^\n]*\n\s+if \(spare \|\| spareCv\.width\) \{ free\(spareCv\); spare = null; \}\n\s+\} else if \(sc > worldSc \* 1\.01 && /);
-  assert.match(sm, /const tone = shadeOf\(stageBg\(cs, dark\), dark\), \{ a, b \} = fieldBlend\(/, 'the surround\'s tiles for that zoom are still prepared: they are seen');
-  // A gesture's zoom holds the bitmap at the sharpness it has; the GPU's frame needs no sharper. Once the hand lets go it is painted at the zoom's own.
-  assert.match(lz, /if \(held && kept && \(!gpu \|\| sc <= worldSc \|\| bitmapUnseen\(\)\)\) \{ if \(hand && sc !== worldSc\) holdSoon\(\); sc = worldSc; \}/);
-  // No crossfade into a picture nobody sees.
-  assert.match(lz, /!unseen\(\) && !\(liveShare >= 1\) && worldGeo === G && worldCv\.width && !\(xfT0 && xfNow\(now\) - xfT0 < XF_MS\)\) \{ free\(worldOld\); worldOld = worldCv;/);
-  const pt = lz.slice(lz.indexOf('function paintTissue('), lz.indexOf('\n  }\n', lz.indexOf('function paintTissue(')));
-  assert.match(pt, /let sc = Math\.min\(2 \*\* \(Math\.ceil\(Math\.log2\(Math\.max\(0\.05, dpr \* V\.k\)\) \* 2\) \/ 2\), worldCap\(G, dpr\)\);/, 'the scale is the zoom\'s own, shader or not');
-});

@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { layerRect, cullUpdate } from '../src/ui/tube-stage2.js';
 import { makeHarness } from './tube-pass-harness.js';
+import { sweptRowBoxes } from '../src/ui/tube-cull.js';
 
 const out = () => ({ rect: new Float64Array(4), ok: false });
 
@@ -102,8 +103,34 @@ test('no view given, a view that is not usable, or the change between the views 
   }
 });
 
-test('during the change between the views (a morph set in use, joinBase >= 0) nothing is culled: the points move every frame', () => {
+test('during the change between the views (a morph set in use, joinBase >= 0) with no boxes of the stretch nothing is culled: the points move every frame', () => {
   const h = makeHarness({ view: { rect: [96, -10, 200, 10], pad: 0, rmax: [6, 4, 3] }, morph: { joinBase: 0 } });
   h.run();
   assert.match(h.gauges.map((x) => x[1]).join('\n'), /strips drawn 3 of 3 \(not culled\)/);
+});
+
+// R1b-13 (15 Nov 2026): with the boxes the stretch was made with (B.morph.rowBox, from its samples), the change between the views culls too.
+test('during the change between the views the stretch\'s boxes cull the rows outside the layer, and a row they do not list is never left out', () => {
+  const N = 64, row = (r, dx) => Array.from({ length: N }, (_, i) => [100 * r + dx + (50 * i) / (N - 1), 10 * r]);
+  const path = new Map([[0, [row(0, 0), row(0, 10)]], [1, [row(1, 0), row(1, 10)]], [2, [row(2, 0), row(2, 10)]]]);
+  const h = makeHarness({ view: { rect: [120, -5, 160, 25], pad: 0, rmax: [6, 4, 3] }, morph: { joinBase: 0 } });
+  h.MG.morph = { joinBase: 0, rowBox: sweptRowBoxes(path, 6, 3, null) };
+  h.run();
+  assert.match(h.gauges.map((x) => x[1]).join('\n'), /strips drawn 1 of 3/);
+  // the same stretch with row 1 missing from its boxes: row 1 has points, so it is kept whatever the view
+  const gone = new Map([[0, path.get(0)], [2, path.get(2)]]);
+  const h2 = makeHarness({ view: { rect: [900, 900, 960, 925], pad: 0, rmax: [6, 4, 3] }, morph: { joinBase: 0 } });
+  h2.MG.morph = { joinBase: 0, rowBox: sweptRowBoxes(gone, 6, 3, null) };
+  h2.run();
+  assert.match(h2.gauges.map((x) => x[1]).join('\n'), /strips drawn 1 of 3/, 'only the unlisted row 1 is kept');
+});
+
+// R1b-7 (15 Nov 2026): the second lumen target is made only for the stages that write it.
+test('the pass asks for the second lumen target only in stage 1 and 2, never in stage 3', () => {
+  const two = makeHarness({ withStage2: true, withStage3: false });
+  two.run();
+  assert.deepEqual(two.g2, [true], 'stage 2 writes the second lumen');
+  const three = makeHarness({ withStage2: true, withStage3: true });
+  three.run();
+  assert.deepEqual(three.g2, [false], 'stage 3 carries it in the lumen layer');
 });

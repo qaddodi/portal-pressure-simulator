@@ -3,18 +3,18 @@
 //   procedure 'hvpgcath'                      the free pressure (FHVP), the balloon up and the pressure riding it to the wedge (WHVP), then the HVPG
 //   procedure 'eus'                           the needle in the left portal vein, then in the left hepatic vein, then the EUS-PPG
 //   procedure { kind: 'irivc', then: 'irpv' } the IVC from the neck, then the portal vein through the skin, then the PPG
-//   procedure 'tipsgrad'                      the portal vein through the stent, the catheter drawn back to the IVC, then the PPG against its target of <12 mmHg
+//   procedure 'tipsgrad'                      the portal vein through the stent, the catheter drawn back to the IVC, then the PPG against the 12 mmHg reference line
 // The card follows the procedure's own clock (presenter.js procPlay hands every frame's time: tools.proc): before the tip is in, the monitor waits;
 // each reading is a live trace with its beat and breath, its number the mean as the figure's callout prints it, and a marker drops where it is taken;
 // a change of level that happens in the vein (the balloon filling, the catheter drawn back through the stent) is drawn as it happens and the number
-// follows it, never a step. Back runs the clock backwards, so the trace goes back with it. The waves are drawn on the procedure's own clock
-// (hvpg-clock.js waveAt), so a trace drawn once is drawn the same again: it never reshuffles. The readings are the ones the procedure's callouts
+// follows it, never a step. Back runs the clock backwards, so the trace goes back with it. The trace is recorded as the clock passes (monitor.js,
+// trace-tape.js), on the patient's own heart rate and breath (the model's, hvpg-clock.js syncWave), so a beat drawn once is never drawn differently. The readings are the ones the procedure's callouts
 // print (proc-anim.js READS), the slide's numbers until each is taken.
 // The same card stays up from one measurement slide to the next (card-keep.js) and starts the new measurement afresh.
 
 import { h, fmt } from './util.js';
 import { easeMove } from './motion.js';
-import { k01, waveAt, WAVE_GAIN, WEDGE_DAMP } from './hvpg-clock.js';
+import { k01, clockWave, WEDGE_DAMP, PORTAL_DAMP, newWave, syncWave } from './hvpg-clock.js';
 import { createTraceGL } from './trace-gl.js';
 import { drawMonitor, HVPG_TEXT, monitorTitle } from './monitor.js';
 import { specOf, markAt, READS } from './proc-anim.js';
@@ -49,8 +49,9 @@ function clockOf(parts, gap = 800) {
 
 function scripts() {
   const H = specOf('hvpgcath').T, E = specOf('eus').T, I = specOf('irivc').T, P = specOf('irpv').T, G = specOf('tipsgrad').T;
-  // (The trace's height: the script's level with the beat and breath on it, the pulse softened where damp says.)
-  const at = (lv, damp) => (t, v, w) => { const p = lv(t, v); return fin(p) ? p + waveAt(t, w) * WAVE_GAIN * (1 - damp(t)) : NaN; };
+  // (The trace's height on the procedure's own clock: the script's level with the beat and breath on it, the pulse softened where damp says. The monitor
+  // records the same wave on the patient's heart rate, trace-tape.js; this is that trace with no model beside it, for the tests.)
+  const at = (lv, damp) => (t, v) => { const p = lv(t, v); return fin(p) ? p + clockWave(t, damp(t)) : NaN; };
 
   // HVPG: the free sweep, the balloon up and the pressure riding it to the wedge, the wedge read once the column has held, then the HVPG.
   const hc = clockOf([['hvpgcath', H.travel1 + 300, H.deflate0]]), hs = (x) => hc.S('hvpgcath', x);
@@ -64,7 +65,7 @@ function scripts() {
     segs: [[0, hI0, 'free'], [hI0, hc.total, 'wedge']],   // (blue while free, orchid once the balloon is up)
     status(t, v, st, o) {
       if (t < hI0) { o.label = 'FHVP'; o.num = fmt(v.a, 1); o.col = 'free'; }
-      else if (t < hW) { o.label = t < hI1 ? 'Balloon inflating' : 'Settling'; o.num = fmt(this.at(t, v, st.wave), 1); o.col = 'wedge'; }
+      else if (t < hW) { o.label = t < hI1 ? 'Balloon inflating' : 'Settling'; o.num = fmt(this.lv(t, v), 1); o.col = 'wedge'; }
       else if (t < hH) { o.label = 'WHVP'; o.num = fmt(v.b, 1); o.col = 'wedge'; }
       else { o.label = 'HVPG'; o.num = fmt(v.g, 1); o.col = SEV[hvpgSev(v.g)]; }
     },
@@ -74,14 +75,14 @@ function scripts() {
     ticks: [[hI0, 'balloon up']],
     marks: [hF, hW, hH],
   };
-  hvpg.at = at(hLv, hDamp);
+  hvpg.damp = hDamp; hvpg.at = at(hLv, hDamp);
 
   // EUS-PPG: the needle in the left portal vein, out, in the left hepatic vein (each reading a trace of its own: between them the needle is in neither), then the gradient
   // (taken once the needle is out of the hepatic vein: the clock runs on to the scope's way back, so it is reached).
   const ec = clockOf([['eus', E.pvFlash0, E.back]]), es = (x) => ec.S('eus', x);
   const ePv1 = es(E.pvOut0), eHv0 = es(E.hvFlash0), eHv1 = es(E.hvOut0);
   const eLv = (t, v) => (t >= 0 && t < ePv1 ? v.a : t >= eHv0 && t <= eHv1 ? v.b : NaN);
-  const eDamp = (t) => (t < ePv1 ? 0.5 : 0);   // (the portal vein's pulse is soft beside a hepatic vein's)
+  const eDamp = (t) => (t < ePv1 ? PORTAL_DAMP : 0);   // (the portal vein's pulse is soft beside a hepatic vein's)
   const eA = es(markAt('eus', 1)), eB = es(markAt('eus', 2)), eG = es(markAt('eus', 3));
   const eus = {
     id: 'eus', kinds: ['eus'], clock: ec, start: 0, win: [0, ec.total], enterWord: 'Needle advancing',
@@ -101,13 +102,13 @@ function scripts() {
     ticks: [[eHv0, 'needle in HV']],
     marks: [eA, eB, eG],
   };
-  eus.at = at(eLv, eDamp);
+  eus.damp = eDamp; eus.at = at(eLv, eDamp);
 
   // PPG by IR: the catheter from the neck reads the IVC; then, another way in, the portal vein through the skin and the liver; then the gradient.
   const pc = clockOf([['irivc', I.travel1 + 300, I.back], ['irpv', P.travel1 + 300, P.back]]), pi = (x) => pc.S('irivc', x), pp = (x) => pc.S('irpv', x);
   const pI1 = pi(I.back), pP0 = pp(P.travel1 + 300);
   const pLv = (t, v) => (t >= 0 && t <= pI1 ? v.a : t >= pP0 ? v.b : NaN);
-  const pDamp = (t) => (t >= pP0 ? 0.5 : 0);
+  const pDamp = (t) => (t >= pP0 ? PORTAL_DAMP : 0);
   const pA = pi(markAt('irivc', 1)), pB = pp(markAt('irpv', 1)), pG = pp(markAt('irpv', 2));
   const ppg = {
     id: 'ppg', kinds: ['irivc', 'irpv'], clock: pc, start: 0, win: [0, pc.total],
@@ -126,22 +127,22 @@ function scripts() {
     ticks: [[pP0, 'portal vein']],
     marks: [pA, pB, pG],
   };
-  ppg.at = at(pLv, pDamp);
+  ppg.damp = pDamp; ppg.at = at(pLv, pDamp);
 
   // PPG through a TIPS: the catheter through the stent reads the portal vein, is drawn back (the reading falls with it) and reads the IVC; then the gradient.
   const gc = clockOf([['tipsgrad', G.travel1 + 300, G.back]]), gs = (x) => gc.S('tipsgrad', x);
   const gP0 = gs(G.pull0), gP1 = gs(G.pull1), gK = (t) => easeMove(k01(t, gP0, gP1));
-  const gLv = (t, v) => (t < 0 ? NaN : v.a + (v.b - v.a) * gK(t)), gDamp = (t) => 0.5 * (1 - gK(t));
+  const gLv = (t, v) => (t < 0 ? NaN : v.a + (v.b - v.a) * gK(t)), gDamp = (t) => PORTAL_DAMP * (1 - gK(t));
   const gA = gs(G.pvRead1), gB = gs(G.ivRead1), gG = gs(markAt('tipsgrad', 0));
   const tips = {
-    id: 'tips', kinds: ['tipsgrad'], clock: gc, start: 0, win: [0, gc.total], target: PPG_CUTS.red, targetWord: `target <${PPG_CUTS.red}`,
+    id: 'tips', kinds: ['tipsgrad'], clock: gc, start: 0, win: [0, gc.total], target: PPG_CUTS.red, targetWord: `reference <${PPG_CUTS.red}`,
     heads: ['CATHETER PRESSURE · THROUGH THE STENT · mmHg', 'CATHETER PRESSURE · mmHg', 'CATHETER · mmHg'],
     notes: { idle: ['The tracing starts once the tip is through the stent.', 'Starts in the portal vein.'], wait: ['Waiting for the portal vein.'], probe: [''] },
     lv: gLv, keys: ['PV', 'IVC', 'PPG'], sev: ppgSev,
     segs: [[0, gP0, 'pv'], [gP0, gc.total, 'ivc']],
     status(t, v, st, o) {
       if (t < gP0) { o.label = 'PV'; o.num = fmt(v.a, 1); o.col = 'pv'; }
-      else if (t < gP1) { o.label = 'Drawing back'; o.num = fmt(this.at(t, v, st.wave), 1); o.col = 'ivc'; }
+      else if (t < gP1) { o.label = 'Drawing back'; o.num = fmt(this.lv(t, v), 1); o.col = 'ivc'; }
       else if (t < gG) { o.label = 'IVC'; o.num = fmt(v.b, 1); o.col = 'ivc'; }
       else { o.label = 'PPG'; o.num = fmt(v.g, 1); o.col = SEV[ppgSev(v.g)]; }
     },
@@ -151,7 +152,7 @@ function scripts() {
     ticks: [[gP0, 'drawn back']],
     marks: [gA, gB, gG],
   };
-  tips.at = at(gLv, gDamp);
+  tips.damp = gDamp; tips.at = at(gLv, gDamp);
 
   // (The readings, as the procedure's callouts print them once each is taken, the slide's numbers until then.)
   // (Until a reading is taken, the number is the live vein's, as the figure's callout beside the tip prints it (the model's frame, else the slide's
@@ -204,19 +205,24 @@ export function createReading() {
   const said = h('p', { class: 'sr-only' });
   const el = h('div', { class: 'pz-mon pz-reading' }, h('div', { class: 'chart-box hvpg-box' }, cv), h('div', { class: 'sr-only', role: 'group', 'aria-label': 'Pressure readings' }, said));
   const gpu = createTraceGL(cv, { redraw: () => draw() });   // (the monitor drawn by the GPU, trace-gl.js)
-  let S = null, fp = null, tk = {}, slide = null, saidKey = '';
+  let S = null, fp = null, tk = {}, slide = null, saidKey = '', readingNow = '';
   const v = { a: NaN, b: NaN, g: NaN }, taken = [false, false, false];
-  const st = { ph: 'idle', t: 0, v, running: true, wave: null, probing: false };   // (what the monitor is handed: kept, written in place)
+  const wave = newWave();   // (the patient's beat and breath, which the recorded trace follows: hvpg-clock.js syncWave)
+  const st = { ph: 'idle', t: 0, v, running: true, wave, probing: false };   // (what the monitor is handed: kept, written in place)
   function draw() {
     if (!S) return;
     S.vals(fp, v);
     st.ph = phaseOf(S, tk);
     const t = S.clock.now(tk);
     st.t = Number.isFinite(t) ? t : 0;
+    if (st.ph === 'run') syncWave(wave, store.get().frame, st.t, performance.now());
     drawMonitor(cv, gpu, S, st);
     takenOf(S, tk, taken);
     const key = `${S.id}${+taken[0]}${+taken[1]}${+taken[2]}`;
     if (key !== saidKey) { saidKey = key; said.textContent = readingWords(S, v, taken); }   // (only when a reading is taken, never each frame)
+    // (The header holds back what the card measures until its last reading is taken: presenter-cards.js MEASURED.)
+    const pend = taken[2] ? '' : 'pending';
+    if (pend !== readingNow) { readingNow = pend; if (pend) el.dataset.reading = pend; else delete el.dataset.reading; }
   }
   return {
     el,

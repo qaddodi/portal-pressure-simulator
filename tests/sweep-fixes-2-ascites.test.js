@@ -5,9 +5,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const css = read('../styles/app.css'), instr = read('../src/ui/instruments.js');
+const css = appCss(), instr = read('../src/ui/instruments.js');
 // The body of the first @container block whose prelude matches, with its nested braces.
 const containerBlock = (prelude) => {
   const i = css.indexOf(prelude);
@@ -20,16 +21,17 @@ const containerBlock = (prelude) => {
 
 test('item 3: a small belly lets the balance take two lines that hug the words, centred, its arrow readable', () => {
   const b = containerBlock('@container (max-width: 124px)');
-  assert.match(b, /\.dock-pane > \.instrument-view\.ab \.ab-belly > \.ab-big > \.ab-rate\[data-dir\] \{ display: block; width: min-content; max-width: 100%; white-space: normal; text-align: center;/);
+  assert.match(b, /\.ab-belly > \.ab-big > \.ab-rate\[data-dir\] \{ display: block; width: min-content; max-width: 100%; white-space: normal; text-align: center;/);
   assert.match(b, /\.ab-rate\[data-dir\] > \.ab-rate-a \{ margin-right: \.3em; color: inherit; \}/);
   // (A steady line holds the second line's room, so the litres and grade never jump when the balance appears.)
   assert.match(b, /\.ab-rate\[data-dir="steady"\] \{ margin-bottom: 1\.1em; \}/);
-  // (Only in the Tests card; a slide's belly keeps its one-line balance.)
+  // (The Tests card's belly and, from 19 Nov 2026, a slide's too, but only while it is under 125 px: a slide's 84 px belly on a phone on its side cut "▲ 1,700 mL/day" at both sides. A larger slide belly keeps its one line.)
+  assert.match(b, /:is\(\.dock-pane > \.instrument-view\.ab, \.pz-tool\[data-kind="abdomen"\] \.ab\) \.ab-belly/);
   assert.doesNotMatch(b, /(^|\n)\s*\.ab \.ab-belly/);
   // The litres' unit is 12 px at least on the small belly (it was half the 20 px number: 10 px).
   assert.match(css, /\.dock-pane > \.instrument-view\.ab \.ab-belly > \.ab-big > b small \{ font-size: max\(12px, \.5em\) !important; \}/);
   // The text between the rate's number and its unit is a plain space, the one place the line may break.
-  assert.match(instr, /`\$\{fmt\(b, 0\)\} mL\/day`/);
+  assert.match(instr, /`\$\{fmtG\(b, 0\)\} mL\/day`/);
 });
 
 test('item 4: on a 320 px phone the albumin switch stays as low as the one-line one, so the tiles keep their gutter', () => {

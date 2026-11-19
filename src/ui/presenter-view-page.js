@@ -2,7 +2,9 @@
 // and line, the next slide's title, the notes and the question for the room, a talk clock and a slide clock, Next and Back.
 // It follows the talk over a BroadcastChannel (presenter-view.js) and sends keys and buttons back; closing either window leaves the other working.
 
-import { CHANNEL } from './presenter-view.js';
+import { flagValue } from './flags.js';
+import { VIEW_QUERY, PROTOCOL, STALE_MS, channelOf, validSession, fromTalk } from './presenter-view.js';
+import { keepAwake } from './wake-lock.js';
 
 const CSS = `
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 15px/1.5 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif; }
@@ -27,6 +29,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .pv-bar button.go { background: var(--accent); border-color: transparent; color: #fff; } /* colour-exempt: white on the accent button */
 .pv-bar button:disabled { opacity: .4; cursor: default; }
 .pv-bar small { margin-left: auto; color: var(--text-2); }
+.pv-link { margin-left: auto; font-size: 12px; color: var(--text-2); } .pv-link[data-on="false"] { color: var(--danger); font-weight: 600; }
 .pv-wait { margin: auto; color: var(--text-2); font-size: 18px; text-align: center; }
 `;
 
@@ -40,22 +43,37 @@ export function run() {
   document.getElementById('boot')?.remove();
   document.documentElement.removeAttribute('data-boot');
   document.title = 'Presenter view';
-  const style = el('style', '', CSS), root = el('div', 'pv'), ch = typeof BroadcastChannel === 'function' ? new BroadcastChannel(CHANNEL) : null;
+  // (The talk this window follows is named in its address, ?presenter-view=<session>; an address with none, or a made-up one, follows nothing.)
+  const sid = flagValue(VIEW_QUERY);
+  const ok = validSession(sid);
+  const style = el('style', '', CSS), root = el('div', 'pv'), ch = ok && typeof BroadcastChannel === 'function' ? new BroadcastChannel(channelOf(sid)) : null;
   document.head.append(style); document.body.replaceChildren(root);
   const talk = el('output'), slide = el('output'), where = el('b'), deckT = el('span'), main = el('div', 'pv-main'), count = el('small');
   const back = el('button', '', '← Back'), nextB = el('button', 'go', 'Next →');
   const top = el('div', 'pv-top', null), clock = el('div', 'pv-clock');
   const ct = el('span', '', 'Talk'), cs = el('span', '', 'Slide'); ct.append(talk); cs.append(slide); clock.append(ct, cs);
   top.append(deckT, where, clock);
-  const bar = el('div', 'pv-bar'); bar.append(back, nextB, count);
+  const link = el('small', 'pv-link'); link.setAttribute('role', 'status');
+  const bar = el('div', 'pv-bar'); bar.append(back, nextB, count, link);
   root.append(top, main, bar);
-  let st = null;
-  const send = (c, i) => { try { ch?.postMessage({ t: 'cmd', c, i }); } catch { /* channel closed */ } };
+  let st = null, seen = 0, live = false;
+  const send = (c, i) => { if (!live) return; try { ch?.postMessage({ v: PROTOCOL, sid, t: 'cmd', c, ...(c === 'go' ? { i } : {}) }); } catch { /* channel closed */ } };
+  // (Connected while the talk's heartbeat or a slide arrives; the commands wait for it, so a window whose talk is gone cannot press anything.)
+  const status = () => {
+    const was = live;
+    live = !!ch && Date.now() - seen < STALE_MS;
+    link.dataset.on = String(live);
+    link.textContent = !ok ? 'Not opened from a talk' : live ? 'Connected' : 'Disconnected from the talk';
+    if (was !== live) paint();
+    if (live && !was) { try { ch?.postMessage({ v: PROTOCOL, sid, t: 'hello' }); } catch { /* channel closed */ } }   // (reconnect: ask where the talk is)
+  };
   const tick = () => { const now = Date.now(); talk.textContent = st ? mmss(now - st.talk0) : '0:00'; slide.textContent = st ? mmss(now - st.slide0) : '0:00'; };
   function paint() {
+    keepAwake(!!st);   // (A24: the notes window keeps its screen awake while a talk is running)
     main.replaceChildren();
-    back.disabled = nextB.disabled = !st;
-    if (!st) { main.append(el('p', 'pv-wait', 'Waiting for a talk. Start a presentation in the main window.')); deckT.textContent = ''; where.textContent = ''; count.textContent = ''; tick(); return; }
+    back.disabled = nextB.disabled = !st || !live;
+    if (!ok) { main.append(el('p', 'pv-wait', 'This window was not opened from a talk, so it has nothing to follow. Start a presentation, then open the presenter view from it.')); deckT.textContent = ''; where.textContent = ''; count.textContent = ''; tick(); return; }
+    if (!st) { main.append(el('p', 'pv-wait', live ? 'Waiting for a talk. Start a presentation in the main window.' : 'Disconnected from the talk. Keep the main window open, or open the presenter view from it again.')); deckT.textContent = ''; where.textContent = ''; count.textContent = ''; tick(); return; }
     const { cur, next, deck, i, beat, beats } = st;
     deckT.textContent = deck.title; where.textContent = `Slide ${i + 1} of ${deck.n}`;
     count.textContent = beats > 1 ? `View ${beat + 1} of ${beats}` : '';
@@ -68,7 +86,12 @@ export function run() {
     if (cur.ask) { const a = el('div', 'pv-ask'); a.append(el('p', 'q', cur.ask[0])); if (cur.ask[1]) a.append(el('p', 'a', cur.ask[1])); main.append(el('p', 'pv-cap', 'Discussion question'), a); }
     tick();
   }
-  if (ch) ch.onmessage = (e) => { const m = e.data; if (m?.t === 'state') { st = m; paint(); } else if (m?.t === 'end') { st = null; paint(); } };
+  if (ch) ch.onmessage = (e) => {
+    const m = e.data;
+    if (!fromTalk(m, sid)) return;   // (another talk's, another version's, or not a talk message at all)
+    seen = Date.now(); if (!live) status();
+    if (m.t === 'state') { st = m; paint(); } else if (m.t === 'end') { st = null; paint(); }
+  };
   back.onclick = () => send('prev'); nextB.onclick = () => send('next');
   addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -80,7 +103,7 @@ export function run() {
     if (e.target?.tagName === 'BUTTON' && (k === ' ' || k === 'Enter')) return;   // (a focused button keeps its own press)
     e.preventDefault(); if (!e.repeat) send(c, i);
   });
-  setInterval(tick, 1000);
-  paint();
-  try { ch?.postMessage({ t: 'hello' }); } catch { /* channel closed */ }
+  setInterval(() => { tick(); status(); }, 1000);
+  paint(); status();
+  try { ch?.postMessage({ v: PROTOCOL, sid, t: 'hello' }); } catch { /* channel closed */ }
 }

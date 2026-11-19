@@ -12,12 +12,17 @@
 // tubeBuckets and websByTier run in a frame and make nothing at all.
 import { N_SAMPLES, memberOf } from './veins-mesh.js';
 import { MAX_TIERS, TUBE_FLOATS } from './veins-mesh-data.js';
-import { WEB_FLOATS, WEB_MIN_DEG, WEB_MAX_DEG, legDirection } from './tube-joint.js';
+import { F_RING } from './veins-mesh-glsl.js';
+import { WEB_FLOATS, WEB_MIN_DEG, WEB_TAPER_DEG, WEB_MAX_DEG, legDirection } from './tube-joint.js';
 import { endTrunk, endContinues, END_THRU_START, END_THRU_END, joinThruSideJS, joinNextCode } from './tube-join-glsl.js';
 
-export const TUBE_ROW_FLOATS = 4;             // a row record: row, endStart, endEnd, kind + 2
+export const TUBE_ROW_FLOATS = 12;            // a row record: row, endStart, endEnd, kind + 2, then MOUTH_N mouth codes (floats 4 to 11)
+export const MOUTH_N = 8;                     // the mouths of branches a row can open its outline for (the most that end on one trunk row; the rest keep the trunk's outline across them)
+export const MOUTH_AT = 4;                    // the first mouth code in a row record
+/** A mouth code: 2 + 2 * the branch row + 1 for a branch ending at its last sample; under 1.5 (0, and the 1 an unset vertex attribute reads as) is none. */
+export const mouthCode = (row, atEnd) => 2 + 2 * row + (atEnd ? 1 : 0);
 export const TUBE_NO_END = -1;
-export const F_SHUNT = 1024;                  // a shunt's row (the TIPS, the DIPS, the surgical and the stent-tool shunts: veins-gl.js's flag, pinned by a test): its corners get webs across tiers
+export const F_SHUNT = 1024;                  // a shunt's row (the TIPS, the DIPS, the surgical and the stent-tool shunts, and every collateral drawn at full strength, the gastrorenal and splenorenal shunts among them: veins-gl.js's flag, pinned by a test): its corners get webs across tiers
 export const F_DOTTED = 8;                    // the flags (tube texel 2, z) of veins-gl.js: dotted. Kept here so this file imports no GL code (a test pins the value)
 const T_ALPHA = 7, T_TIER = 8, T_FLAGS = 10, T_GLOW = 43, T_GLOW_W = 47, T_SEL = 48, T_CLIP0 = 20, T_CLIP1 = 21;
 const F_SHADOW = 4, UP_GLOW = 5;
@@ -130,26 +135,36 @@ export function joinLegs(ent, q, pts, nRows) {
  * vessel at an end when that end is a leg of a join with a row that runs through it (the join's marked trunk, else the first member with two legs); it continues
  * another row when a join is two rows' ends and the two bend by no more than CONT_DEG; the first such join wins. out.exact: the exact rows' count; out.ended: the rows with a join end.
  */
-export function tubeRows(tubeData, nRows, joinEntries, out, pts = null) {
+export const F_ENDS = 8192;   // a row flag (tubeData float 10) for `only` below: this row's ends in a join are worked out
+export function tubeRows(tubeData, nRows, joinEntries, out, pts = null, only = 0, until = Infinity) {
   if (!out.rows || out.rows.length < nRows * TUBE_ROW_FLOATS) out.rows = new Float32Array(nRows * TUBE_ROW_FLOATS);   // alloc-rare: grown with the vessel rows
   const rows = out.rows;
-  for (let r = 0; r < nRows; r++) {
+  // (Resumable, 18 Nov 2026, the Compare stop's 'prepare 4 (rows)' of 195 ms in one: given `until` (performance.now() ms) the sweeps over the join entries stop at the first entry past it and
+  // return false, with their place and tables kept in out.tr; asked again with the same arguments they go on from there. Without `until`, or once it returns out, as ever.)
+  const run = until < Infinity ? out.tr || null : null;
+  if (!run) for (let r = 0; r < nRows; r++) {
     const o = r * TUBE_FLOATS, b = r * TUBE_ROW_FLOATS;
     const dotted = (Math.floor(tubeData[o + T_FLAGS] + 0.5) & F_DOTTED) !== 0;
     const clipped = tubeData[o + T_CLIP0] > CLIP_EPS || tubeData[o + T_CLIP1] < 1 - CLIP_EPS;
     rows[b] = r; rows[b + 1] = TUBE_NO_END; rows[b + 2] = TUBE_NO_END; rows[b + 3] = dotted || clipped ? 3 : 2;
+    for (let m = 0; m < MOUTH_N; m++) rows[b + MOUTH_AT + m] = 0;
   }
   if (pts) {
     const n = Math.floor(joinEntries.length / 8);
-    let nDefer = 0;
+    let nDefer = run ? run.nDefer : 0;
     // (An entry that repeats an earlier one — the binning lists a join once for each cell it touches — can change nothing: ends are only ever taken, so what the first did, the copy finds done. Each distinct entry once.)
     let size = 16;
     while (size < n * 2) size *= 2;
     if (SEEN.length < size) SEEN = new Int32Array(size);   // alloc-rare: grown with the number of join entries
-    SEEN.fill(0, 0, size);
+    if (run) { SEEN.set(run.seen); if (DEFER.length < run.defer.length * 2) DEFER = new Int32Array(run.defer.length * 2); DEFER.set(run.defer); } else SEEN.fill(0, 0, size);   // alloc-rare: a resumed run puts its tables back (another call may have used them between)
     const mask = size - 1;
+    let iters = 0;
     // Two sweeps: the second takes the entries the first found no trunk for (their ends may meet a junction another entry has made a continuation of: see `carrier` below).
-    for (let pass = 0; pass < 2; pass++) for (let k = 0, kn = pass === 0 ? n : nDefer; k < kn; k++) {
+    for (let pass = run ? run.pass : 0; pass < 2; pass++) for (let k = run && pass === run.pass ? run.k : 0, kn = pass === 0 ? n : nDefer; k < kn; k++) {
+      if (until < Infinity && iters++ > 0 && performance.now() > until) {
+        out.tr = { pass, k, nDefer, seen: SEEN.slice(0, size), defer: DEFER.slice(0, nDefer) };   // alloc-rare: once per slice of a sliced run
+        return false;
+      }
       const e = pass === 0 ? k : DEFER[k];
       const q = e * 8;
       if (pass === 0) {
@@ -169,6 +184,8 @@ export function tubeRows(tubeData, nRows, joinEntries, out, pts = null) {
       }
       if (!(joinEntries[q + 2] > 0) || legsOf(joinEntries, q, pts, nRows) < 2) continue;
       const nl = S.n;
+      // `only` (the lobule, 16 Nov 2026): the joins whose every row carries this flag have their ends worked out; the rest keep the lobule's own way (round caps laid over each other, no cuts).
+      if (only !== 0) { let all = true; for (let a = 0; a < nl && all; a++) all = (Math.floor(tubeData[S.row[a] * TUBE_FLOATS + T_FLAGS] + 0.5) & only) !== 0; if (!all) continue; }
       const setEnd = (a, code) => {   // a: a leg that is an end of its row; the first end given wins
         const b = S.row[a] * TUBE_ROW_FLOATS + (S.sample[a] === 0 ? 1 : 2);
         if (rows[b] === TUBE_NO_END) { rows[b] = code; const kb = S.row[a] * TUBE_ROW_FLOATS + 3; if (rows[kb] < 2.5) rows[kb] = 4; return true; }   // (kind 4: exact only for the end, so its prepass is the join-only depth program; a dotted or clipped row stays 3)
@@ -256,7 +273,20 @@ export function tubeRows(tubeData, nRows, joinEntries, out, pts = null) {
       const tr = Math.floor(c / N_SAMPLES);
       rows[b] = c + (runsOn(tr, 1) ? END_THRU_START : 0) + (runsOn(tr, 2) ? END_THRU_END : 0);
     }
+    // The mouths (14 Nov 2026, Mohammad: "the GRS is disconnected from the renal vein (there is a line), same for the splenogastric varix inlet from the splenic vein"): each
+    // row that ends on a trunk's side (an open end, not at the trunk's own end) is listed on its trunk, so the trunk's outline is left open across the branch's width where the
+    // branch joins it (tube-lean-glsl.js mouthOpen). The wall line of a trunk that lies under a branch's faded end (the branch eases to the trunk's opacity) showed through
+    // it as a dark line across the mouth. Up to MOUTH_N a trunk, in row order.
+    for (let r = 0; r < nRows; r++) for (let sl = 1; sl <= 2; sl++) {
+      const c = rows[r * TUBE_ROW_FLOATS + sl];
+      if (c < 0) continue;
+      const ci = Math.floor(c + 1e-6), tr = Math.floor(ci / N_SAMPLES), ts = ci % N_SAMPLES;
+      if (tr === r || tr >= nRows || ts === 0 || ts === N_SAMPLES - 1) continue;
+      const tb = tr * TUBE_ROW_FLOATS + MOUTH_AT;
+      for (let m = 0; m < MOUTH_N; m++) if (rows[tb + m] === 0) { rows[tb + m] = mouthCode(r, sl === 2); break; }
+    }
   }
+  out.tr = null;
   let exact = 0, joinOnly = 0, ended = 0;
   for (let r = 0; r < nRows; r++) {
     const b = r * TUBE_ROW_FLOATS;
@@ -308,6 +338,7 @@ export function tubeBuckets(tube, on, nTubes, rowData, out) {
     // (joinNextCode, at most 4094 with the 2047 rows the lumen target holds: under 2^24, exact in a float). The shader reads w only as over 1.5 (ends) and this.)
     const n0 = nextOf(rowData, rowData[b + 1]), n1 = nextOf(rowData, rowData[b + 2]);
     rows[at2 + 3] = n0 || n1 ? 5 + n0 + 4096 * n1 : rowData[b + 3];
+    for (let m = 0; m < MOUTH_N; m++) rows[at2 + MOUTH_AT + m] = rowData[b + MOUTH_AT + m];
   }
   out.n = at;
   return out;
@@ -320,21 +351,35 @@ export function tubeBuckets(tube, on, nTubes, rowData, out) {
  * layout with the join's place in x, y (between the views, a join entry's x is its index: the caller passes entries with the frame's place filled in); repeats of a
  * join are left out, as are joins with no reach, no fillet or fewer than two legs. tubeData: the tube attribute array (its length gives the rows); pts: the rows'
  * points as pointsFromEntries lays them. For each join: its legs (see legsOf), sorted by the angle of their direction about the join; each pair of neighbours in that
- * order (round the circle) whose directions differ by at least WEB_MIN_DEG and under WEB_MAX_DEG makes one web, between the first leg's wall on its left and the
+ * order (round the circle) whose directions differ by at least WEB_TAPER_DEG (a taper under WEB_MIN_DEG) and under WEB_MAX_DEG makes one web, between the first leg's wall on its left and the
  * second's on its right. owner: 0 or 1 if exactly one of the two legs is a trunk, else 2 (the larger radius, decided in the shader where the radii are).
  * out.at: each web's join place (x, y), for the tests and the diagnostics only. out.joins: the joins read; out.empty: pairs left out for an angle outside the range; out.kinds: webs by the number of legs of their join.
  */
-export function webInstances(joinEntries, tubeData, pts, out) {
+export function webInstances(joinEntries, tubeData, pts, out, ends = true) {
+  out.run = null;
+  webInstancesStep(joinEntries, tubeData, pts, out, ends, Infinity);
+  return out;
+}
+/**
+ * webInstances in slices (18 Nov 2026: the Compare stop's prepare 'webs' step ran 461.6 ms in one): reads joins until `until` (performance.now() ms), then returns false with its place
+ * kept in out.run; called again with the same arguments it goes on from there. True when every join is read (out is then as webInstances leaves it). Set out.run = null to begin again.
+ */
+export function webInstancesStep(joinEntries, tubeData, pts, out, ends, until) {
   const nRows = Math.floor(tubeData.length / TUBE_FLOATS), nj = Math.floor(joinEntries.length / 8);
   if (!out.data || out.data.length < nj * 8 * WEB_FLOATS) out.data = new Float32Array(nj * 8 * WEB_FLOATS);   // alloc-rare: grown with the joins (up to 8 legs, 8 webs, a join), only on a new binning
   if (!out.at || out.at.length < nj * 8 * 2) out.at = new Float32Array(nj * 8 * 2);   // alloc-rare: grown with the joins, only on a new binning
   if (!out.kinds) out.kinds = new Int32Array(LEG_MAX + 1);   // alloc-rare: once
   if (!out.e || out.e.length < nj * 8) out.e = new Int32Array(nj * 8);   // alloc-rare: grown with the joins, only on a new binning (each web's join entry: out.e[web])
-  out.kinds.fill(0);
-  const seen = new Set();   // alloc-rare: geometry upload: once per binning, sized by the joins, never on a steady frame
+  let run = out.run;
+  if (!run) {
+    out.kinds.fill(0);
+    run = out.run = { e: 0, count: 0, joins: 0, skipped: 0, seen: new Set() };   // alloc-rare: geometry upload: once per binning, sized by the joins, never on a steady frame
+  }
+  const seen = run.seen;
   const data = out.data;
-  let count = 0, joins = 0, skipped = 0;
-  for (let e = 0; e < nj; e++) {
+  let count = run.count, joins = run.joins, skipped = run.skipped;
+  for (let e = run.e; e < nj; e++) {
+    if (until < Infinity && e > run.e && performance.now() > until) { run.e = e; run.count = count; run.joins = joins; run.skipped = skipped; return false; }
     const q = e * 8;
     if (!(joinEntries[q + 2] > 0)) continue;
     const key = joinEntries.slice(q, q + 8).join(',');   // alloc-rare: same as above
@@ -356,9 +401,13 @@ export function webInstances(joinEntries, tubeData, pts, out) {
       if (la === lb) continue;
       let gap = S.ang[lb] - S.ang[la];
       if (gap < 0) gap += 2 * Math.PI;
-      if (gap < WEB_MIN_DEG * DEG || gap >= WEB_MAX_DEG * DEG) { skipped++; continue; }
+      if (gap < WEB_TAPER_DEG * DEG || gap >= WEB_MAX_DEG * DEG) { skipped++; continue; }
       // A mouth: one leg is a branch that ends here (one leg of its row), the other a trunk running through (two legs). The join cuts the branch at the trunk's wall and carries the trunk's tones on,
       // so its crotch is a plain V; a fillet web there adds a round bay whose outline steps off the branch's real wall, a dark wedge of the branch's shade and a pale rim. Under MOUTH_WEB_DEG it is left out (13 Nov 2026).
+      // A disc seen end-on (the lobule's central vein, portal venule, arteriole, ductule: F_RING) is a point with a radius, not a vessel with a wall line: its "legs" run along a 0.6 unit stub, so a
+      // fillet web against it landed off the real rim, a speck of the disc's colour and a black tick on the outline beside every mouth (15 Nov 2026, Mohammad: the central vein looked chipped).
+      // The vessel's flare into the disc (lobule-mouths.js flareAt) is the fillet there.
+      if ((tubeData[S.row[la] * TUBE_FLOATS + 10] & F_RING) !== 0 || (tubeData[S.row[lb] * TUBE_FLOATS + 10] & F_RING) !== 0) { skipped++; continue; }
       let nA = 0, nB = 0;
       for (let c = 0; c < n; c++) { if (S.row[c] === S.row[la]) nA++; if (S.row[c] === S.row[lb]) nB++; }
       if ((nA === 1) !== (nB === 1) && gap < MOUTH_WEB_DEG * DEG) { skipped++; continue; }
@@ -368,13 +417,14 @@ export function webInstances(joinEntries, tubeData, pts, out) {
       data[o + 8] = rho0; data[o + 9] = joinEntries[q + 2];
       out.at[count * 2] = x0; out.at[count * 2 + 1] = y0; out.e[count] = e;
       const ta = S.mark[la] > 0.1, tb = S.mark[lb] > 0.1;
-      data[o + 10] = ta !== tb ? (ta ? 0 : 1) : 2; data[o + 11] = 0;
+      data[o + 10] = ends && ta !== tb ? (ta ? 0 : 1) : 2;   // (a marked trunk owns the web, and its mouth tone all over, only where the rows carry join ends: the branch's mouth then carries the trunk's tone field on, tube-join-glsl.js. The lobule's rows have none, its branches keep their own tone to the end, and a web in the trunk's tone drew a dark band along the trunk's wall at each mouth, 14 Nov 2026)
+      data[o + 11] = gap < WEB_MIN_DEG * DEG ? 1 : 0;   // (a taper: legs under WEB_MIN_DEG apart, tube-joint.js)
       count++;
       out.kinds[n]++;
     }
   }
-  out.count = count; out.joins = joins; out.empty = skipped;
-  return out;
+  out.count = count; out.joins = joins; out.empty = skipped; out.run = null;
+  return true;
 }
 
 /**

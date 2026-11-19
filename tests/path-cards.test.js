@@ -15,6 +15,7 @@ import psvdscore from '../src/ui/path-algos/psvdscore.js';
 import recomp from '../src/ui/path-algos/recomp.js';
 import pvtgrid from '../src/ui/path-algos/pvtgrid.js';
 import ladder from '../src/ui/path-algos/ladder.js';
+import { UNLIT } from '../src/ui/chart-looks/path.js';
 
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 const CARDS = [psvdscore, recomp, pvtgrid, ladder];
@@ -116,11 +117,11 @@ test('psvdscore: Baveno VIII 8.44 totals 0-2 no PSVD or NCPF, 3-4 possible, 5 or
   for (const z of psvdscore.zones) assert.ok(z[0] <= z[1]);
   for (const p of patientsOf(psvdscore)) { const { t, v } = scoreState(psvdscore, p), z = psvdscore.zones[v.z]; assert.ok(t >= z[0] && t <= z[1] || t < 0, `${JSON.stringify(p)}: ${t} in zone ${v.z}`); assert.equal(v.tone, z[3]); }
   const r = readingFor('psvdscore', 'z1', psvdscore.defaults);
-  assert.match(r.next, /Further investigation \(biopsy, elastography\), referral to an expert vascular liver center, and follow-up for new signs\./);
+  assert.match(r.next, /Biopsy or elastography, referral to an expert vascular liver center, and follow-up for new signs\./);
   assert.equal(readingFor('psvdscore', 'z2', P['Varices and a major lesion']).next, '', 'definite has no next step in the mock');
   assert.match(readingFor('psvdscore', 'z2', P['Varices and a major lesion']).why, /^Score 8\./);
   assert.deepEqual(chipsOf('psvdscore', psvdscore.defaults), [], 'the verdict row carries the score: no chips');
-  assert.equal(zoneText(psvdscore.zones[0], false), 'No PSVD or NCPF · 0–2');
+  assert.equal(zoneText(psvdscore.zones[0], false), 'Not PSVD · 0–2');
   assert.equal(zoneText(psvdscore.zones[1], false), 'Possible · 3–4');
   assert.equal(zoneText(psvdscore.zones[2], false), 'Definite · ≥5');
 });
@@ -177,15 +178,14 @@ test('ladder: each stage lights its step and says what it means; the way back is
     assert.ok(!L.has('back'));
     const r = readingFor('ladder', `s${s}`, { s, rc: false });
     assert.deepEqual([r.head, r.tone], [ladder.steps[s][0], ladder.steps[s][3]]);
-    assert.deepEqual(chipsOf('ladder', { s, rc: false }), [ladder.steps[s][0]]);
+    assert.deepEqual(chipsOf('ladder', { s, rc: false }), [], 'the stage is lit on the card: no chip says it again');
   }
   assert.deepEqual(ladder.steps.map((x) => x[0]), ['cACLD', 'cACLD with CSPH', 'First decompensation', 'Further decompensation']);
   assert.deepEqual(ladder.steps.map((x) => x[3]), ['n', 'warn', 'bad', 'bad']);
   assert.ok(litOf('ladder', { s: 2, rc: true }).has('back'));
   assert.ok(litOf('ladder', { s: 3, rc: true }).has('back'));
   assert.ok(!litOf('ladder', { s: 1, rc: true }).has('back'), 'a compensated patient has nothing to come back to');
-  assert.deepEqual(chipsOf('ladder', { s: 2, rc: true }), ['First decompensation', 'Recompensated since']);
-  assert.deepEqual(chipsOf('ladder', { s: 1, rc: true }), ['cACLD with CSPH']);
+  assert.deepEqual(chipsOf('ladder', { s: 2, rc: true }), [], 'the way back says Recompensated: no chip');
   assert.equal(patientsOf(ladder).length, 8);
   const P = Object.fromEntries(ladder.presets);
   assert.deepEqual(Object.values(P).map((p) => outcomeOf('ladder', litOf('ladder', p))), ['s1', 's2', 's3', 's2']);
@@ -375,9 +375,9 @@ test('the faces and looks resolve in every look, lit or not, in every tone the c
   assert.ok(at('path.opt', true).width > at('path.opt', false).width, 'a lit answer has the thicker border');
   assert.notEqual(at('path.opt', true, 'danger').stroke, at('path.opt', true, 'ok').stroke, 'a lit answer takes the verdict\'s colour');
   assert.equal(at('path.opt', false, 'danger').stroke, at('path.opt', false, 'ok').stroke, 'an unlit one is the quiet grey');
-  assert.equal(at('path.opt', false).opacity, 0.4, 'unlit at 40%');
+  assert.equal(at('path.opt', false).opacity, UNLIT, 'unlit at 70%');
   assert.equal(at('path.opt', true).opacity, 1);
-  assert.equal(at('path.op', false).opacity, 0.4);
+  assert.equal(at('path.op', false).opacity, UNLIT);
   assert.notEqual(at('path.cell', true, 'accent').fill, at('path.cell', true, 'danger').fill, 'a lit cell is in its own colour');
   assert.notEqual(at('path.group', false, 'accent').stroke, at('path.group', false, 'danger').stroke, 'an answer\'s shape keeps its colour at rest');
   assert.ok(at('path.group', true).width > at('path.group', false).width, 'the patient\'s shape has the thicker edge');
@@ -388,9 +388,53 @@ test('the faces and looks resolve in every look, lit or not, in every tone the c
 test('the card draws the new kinds on the GPU, with no page text and no layout read, and the head, rule and foot stay the card\'s', () => {
   const card = read('src/ui/path-cards.js'), path = read('src/ui/tool-path.js');
   for (const src of [card, path]) assert.doesNotMatch(src, /requestAnimationFrame|getBoundingClientRect|getComputedStyle|createElementNS|getContext|clientWidth|offsetWidth|offsetHeight|readMetric|readBox|textContent|innerHTML|innerText/, 'no raw frame, no layout read, no canvas 2D, no SVG DOM, no page words');
-  assert.match(path, /cardLayout\(spec\.algo, Wv, compact, base, CARD_HELPERS\)/);
+  assert.match(path, /cardLayout\(spec\.algo, Wv, compact, base, CARD_HELPERS, true\)/);
   assert.match(path, /cardModel\(spec\.algo, lay\.card, patient, CARD_HELPERS, oy\)/);
   assert.match(path, /gl\.show\(/);
   assert.match(path, /the answers lit, the width and layout, the chips, and the reading's words/, 'the paint key holds all that shows');
   assert.match(read('src/ui/path-data.js'), /psvdscore, recomp, pvtgrid, ladder\]/);
+});
+
+test('the small stages card: the lit stage in full, every other stage one line (number and name), and room for this patient alone', () => {
+  for (const [, W, phone] of WIDTHS.filter((x) => x[2])) for (const p of patientsOf(ladder)) {
+    const { ops, h } = drawCard(ladder, W, cardCompact(W, phone), p, H), words = ops.filter((o) => o.k === 't');
+    assert.equal(words.filter((o) => o.face === 't').length > 0, true, 'the lit stage says what it means');
+    const sd = words.filter((o) => o.face === 't'), lines = new Set(sd.map((o) => o.y));
+    assert.ok(sd.every((o) => o.on), `stage ${p.s + 1}: only the lit stage has its criteria`);
+    assert.deepEqual(words.filter((o) => o.face === 'sn').map((o) => o.text), ['Stage 1', 'Stage 2', 'Stage 3', 'Stage 4']);
+    assert.equal(words.filter((o) => o.face === 'yo').length, 1, 'one "Patient is here"');
+    assert.ok(lines.size <= 3, 'the criteria in at most three lines');
+    // the whole card is the slide's patient's: no room kept for another stage's criteria or a way back this stage has not
+    assert.equal(Math.ceil(h), layout(ladder, W, true, p, H, true).H);
+    assert.ok(layout(ladder, W, true, p, H, true).H <= layout(ladder, W, true, p, H).H);
+  }
+  const s1 = layout(ladder, 340, true, { s: 1, rc: false }, H, true).H, s3 = layout(ladder, 340, true, { s: 3, rc: true }, H, true).H;
+  assert.ok(s1 < s3 && s1 <= 200, `a compensated patient's card is short (${s1} px) and has no room for the way back`);
+});
+
+test('a checklist row\'s answers stand at the right of the row on one line at every small width, and a long name wraps beside them (recompensation row 1, 17 Nov 2026)', () => {
+  for (const a of [recomp, psvdscore]) for (const W of [375, 340, 300, 280]) {
+    for (const p of patientsOf(a)) {
+      const { ops } = drawCard(a, W, true, p, H), pills = ops.filter((o) => o.k === 'r' && o.look === 'path.opt');
+      const rows = new Map();
+      for (const o of pills) rows.set(o.y, [...(rows.get(o.y) || []), o]);
+      if (a === recomp) {
+        assert.equal(rows.size, a.rows.length, `${a.id} ${W}: one line of answers for each row`);
+        for (const [y, ps] of rows) {
+          assert.equal(ps.length, 2, `${a.id} ${W}: Met and Not met on one line`);
+          assert.ok(Math.abs(Math.max(...ps.map((o) => o.x + o.w)) - W) < 0.5, `${a.id} ${W}: the answers end at the right edge (y ${y})`);
+        }
+        const name = ops.filter((o) => o.k === 't' && o.face === 'rn');
+        const first = name.filter((t) => t.y < [...rows.keys()][1]);
+        assert.ok(first.length >= 2, `${a.id} ${W}: the first name wraps to two lines`);
+        const left = Math.min(...[...rows.values()].map((ps) => Math.min(...ps.map((o) => o.x))));
+        for (const t of name) {
+          const w = H.textWidth(t.text, { weight: ROLE.rn.weight, size: ROLE.rn.size }), row = [...rows.keys()].filter((y) => y <= t.y).pop();
+          const px = Math.min(...rows.get(row).map((o) => o.x));
+          assert.ok(t.x + w <= px - 5, `${a.id} ${W}: "${t.text}" stops before its answers`);
+        }
+        assert.ok(left > 0);
+      }
+    }
+  }
 });

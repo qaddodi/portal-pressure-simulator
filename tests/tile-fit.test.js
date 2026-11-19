@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 // The varix wall card's readings: the value and unit never wrap or shrink, and the name (Transmural ΔP is the long one) takes the
 // room left and wraps, so nothing spills out of its tile. (tests/e2e/tile-fit.mjs checks every data card's tiles in a browser.)
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, sel, body]) => ({ sel: sel.trim().replace(/^\/\*[\s\S]*?\*\/\s*/, ''), body }));
 const rule = (sel) => rules.filter((r) => r.sel.split(',').map((x) => x.trim()).includes(sel)).map((r) => r.body).join(' ');
 

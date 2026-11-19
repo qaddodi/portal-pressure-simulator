@@ -2,13 +2,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
+import { appCss, presenterSource } from './split-src.js';
 
 // The stacked card's handle (.pz-lip, the bar on the readings' card) comes in with the card and never ahead of it (Mohammad, 25 Oct: "the handle
 // of the stacked cards appears before the cards"). The bar is a crisp mark on glass that is nearly clear while it fades, so it fades in once the
 // glass is in and out before it; with Reduce Motion every transition was off for it, so it came up at once while the cards were still fading in.
 const read = (p) => unsnap(readFileSync(new URL(p, import.meta.url), 'utf8'));
-const css = read('../styles/app.css');
-const js = read('../src/ui/presenter.js');
+const css = appCss();
+const js = unsnap(presenterSource());
 
 // (A time in seconds: a number, or a step of the motion scale, tokens.css --d-flip, --d-small, --d-surface.)
 const STEPS = { 'var(--d-flip)': 0.12, 'var(--d-small)': 0.24, 'var(--d-surface)': 0.42 };
@@ -58,8 +59,9 @@ test('in motion, the handle fades in after the card\'s glass has begun and is ou
 });
 
 test('with Reduce Motion the handle still fades with the cards, in after the glass and out before it, never popping', () => {
-  const block = css.match(/@media \(prefers-reduced-motion: reduce\) \{\n {2}\.pz \*, \.pz,[\s\S]*?\n\}/)?.[0] ?? '';
-  assert.ok(block.includes('transition: none !important'), 'the block turns every transition off, the handle\'s included');
+  const block = css.match(/@media \(prefers-reduced-motion: reduce\) \{\n(?: {2}\/\*[\s\S]*?\*\/\n)? {2}\.pz \*, \.pz,[\s\S]*?\n\}/)?.[0] ?? '';
+  // (Since 15 Nov 2026 the block keeps every transition's opacity, nothing else: nothing in a slide pops, owner's rule.)
+  assert.ok(block.includes('transition-property: opacity, visibility !important'), 'the block keeps only the fades, the handle\'s included');
   // (The cards' glass fades in .3 s from the start there: .pz > :is(.pz-data ...) { transition: opacity var(--d-small) }.)
   const [inDur, inDelay] = fade(rule('.pz > .pz-lip {', block));
   const [outDur, outDelay] = fade(rule('.pz > .pz-data.pz-hide + .pz-lip {', block));

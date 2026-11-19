@@ -12,11 +12,12 @@ import { levelsOf } from '../src/ui/tool-hvpg.js';
 import { eases, dataPlan } from '../src/ui/card-keep.js';
 import { Engine } from '../src/engine/portal/engine.js';
 import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8');
 const tools = read('../src/ui/presenter-tools.js');
-const presenter = read('../src/ui/presenter.js');
-const css = read('../styles/app.css');
+const presenter = presenterSource();
+const css = appCss();
 const run = (g) => { let n; do { n = g.next(); } while (!n.done); };
 
 // ── The encephalopathy-risk tile ──
@@ -77,7 +78,7 @@ test('the vitals read the slide\'s own numbers, decimals as its tiles print them
   assert.equal(vitalReading({ v: VITALS[0] }, { map: 60 }, false, 0).bad, true);
   const src = read('../src/ui/vitals-monitor.js');
   assert.match(src, /import \{ createBeatClock, ekgSeries(?:, \w+)* \} from '\.\/ekg\.js'/, 'the strip is the pressure trace\'s');
-  assert.match(src, /if \(c\.bad\) rectAt\(nr\+\+, x - 5, by - big \* 0\.78 - 4, rw \+ mw \+ 10, big \* 0\.78 \+ 10, 5, alarm\);\n\s+textAt\(nt\+\+, main, 700, big, x \+ rw - nw, by, c\.bad \? bg : ink\);/);   // (the readings go to the GPU's list; a reading past its limit is reverse video on the alarm patch, a box of the widest number so it never resizes)
+  assert.match(src, /if \(c\.bad\) rectAt\(nr\+\+, x - 5, by - big \* 0\.78 - 4, rw \+ mw \+ 10, big \* 0\.78 \+ 4 \+ BOX_BELOW, 5, alarm\);\n\s+textAt\(nt\+\+, main, 700, big, x \+ rw - nw, by, c\.bad \? bg : ink\);/);   // (the readings go to the GPU's list; a reading past its limit is reverse video on the alarm patch, a box of the widest number so it never resizes)
   assert.doesNotMatch(src, /shadowBlur|createLinearGradient|arc\(/, 'no glow, gradient or status dot');
   assert.doesNotMatch(src, /textAt\([^;]*, (?:[0-9]|1[01]), [^;]*\);/, 'no word under 12 px');
   assert.match(read('../src/ui/dock.js'), /export \{ VITALS \};/, 'the bottom bar keeps its list, now in vital-read.js');
@@ -101,20 +102,20 @@ test('the HVPG card: the HVPG is the difference of the two readings as shown, an
   assert.equal(levelsOf({ whvp: 10 }), null);
   assert.equal(levelsOf(null), null);
   const src = read('../src/ui/tool-hvpg.js');
-  assert.match(src, /mon\.set\('free', cur, 0\);/); assert.match(src, /mon\.set\('wedge', cur, 0\);/); assert.match(src, /mon\.set\('result', cur, 1\);/);
-  assert.match(src, /k01\(now - t0, 0, T\.wedge - T\.inflate\), v = a \+ \(b - a\) \* ease\(k\);\s*mon\.balloon\(v\); tell\(v\);/, 'the balloon is driven from the procedure\'s clock');
-  assert.match(src, /mon\.set\('result', cur, 1, true\)/, 'jumped to or gone back to: the finished tracing at once');
+  assert.match(src, /(?:live\.)?mon\.set\('free', cur, 0\);/); assert.match(src, /(?:live\.)?mon\.set\('wedge', cur, 0\);/); assert.match(src, /(?:live\.)?mon\.set\('result', cur, 1\);/);
+  assert.match(src, /k01\(now - t0, 0, T\.wedge - T\.inflate\), v = a \+ \(b - a\) \* ease\(k\);\s*(?:live\.)?mon\.balloon\(v\); tell\(v\);/, 'the balloon is driven from the procedure\'s clock');
+  assert.match(src, /(?:live\.)?mon\.set\('result', cur, 1, true\)/, 'jumped to or gone back to: the finished tracing at once');
   assert.match(src, /pending = forward && !again \? 'steps' : 'result'/, 'it steps going forward onto the slide, once');
   // (One reading a Next, as on every measurement: the presenter hands Next and Back to the card before it moves on.)
-  assert.match(presenter, /else if \(shown\?\.i === want && ui\.tools\?\.step\(1\)\) return;/);
-  assert.match(presenter, /if \(procBack\(\) \|\| \(shown\?\.i === want && ui\.tools\?\.step\(-1\)\)\) return;/);
+  assert.match(presenter, /else if \((?:live\.)?shown\?\.i === (?:live\.)?want && (?:live\.)?ui\.tools\?\.step\(1\)\) return;/);
+  assert.match(presenter, /if \(procBack\(\) \|\| \((?:live\.)?shown\?\.i === (?:live\.)?want && (?:live\.)?ui\.tools\?\.step\(-1\)\)\) return;/);
   assert.match(tools, /step\(dir\) \{ return !!cur\?\.step\?\.\(dir\); \}/);
   assert.match(src, /cur\.hvpg = tenthGap\(cur\.whvp, cur\.fhvp, target\.hvpg\)/, 'the levels ease and the HVPG follows them');
   assert.match(read('../src/ui/hvpg-proc.js'), /function set\(m, f = null, b = bal, instant = false\)/);
   assert.match(read('../src/ui/hvpg-proc.js'), /if \(\(instant \|\| reduceMotionMQ\.matches\) && !falling\(\)\) t = t1;/);
   // The presenter tells the tools when a slide is stepped onto, and not when its card is only kept or rebuilt in place.
-  assert.match(presenter, /const showTool = \(s, i, lap = false, forward = false\) => ui\.tools\.show\(s\.tool, \{ slide: i, stateKey: stateOf\[i\], forward,/);
-  assert.match(presenter, /showTool\(s, i, lap, i === lastAt \+ 1\)/);
+  assert.match(presenter, /const showTool = \(s, i, lap = false, forward = false\) => (?:live\.)?ui\.tools\.show\(s\.tool, \{ slide: i, stateKey: (?:live\.)?stateOf\[i\], forward,/);
+  assert.match(presenter, /showTool\(s, i, lap, i === (?:live\.)?lastAt \+ 1\)/);
   assert.match(tools, /inst\.arrive\?\.\(\{ forward, again: cur === inst \}\);/);
 });
 

@@ -4,9 +4,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
-const util = read('src/ui/util.js'), css = read('styles/app.css'), seg = read('src/ui/seg-glide.js');
+const util = read('src/ui/util.js'), css = appCss(), seg = read('src/ui/seg-glide.js');
 const fn = (name) => { const at = util.indexOf(`function ${name}(`); assert.ok(at >= 0, name); return util.slice(at, util.indexOf('\n}\n', at)); };
 
 test('only a big jump from outside the pointer\'s hand travels; a drag, a held finger, Reduce Motion, a hidden slider and one the GPU has not drawn are taken at once', () => {

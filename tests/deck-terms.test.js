@@ -7,9 +7,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { DECKS } from '../src/ui/decks.js';
+import { presenterSource } from './split-src.js';
 
 const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const SRC = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const SRC = presenterSource();
 // Each figure target's own words (presenter.js TARGETS), for a slide whose terms are a list of targets.
 const WORDS = {};
 for (const m of SRC.matchAll(/^\s+'?([\w:]+)'?: \{[^\n]*words: '([^']+)'/gm)) WORDS[m[1]] = m[2];

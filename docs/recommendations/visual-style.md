@@ -172,12 +172,12 @@ Make one material table in `theme-tokens.js`, read by the catheter shader (throu
 
 | Material | Light looks | Dark looks | Used by |
 |---|---|---|---|
-| `--dev-poly` (catheter, tube) | #9AA9BC, a blue-grey polymer: 2.0 / 1.6 / – | #F0F0ED, today's ivory: – / – / 16 | every catheter shaft and the tamponade tube |
+| `--dev-poly` (catheter, tube) | #E2E4E7, a light silver-white polymer (was the blue-grey #9AA9BC, which read blue on a blue vein, 18 Nov 2026): – / – / – | #F0F0ED, today's ivory: – / – / 16 | every catheter shaft and the tamponade tube |
 | `--dev-poly-edge` | #2A303B: 11.2 / 8.7 | #C9CED6 (a light hairline) | the shaft's edge (D2) |
 | `--dev-latex` (compliant balloons) | #DDB262 amber latex at higher fill: 1.7 / 1.3 | today's | HVPG wedge, BRTO and BATO occlusion, tamponade balloons |
 | `--dev-latex-edge` | #8F6A33: 4.1 / 3.2 / 3.6 | – | balloon rims |
 | `--dev-nylon` (non-compliant) | a clearer, cooler tint (today's `CATH_LATEX`) with crisper shoulders | – | the TIPS angioplasty balloon only |
-| `--dev-steel` | #7C8696: 3.1 / 2.4 / 4.8 | today's `STEEL` | needles, wire, EUS steel |
+| `--dev-steel` | #9096A0 (was #7C8696, a bluer slate): – / – / – | today's `STEEL` | needles, wire, EUS steel |
 | `--dev-platinum` | #8E949E | today's `CATH_METAL` | marker bands, coils |
 | `--dev-glue` (cyanoacrylate cast) | #3B4E6B: 7.1 / 5.6 | a pale cast on the dark looks | D7 |
 | `--dev-ptfe` (stent cover) | a pale grey wash | a pale grey wash | D4 |
@@ -260,7 +260,7 @@ Blue-away, red-toward is the convention and stays. But after the 28 % softening 
 
 ### S5. Smaller screen items (low, S)
 
-- Over-time traces: dash the wedged trace (C4).
+- Over-time traces: never dashed (16 Nov 2026: a dash on a trace that scrolls marches with it and distracts). The wedged trace is amber, the portal pink, the free blue; `tests/no-dashed-traces.test.js` holds it.
 - The lobule's zones are nested hexagons at 17 to 20 % (`lobule-paint.js:284`) and read as a target; a radial gradient from the portal tracts to the central vein (the tissue shader, `tissue-gl.js`) reads as zonation.
 - The ascites belly (`.ab-belly`, `app.css:5049-5050`) is a CSS box with a gradient fill: the one in-card picture in this review drawn by the browser rather than the GPU. Hand it to the GPU inventory's owner (`docs/off-gpu-inventory.md`).
 

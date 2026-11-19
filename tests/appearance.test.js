@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import vm from 'node:vm';
 import { TOKENS, CIRCUIT, tokensOfLook } from '../src/ui/theme-tokens.js';
 import { LOOKS, knownLook, isDarkLook, currentLook, applyLookAttrs, lastDarkLook } from '../src/ui/looks.js';
+import { appCss } from './split-src.js';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const read = (f) => readFileSync(join(ROOT, f), 'utf8');
@@ -98,7 +99,7 @@ test('a saved palette paints its ground before the styles load, and every other 
     const el = { setAttribute: (k, v) => attrs.set(k, v), style };
     const store = new Map(t == null ? [] : [['pps.theme', t]]);
     const localStorage = { get length() { return store.size; }, key: (i) => [...store.keys()][i] ?? null, getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
-    vm.runInNewContext(src, { localStorage, document: { documentElement: el }, matchMedia: () => ({ matches: systemDark }) });
+    vm.runInNewContext(src, { localStorage, location: { pathname: '/' }, document: { documentElement: el }, matchMedia: () => ({ matches: systemDark }) });
     return { theme: attrs.get('data-theme') ?? null, palette: attrs.get('data-palette') ?? null, bg: style.background ?? null };
   };
   for (const l of PALETTES) {
@@ -128,7 +129,7 @@ test('everything that watches or keys on the theme sees the palette too', () => 
 });
 
 test('Settings shows the looks through the chooser, and the chooser carries all of them and System', () => {
-  const main = read('src/ui/main.js'), chooser = read('src/ui/look-chooser.js'), css = read('styles/app.css');
+  const main = read('src/ui/main.js'), chooser = read('src/ui/look-chooser.js'), css = appCss();
   assert.match(main, /lookChooser\(cur, /);
   assert.match(chooser, /for \(const l of LOOKS\) grid\.append\(tile\(/);
   assert.match(chooser, /tile\('system', 'System'/);

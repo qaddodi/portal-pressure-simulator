@@ -1,0 +1,744 @@
+/* ── Floating layout ───────────────────────────────
+   The figure fills the window; everything else floats over it. Each floating piece is a small
+   surface with a soft shadow ("pill" for a row of controls, "card" for content), and declares
+   which edge it occupies (data-safe), so Fit frames the anatomy in the space left over. */
+.stage-wrap { position: absolute; inset: 0; }
+.stage-view { flex: 1; }
+/* Glass policy: the pills that are always on screen (top bar, view segment, lens, dock, phone presenter pill) sit on
+   --glass, which is 94-95 % opaque, so a backdrop blur behind them is invisible and costs a re-blur of the
+   animated figure every frame. Only the translucent frosted surfaces (presenter pane and cards, callouts, label
+   pills) keep their blur. */
+.float-pill { display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-pill); min-width: 0; }
+.tb-id { flex: 0 1 auto; gap: 2px; }
+.tb-id .brand { margin-left: 0; padding: 2px 6px 2px 2px; }
+.top-right.float-pill { margin-left: auto; gap: 2px; flex: none; }
+.top-right .pal-btn { background: transparent; border-color: transparent; }
+@media (hover: hover) { .top-right .pal-btn { --hv-bg: var(--surface-2); --hv-bd: var(--border); --hv-bw: 1px; } .top-right .pal-btn:hover::before { opacity: 1 } }
+.tb-sep { width: 1px; height: 22px; background: var(--hairline); margin: 0 4px; flex: none; }
+/* The figure's own controls (view, blood, lens, figure) sit in the same top row on a wide screen. */
+.topbar .stage-bar.top { flex: 1 1 0; height: auto; min-height: 46px; padding: 0; gap: 8px; background: transparent; pointer-events: none; z-index: auto; }
+.topbar .stage-bar.top > * { pointer-events: auto; }
+.topbar .stage-bar.top .sb-center { pointer-events: none; }
+.topbar .stage-bar.top .sb-center > * { pointer-events: auto; }
+.topbar #viewSeg, .topbar .sb-right > .chip-btn, .topbar .lens-btn { box-shadow: var(--shadow-pill); background: var(--glass); }
+.topbar #viewSeg { padding: 3px; border-radius: var(--r-sheet); }
+.topbar #viewSeg button { padding: 6px 12px; }
+.topbar .sb-right > .chip-btn { border-color: transparent; height: 40px; border-radius: var(--r-sheet); }
+.topbar .lens-btn { height: 46px; border-radius: var(--r-sheet); border-color: transparent; padding: 0 10px; }
+@media (hover: hover) { .topbar .lens-btn { --hv-bg: var(--surface); } .topbar .lens-btn:hover::before { opacity: 1 } }
+/* Narrower screens: the figure's controls take a row of their own under the pills. */
+@media (max-width: 1599px) {
+  .topbar .stage-bar.top { order: 5; flex: 1 1 100%; min-height: 0; }
+}
+/* One row: make room by keeping the labels that matter. */
+@media (min-width: 1600px) and (max-width: 1799px) {
+  .top-right .pal-l, .top-right .pal-btn kbd { display: none; }
+  .top-right .pal-btn { width: 38px; padding: 0; justify-content: center; }
+}
+
+.tb-act { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 38px; min-height: 38px; padding: 0 11px; border: 0; border-radius: var(--r-card); background: transparent; color: var(--text-2); cursor: pointer; font: 600 var(--fs-14) var(--font-ui); position: relative; white-space: nowrap; }
+@media (hover: hover) { .tb-act { --hv-bg: var(--surface-2); } .tb-act:hover::before { opacity: 1 } .tb-act:hover { color: var(--text); } }
+.tb-act :is(svg, .ic) { width: var(--ic-m); height: var(--ic-m); fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; } .tb-act .ic { -webkit-mask-image: url("../brand/icons/icons-r.png"); mask-image: url("../brand/icons/icons-r.png"); background-color: currentColor; }
+.tb-act[aria-pressed="true"], .tb-act[aria-expanded="true"] { background: var(--accent-soft); color: var(--accent-ink); }
+.top-right .measure-launch { border: 0; }
+
+/* The vitals dock: the play bar and the four key readouts in one floating card at the bottom.
+   The chevron opens every readout group above the play bar. */
+.vdock {
+  position: absolute; z-index: var(--z-hud); left: 50%; transform: translateX(-50%);
+  bottom: calc(env(safe-area-inset-bottom) + var(--gap)); width: min(calc(100% - 2 * var(--gap)), 1280px);
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "tl ro"; align-items: center;
+  background: var(--glass); border-radius: var(--r-sheet); box-shadow: var(--shadow-pill);
+}
+.vdock .stage-bar.bottom { grid-area: tl; height: 60px; background: transparent; padding: 0 8px 0 12px; display: flex; min-width: 0; z-index: auto; }
+.vdock .timeline { flex: 1; }
+.vdock .readouts { grid-area: ro; width: clamp(360px, 33vw, 470px); border-left: 1px solid var(--hairline); }
+.vdock:has(.readouts.all) { grid-template-columns: minmax(0, 1fr); grid-template-areas: "ro" "tl"; }
+.vdock .readouts.all { width: auto; border-left: 0; border-bottom: 1px solid var(--hairline); }
+/* Four key readouts until the chevron opens the rest. */
+.readouts:not(.all) .ro-cap, .readouts:not(.all) .metric:not(.primary), .readouts:not(.all) .ro-systemic { display: none; }
+.readouts:not(.all) .ro-group { --n: 1; padding: 7px 2px 6px; }
+.readouts:not(.all) .ro-group[data-group="pressure"] { --n: 3; }
+.readouts:not(.all) .ro-group:not(:has(.metric.primary)) { display: none; }
+.readouts:not(.all) .ro-row { padding-right: 2px; }
+.readouts:not(.all) .u-x { display: none; }
+.readouts:not(.all) .metric .v { font-size: var(--fs-20); }
+@container (max-width: 720px) { .readouts:not(.all) .metric .v { font-size: var(--fs-16); } }
+.metric[data-sev="caution"] .val { color: var(--caution-ink); }
+.metric[data-sev="danger"] .val { color: var(--danger-ink); } .metric[data-sev="critical"] .val { color: var(--critical-ink); }
+.metric:is(.flash, .flash2) { position: relative; isolation: isolate; }
+/* (The flash is a tinted layer of its own fading by its opacity, under the words: no background is eased.) */
+.metric:is(.flash, .flash2)::after { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: color-mix(in srgb, var(--sev) 22%, transparent); opacity: 0; pointer-events: none; }
+.metric.flash::after { animation: roFlash 1.4s var(--ease) /*own pace*/; }
+.metric.flash2::after { animation: roFlash2 1.4s var(--ease) /*own pace*/; }
+@keyframes roFlash { 0%, 60% { opacity: 1; } }
+@keyframes roFlash2 { 0%, 60% { opacity: 1; } }   /* (the same flash under a second name: swapping names restarts it with no reflow, dock.js flashTile) */
+/* Stack the play bar under the readouts where the two do not fit side by side. */
+@media (max-width: 1099px) {
+  .vdock { grid-template-columns: minmax(0, 1fr); grid-template-areas: "ro" "tl"; }
+  .vdock .readouts { width: auto; border-left: 0; border-bottom: 1px solid var(--hairline); }
+}
+
+/* Floating pieces over the figure keep clear of the vitals dock and the top bar. */
+.stage-fit { bottom: calc(var(--vdock-h) + var(--gap) + 8px); right: calc(var(--gap) + 2px); }
+.stage-rotate { bottom: calc(var(--vdock-h) + var(--gap) + 48px); right: calc(var(--gap) + 2px); }
+.toast-wrap { bottom: calc(var(--vdock-h, 120px) + 28px + env(safe-area-inset-bottom, 0px)); left: 50%; }   /* (#toasts is outside .app, where --vdock-h is set: with no fallback the whole declaration was void and a toast with no dock to sit under, the sinusoid view's, fell to the top edge; 120 px is the dock's own default) */
+
+/* The patient chart: a card on the right under the top bar, opened from Findings (or by a
+   vessel's Details). On a phone it is a bottom sheet. */
+.panel {
+  position: absolute; top: calc(var(--top-safe) + 4px + var(--cmp-occ, 0px)); right: calc(env(safe-area-inset-right) + var(--gap)); bottom: calc(var(--vdock-h) + var(--gap) + 8px);
+  width: min(380px, calc(100vw - 2 * var(--gap))); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline);
+  transform: translateX(calc(100% + 24px)); visibility: hidden; transition: transform var(--d-small) var(--ease), visibility var(--d-small), opacity var(--d-small) var(--ease);
+}
+.app.panel-open .panel { transform: none; visibility: visible; }
+.panel-scrim { display: none; }
+.panel-grab { display: none; }
+
+/* Treat: one card with the drugs, fluids and procedures, under its button. */
+.treat-card {
+  position: absolute; z-index: var(--z-panel); top: calc(var(--top-safe) + 4px + var(--cmp-occ, 0px)); right: calc(env(safe-area-inset-right) + var(--gap));
+  width: min(400px, calc(100vw - 2 * var(--gap))); max-height: calc(100% - var(--top-safe) - 4px - var(--cmp-occ, 0px) - var(--vdock-edge, var(--vdock-h)) - var(--gap));
+  /* (18 Nov 2026, the tester, Mac 1440 x 900, Procedures with a TIPS placed and Changes open: the card stopped at 698 px, 78 px above the dock, with 699 px of words in a 594 px body, so it scrolled and cut the TIPS row and its Undo. The room is what lies between the top bar and the dock's own top edge (--vdock-edge, main.js), less one gap, as the card stands at the right of the screen and the view switch in the middle of it.) */
+  /* (A narrower window: the view switch reaches under the card, which keeps clear of it as before: the rule just below.) */
+  display: flex; flex-direction: column; overflow: hidden; background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline);
+  animation: scale-settle var(--d-flip) var(--ease);
+}
+@media (max-width: 1100px) { .treat-card { max-height: calc(100% - var(--top-safe) - var(--cmp-occ, 0px) - var(--vdock-h) - 2 * var(--gap) - 12px); } }
+.tc-head { flex: none; display: flex; align-items: center; gap: 8px; padding: 10px 8px 6px 16px; }
+.tc-head h2 { margin: 0; font-size: var(--fs-16); font-weight: 600; flex: 1; display: flex; align-items: center; gap: 8px; }
+.tc-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px 16px; }
+/* Changes: under the orders, closed until opened, so the card does not grow with every order. */
+.tc-body > .section { margin-top: 12px; border-top: 1px solid var(--hairline); }
+
+/* Focus: while the figure is dragged, pinched or scrolled, the floating pieces step back. */
+.float-ui, .stage-fit, .stage-rotate { transition: opacity var(--d-surface, .42s) var(--ease); }
+/* The floating pieces no longer step back while the figure moves (13 Nov 2026, Mohammad: "Why do the ui change opacity when I pan around. It
+   shouldn't."): premium-feel R7 faded their ink and the plated cards to .55 under stage-busy; the UI and its glass now stay exactly as they are. */
+
+/* The instrument workspace floats over the bottom of the figure, above the vitals dock. */
+.instrument-workspace.float-ui {
+  position: absolute; z-index: calc(var(--z-hud) + 1); left: calc(env(safe-area-inset-left) + var(--gap)); right: calc(env(safe-area-inset-right) + var(--gap));
+  bottom: calc(var(--vdock-h) + var(--gap) + 8px); width: auto; max-width: none;
+  border: 0; border-radius: var(--r-sheet); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline);
+}
+.app.panel-open .instrument-workspace.float-ui { right: calc(env(safe-area-inset-right) + var(--gap) * 2 + min(380px, 100vw - 2 * var(--gap))); }
+.instrument-workspace .workspace-divider { border-radius: var(--r-sheet) var(--r-sheet) 0 0; }
+.app.instrument-focus .instrument-workspace.float-ui { top: calc(var(--top-safe) + 4px + var(--cmp-occ, 0px)); height: auto; }
+.app.instrument-focus .stage-view { display: block; visibility: hidden; }
+.app.instrument-focus .vdock .readouts { display: none; }
+
+/* Upright phones keep the toolbar icon-only; a phone on its side keeps the iPad's labelled toolbar (Treat, Tests, History) until
+   main.js's bar fit (data-fit 2-3) has to drop them to keep one row. */
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
+  .tb-sep, .tb-act > span { display: none; }
+}
+/* Phone and small landscape: the chart and Treat open as bottom sheets with three heights
+   (peek, half, full); a drag on the handle moves between them. */
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape), (max-width: 1100px) and (orientation: portrait) {
+  .top-right.float-pill { gap: 0; padding: 3px; }
+  .tb-act { padding: 0 8px; height: 38px; }
+  .tb-id { flex: 1 1 0; }
+  .tb-id .brand { padding: 2px; }
+  .tb-id .brand-mark { width: 30px; height: 30px; }
+  .tb-id .menu-btn { flex: 1 1 auto; min-width: 0; }
+  .top-right .ib, .top-right .pal-btn, .tb-act { min-width: 36px; width: auto; }
+  .top-right .ib, .top-right .pal-btn { width: 36px; padding: 0; justify-content: center; }
+  .topbar .stage-bar.top { gap: 6px; }
+  .topbar #viewSeg button { padding: 6px 8px; }
+  .topbar .lens-btn { height: 40px; padding: 0 6px; }
+  .topbar .sb-right > .chip-btn { height: 40px; }
+  .vdock { left: calc(env(safe-area-inset-left) + 6px); right: calc(env(safe-area-inset-right) + 6px); width: auto; transform: none; bottom: calc(env(safe-area-inset-bottom) + 6px); border-radius: var(--r-sheet); }
+  .vdock .stage-bar.bottom { height: 52px; padding: 0 6px; }
+  .readouts { padding-bottom: 0; border-top: 0; }
+  .stage-fit { right: 8px; } .stage-rotate { right: 8px; }
+  .panel, .treat-card {
+    top: auto !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: auto !important; max-height: none;
+    height: var(--sheet-size, 55%); border-radius: var(--r-sheet) var(--r-sheet) 0 0; padding-bottom: env(safe-area-inset-bottom); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right);   /* (held sideways, the sheet's glass runs edge to edge and its words keep clear of the notch or island) */
+    transform: translateY(105%); transition: transform var(--d-small) var(--ease), visibility var(--d-small); z-index: calc(var(--z-panel) + 2);   /* (its height is never eased: the sheet moves by its content's offset, main.js sheetBehaviour, sheet-move.js) */
+  }
+  .treat-card { transform: none; }
+  .panel.dragging, .treat-card.dragging { transition: none; }
+  .app.panel-open .panel { transform: none; }
+  .panel-grab, .sheet-grab { display: block; flex: none; height: 18px; width: 100%; border: 0; background: none; cursor: grab; touch-action: none; position: relative; }
+  .panel-grab::before, .sheet-grab::before { content: ''; position: absolute; left: 50%; top: 6px; width: 40px; height: 4px; border-radius: 2px; background: var(--border-strong); transform: translateX(-50%); }
+  /* The instruments are a bottom sheet like the chart and Treat: they rise from the bottom edge,
+     the handle (or the head) drags them between three heights, and a drag down closes them. */
+  .instrument-workspace.float-ui:not(.side) {
+    left: 0; right: 0; bottom: 0; top: auto; height: var(--sheet-size, 56%); border-radius: var(--r-sheet) var(--r-sheet) 0 0;
+    padding-bottom: env(safe-area-inset-bottom); z-index: calc(var(--z-panel) + 2);
+  }
+  .instrument-workspace.float-ui:not(.side).entering { --edge-y: 100%; animation: slide-from-edge var(--d-small) var(--ease); }
+  .instrument-workspace.float-ui:not(.side).dragging { transition: none; }
+  /* FibroScan on the sheet: the map takes the height left under the header and the note (not a fixed height), so its x labels stay inside the sheet. */
+  .instrument-workspace.float-ui:not(.side) .dock-pane[data-pane="fibroscan"] { padding-top: 10px; padding-bottom: 12px; }
+  /* The map fills the sheet's height; the note flows below it and is only seen when the sheet is opened fully (the map stops at 58vh). */
+  .instrument-workspace.float-ui:not(.side) .instrument-view[data-pane="fibroscan"] { display: block; flex: 1 1 0; min-height: 0; }
+  .instrument-workspace.float-ui:not(.side) .instrument-view[data-pane="fibroscan"] .chart-box { height: min(100%, 58vh); min-height: 200px; }
+  .instrument-workspace.float-ui:not(.side) .instrument-view[data-pane="fibroscan"] > .ctl-sub { margin: 10px 0 0; }
+  .instrument-workspace:not(.side) .workspace-divider { display: none !important; }
+  .instrument-workspace.side .sheet-grab { display: none; }
+  .instrument-workspace .dock-head { touch-action: none; }
+  .app.instrument-focus .instrument-workspace.float-ui:not(.side) { top: calc(var(--top-safe) + 4px); bottom: 0; height: auto; }
+  .app.dock-open .stage-clock { display: none; }
+  .app.panel-open .instrument-workspace.float-ui { right: 6px; }
+}
+@media (min-width: 768px) and (orientation: landscape), (min-width: 1101px) { .sheet-grab { display: none; } }
+
+/* ── Floating layout, second pass ─────────────────────
+   One system for every floating piece: pills 12 px round, cards 16 px, the same shadow, controls
+   40 px high (36 on a phone), and the same short slide when a card opens. */
+.app { --pill-h: 46px; --ctl-h: 40px; }
+
+/* The main menu: the first thing in the top bar, named after the current mode. */
+.menu-btn { display: inline-flex; align-items: center; gap: 8px; height: var(--ctl-h); padding: 0 8px 0 4px; border: 0; border-radius: var(--r-card); background: transparent; color: var(--text); cursor: pointer; font: inherit; flex: none; }
+.menu-btn[aria-expanded="true"] { background: var(--surface-2); }
+@media (hover: hover) { .menu-btn { --hv-bg: var(--surface-2); } .menu-btn:hover::before { opacity: 1 } }
+.menu-btn .brand-mark { width: 30px; height: 30px; }
+.menu-btn .chev { width: var(--ic-s); height: var(--ic-s); color: var(--text-3); flex: none; transition: rotate var(--d-flip) var(--ease); }
+.menu-btn[aria-expanded="true"] .chev { rotate: 180deg; }
+.menu-btn { min-width: 0; text-align: left; }
+.menu-btn .brand-mark { flex: none; }
+
+/* The one menu (menu.js): search, Present and Patients side by side, footer. A popover under the menu
+   button from 768 px; a bottom sheet on a phone. */
+.umenu {
+  position: fixed; left: 0; top: 0; /* (placed by translate: menu.js place) */ z-index: var(--z-popover); display: flex; flex-direction: column; width: min(460px, calc(100vw - 24px));
+  height: min(640px, calc(100dvh - 76px), calc(100dvh - var(--fs-b, 0px) - var(--fs-t, 56px) - 8px)); background: var(--surface); border-radius: var(--r-card);   /* (the last term: the free stage's foot (free-stage.js), so the menu ends above the bottom bar and the view switch: it ran over the view switch at 1024 x 768) */ box-shadow: var(--shadow-menu), 0 0 0 1px var(--hairline);
+  overflow: hidden; animation: slide-from-edge var(--d-small) var(--ease); transform-origin: top left;   /* (menu recs C11: the menus' arrival) */
+}
+.umenu.still { animation: none; }
+.umenu.out { animation: scale-settle-out var(--d-flip) var(--ease-in) forwards; pointer-events: none; }
+.um-grab { display: none; }
+.um-top { display: flex; align-items: center; gap: 8px; padding: 10px 10px 8px; border-bottom: 1px solid var(--hairline); }
+.um-search { flex: 1; display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 8px 0 10px; border-radius: var(--r-control); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--hairline); color: var(--text-3); cursor: text; }
+.um-search:focus-within { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.um-search > :is(svg, .ic) { width: var(--ic-s); height: var(--ic-s); flex: none; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; } .um-search > .ic { -webkit-mask-image: url("../brand/icons/icons-r.png"); mask-image: url("../brand/icons/icons-r.png"); background-color: currentColor; }
+.um-q { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-size: var(--fs-14); }
+.um-q::-webkit-search-cancel-button { display: none; }
+.um-q::placeholder { color: var(--text-3); }
+.um-kb { font: 500 var(--fs-12) var(--font-mono); padding: 0 6px; border-radius: var(--r-control); box-shadow: inset 0 0 0 1px var(--border); color: var(--text-3); }
+.um-x { display: none; }
+.um-cols { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+/* Two tabs, Present and Patients: one list at a time, eased in on a switch; the panel keeps its size. */
+.um-tabs { display: flex; gap: 4px; padding: 6px 10px 0; border-bottom: 1px solid var(--hairline); }
+.um-tab { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border: 0; background: transparent; color: var(--text-2); font: inherit; font-size: var(--fs-14); font-weight: 500; cursor: pointer; border-radius: var(--r-control) var(--r-control) 0 0; transition: none; }
+@media (hover: hover) { .um-tab:hover { color: var(--text); } }
+.um-tab[aria-selected="true"] { color: var(--text); font-weight: 600; }
+/* (Review ST-14, owner 15 Nov 2026: the selected tab is shown by weight and full ink, not by an accent underline. Forced colours have no ink to go by, so they keep a bar.) */
+@media (forced-colors) { .um-tab[aria-selected="true"]::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; border-radius: 2px; background: Highlight; } }
+.um-tabs.seg-glide::before { display: none; }
+.um-tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+@media (pointer: coarse) {
+  .um-tab { height: 44px; }   /* (36 px was the mouse size) */
+  .um-link { position: relative; }
+  .um-link::after { content: ''; position: absolute; inset: -4px -2px; }
+}
+.umenu[data-tab="present"] .um-col[data-col="patients"], .umenu[data-tab="patients"] .um-col[data-col="present"] { display: none; }
+.um-col { flex: 1 1 auto; }
+.um-col.um-in { animation: fade-rise var(--d-flip) var(--ease); }
+.um-col.um-in2 { animation: fade-rise-b var(--d-flip) var(--ease); }
+/* A sideways swipe pages between the two lists (menu.js swipeTabs): the other list shows beside the open one, over the part in
+   view, and the lists slide inside the panel without making it scroll sideways. */
+.um-cols { position: relative; overflow-x: clip; }
+.umenu[data-tab] .um-col[data-col].um-peer { display: block; position: absolute; left: 0; right: 0; overflow: hidden; animation: none; }
+.um-empty .um-other { display: inline-flex; margin-top: 6px; color: var(--accent-ink); }
+.um-empty .um-other[hidden] { display: none; }
+.umenu:has(.um-empty:not([hidden])) .um-cols { flex: 0 0 auto; }
+.umenu:has(.um-empty:not([hidden])) .um-empty { flex: 1 1 auto; }
+.um-col { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 8px 10px; }
+/* A list with more below fades out at the bottom, as the docked cards do, so a heading is never cut by the footer's line. */
+.um-col.more, .um-cols.more { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); }
+/* Scroll edges (scroll-edges.js): a list that scrolls fades 12 px at an end only while there is more beyond it, the depth easing on
+   --d-small; the mask is on the scrolling element itself, never on its glass. Placed after the .more fades above, which it takes over from. */
+.um-col.se, .um-cols.se, .tc-body.se, .instrument-workspace .dock-pane.se {
+  --se-d: 12px;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 calc(var(--sedge-t) * var(--se-d)), #000 calc(100% - var(--sedge-b) * var(--se-d)), transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 calc(var(--sedge-t) * var(--se-d)), #000 calc(100% - var(--sedge-b) * var(--se-d)), transparent); }
+/* A card's face, and its details, fade 28 px at the foot while there is more below them (17 Nov 2026, play-test: the words under "Why this value?" were cut mid-line with no sign
+   that they scroll). One rule for every card, here and on a phone: the mask is on the scrolling element and shows only while it scrolls (scroll-edges.js). */
+.action-card > .ac-body.se, .ad-scroll.se {
+  --se-d: 28px;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 calc(var(--sedge-t) * var(--se-d)), #000 calc(100% - var(--sedge-b) * var(--se-d)), transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 calc(var(--sedge-t) * var(--se-d)), #000 calc(100% - var(--sedge-b) * var(--se-d)), transparent); }
+/* (The list's edge fade is taken at once as it reaches or leaves an end: a mask eased by its variables repainted the whole list on
+   every frame of the ease. A menu's veils still ease, by their own opacity, the compositor's.) */
+.um-hi { width: var(--ic-s); height: var(--ic-s); color: var(--text-2); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.um-g { margin-top: 4px; }
+.um-gl { display: flex; align-items: baseline; gap: 6px; padding: 6px 8px 2px; font-size: var(--fs-12); color: var(--text-3); }
+.um-gl b { font-weight: 600; color: var(--text-2); }
+.um-gacts { margin-left: auto; display: flex; gap: 4px; }
+.um-g ul { list-style: none; margin: 0; padding: 0; }
+.um-g li { position: relative; display: flex; flex-wrap: wrap; align-items: center; scroll-margin: 28px 0 36px; }   /* (scrollIntoView on an opened preview clears the sticking heading above and the fade and footer below) */
+.um-row { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 28px; padding: 4px 8px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--text); font: inherit; font-size: var(--fs-14); text-align: left; cursor: pointer; transition: none; }
+.um-row.pv-on { background: var(--surface-2); }
+@media (hover: hover) { .um-row { --hv-bg: var(--surface-2); } .um-row:hover::before { opacity: 1 } }
+.um-row:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.um-row[aria-current="true"] { background: var(--accent-soft); color: var(--accent-ink); }
+.um-t { flex: 1; min-width: 0; line-height: 1.25; overflow-wrap: break-word; }   /* (a long title wraps to a second line, whole, never cut with "…": sweep, 16 Oct; the row grows to hold it) */
+.um-play { width: var(--ic-s); height: var(--ic-s); margin: 0 -2px; flex: none; color: var(--text-3); fill: currentColor; stroke: none; transition: none; }
+.um-row.pv-on .um-play, .um-row[aria-current="true"] .um-play { color: var(--accent); }
+@media (hover: hover) { .um-row:hover .um-play { color: var(--accent); } }
+.um-row .um-lv { min-width: 0; text-align: right; }
+.um-m { flex: none; min-width: 44px; text-align: right; font-size: var(--fs-12); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.um-m.um-res { color: var(--accent); }   /* (a deck left part way: its row resumes there) */
+.um-check { width: var(--ic-s); height: var(--ic-s); flex: none; stroke: var(--accent); stroke-width: 2.2; fill: none; } .um-check.ic { -webkit-mask-image: url("../brand/icons/icons-s.png"); mask-image: url("../brand/icons/icons-s.png"); background-color: var(--accent); }
+.um-info { display: none; flex: none; width: 36px; height: 36px; align-items: center; justify-content: center; border: 0; border-radius: var(--r-control); background: transparent; color: var(--text-3); cursor: pointer; }
+.um-info :is(svg, .ic) { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.7; } .um-info .ic { -webkit-mask-image: url("../brand/icons/icons-r.png"); mask-image: url("../brand/icons/icons-r.png"); background-color: currentColor; }
+.um-info[aria-expanded="true"] { color: var(--accent); }
+.um-link { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--text-2); font: inherit; font-size: var(--fs-14); cursor: pointer; }
+.um-gl .um-link { height: 24px; padding: 0 6px; font-size: var(--fs-12); color: var(--accent-ink); }
+@media (hover: hover) { .um-link { --hv-bg: var(--surface-2); } .um-link:hover::before { opacity: 1 } .um-link:hover { color: var(--text); } }
+.um-link :is(svg, .ic) { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; } .um-link .ic { -webkit-mask-image: url("../brand/icons/icons-r.png"); mask-image: url("../brand/icons/icons-r.png"); background-color: currentColor; }
+.um-note { margin: 4px 8px; font-size: var(--fs-12); color: var(--text-3); line-height: 1.45; }
+.um-note.um-wait { animation: crossfade var(--d-small) var(--ease) .4s backwards; }   /* (the menu's wait note comes up only if the presentations are slow to arrive: premium-feel R15) */
+.um-empty[hidden] { display: none; }
+.um-empty { display: flex; flex-direction: column; align-items: center; margin: 0; padding: 24px 16px; text-align: center; font-size: var(--fs-14); color: var(--text-3); }
+.um-foot { display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-top: 1px solid var(--hairline); }
+.um-esc { margin-left: auto; padding-right: 8px; font-size: var(--fs-12); color: var(--text-3); }
+.um-g li.um-new > .um-row { background: var(--accent-soft); }
+/* The preview beside the panel (mouse) and under a row (touch). */
+.um-pv { position: fixed; left: 0; top: 0; z-index: var(--z-popover); width: 360px; max-width: calc(100vw - 16px); background: var(--surface); border-radius: var(--r-card); box-shadow: var(--shadow-menu), 0 0 0 1px var(--hairline); overflow: hidden; opacity: 0; transition: opacity var(--d-flip) var(--ease), translate var(--d-flip) var(--ease); }
+.um-pv.on { opacity: 1; translate: none; }
+/* (The preview's change of size and place runs on transforms, menu.js pvResize: no height or top transition.) */
+.um-pv.pv-resizing { background: transparent; box-shadow: none; overflow: visible; isolation: isolate; }
+.sheet-plate { display: none; }
+/* A plate gliding to a new size by transform (plate-glide.js): the box's own glass steps aside for the nine pieces, which carry it. */
+:not(.pg-on) > .pg-piece { display: none; }   /* (kept between glides, plate-glide.js platePieces) */
+/* A pill lent a face for its glide (topbar-motion growPill): its own glass steps aside while the face is its child, and returns when the face goes. */
+:has(> .tb-face-lent) { background: transparent !important; box-shadow: none !important; }
+.pg-on { background: transparent !important; box-shadow: none !important; overflow: visible !important; isolation: isolate; }
+.pg-piece { position: absolute; left: 0; top: 0; z-index: -1; box-sizing: border-box; transform-origin: 0 0; pointer-events: none; will-change: transform;
+  background: var(--pg-bg, var(--glass)); border: var(--pg-border, 1px solid var(--hairline)); box-shadow: var(--pg-shadow, calc(1px * var(--light-slant)) 1px 2px rgb(var(--shadow-rgb) / .08)); }
+.why-pop { --pg-bg: var(--surface); --pg-shadow: var(--shadow-3); }
+/* (the words' cut: two opposite translates reveal or hide them as the card's height changes, menu.js pvResize; no clip-path) */
+.um-pv-cut, .um-pv-cutin { position: relative; }
+.um-pv.pv-resizing .um-pv-cut { overflow: hidden; }
+.um-pv-plate { position: absolute; left: 0; right: 0; z-index: -1; background: var(--surface); border-radius: inherit; box-shadow: var(--shadow-menu), 0 0 0 1px var(--hairline); pointer-events: none; will-change: transform; }
+.um-pv-plate-foot { clip-path: inset(0px -64px -64px -64px); border-top-left-radius: 0; border-top-right-radius: 0; }
+.um-pv-plate-mid { clip-path: inset(0px -64px 0px -64px); border-radius: 0; }
+.um-pv-plate-top { clip-path: none; }
+.um-pv:not(.on) { translate: calc(-1 * var(--rise-y)) 0; }   /* (the preview settles in from the panel's side by the rise distance, and leaves back toward it) */
+@media (prefers-reduced-motion: reduce) { .um-pv { translate: none !important; } }
+.um-pv-in { padding: 0 0 12px; animation: crossfade var(--d-flip) var(--ease); }
+.um-pv-old { position: absolute; left: 0; right: 0; top: 0; animation: crossfade-out var(--d-flip) var(--ease-in) forwards; }
+.um-pv-in.pt { padding-top: 12px; }
+.um-pv-meta { display: flex; align-items: center; gap: 6px; padding: 0 14px; font-size: var(--fs-12); color: var(--text-3); }
+.um-pv-in h3 { margin: 4px 14px 6px; font-size: var(--fs-16); font-weight: 600; line-height: 1.3; }
+.um-pv-in p { margin: 0 14px 8px; font-size: var(--fs-14); line-height: 1.45; color: var(--text-2); }
+.um-pv-in li { display: list-item; }
+.um-pv-in ul { list-style: disc; margin: 0 14px 10px; padding-left: 18px; font-size: var(--fs-12); line-height: 1.45; color: var(--text-2); }
+.um-pv-in .hp-cap { display: block; margin: 2px 14px 0; font-size: var(--fs-12); line-height: 1.4; color: var(--text-3); }
+.um-pv-in .hp-prof { width: calc(100% - 28px); margin: 4px 14px 8px; }
+.um-pv-in .hp-facts { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 14px 8px; }
+.um-acts { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 14px 0; }
+.um-acts .btn { padding: 0 10px; gap: 6px; }
+.um-acts .mi-ic { width: var(--ic-s); height: var(--ic-s); }
+.um-inline { flex: 1 1 100%; display: grid; grid-template-rows: 0fr; overflow: hidden; transition: opacity var(--d-small) var(--ease); opacity: 0; }   /* (opens and shuts by transform: menu.js toggleInline, fold-slide.js) */
+.um-inline.on { grid-template-rows: 1fr; opacity: 1; }
+.um-inline > div { overflow: hidden; min-height: 0; }
+.um-inline .um-pv-in { margin: 4px 0 8px; border-radius: var(--r-card); background: var(--surface-2); padding-top: 0; overflow: hidden; animation: none; }
+.um-inline .um-pv-in .um-pv-meta { padding-top: 12px; }
+@media (pointer: coarse) {
+  .um-row { min-height: 44px; }
+  .um-info { display: inline-flex; }
+  /* The ⓘ shares its row's highlight, so a highlighted row sits evenly inside the menu: one band, the column's 8 px either side. */
+  .um-row:has(+ .um-info) { border-radius: var(--r-control) 0 0 var(--r-control); }
+  .um-g li > .um-info { align-self: stretch; height: auto; min-height: 36px; border-radius: 0 var(--r-control) var(--r-control) 0; }
+  @media (hover: hover) { .um-row:hover + .um-info { background: var(--surface-2); } }
+  .um-row.pv-on + .um-info { background: var(--surface-2); }
+  .um-row[aria-current="true"] + .um-info, .um-g li.um-new > .um-row + .um-info { background: var(--accent-soft); }
+  .um-kb { display: none; }
+}
+/* Phone: the same content as a bottom sheet, one column, the column headings sticking. */
+/* The one sheet layer (sheet-layer.js): every menu, the main menu, Why? and their scrims are laid in it. Over the thumb dock it is cut on the
+   dock's top line (--sheet-foot-screen is 8 px above it), so nothing in it, however it is moved, dragged or animated, is ever drawn below that
+   line or takes a touch there: the play bar, the timeline, the readouts and the tabs are never covered, and stay live under an open menu.
+   It is the containing block of what is in it (contain: layout) and spans the viewport, so their fixed places are what they were. One cut for
+   every sheet; none of them carries its own. One above the popover level, so the start screen (the same level) never covers a menu. */
+.sheet-layer { position: fixed; inset: 0; z-index: calc(var(--z-popover) + 1); pointer-events: none; contain: layout; }
+:where(.sheet-layer > *) { pointer-events: auto; }
+html.thumb-ui .sheet-layer { clip-path: inset(0 0 max(0px, calc(var(--sheet-foot-screen, 8px) - 8px)) 0); }
+/* (13 Nov 2026, menu recs C5) The scrim under a menu sheet takes the tap and dims nothing: a sheet's frost is drawn in the figure's canvas,
+   under this layer, so a veil here darkened the sheet's own glass too and Layers and Settings no longer matched the Treat and Tests cards. */
+.um-scrim { position: fixed; inset: 0; z-index: var(--z-popover); background: none; animation: crossfade var(--d-small) var(--ease); }
+.um-scrim.out { animation: crossfade-out var(--d-small) var(--ease-in) forwards; }
+.umenu.sheet { left: 0 !important; right: 0; top: auto !important; bottom: var(--menu-kb, 0px); width: auto; height: var(--menu-h, 88dvh); max-height: none; border-radius: var(--r-sheet) var(--r-sheet) 0 0; --edge-y: 100%; animation: none; padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }   /* (the sheet's glass runs edge to edge, its rows keep clear of the notch or island when the phone is held sideways) */
+.umenu.sheet.still { animation: none; }
+.umenu.sheet.pulling { animation: none; }   /* (a finger has the sheet: its entrance gives way, util.js swipeSheet) */
+.umenu.sheet.out { animation: none; }   /* (the sheet's entrance and exit are written in the page's frames, sheet-ride.js, so its glass and its words move as one) */
+/* Upright (over the thumb dock) the shared sheet swipe moves it by the compositor (util.js swipeSheet): it follows the finger down. */
+/* (4 Nov, Mohammad: "when I slide the menu down it still goes on top of everything".) Over the thumb dock the main menu rests on the dock's top,
+   8 px clear, inset and round like every other sheet there (--thumb-occ), and stops under the top bar; the keyboard, when up, lifts it higher.
+   It used to rest on the screen's foot, over the play bar, the timeline and the tabs, and slid down over them with no cut. */
+html.thumb-ui .umenu.sheet { left: calc(env(safe-area-inset-left, 0px) + 6px) !important; right: calc(env(safe-area-inset-right, 0px) + 6px); bottom: max(var(--menu-kb, 0px), var(--thumb-occ, 0px)); height: min(var(--menu-h, 88dvh), calc(100dvh - var(--thumb-occ, 0px) - max(72px, var(--thumb-top, 0px) + 8px))); border-radius: var(--r-sheet); padding-bottom: 6px; }
+.umenu.sheet .um-grab { display: block; flex: none; height: 16px; position: relative; touch-action: none; }
+html.thumb-ui .umenu.sheet .um-grab { display: none; }
+/* (13 Nov 2026, iPhone: "menus cannot be flying on top of" the timeline and the tab row) Over the thumb dock the sheet rests 8 px above the dock's
+   top line, so it travels its height and those 8 px: it starts and ends wholly behind the line. By its height alone an 8 px strip of it stood over
+   the dock as it began to come in and was left there at the end of its exit, and then blinked away. */
+html.thumb-ui .umenu.sheet { --edge-y: calc(100% + 8px); }   /* (no grabber on a sheet over the thumb dock, as the cards and menus have none: menu recs P2) */
+.umenu.sheet .um-grab::before { content: ''; position: absolute; left: 50%; top: 6px; width: 40px; height: 4px; border-radius: 2px; background: var(--border-strong); transform: translateX(-50%); }
+.umenu.sheet .um-top { padding: 2px 10px 10px 14px; touch-action: none; }
+.umenu.sheet .um-search { height: 40px; }
+.umenu.sheet .um-q { font-size: var(--fs-16); }
+.umenu.sheet .um-x { display: inline-flex; }
+.umenu.sheet .um-cols { display: block; overflow-y: auto; overscroll-behavior: contain; }
+.umenu.sheet .um-col { overflow: visible; padding: 0 8px 8px; }
+.umenu.sheet .um-esc { display: none; }
+/* (Keyboard up and under 300 px of room, a phone held sideways: the handle and the footer give way so the search row and some results stay in view.) */
+.umenu.sheet.kb-tight :is(.um-grab, .um-foot) { display: none; }
+.umenu.sheet.kb-tight { padding-bottom: 0; }
+/* (A phone held sideways has 320 to 390 px of height: no handle, and the sheet one margin from the top, a row more of the list.) */
+@media (orientation: landscape) and (max-height: 500px) {
+  .umenu.sheet { height: var(--menu-h, calc(100dvh - 8px)); }
+  .umenu.sheet .um-grab { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .um-inline { transition-property: opacity; } .menu-btn .chev { transition: none; }
+}
+/* While the phone's menu sheet is up there is no figure left for the corner credit. */
+.app.menu-sheet-open .stage-credit { opacity: 0; }
+.app-menu { max-height: calc(100svh - 80px); overflow-y: auto; }
+
+/* The top row: menu + patient · view · blood and legend · Findings, Treat, Measure, Search. */
+.topbar { gap: 8px; }
+.topbar .float-pill, .topbar #viewSeg, .topbar .sb-right > .chip-btn, .topbar .lens-btn { height: var(--pill-h); }
+/* The patient button's highlight sits the same 3 px inside the pill on every side (pill 46 = 40 + 2 × 3; 42 = 36 + 2 × 3). */
+.tb-id { padding: 3px; }
+/* The patient pill's glass is its own face (as the view pill's .vp-face), so a shorter name glides the pill narrower
+   instead of snapping (topbar-motion.js); a longer one is revealed from the old width. */
+.topbar .tb-id { position: relative; isolation: isolate; background: transparent; box-shadow: none; }
+.tb-id > .tb-face { position: absolute; z-index: -1; left: 0; top: 0; bottom: 0; width: 100%; border-radius: inherit; background: var(--glass); box-shadow: var(--shadow-pill); pointer-events: none; }
+/* The lens pill (Blood, Layers and the colour key) wears its glass the same way, so a new key glides the plate to its width (topbar-motion.js). */
+.topbar .sb-right.has-face { position: relative; isolation: isolate; background: transparent; box-shadow: none; overflow: visible; }
+.sb-right > .tb-face { position: absolute; z-index: -1; left: 0; top: 0; bottom: 0; width: 100%; border-radius: inherit; background: var(--glass); box-shadow: var(--shadow-pill); pointer-events: none; }
+/* The patient's name is never cut off a phone: the bar compacts (data-fit, below) and wraps it instead. */
+.menu-btn .scenario-v { max-width: none; overflow: visible; text-overflow: clip; }
+.topbar .stage-bar.top { justify-content: space-between; }
+.topbar #viewSeg { align-items: center; padding: 4px; }
+.topbar #viewSeg button { height: 36px; }
+.topbar .sb-right { gap: 0; padding: 0 3px; border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-pill); height: var(--pill-h); }
+.topbar .sb-right > .chip-btn, .topbar .sb-right .lens-btn { box-shadow: none; background: transparent; height: var(--ctl-h); }
+.topbar .sb-right > .chip-btn { border-right: 1px solid var(--hairline); border-radius: var(--r-card) 0 0 var(--r-card); }
+html:root .topbar .sb-right > .chip-btn[aria-expanded="true"], html:root .topbar .sb-right .lens-btn[aria-expanded="true"] { background: var(--surface-2); }   /* (the open chip's tint beats the bar's transparent chips) */
+.top-right.float-pill { padding: 3px; }
+/* One row when it fits (main.js measures it), else the view and the legend take a second row. */
+.topbar .stage-bar.top { order: 0; flex: 1 1 0; }
+.topbar.two-rows .stage-bar.top { order: 5; flex: 1 1 100%; }
+/* A tablet in landscape and a laptop keep one row by shortening labels. */
+@media (max-width: 1599px) {
+  .top-right .pal-l, .top-right .pal-btn kbd, .legend .lg-title { display: none; }
+  .top-right .pal-btn { width: 38px; padding: 0; justify-content: center; }
+  .lg-scale { width: 128px; }
+}
+@media (max-width: 1239px) { #btnBlood > span, #btnBlood .chev, #btnLobuleLayers > span, #btnLobuleLayers .chev { display: none; } }
+
+/* The compare switch floats under the top bar, centered. */
+/* (While a moment is pinned the cards on the right start under the switch and the "Showing" pill, --cmp-occ (main.js syncCmpH): their glass is drawn in
+   the figure's canvas, so the switch drew over the Tests card's tabs and its words over the stent card: play-test, Mac 1024, 17 Nov 2026.) */
+/* (It centres in the room the cards on the right leave, --right-occ, and eases as they come and go: centred on the whole window, "Differences" ran under an
+   open Details card on an iPad held sideways. The auto margins centre it when there is room; when there is not, it starts at the left edge.) */
+.sb-center.float-ui { position: absolute; z-index: var(--z-hud); top: calc(var(--top-safe) + 6px); left: calc(env(safe-area-inset-left) + var(--gap)); right: calc(env(safe-area-inset-right) + var(--gap)); display: flex; justify-content: flex-start; pointer-events: none; translate: calc((var(--fs-top-l, 0px) - var(--fs-top-r, 0px)) / 2) 0; transition: translate var(--d-small) var(--ease); }   /* (centred in the room the cards beside its rows leave, the left shelf's and the right-hand cards (free-stage.js), by translate: eased on the compositor, no right eased) */
+.sb-center.float-ui > * { pointer-events: auto; margin-inline: auto; max-width: calc(100% - var(--fs-top-l, 0px) - var(--fs-top-r, 0px)); }
+.sb-center.float-ui:has(.sb-banner:empty) { display: none; }
+.sb-center .sb-banner { padding: 4px 4px 4px 12px; border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-pill); }
+
+.vdock { grid-template-areas: "st st" "tl ro"; }
+.vdock:has(.readouts.all) { grid-template-areas: "st" "ro" "tl"; }
+@media (max-width: 1099px) { .vdock { grid-template-areas: "st" "ro" "tl"; } }
+
+/* Zoom: one small pill on the right, clear of the dock and of any card on the right. */
+.zoom-pill { position: absolute; z-index: var(--z-hud); display: flex; flex-direction: column; gap: 2px; padding: 3px; border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-pill);
+  right: calc(env(safe-area-inset-right) + var(--gap)); bottom: calc(var(--bot-occ, 120px) + 8px); transform: translateX(calc(-1 * var(--fs-zoom-r, 0px))); transition: opacity var(--d-surface, .42s) var(--ease), translate var(--d-small) var(--ease), transform var(--d-small) var(--ease); translate: 0 calc(-1 * var(--sheet-h, 0px)); }   /* (transform: it glides aside with a side card, as the figure does, instead of jumping by the card's width; --fs-zoom-r is the room only the cards that reach the pill's own rows take (free-stage.js): Treat, which ends 160 px above it, no longer moves it; a transform, not right, so the glide runs off the main thread and lays nothing out: round 2 review, RF2) */
+.zoom-pill .ib, .zoom-pill .stage-fit, .zoom-pill .stage-rotate { position: relative; translate: none; width: 36px; height: 36px; min-width: 0; min-height: 0; box-shadow: none; background: transparent; right: auto; bottom: auto; }
+@media (hover: hover) { .zoom-pill .ib { --hv-bg: var(--surface-3); } .zoom-pill .ib:hover::before { opacity: 1 } }
+/* On a pointer device (a trackpad or wheel zooms) the pill rests at low ink and comes to full ink under the pointer, with focus, or while
+   the view is away from its fit, where Fit is the button that matters (looks review L6). Touch keeps it at full: it is a real control there.
+   The rest ink is .7, not .5 (16 Nov 2026, style play-test: the + and − "disappear and leave an empty capsule"): muted ink (--text-2) at .5 over the glass was
+   2.5:1 in Light and Soft and 3.0:1 in Dark, under the 3:1 a control's glyph needs; at .7 every look holds 3.9:1 or more.
+   The ink is dimmed, never the pill: its glass stays whole, so the figure never shows through it (a pill at half opacity let the vessels
+   and arrows under it through, unfrosted). */
+@media (hover: hover) and (pointer: fine) {
+  .zoom-pill .ib:not(.stage-rotate):not(:disabled) { opacity: .7; transition: opacity var(--d-surface, .42s) var(--ease), scale var(--d-flip) var(--ease); }
+  .zoom-pill:hover .ib:not(:disabled), .zoom-pill:focus-within .ib:not(:disabled), .stage-wrap.off-home .zoom-pill .ib:not(:disabled) { opacity: 1; }
+}
+.zoom-pill .stage-rotate { display: inline-grid; }
+.zoom-pill.no-room { visibility: hidden; }
+
+
+/* Cards on the right stack side by side instead of covering each other. */
+/* (They keep their own right edge and glide aside by `translate` on the compositor when a card opens to their right: the offset was `right`, so Treat
+   jumped across the screen the moment Tests opened (play-test, Mac, 16 Nov 2026), and Tests did the same under the Details panel. Phone sheets read no
+   occupancy, so the shift is 0 there.) */
+.treat-card { right: calc(env(safe-area-inset-right) + var(--gap)); --occ-x: calc(-1 * (var(--panel-occ, 0px) + var(--instr-occ, 0px))); translate: var(--occ-x) 0; transition: opacity var(--d-surface, .42s) var(--ease), translate var(--d-small) var(--ease); }
+
+/* ── Instruments ───────────────────────────────────── */
+.instrument-workspace.float-ui { container-name: ws; container-type: inline-size; border-top: 0; }
+.instrument-workspace.side {
+  left: auto !important; right: calc(env(safe-area-inset-right) + var(--gap) + var(--rail-w, 0px)) !important; --occ-x: calc(-1 * var(--panel-occ, 0px)); translate: var(--occ-x) 0; transition: opacity var(--d-surface, .42s) var(--ease), translate var(--d-small) var(--ease);   /* (--rail-w: a phone on its side keeps its toolbar in a rail at the right edge) */
+  top: calc(var(--top-safe) + 4px + var(--cmp-occ, 0px)); bottom: calc(var(--vdock-h) + var(--gap) + 8px); width: var(--instrument-w, 500px); height: auto;
+}
+.instrument-workspace.side[data-state="peek"] { bottom: auto; height: auto; }
+.instrument-workspace.float-ui:not(.side)[data-state="peek"] { height: auto; }
+/* A card sized to its content (Ascites, set by the dock): it takes the new height at once and its edge glides there on the compositor
+   (dock.js glideFit: the card scaled from its anchored edge, its contents scaled back), and back. */
+.instrument-workspace.float-ui.fit { height: var(--fit-h); transition: opacity var(--d-surface, .42s) var(--ease), translate var(--d-small) var(--ease); }
+.instrument-workspace.float-ui.fit.dragging, .instrument-workspace.float-ui.fit.resizing { transition: none; }
+@media (prefers-reduced-motion: reduce) { .instrument-workspace.float-ui.fit { transition: none; } }
+.instrument-workspace.resizing { transition: none; user-select: none; -webkit-user-select: none; }
+/* The Tests card's resize guide: while the divider is dragged this line follows the pointer by a transform (no layout), and the card
+   takes its size on release (dock.js). */
+.dock-guide { position: fixed; z-index: 60; pointer-events: none; border-radius: 1px; background: var(--accent); opacity: 0; transition: opacity var(--d-flip) var(--ease); }
+.dock-guide.dg-live { will-change: transform, opacity; }   /* (only while the divider is dragged: dock.js) */
+.dock-guide.on { opacity: 1; }
+.dock-guide::after { content: ''; position: absolute; left: 50%; top: 50%; width: 42px; height: 4px; transform: translate(-50%, -50%); border-radius: 2px; background: var(--accent); }
+.dock-guide.side::after { width: 4px; height: 44px; }
+.instrument-workspace.side .workspace-divider { position: absolute; left: -7px; top: 0; bottom: 0; width: 14px; height: auto; z-index: 3; cursor: ew-resize; background: transparent; }
+.instrument-workspace.side .workspace-divider span { width: 4px; height: 44px; border-radius: 2px; opacity: 0; transition: opacity var(--d-flip) var(--ease); }
+.instrument-workspace.side .workspace-divider:focus-visible span { opacity: 1; }
+@media (hover: hover) { .instrument-workspace.side:hover .workspace-divider span { opacity: 1; } }
+.app.instrument-focus .instrument-workspace.float-ui { left: calc(env(safe-area-inset-left) + var(--gap)) !important; right: calc(env(safe-area-inset-right) + var(--gap)) !important; width: auto; top: calc(var(--top-safe) + 4px); bottom: calc(var(--vdock-h) + var(--gap) + 8px); height: auto; }
+.instrument-workspace .dock-head { flex-direction: column; align-items: stretch; height: auto !important; padding: var(--card-head-pad) !important; gap: 0; flex-wrap: nowrap !important; }
+.instrument-workspace .dock-title { display: flex; align-items: center; gap: 8px; margin: 0; padding: 0; min-width: 0; font: 600 var(--fs-16)/1.2 var(--font-ui); color: var(--text); cursor: default; flex: 0 1 auto; }
+.instrument-workspace .dock-title .dt-l { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: none; }
+.instrument-workspace .dock-head .ib { width: 32px; height: 32px; }
+.instr-hint { margin: -4px 12px 10px; padding: 6px 10px; border-radius: var(--r-card); background: var(--accent-soft); color: var(--accent-ink); font-size: var(--fs-12); }
+.instrument-workspace .dock-body { border-top: 1px solid var(--hairline); }
+.instrument-workspace .dock-body.stack { grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(2, minmax(0, 1fr)); }
+.instrument-workspace .dock-body.stack .dock-pane + .dock-pane { border-left: 0; border-top: 1px solid var(--hairline); }
+.instrument-workspace .dock-pane.active { animation: fade-rise var(--d-flip) var(--ease); }
+.instrument-workspace .dock-pane.active.landed { animation: none; }   /* (swiped in: already in place, dock.js endSwipe) */
+/* (A test's pane being built before the card swaps to it, dock.js stageIn: laid out in the open pane's cell, drawn by the GPU as usual, but unseen and untouchable.) */
+.instrument-workspace .dock-body:not(.split):has(.staging) > .dock-pane.active { grid-area: 1 / 1; }
+.instrument-workspace .dock-body > .dock-pane.active.staging:not(.landed) { grid-area: 1 / 1; opacity: 0; pointer-events: none; animation: none; }
+/* (A pair on show (the Pressure tab's chart over the Scope) stands where it is while the next pane is built: that pane is laid out over the whole body, out of the grid, so the pair never
+   moves into one cell. 17 Nov 2026: a tab picked from a pair used to be switched with no build and no fade, the old readings gone at once and the new tab fading in from nothing.) */
+.instrument-workspace .dock-body.split > .dock-pane.active.staging:not(.landed) { position: absolute; inset: 0; grid-area: auto; }
+/* (A test's pane scrolls up and down only, never sideways (Mohammad, 6 Nov, iPhone: "the test cards are scrolling right and left within the same card"): a little
+   overflow in the pane made it a sideways scroller, swipe.js ownsSideways then left a sideways swipe to the browser instead of the tab swipe, and the pane slid off
+   to the left. overflow-x hidden and touch-action pan-y keep it to the card's width; a box inside it that scrolls sideways on purpose (a table, the chips) keeps its own.) */
+.instrument-workspace .dock-pane :is(.table-wrap, .formula, .pt-chips) { overflow-x: hidden; touch-action: pan-y; }   /* (nothing inside a test scrolls sideways either: a sideways drag is the swipe to the next test) */
+/* The pane a tapped tab leaves fades out where it stood, over the new pane fading in (dock.js paneOut). */
+.instrument-workspace .dock-pane.pane-out:not(.active) { display: flex; flex-direction: column; gap: 12px; position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+@container ws (max-width: 560px) {
+  .workspace-live { display: none; }
+}
+
+/* Phone and small landscape */
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape), (max-width: 1100px) and (orientation: portrait) {
+  .app { --pill-h: 42px; --ctl-h: 36px; }
+  .menu-btn { padding: 0 4px 0 3px; gap: 4px; }
+  .topbar .sb-right { padding: 0 2px; }
+  .zoom-pill { flex-direction: row; right: calc(env(safe-area-inset-right) + 8px); transform: none; }
+  .zoom-pill .ib { width: 36px; height: 36px; }
+}
+/* A phone in landscape keeps a slim row of the four readouts beside the play bar. */
+@media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+  .readouts { display: block; }
+  .vdock { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "st st" "tl ro"; }
+  .vdock .readouts { width: 330px; border-left: 1px solid var(--hairline); border-bottom: 0; }
+  .vdock .readouts:not(.all) .metric .s, .vdock .readouts:not(.all) .rb { display: none; }
+  .vdock .readouts:not(.all) .metric .v { font-size: var(--fs-16); }
+}
+
+/* A phone: the second row shortens the legend; the zoom pill steps aside for a sheet of instruments. */
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape), (max-width: 1100px) and (orientation: portrait) {
+  .lg-scale { width: 88px; }
+  .topbar .sb-right { min-width: 0; }
+  .app.dock-open .zoom-pill { display: none; }
+}
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
+  .topbar .lg-cats { gap: 8px; font-size: var(--fs-12); }
+  .topbar .lg-cats span { gap: 4px; }
+  .topbar .lg-cats i { width: 12px; }
+  .topbar .lg-note { display: none; }
+}
+
+/* A phone: the patient pill clips rather than wrap. */
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
+  .tb-id { overflow: hidden; }
+}
+/* A phone in landscape: a compact play bar beside the four readouts. */
+@media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+  .vdock .stage-bar.bottom { overflow: hidden; }
+  .vdock .timeline { min-width: 0; }
+  .vdock .tl-speed { display: none; }
+  /* (The short clock, as on an upright phone: sideways it had no clock anywhere. Review #23, Mohammad's A.) */
+  .vdock .tl-time { display: inline; min-width: 0; }
+  .vdock .tl-time .tl-t-long { display: none; }
+  .vdock .tl-time .tl-t-short { display: inline; }
+  .vdock .readouts { width: 300px; }
+  /* Even spacing (sweep 01 #14): the clock, jump and compare share the play bar's spare room equally, and
+     the two readings sit evenly in their own part rather than leaving a gap after the second. */
+  .vdock .timeline { justify-content: space-between; }
+  .vdock .timeline .tl-jumps { margin-left: 0; }
+  /* Even to the eye, not just box to box: the fast-forward glyph sits 11.3 px inside its button (8 px to the icon, 3.3 px inside
+     the icon), the Compare glyph 9.8 px, the time's digits 8.3 px inside theirs; so the time steps right by the difference
+     and Compare left (sweep 01 review: the gap after the play pill read 11 px short). */
+  .vdock .timeline .tl-time { margin-left: 11.5px; }
+  .vdock .timeline .tl-pin { margin-left: -1.5px; }
+  .vdock .timeline .tl-time { text-align: center; }   /* (it keeps its steady width; centred, its gaps read even) */
+  .vdock:not(.mini) .readouts:not(.all) .metric.primary { text-align: center; }
+  .vdock:not(.mini) .readouts:not(.all) .metric.primary .v { justify-content: center; }
+}
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
+  .topbar[data-fit] #viewSeg button { padding: 6px 7px; }
+  .topbar .stage-bar.top { gap: 6px; min-width: 0; }
+  .topbar .sb-right { flex: 0 1 auto; min-width: 0; overflow: hidden; }
+  .topbar .lens-btn { min-width: 0; overflow: hidden; }
+  .topbar .legend { min-width: 0; overflow: hidden; }
+}
+.topbar .stage-bar.top .sb-left { flex: none; }
+/* A phone in landscape: the Instruments card on the right is narrower. */
+@media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+  .instrument-workspace.side { top: calc(var(--top-safe) + 2px); bottom: calc(var(--vdock-h) + 14px); }
+}
+/* The card on the right (a Mac, an iPad held sideways) is one height for every test and never changes (Mohammad, 12 and 13 Nov 2026): the room there is, up to 760 px
+   (17 Nov 2026, play-test F31: it stopped at 560 px with 280 px of empty screen under it, and the TIPS card's loss bar was cut at the fold: "no scrolling: the card should grow to
+   the room it has before it ever scrolls"; a 900 px window gives about 720 px). 400 px held the pictures to 130 to 190 px; at 560 each test's main picture is the card's width and 260 px or more, its
+   readings sit under it as figures, and a switch inside a test (Pressure: Along the circuit / Over time; Scope: Scope view / Wall mechanics; Fibro: Liver / Spleen)
+   swaps what the one frame shows. */
+.instrument-workspace.side:not([data-state="peek"]) { --ws-h: min(var(--ws-max, 760px), calc(100% - var(--top-safe) - var(--cmp-occ, 0px) - 4px - var(--vdock-h) - var(--gap) - 8px)); bottom: auto; height: var(--ws-h); }
+@media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+  .instrument-workspace.side:not([data-state="peek"]) { --ws-h: auto; bottom: calc(var(--vdock-h) + 14px); height: auto; }   /* (a phone held sideways keeps the card from the top bar to the dock) */
+}
+
+/* Labels: no box; the station, then its pressure with the unit and the change from healthy; a bar in
+   the pressure's color on the side facing the vessel, as on the anatomy. */
+.lz-lab { display: grid; gap: 0; padding: 1px 8px; border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; line-height: 1.2; }
+.lz-lab.left { text-align: right; border-left: 0; padding: 1px 9px 1px 8px; }
+/* The anatomy's halo: a smooth outline around each letter (a stroke painted under the fill), so the labels read over the tissue. */
+.lz-lab :is(.n, .v, .x), .lz-call { --hw: max(1.25px, calc(2px * var(--label-k, 1)));
+  -webkit-text-stroke: calc(var(--hw) * 2) var(--cap-outline); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; }
+/* Floors keep the pill's order at small label sizes: the reading never drops below its unit or name (all 11 px or more). */
+.lz-lab .n { font-size: calc(var(--t-lab) * var(--label-scale, 1)); font-weight: 600; color: var(--text-2); }   /* (U6, 13 Nov 2026: the Anatomy's roles: name --t-lab, reading --t-val, unit --t-cap) */
+.lz-lab .v { display: flex; align-items: baseline; gap: 2.5px; font-size: calc(var(--t-val) * var(--label-scale, 1)); line-height: 1.1; }
+.lz-lab.left .v { justify-content: flex-end; }
+.lz-lab .v b { font-weight: 600; color: var(--text); }
+.lz-lab small { font-size: calc(var(--t-cap) * var(--label-scale, 1)); font-weight: 500; color: var(--text-3); }
+/* A label whose structure is off screen waits at the edge with a small arrow pointing the way (lobule-zoom.js layoutLabels). */
+.lz-lab.edge .n::before { content: ""; position: absolute; left: 50%; top: 50%; width: 9px; height: 10px; background: var(--text-2); clip-path: polygon(0 0, 100% 50%, 0 100%); transform: translate(-50%, -50%) rotate(var(--edge-a, 0rad)) translateX(var(--edge-r, 40px)); pointer-events: none; }
+.lz-lab .d { font-size: calc(var(--t-lab) * var(--label-scale, 1)); font-weight: 600; color: var(--text); margin-left: 4px; }   /* (a change, "+3", in its reading's colour) */
+.lz-lab .n-short { display: none; }
+.lz-lab.stack .v { display: grid; grid-template-columns: auto auto; justify-content: center; align-items: baseline; column-gap: 2.5px; }   /* (a grid: the label is only as wide as its longer line, not as wide as both readings side by side) */
+.lz-lab.stack .u2 { grid-column: 1 / -1; justify-self: center; }
+.lz-lab.stack .u2 .dot { display: none; }
+.lz-lab.left.stack .u2 { text-align: right; }
+.lz-lab:focus-visible .n, .lz-lab.sel .n { color: var(--accent-ink); }
+@media (hover: hover) { .lz-lab:hover .n { color: var(--accent-ink); } }
+/* Phone: the short names, the reading large beneath its name as on a Mac (Mohammad, 2 Nov 2026, label mocks). */
+@media (max-width: 720px) {
+  .lz-lab { border: 0 !important; padding: 0 2px; }
+  .lz-lab[data-target="lobule:lymph"] .v { font-size: calc(var(--t-val) * var(--label-scale, 1)); }   /* (the lymph a second-tier reading, so the tract's pair fits beside its corner) */
+  .lz-lab .n-long { display: none; } .lz-lab .n-short { display: inline; }
+  .lz-lab small { font-size: calc(var(--t-cap) * var(--label-scale, 1)); font-weight: 500; }
+}
+/* Dark lobule labels: white names, values, units and zones on the anatomy's dark outline. */
+:root[data-theme="dark"] .lz :is(.lz-lab, .lz-lab .n, .lz-lab .v, .lz-lab .v b, .lz-lab small, .lz-lab .d, .lz-zone) { color: var(--white); }
+:root[data-theme="dark"] .lz-zone span { opacity: 1; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="soft"]) .lz :is(.lz-lab, .lz-lab .n, .lz-lab .v, .lz-lab .v b, .lz-lab small, .lz-lab .d, .lz-zone) { color: var(--white); }
+  :root:not([data-theme="light"]):not([data-theme="soft"]) .lz-zone span { opacity: 1; }
+}
+/* Phone: the lobule keeps the zoom controls where the anatomy view has them. */
+@media (max-width: 720px) {
+  .stage-view.in-lobule .zoom-pill #zoomIn, .stage-view.in-lobule .zoom-pill #zoomOut { display: inline-grid; }
+}
+/* The circuit's turn upright opens and folds in the zoom pill (its size and a fade, .2 s) instead of appearing in one frame, so
+   the pill grows rather than jumping (round 2 review, NP12). Folded it takes no room: no size, and margins that take back the
+   pill's 2 px gap. (After the phone rules, which size every button in the pill.) */
+.zoom-pill .stage-rotate.ib { width: 0; height: 0; margin: -1px; overflow: hidden; opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity var(--d-small) var(--ease), visibility 0s linear var(--d-small); }
+.cmap .zoom-pill .stage-rotate.ib { width: 36px; height: 36px; margin: 0; opacity: 1; visibility: visible; pointer-events: auto;
+  transition: opacity var(--d-small) var(--ease) var(--d-flip), visibility 0s; }
+#app.sin-focus .zoom-pill .stage-rotate.ib { width: 0; height: 0; margin: -1px; opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity var(--d-small) var(--ease), visibility 0s linear var(--d-small); }
+/* (the pill's glass and its other buttons glide to the new size by transform: plate-glide.js glideOnResize, from main.js) */
+.zoom-pill { --pg-border: 0 solid transparent; --pg-shadow: var(--shadow-pill); }
+/* In the tall Instruments card the trace chips wrap instead of scrolling sideways. */
+.instrument-workspace.side .pt-chips { flex-wrap: wrap; overflow: visible; -webkit-mask-image: none; mask-image: none; padding-right: 0; }
+
+/* Instrument tabs: one slim segmented bar; the chosen instrument is a raised chip. */
+.instr-tabs { display: flex; gap: 2px; margin: 2px 12px 10px; padding: 3px; flex: none; border-radius: 10px; background: var(--surface-2); overflow: hidden; }
+.instr-tabs[hidden] { display: none; }
+.instr-tab { position: relative; flex: 1 1 0; display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; height: 30px; padding: 0 8px; border: 0; border-radius: 7px; background: none; color: var(--text-2); cursor: pointer; font: 600 var(--fs-12) var(--font-ui); white-space: nowrap; transition: none; }
+@media (hover: hover) { .instr-tab:hover { color: var(--text); } }
+.instr-tab > :is(svg, .ic) { width: var(--ic-s); height: var(--ic-s); flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; } .instr-tab > .ic { -webkit-mask-image: url("../brand/icons/icons-r.png"); mask-image: url("../brand/icons/icons-r.png"); background-color: currentColor; }
+.it-t { display: flex; min-width: 0; }
+.it-t b { font-weight: inherit; overflow: hidden; text-overflow: ellipsis; }
+.instr-tab[aria-selected="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgb(var(--night-rgb) / .12), 0 0 0 .5px var(--hairline); }
+.instr-tab[aria-selected="true"] > :is(svg, .ic) { stroke: var(--accent); } .instr-tab[aria-selected="true"] > .ic { background-color: var(--accent); }
+.instr-tabs.seg-glide::before { border-radius: 7px; box-shadow: 0 1px 2px rgb(var(--night-rgb) / .12), 0 0 0 .5px var(--hairline); }
+@media (forced-colors: none) { .instr-tabs.seg-glide .instr-tab[aria-selected="true"] { background: none; box-shadow: none; } }
+.instr-tab[data-slot="1"]::after, .instr-tab[data-slot="2"]::after { content: attr(data-slot); position: absolute; top: -4px; right: -2px; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font: 600 12px/16px var(--font-ui); text-align: center; }
+.picking .instr-tab:not([aria-selected="true"]) { box-shadow: inset 0 0 0 1px var(--accent); }
+/* Narrow: the name under a small icon, so all five fit in one row. */
+@container ws (max-width: 560px) {
+  .instr-tab { flex-direction: column; gap: 1px; height: 40px; padding: 0 2px; }
+  .instr-tab { flex: 1 0 auto; min-width: 48px; padding: 0 4px; font-size: 12px; }
+  .it-t b { overflow: visible; }
+}
+
+/* Text size: smaller A, the size (tap to reset), larger A. */
+.text-size button { font-variant-numeric: tabular-nums; }
+.text-size .ts-a { font-family: var(--font-ui); font-weight: 600; flex: 0 0 52px; }
+.text-size .ts-sm { font-size: var(--fs-12); } .text-size .ts-lg { font-size: var(--fs-20); }
+.text-size .ts-reset { flex: 1; font-size: var(--fs-12); background: var(--surface); color: var(--text); box-shadow: var(--shadow-1); }   /* (the size in use, raised at every size: at 200 % it had turned grey, sweep batch 04) */
+.text-size button:disabled { opacity: 1; color: var(--text-3); cursor: default; }
+
+
+/* The play bar: the clock sits next to the track it reads, speed looks like a control, Compare is an icon. */
+.tl-time { min-width: 0; text-align: left; }
+.timeline .tl-jumps { margin-left: auto; }   /* no event track: the clock stays by play, the buttons sit right */
+.tl-time .tl-t-short { display: none; }
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) { .vdock .tl-time .tl-t-short { display: inline; } }
+.tl-speed::after { content: ''; width: 0; height: 0; border-left: 3.5px solid transparent; border-right: 3.5px solid transparent; border-top: 4px solid currentColor; opacity: .55; margin-left: 2px; }
+@media (hover: hover) { .tl-speed:hover { border-color: var(--accent-line); color: var(--accent-ink); background: var(--accent-soft); } }
+
+/* Legend: every number centred on its tick, the end ones too (main.js gives the scale room for them beside it, in its numbers' font). */
+.lg-scale { font: 600 var(--fs-12) var(--font-ui); font-variant-numeric: tabular-nums; }
+/* Tick labels never overlap, whatever width a rule gives the scale: the labels between the two ends go first (below 80 px,
+   where four numbers no longer clear each other), then all of them (below 48 px); the ticks stay. */
+.lg-scale { container-type: inline-size; }
+@container (max-width: 79px) { .lg-num:not(.start):not(.end) { display: none; } }
+@container (max-width: 47px) { .lg-num { display: none; } }
+/* A label marked opt (Congestion's 10) also goes where the bar is too short to keep it clear of the end label. */
+@container (max-width: 100px) { :is(.lg-num, .lg-tick).opt { display: none; } }
+
+/* Readouts: short names where the tiles are narrow. */
+.metric .k .k-s { display: none; }
+@media (max-width: 1279px) {
+  .metric .k .k-l { display: none; }
+  .metric .k .k-s { display: inline; }
+  .readouts:not(.all) .metric .tr { display: none; }
+  /* (An unmeasured HVPG is not a call to action: the bar's tile is not a button, so it never says "Measure". A phone's bar tile has about 73 px of room, which "Not measured"
+     at 12 px overran into an ellipsis, so there it says "Unmeasured": the same fact in one word, in the tile's own size.) */
+  .vdock .readouts .metric .status.unmeas { font-size: 0; }
+  .vdock .readouts .metric .status.unmeas::after { content: 'Unmeasured'; font-size: var(--fs-12); }
+}
+
+/* A phone: the clock is in the play bar (short form), not floating over the figure. */
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
+  .stage-clock { display: none !important; }
+  .vdock .tl-time { display: inline; min-width: 0; }
+  .vdock .tl-time .tl-t-long { display: none; }
+  /* The menu keeps its icon; the patient's name gets the room (the menu names the mode). */
+  .tb-id .scenario-v { font-size: var(--fs-14); }
+}
+/* Keep zoom and Fit just above the phone inspector, clear of the vitals dock. */
+.zoom-pill.under-sheet {
+  bottom: max(calc(var(--bot-occ, 120px) + 8px), var(--sheet-h, 0px));
+  translate: none;
+}
+
+
+/* Sliders follow a finger anywhere on the track (util.js enhanceRanges), so the page must not scroll from them. */
+input[type="range"] { touch-action: none; }
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
+  .tl-speed { display: none; }
+  .readouts:not(.all) .metric .v { font-size: var(--fs-16); }
+  .readouts:not(.all) .metric .v .unit { margin-left: 2px; }
+  .vdock .timeline { gap: 6px; }
+}
+

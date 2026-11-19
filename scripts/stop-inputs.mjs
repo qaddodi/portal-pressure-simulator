@@ -4,6 +4,8 @@
 // `npm run gen:stops` makes the table again.
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+import { appCssFiles } from './app-css.mjs';
 
 /** A style sheet's rules as { ctx, sel, decls: [[prop, value]] } (@media and @supports are kept as the context of the rules inside). */
 export function cssRules(text) {
@@ -55,8 +57,10 @@ export function stopInputs(cssTexts, sigs) {
   return lines.join('\n');
 }
 
-export const STYLE_FILES = ['styles/tokens.css', 'styles/app.css'];
+export const STYLE_FILES = ['styles/tokens.css', 'styles/app-*.css'];
+// ('styles/app-*.css' is the app's stylesheet whole: its files joined in order, scripts/app-css.mjs.)
+const styleText = (f, root) => (f === 'styles/app-*.css' ? appCssFiles(fileURLToPath(root)).map((g) => readFileSync(new URL(g, root), 'utf8')).join('') : readFileSync(new URL(f, root), 'utf8'));
 export function stopHash(root, sigs) {
-  const texts = STYLE_FILES.map((f) => readFileSync(new URL(f, root), 'utf8'));
+  const texts = STYLE_FILES.map((f) => styleText(f, root));
   return createHash('sha1').update(stopInputs(texts, sigs)).digest('hex').slice(0, 12);
 }

@@ -4,9 +4,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
+import { appCssFiles } from '../scripts/app-css.mjs';
 
 const read = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
-const css = ['styles/app.css', 'styles/tokens.css'].map(read).join('\n').replace(/\/\*[\s\S]*?\*\//g, '');
+const css = [...appCssFiles(), 'styles/tokens.css'].map(read).join('\n').replace(/\/\*[\s\S]*?\*\//g, '');
 const js = readdirSync(new URL('../src/ui/', import.meta.url)).filter((f) => f.endsWith('.js')).map((f) => [f, read('src/ui/' + f)]);
 
 // Round things that are controls or marks, not status: each named on purpose.

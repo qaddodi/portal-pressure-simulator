@@ -54,6 +54,7 @@ export function makeGL(canvas) {
   gl.canvas = canvas; gl.draws = 0; gl.drawingBufferWidth = canvas.width || 1280; gl.drawingBufferHeight = canvas.height || 800;
   const count = () => { gl.draws++; };
   for (const k of ['drawArrays', 'drawArraysInstanced', 'drawElements', 'drawElementsInstanced', 'clear']) gl[k] = count;
+  globalThis.__glTrack?.(gl);   // (a test that counts what the page makes and lets go: tests/gl-live.js)
   return gl;
 }
 export function installGL(win) {

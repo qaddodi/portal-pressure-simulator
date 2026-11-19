@@ -10,9 +10,9 @@
 import { frameFor, cancelFrame } from './frame.js';
 import { ease, cruise, k01, legMs, ROUTE_LEN, BALLOON_IN_MS, BALLOON_OUT_MS } from './hvpg-clock.js';
 import { COIL_B } from './proc-routes.js';
-import { easeMove, createReversible } from './motion.js';
+import { easeMove, createReversible, reduced } from './motion.js';
 import { NODES } from '../engine/portal/topology.js';
-import { hvpgSev, ppgSev, hvBlocked } from '../engine/portal/pressure-cuts.js';
+import { hvpgSev, ppgSev, hvBlocked, EUS_SITE_NOTE } from '../engine/portal/pressure-cuts.js';
 import { tenthGap } from '../engine/core/gap.js';
 const NODE_I = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const nextFrame = frameFor('proc-anim');
@@ -83,7 +83,7 @@ const TIPS_COIL_STOPS = [TIPS_T.travel1 + 600, TIPS_T.over1 + 300, TIPS_T.inflat
 // camMs, 480 to 900 ms by how far it goes), this being the ceiling. The procedure waits for the glide to land, and a little more, at each new shot.
 const SHOT_MS = 1500;   // motion-scale: own pace (a shot's camera glide of a procedure)
 // (cathFocus's options, made once. A shot with no times of its own is timed by the camera, on an arc for a long move; BRTO's, BATO's and the glue's keep their own, straight.)
-const SHOT_CAM = { arc: true, scale: true }, SHOT_OWN = { arc: false, scale: false };
+const SHOT_CAM = { scale: true }, SHOT_OWN = { scale: false };   // (both go straight: no arcs since 19 Nov 2026, STG-4)
 // BRTO and BATO glide straight (no arc), each shot as long as its move needs: the way in, the short push in to the balloon, the fill (the
 // same framing: no move), the pull back to the result. Played step by step, their result stays framed when they end, until the slide
 // moves on (holdEnd: the old camera glided home while the catheter was still backing out). Mock B, his pick, 7 Nov 2026.
@@ -103,7 +103,7 @@ export const PROCS = {
       ['dilate', 'Tract dilated', 'Balloon angioplasty dilates the parenchymal tract to the stent diameter.', 'Balloon', 'tip', 'TIPS', ['RHV'], 0.5],
       ['done', 'Stent in', 'A covered stent keeps the tract patent: portal blood now reaches the hepatic vein without crossing the sinusoids.', 'Stent', 'tip', 'TIPS', ['RHV', 'RPV'], 0.5],
     ],
-    can: (p) => (p.tips?.on ? 'A TIPS is already in place.' : (p.thrombus?.RHV_IVC || 0) >= 0.8 ? 'The right hepatic vein is thrombosed, so there is no route for a TIPS.' : ''),
+    can: (p) => (p.tips?.on ? 'A TIPS is already in place.' : hvBlocked(p) ? 'The right hepatic vein is thrombosed, so there is no route for a TIPS.' : ''),
     apply: (p) => { p.tips = { ...p.tips, on: true, d: p.tips?.d || 8 }; return p; },   // alloc-rare: runs once, when the sequence passes T.apply: the model takes the change (a new params record)
     had: (p) => !!p.tips?.on,
     undo: (p) => { p.tips = { ...p.tips, on: false }; return p; },
@@ -190,7 +190,6 @@ const IR_PV_T = (() => {
   return { travel0: 300, travel1, read0, read1, res0, back, end: back + 3000 };
 })();
 const GRAD_U_IVC = 0.4;   // (the IVC stretch's place on the route, u, when the stage has not given the route's stops)
-const GRAD_TARGET = 12;   // (mmHg: AASLD 2024, the gradient under which no beta-blocker is needed after a TIPS)
 const GRAD_PV = { key: 'w', at: 'tip', kicker: 'PORTAL VEIN', text: '', unit: 'mmHg', cls: 'pv' };
 const GRAD_IV = { key: 'f', at: 'tip', kicker: 'IVC', text: '', unit: 'mmHg', cls: 'ivc' };
 const GRAD_RES = { key: 'g', at: 'tip', kicker: 'GRADIENT', text: '', unit: 'mmHg', cls: 'result ok' };
@@ -216,7 +215,7 @@ export const MEASURES = {
       ['enter', 'Echoendoscope in', 'A linear echoendoscope is advanced through the esophagus into the stomach. From the proximal stomach it images the left hepatic lobe transgastrically; color Doppler identifies the left portal vein, the left hepatic vein and a needle path to each with no intervening vessel.', 'Scope', 'way', null, [], 0.5],
       ['pv', 'Portal vein', 'A 25-gauge needle, primed with heparinized saline, is passed through the gastric wall and the left lobe into the umbilical portion of the left portal vein. A compact manometer on its hub records the pressure once it is stable: the mean of three readings.', 'PV', 'tip', 'PVH_L', ['LPV'], 0.9],
       ['hv', 'Hepatic vein', 'The needle is withdrawn into the echoendoscope, which is pulled back to the cardia. The elevator angles the needle toward the dome, and it is passed through the left lobe into the left hepatic vein (the middle hepatic vein or the IVC can be used instead): again the mean of three readings.', 'HV', 'tip', 'LHV_IVC', ['LPV', 'LHV'], 0.6],
-      ['done', 'EUS-PPG', 'EUS-PPG = portal vein pressure \u2212 hepatic vein pressure, both measured with one needle in one session. It is interpreted on the HVPG cut-offs: \u22655 mmHg is portal hypertension and \u226510 mmHg is clinically significant. It is still being validated against the HVPG, which remains the reference standard.', 'PPG', 'work', 'PVH_L', ['LPV', 'LHV'], 0.9],
+      ['done', 'EUS-PPG', EUS_SITE_NOTE + ' Both are measured with one needle in one session. The HVPG cut-offs (>5 and \u226510 mmHg) are borrowed, not validated for EUS-PPG, and the HVPG remains the reference standard.', 'PPG', 'work', 'PVH_L', ['LPV', 'LHV'], 0.9],
     ],
     // The readings, taken once each callout comes (read: the model frame; its node pressures P): the portal vein at the left portal
     // vein's node, the hepatic vein at the left hepatic vein's, and their difference as every screen shows it, at one decimal.
@@ -271,7 +270,7 @@ export const MEASURES = {
       const T = GRAD_T, m = f?.metrics;
       if (t >= T.back) return out;
       if (t >= T.res0 && Number.isFinite(rd.ppg)) {
-        GRAD_RES.text = mmHg(rd.ppg); GRAD_RES.cls = rd.ppg < GRAD_TARGET ? 'result ok' : 'result caution'; out.push(GRAD_RES);
+        GRAD_RES.text = mmHg(rd.ppg); GRAD_RES.cls = IR_RESULT_CLS[ppgSev(rd.ppg)]; out.push(GRAD_RES);
       } else if (t >= T.ivRead0 && t < T.res0) { GRAD_IV.text = mmHg(m ? r1(m.ivc) : NaN); out.push(GRAD_IV); }
       else if (t >= T.pvRead0 && t < T.pull0) { GRAD_PV.text = mmHg(m ? r1(m.pv) : NaN); out.push(GRAD_PV); }
       return out;
@@ -288,7 +287,7 @@ export const MEASURES = {
       ['enter', 'Catheter in', 'Right internal jugular access: the balloon catheter passes through the SVC, the right atrium and the IVC into the right hepatic vein.', 'In', 'way', 'RHV_IVC', ['IVCS', 'RHV'], 0.5],
       ['free', 'FHVP', 'With the balloon deflated, the catheter tip records the free hepatic venous pressure (FHVP) once it is stable.', 'Free', 'tip', 'RHV_IVC', ['RHV'], 0.5],
       ['wedge', 'WHVP', 'The balloon is inflated just proximal to the tip and occludes the vein. The static column of blood beyond it equilibrates with the upstream sinusoidal pressure: the wedged hepatic venous pressure (WHVP).', 'Wedged', 'tip', 'RHV_IVC', ['RHV'], 0.5],
-      ['done', 'HVPG', 'HVPG = WHVP \u2212 FHVP, the pressure drop across the sinusoids. Normal <5 mmHg; \u226510 mmHg is clinically significant portal hypertension.', 'HVPG', 'tip', 'RHV_IVC', ['RHV'], 0.5],
+      ['done', 'HVPG', 'HVPG = WHVP \u2212 FHVP, the pressure drop across the sinusoids. Normal \u22645 mmHg; \u226510 mmHg is clinically significant portal hypertension.', 'HVPG', 'tip', 'RHV_IVC', ['RHV'], 0.5],
     ],
     // The readings, taken as each callout comes: the free pressure, the wedged pressure, and the HVPG as the tiles show it.
     capture(i, rd, f) {
@@ -506,7 +505,7 @@ export const PLUGS = {
       ['coil', 'Vein coiled', 'The catheter is advanced along the portal trunk into the coronary (left gastric) vein, the feeder of the varices. Coils occlude it, so portal blood no longer reaches the varices.', 'Coils', 'coil', 'LGV_CONF', ['LGV'], 1 - COIL_B],
       ['done', 'Stent in', 'A covered stent keeps the tract patent: portal blood now reaches the hepatic vein without crossing the sinusoids.', 'Stent', 'tip', 'TIPS', ['RHV', 'RPV'], 0.5],
     ],
-    can: (p) => (p.tips?.on ? 'A TIPS is already in place.' : p.occluded?.C1a ? 'The coronary vein is already closed.' : (p.thrombus?.RHV_IVC || 0) >= 0.8 ? 'The right hepatic vein is thrombosed, so there is no route for a TIPS.' : ''),
+    can: (p) => (p.tips?.on ? 'A TIPS is already in place.' : p.occluded?.C1a ? 'The coronary vein is already closed.' : hvBlocked(p) ? 'The right hepatic vein is thrombosed, so there is no route for a TIPS.' : ''),
     apply: (p) => { p.tips = { ...p.tips, on: true, d: p.tips?.d || 8 }; p.occluded = { ...p.occluded, C1a: true }; return p; },   // alloc-rare: once, as the sequence passes T.apply
     had: (p) => !!p.tips?.on && !!p.occluded?.C1a,
     undo: (p) => { p.tips = { ...p.tips, on: false }; p.occluded = { ...p.occluded, C1a: false }; return p; },   // alloc-rare: once, going back past T.apply
@@ -597,6 +596,18 @@ export const stepMarks = (kind, i) => {
   const m = stepMark(kind, i);
   return m ? [m] : NO_NAMES;
 };
+
+/**
+ * The first shot a procedure's camera takes: { shot, route, opt } as stage.cathShot / cathFocus take it (null: it has none, a graft, so the view stays where the figure is).
+ * The way out of the lobule lands on it in the one zoom, not on the whole figure first (presenter-proc.js procRise).
+ */
+export function procFirstShot(kind) {
+  const P = specOf(kind);
+  if (!P || P.graft) return null;
+  const shot = procFrame(kind, 0).shot;
+  if (!shot) return null;
+  return { shot, route: P.route || kind, opt: P.shotOpt?.[shot] || (P.shotMs ? SHOT_OWN : SHOT_CAM) };
+}
 
 /**
  * The procedure at t ms (pure): { u (0..1 of the way in), balloon, column (the sclerosant, 0..1), opacity, step (index into
@@ -757,7 +768,7 @@ const BACK_SPEED = 1.6, RUSH_SPEED = 6, AUTO_HOLD = 1600, LAND_MS = 160, STILL_M
  * before its start. park (stepped only): the run starts already standing at stop `to`, the clock there, without playing the steps before it and without calling apply()
  * (the model already has the change: Back onto a played-through slide, his ask, 10 Nov 2026); going back past T.apply still calls unapply(). Returns { next, back, to, stop({ home }), running, at, step }.
  */
-export function playProcedure(stage, kind, { stepped = false, to = 0, apply = null, unapply = null, onFrame = null, onStep = null, onMark = null, onEnd = null, read = null, hold = false, onHold = null, from = 0, park = false } = {}) {
+export function playProcedure(stage, kind, { stepped = false, to = 0, apply = null, unapply = null, onFrame = null, onStep = null, onMark = null, onEnd = null, read = null, hold = false, onHold = null, from = 0, park = false, quiet = false } = {}) {
   const P = specOf(kind), T = P.T, n = P.stops.length, rd = READS[kind];
   // (hold: the last step stops where the stent is in and the balloon down, the catheter still in, for a reading to go on from there (release); from: the place, u,
   // a reading goes on from.)
@@ -769,7 +780,7 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
   // (One record for the frame and one for the catheter, kept for the whole run and written in place: the stage reads the catheter's as it
   // is given, and holds it only to read it again, so the last frame's values are what it keeps.)
   const fr = { u: 0, balloon: 0, column: 0, opacity: 0, step: 0, shot: '', needle: 0, wire: 0, flash: 0, aim: 0, tgt: 0, fan: 0, read: 0, coil: 0, fade: 0 };
-  const cat = { route: P.route || kind, u: 0, needle: 0, wire: 0, flash: 0, coil: 0, balloon: 0, balloonSpan: P.balloonSpan, column: 0, columnColor: kind === 'eusglue' ? 'var(--dev-glue)' : P.columnColor || 'var(--tr-scler)', aim: 0, tgt: 0, fan: 0, read: 0, fade: 0, ring: null, clock: 0, opacity: 0, labels: [], keep: true, follow: false };
+  const cat = { route: P.route || kind, u: 0, needle: 0, wire: 0, flash: 0, coil: 0, balloon: 0, balloonSpan: P.balloonSpan, column: 0, columnColor: kind === 'eusglue' ? 'var(--dev-glue)' : P.columnColor || 'var(--tr-scler)', aim: 0, tgt: 0, fan: 0, read: 0, fade: 0, ring: null, clock: 0, opacity: 0, labels: [], keep: !quiet, follow: false };   // (quiet: a measurement the learner starts from a card stands alone, as the HVPG catheter's readings do: the figure's names fade away while the needle works, setCatheter, and come back after)
   // (The procedure's clock, in ms of the sequence, 1 ms a ms forward and BACK_SPEED back: a reversible clock, so Back or Next while a step is still
   // moving slows the catheter and turns it round over D_FLIP, never in one frame. It lands exactly on each stop; the steps hold there.)
   const t00 = park ? goal : from > 0 && kind === 'tipsgrad' ? GRAD_CARRY : 0;   // (a parked run starts at its stop)
@@ -815,7 +826,11 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
     if (t >= T.end) { finish(false); return; }
     if (at < 0 && t <= 0) { finish(true); return; }
     const t0 = t;
-    if (!still && t !== goal) { clock.aim(goal, goal < t ? 1 / BACK_SPEED : rushing ? 1 / RUSH_SPEED : 1); t = clock.step(dt); holdT = 0; }
+    if (!still && t !== goal) {
+      // (Reduced motion, review PROC-7: the catheter's way in and out is content but not worth seconds of crawl, so the travel legs run at the rush speed; the work steps (needle, balloon, fill) keep their own pace.)
+      const way = f.shot === 'way' && reduced() ? 1 / RUSH_SPEED : 1;
+      clock.aim(goal, (goal < t ? 1 / BACK_SPEED : rushing ? 1 / RUSH_SPEED : 1) * way); t = clock.step(dt); holdT = 0;
+    }
     else if (!still && !stepped && at < n - 1) { holdT ||= now; if (now - holdT >= AUTO_HOLD) { at++; goal = stopAt(at); holdT = 0; } }
     else if (!still && !stepped && P.parkMs && goal < T.end) { holdT ||= now; if (now - holdT >= AUTO_HOLD) { goal = T.end; holdT = 0; } }   // (autoplay: the scope parked at its last stop is shown for a hold, then fades out and the run ends; a presentation waits there for the slide to move on)
     // (Held at its last stop with the catheter in: the reading that goes on from here is asked for once, when this stop is reached and the camera has landed.)
