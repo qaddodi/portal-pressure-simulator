@@ -57,9 +57,20 @@ export function shufDim(card, p, layers = 1) {
   return top * (1 - f);
 }
 
-/** The keyframes of one card's transform (to be ADDED to its own), its clip-path and its veil, from p = 0 (offset 0) to p = 1 (offset 1). */
+const smooth = (a, b, v) => { const t = clamp01((v - a) / (b - a)); return t * t * (3 - 2 * t); };
+/**
+ * How much of a card's words and numbers show while the card is f of the way forward (0 behind, 1 in front): none while it is a strip, whole once it is well on its
+ * way. The strip shows the card's edge and its handle and never a piece of a line (19 Nov 2026, the sweep: a half line of the card behind showed in 406 of 412 Shuffle
+ * slides, cut across by the strip's edge; Mohammad: "disgusting stray text"). The words are not clipped to a line, they are not there: whatever the card holds, however tall its first line.
+ */
+export const shufInk = (f) => smooth(INK_FROM, INK_TO, f);
+/** The handle in the strip: a short bar that says "this card is behind, swipe or tap". Whole while the card is behind, gone before the card is half forward. */
+export const shufHandle = (f) => 1 - smooth(HANDLE_FROM, HANDLE_TO, f);
+const INK_FROM = 0.3, INK_TO = 0.75, HANDLE_FROM = 0.05, HANDLE_TO = 0.45;
+
+/** The keyframes of one card's transform (to be ADDED to its own), its clip-path, its veil, its contents' opacity (ADDED to their own: 0 whole, -1 gone) and its handle's, from p = 0 (offset 0) to p = 1 (offset 1). */
 export function shufKeyframes(card, h, layers = 1, lo = SHUF.strip, w = 0) {
-  const tf = [], clip = [], dim = [];
+  const tf = [], clip = [], dim = [], ink = [], tab = [];
   for (let i = 0; i <= SHUF.steps; i++) {
     const offset = i / SHUF.steps, g = shufPose(card, offset, h, lo, w);
     tf.push({ offset, transform: `translate(${g.x.toFixed(2)}px, ${g.ty.toFixed(2)}px) rotate(${g.rz.toFixed(3)}deg) scale(${g.s.toFixed(4)})` });
@@ -67,8 +78,10 @@ export function shufKeyframes(card, h, layers = 1, lo = SHUF.strip, w = 0) {
     const e = 40 * g.f;
     clip.push({ offset, clipPath: `inset(${(-e).toFixed(1)}px ${(-e).toFixed(1)}px ${(h - g.vis - e).toFixed(1)}px ${(-e).toFixed(1)}px round ${SHUF.radius}px)` });
     dim.push({ offset, opacity: shufDim(card, offset, layers).toFixed(3) });
+    ink.push({ offset, opacity: (shufInk(g.f) - 1).toFixed(3) });
+    tab.push({ offset, opacity: shufHandle(g.f).toFixed(3) });
   }
-  return { tf, clip, dim };
+  return { tf, clip, dim, ink, tab };
 }
 
 /** One step of the critically damped spring toward `target`: { p, v, done }. dt in seconds (never more than 32 ms). */
@@ -111,8 +124,8 @@ export function createShuffle(live) {
   const nowMs = () => performance.now();
 
   const root = () => live.ui?.root;
-  function dropAnims() { for (const a of anims) for (const k of ['tf', 'clip', 'dim']) { try { a[k]?.cancel(); } catch { /* (an animation already gone) */ } } anims = []; }
-  function scrub() { const t = p * 1000; for (const a of anims) { a.tf.currentTime = t; a.clip.currentTime = t; a.dim.currentTime = t; } }
+  function dropAnims() { for (const a of anims) for (const k of [a.tf, a.clip, a.dim, a.tab, ...(a.inks || [])]) { try { k?.cancel(); } catch { /* (an animation already gone) */ } } anims = []; }
+  function scrub() { const t = p * 1000; for (const a of anims) { a.tf.currentTime = t; a.clip.currentTime = t; a.dim.currentTime = t; if (a.tab) a.tab.currentTime = t; for (const k of a.inks) k.currentTime = t; } }
   function front() { const r = root(); if (r) r.classList.toggle('pz-shuf-data', p > 0.5); }
 
   function build() {
@@ -128,12 +141,16 @@ export function createShuffle(live) {
       if (!(h > 0) || !b) continue;
       const w = b.width;
       const kf = shufKeyframes(card, h, layers, lo, w);
-      const mk = (frames, opts) => { const a = el.animate(frames, { duration: 1000, fill: 'both', easing: 'linear', ...opts }); a.pause(); a.currentTime = p * 1000; return a; };   // motion-scale: own pace (paused: the finger and the spring set the time, 1000 is the timeline's unit, never a length of time)
+      const mk = (frames, opts, on = el) => { const a = on.animate(frames, { duration: 1000, fill: 'both', easing: 'linear', ...opts }); a.pause(); a.currentTime = p * 1000; return a; };   // motion-scale: own pace (paused: the finger and the spring set the time, 1000 is the timeline's unit, never a length of time)
       anims.push({
         el, card, h, w, lo, top: b.top, left: b.left, glass,
         tf: mk(kf.tf, { composite: 'add' }),
         clip: mk(kf.clip),
         dim: mk(kf.dim, { pseudoElement: '::after' }),
+        // (The words and numbers of a card behind are not there, and its handle is: the strip never holds a piece of a line. Each part of the card takes the same
+        // keyframes, added to its own opacity, so a part that is fading in or out for its own reasons keeps doing it.)
+        inks: [...el.children].filter((c) => c.animate).map((c) => mk(kf.ink, { composite: 'add' }, c)),
+        tab: glass ? mk(kf.tab, { pseudoElement: '::before' }) : null,
       });
     }
     front();

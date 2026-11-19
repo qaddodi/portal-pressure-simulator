@@ -685,6 +685,8 @@
    the script scrubs (a transform added to its own, a clip that leaves its top strip while it is behind, and a veil, this ::after, that darkens it).
    The one in front stands above the other: .pz-shuf-data (set on the page while the instrument is in front) flips the order as the two cross. */
 .pz.pz-shuf .pz-text::after, .pz-shade.pz-shuf::after, .pz.pz-shuf .pz-data::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--shade-ink); opacity: 0; pointer-events: none; }
+/* The strip of the card behind holds its edge and a handle, never a piece of a line (card-shuffle.js: the card's words and numbers are taken out while it is behind, its handle put in). */
+.pz.pz-shuf .pz-data::before, .pz-shade.pz-shuf::before { content: ''; position: absolute; left: 50%; top: 10px; width: 34px; height: 4px; margin-left: -17px; border-radius: 2px; background: color-mix(in srgb, var(--text) 38%, transparent); opacity: 0; pointer-events: none; }
 .pz.pz-shuf .pz-text { z-index: 2; }
 .pz.pz-shuf .pz-data { z-index: 1; }
 .pz.pz-shuf.pz-shuf-data .pz-data { z-index: 3; }   /* (the words' card is 2: over the instrument while it leads, under it once it does) */

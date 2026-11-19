@@ -162,3 +162,44 @@ test('a screen too short for the pair first gives the cards a wider column, and 
   assert.ok(l.indexOf("wider = true;") < l.indexOf("shuf = true; below = true; stepDk(1);"), 'wider first, shuffle last');
   assert.match(SHUF.wide, /^min\(\d+px, \d+vw\)$/);
 });
+
+// The strip of the card behind never holds a piece of a line (19 Nov 2026, the deck sweep: a half line of the card behind showed on 406 of 412 Shuffle slides at 844 x 390,
+// cut across by the strip's edge; Mohammad called it "disgusting stray text"). The words and numbers of a card behind are taken out (their opacity, added to their own), and a handle
+// stands in the strip instead, so what shows there is the same on every slide whatever the card's first line is.
+import { shufInk, shufHandle } from '../src/ui/card-shuffle.js';
+
+test('the card behind shows no words or numbers; the card in front shows all of them', () => {
+  assert.equal(shufInk(0), 0); assert.equal(shufInk(1), 1);
+  for (const f of [0, 0.1, 0.25]) assert.equal(shufInk(f), 0, `a card ${f} of the way forward is still a strip`);
+  assert.equal(shufInk(0.8), 1, 'whole well before it is in front');
+  let last = -1;
+  for (let i = 0; i <= 40; i++) { const v = shufInk(i / 40); assert.ok(v >= last - 1e-12, 'only ever more of the words as the card comes forward'); last = v; }
+});
+
+test('the handle is whole while the card is behind and gone before it is half forward', () => {
+  assert.equal(shufHandle(0), 1); assert.equal(shufHandle(1), 0);
+  assert.equal(shufHandle(0.5), 0);
+  let last = 2;
+  for (let i = 0; i <= 40; i++) { const v = shufHandle(i / 40); assert.ok(v <= last + 1e-12); last = v; }
+});
+
+test('every card carries keyframes for its contents (added to their own opacity) and its handle, from behind (offset 0) to in front (offset 1)', () => {
+  for (const [card, h] of [['data', 340], ['words', 300]]) {
+    const k = shufKeyframes(card, h, card === 'words' ? 2 : 1);
+    for (const list of [k.ink, k.tab]) { assert.equal(list.length, SHUF.steps + 1); assert.equal(list[0].offset, 0); assert.equal(list.at(-1).offset, 1); }
+    const behind = card === 'data' ? 0 : 1, front = 1 - behind;   // (the words are behind at p = 1)
+    const at = (list, p) => +list[Math.round(p * SHUF.steps)].opacity;
+    assert.equal(at(k.ink, behind), -1, `${card}: behind, the contents' opacity is taken to nothing`);
+    assert.equal(at(k.ink, front), 0, `${card}: in front, nothing is added: the contents keep their own`);
+    assert.equal(at(k.tab, behind), 1); assert.equal(at(k.tab, front), 0);
+  }
+});
+
+test('the page wires the contents and the handle to the same scrub as the clip, and a handle is drawn for the card behind', () => {
+  const js = src('src/ui/card-shuffle.js'), css = src('styles/app-05-presenter-cards.css');
+  assert.match(js, /composite: 'add'/);
+  assert.match(js, /inks: \[\.\.\.el\.children\]/);
+  assert.match(js, /pseudoElement: '::before'/);
+  assert.match(js, /for \(const k of a\.inks\) k\.currentTime = t/, 'scrubbed with p, like the clip');
+  assert.match(css, /\.pz\.pz-shuf \.pz-data::before, \.pz-shade\.pz-shuf::before \{[^}]*content: ''/);
+});
