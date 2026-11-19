@@ -3,7 +3,7 @@
 
 import { Engine } from './engine/engine.js';
 import { stentMix } from './engine/stent-ease.js';
-import { easeMove } from './ui/ease.js';
+import { easeMove } from './engine/ease-move.js';
 import { computeMetrics } from './engine/metrics.js';
 import { fingerprintOf } from './engine/fingerprint.js';
 import { detectEvents } from './engine/events.js';
@@ -107,6 +107,12 @@ export function* bedsideRun(e, every = 250) {
  *  settled at 7.5 or 8.0 after about 20 s (play-test B12, 16 Nov 2026). Every state the page is handed (a slide's, a patient menu's) is read from here. */
 export function atBedside(e) { const g = bedsideRun(e); while (!g.next().done); }
 const REFS = ['refP', 'refQ', 'Vbase'];
+/** The patient in snap settled as it is (base) and settled with one change (rx), each on a copy; its hemodynamics only: the copies run no disease days. */
+function whatIfFrom(snap, patch) {
+  const read = (e) => { const m = computeMetrics(e); return { hvpg: m.hvpg, ppg: m.ppg, pv: m.pv, hr: m.hr, map: m.map, varix: m.varix.d }; };
+  const copy = (p) => { const e = new Engine({ params: snap.params }); e.restore(snap); if (p) e.setParams(sanitizeParams(deepMerge(e.paramsTarget(), p))); e.settle(); return read(e); };
+  return { base: copy(null), rx: copy(patch || {}) };
+}
 function* loadPresetKept(e, kept, id, opts) {
   const key = `${id}|${opts.days ?? ''}|${e.params.seed}`, k = kept.get(key);
   if (k) {
@@ -636,11 +642,11 @@ export function createCore(post) {
     },
     // The Trials tab's Model line (trials-pane.js): the live patient settled as it is and settled with one change (a drug, a TIPS), each on a
     // copy, so the live model is left as it is. Its hemodynamics only: the copies run no disease days.
-    whatIf({ patch, reqId }) {
-      const read = (e) => { const m = computeMetrics(e); return { hvpg: m.hvpg, ppg: m.ppg, pv: m.pv, hr: m.hr, map: m.map, varix: m.varix.d }; };
-      const copy = (p) => { const e = new Engine({ params: eng.params }); e.restore(eng.snapshot()); if (p) e.setParams(sanitizeParams(deepMerge(e.paramsTarget(), p))); e.settle(); return read(e); };
-      post({ type: 'whatIf', reqId, result: { base: copy(null), rx: copy(patch || {}) } });
-    },
+    // (19 Nov 2026, bible ENG-7: the two quiet settles took 79 to 303 ms on the live worker, so the Doppler and the traces stalled while the card
+    // computed. The page now sends the live snapshot to the second engine (whatIfOf); this one stays for a caller with no second engine.)
+    whatIf({ patch, reqId }) { post({ type: 'whatIf', reqId, result: whatIfFrom(eng.snapshot(), patch) }); },
+    // The same question about a snapshot the caller sends: it touches no state of this engine, so it can run on the calculator's worker.
+    whatIfOf({ snap, patch, reqId }) { post({ type: 'whatIf', reqId, result: whatIfFrom(snap, patch) }); },
     healthyProfile({ reqId }) {
       // (The healthy patient as the model shows it at rest, the shown means: what the live healthy patient reads, so "Healthy" and the reference agree, bedside-rest.js.)
       const h = healthyAtBedside().eng;
@@ -740,7 +746,7 @@ export function createCore(post) {
   const queue = [];
   let busy = false;
   // (Messages that leave the live model as it is: they do not end a kept history, see histCache.)
-  const NO_STATE = ['snapshot', 'presets', 'yours', 'healthyProfile', 'presetMetrics', 'sequence', 'history', 'painted', 'ackPaint', 'visibility', 'probe', 'perfStats', 'whatIf'];
+  const NO_STATE = ['snapshot', 'presets', 'yours', 'healthyProfile', 'presetMetrics', 'sequence', 'history', 'painted', 'ackPaint', 'visibility', 'probe', 'perfStats', 'whatIf', 'whatIfOf'];
   async function drain() {
     if (busy) return;
     busy = true;
@@ -765,7 +771,7 @@ export function createCore(post) {
         if (RECOVER.includes(msg.type)) crashed = false;
         // Queries must not wake the renderer. Mutations send one immediate frame,
         // including UI-originated parameters without echoing those parameters back.
-        if (!crashed && !['snapshot', 'explain', 'healthyProfile', 'presets', 'yours', 'metrics', 'presetMetrics', 'sequence', 'history', 'painted', 'ackPaint', 'perfStats', 'whatIf'].includes(msg.type)) {
+        if (!crashed && !['snapshot', 'explain', 'healthyProfile', 'presets', 'yours', 'metrics', 'presetMetrics', 'sequence', 'history', 'painted', 'ackPaint', 'perfStats', 'whatIf', 'whatIfOf'].includes(msg.type)) {
           // (Perf C5: a slider drag's input while the page has not painted the last frame is held for painted(), not posted at once.)
           if (msg.type === 'setParams' && ackOn && unpainted && running && visible && timer && performance.now() - lastFrame <= ACK_MAX_MS) { held = true; owed = true; }
           else {
