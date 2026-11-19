@@ -1502,7 +1502,7 @@ async function sendFeedback() {
   location.href = `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent('Portal Pressure Simulator feedback')}&body=${encodeURIComponent(body)}`;
   if (fb?.full) toast('Your email app has the short report.', '', { actions: [['Copy the full report', () => { navigator.clipboard?.writeText(fb.full).then(() => toast('Full report copied: paste it under your message.'), () => toast('Could not copy it from here.', 'bad')); }]] });
 }
-const FEEDBACK_SHEET_MS = 380, FEEDBACK_READ_MS = 2500;   // (the Settings sheet's leave, then the most the screen read may take)
+const FEEDBACK_SHEET_MS = 380, FEEDBACK_READ_MS = 2500;   // motion-scale: not a move (a wait for the Settings sheet to leave, then a cap on the screen read)
 function doUndo() { timeline.undo(); }
 function doRedo() { timeline.redo(); }
 function toggleTheme() {
