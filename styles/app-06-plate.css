@@ -411,6 +411,8 @@
 .cath-sum-col { display: flex; flex-direction: column; gap: 10px; }
 .cath-label.in-sum { position: relative; translate: none; transition: none; } .cath-label.in-sum::before { transition: none; }
 .cath-label.in-sum > * { transition: opacity var(--d-surface) var(--ease); }
+.cath-sum-box.sw-a, .cath-leads.sw-a { animation: cath-swap-a var(--d-small) var(--ease-arrive); } .cath-sum-box.sw-b, .cath-leads.sw-b { animation: cath-swap-b var(--d-small) var(--ease-arrive); }
+@keyframes cath-swap-a { from { opacity: 0.25; } } @keyframes cath-swap-b { from { opacity: 0.25; } }   /* (the same under a second name: swapping names restarts it with no reflow) */
 .cath-sum-box.swap .cath-sum-col > :first-child { order: 1; }   /* (the readings stack in the order of their points: the lower point's reading is the lower row, stage-cath.js) */
 /* A short free band (a phone's, between the cards) keeps each reading to one line (name, value, unit), so the stack fits beside the vein. */
 .cath-sum-box.tight .cath-sum-col { gap: 6px; }
