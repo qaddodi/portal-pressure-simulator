@@ -1,110 +1,243 @@
-// The layout sweep's pure half (scripts/gallery-sweep-lib.mjs): what a box change says, what counts as trouble, how a baseline is merged, how a
-// run is split into units and shards. The sweep itself (scripts/gallery-sweep.mjs) runs a headless browser and is not run here.
+// The gallery Sweep (src/ui/gallery/sweep.js, sweep-api.js, sweep-panel.js): which specimens a spec names, the opens it makes, the report it builds,
+// and the resume after the browser ends the tab. Runs with a fake gallery API and a fake storage: no page, no layout.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { SIZES, unitsFor, keyOf, splitKey, normBoxes, normWords, normProblems, describeBoxChange, diffResult, diffReports, newTrouble, summaryText, makeBaseline, pickIds } from '../scripts/gallery-sweep-lib.mjs';
-import { DEVICES, CATALOG } from '../src/ui/gallery/catalog.js';
+import { JSDOM } from 'jsdom';
 
-const res = (o = {}) => ({ ok: true, settled: true, problems: [], boxes: { '.pz-data': [0, 0, 300, 200] }, words: { '.pz-data': ['A', 'B'] }, ...o });
+const dom = new JSDOM('<!doctype html><body></body>');
+globalThis.window = dom.window; globalThis.document = dom.window.document; globalThis.SVGElement = dom.window.SVGElement;
+for (const k of ['Element', 'HTMLElement', 'Node', 'NodeFilter', 'MutationObserver', 'getComputedStyle', 'addEventListener']) globalThis[k] ??= dom.window[k]?.bind ? dom.window[k].bind(dom.window) : dom.window[k];
+globalThis.Element = dom.window.Element;
+globalThis.matchMedia ??= () => ({ matches: false, addEventListener() {}, addListener() {} });
+globalThis.ResizeObserver ??= class { observe() {} disconnect() {} };
+globalThis.requestAnimationFrame ||= (f) => setTimeout(() => f(performance.now()), 0);
 
-test('the sizes are the gallery catalog\'s devices, and each belongs to one run', () => {
-  assert.deepEqual(Object.keys(SIZES).sort(), DEVICES.map((d) => d.id).sort());
-  for (const d of DEVICES) assert.deepEqual([SIZES[d.id].w, SIZES[d.id].h], [d.w, d.h], d.id);
-  const units = unitsFor(Object.keys(SIZES));
-  assert.deepEqual(units.flatMap((u) => u.sizes).sort(), Object.keys(SIZES).sort());
-  for (const u of units) assert.ok(u.sizes.every((s) => SIZES[s].touch === SIZES[u.sizes[0]].touch), `${u.name} mixes a mouse and touch`);
-  assert.deepEqual(unitsFor(['iphone']).map((u) => u.name), ['iphone']);
-  assert.deepEqual(unitsFor(['nope']), []);
+const { NOT_SETTLED, runSweep, resolveIds, planJobs, buildReport, savedSweep, forgetSweep, SWEEP_KEY, MAX_KILLS } = await import('../src/ui/gallery/sweep.js');
+const { devicePps } = await import('../src/ui/gallery/sweep-probes.js');
+const { linkIds, scopeChoices } = await import('../src/ui/gallery/sweep-panel.js');
+const { CATALOG } = await import('../src/ui/gallery/catalog.js');
+
+const LIST = [
+  { id: 'doppler/a', section: 'Teaching cards', family: 'doppler', kind: 'slide', title: 'A' },
+  { id: 'doppler/b', section: 'Teaching cards', family: 'doppler', kind: 'slide', title: 'B' },
+  { id: 'trace/c', section: 'Teaching cards', family: 'trace', kind: 'slide', title: 'C' },
+  { id: 'tests-hvpg/d', section: 'Tests card', family: 'tests-hvpg', kind: 'pane', title: 'D' },
+];
+const store = () => { const m = new Map(); return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k), m }; };
+const fakeApi = ({ problems = {}, fail = {}, unsettled = {}, seen = [], die = null } = {}) => {
+  let id = null, look = null;
+  return {
+    list: (f = {}) => LIST.filter((e) => (!f.family || e.family === f.family)),
+    async open(i, o = {}) {
+      seen.push(`${i}@${o.look || '-'}`);
+      if (die === i) throw new Error('boom');
+      id = i; look = o.look || null;
+      if (fail[i]) return { id: i, ok: false, settled: false, ms: 5, error: fail[i] };
+      return unsettled[i] ? { id: i, ok: false, settled: false, ms: 120, errors: 0, error: NOT_SETTLED } : { id: i, ok: true, settled: true, ms: 120, errors: 0 };
+    },
+    check: () => ({ id, look, size: { w: 390, h: 844 }, problems: problems[id] || [], busy: false, slide: true, structure: false }),
+  };
+};
+const env = (o = {}) => ({ storage: store(), now: (() => { let t = 0; return () => (t += 10); })(), when: 'now', ...o });
+
+test('a spec names its specimens: ids, family, section, kind; unknown ids are reported apart', () => {
+  assert.deepEqual(resolveIds({ ids: ['doppler/b', 'nope', 'doppler/b'] }, LIST), { ids: ['doppler/b'], unknown: ['nope'] });
+  assert.deepEqual(resolveIds({ family: 'doppler' }, LIST).ids, ['doppler/a', 'doppler/b']);
+  assert.deepEqual(resolveIds({ section: 'Tests card' }, LIST).ids, ['tests-hvpg/d']);
+  assert.deepEqual(resolveIds({ kind: 'slide', family: 'trace' }, LIST).ids, ['trace/c']);
+  assert.equal(resolveIds({}, LIST).ids.length, 4);
 });
 
-test('keys round-trip, with a slash and an at sign in the id kept', () => {
-  assert.equal(keyOf('doppler/pv-color', 'iphone'), 'doppler/pv-color@iphone');
-  assert.deepEqual(splitKey('doppler/pv-color@iphone-landscape'), { id: 'doppler/pv-color', device: 'iphone-landscape' });
+test('jobs are specimens times looks, the page look when none is named', () => {
+  assert.deepEqual(planJobs(['a', 'b'], []), [{ id: 'a', look: null }, { id: 'b', look: null }]);
+  assert.deepEqual(planJobs(['a'], ['light', 'navy']), [{ id: 'a', look: 'light' }, { id: 'a', look: 'navy' }]);
 });
 
-test('boxes, words and problems are read in one shape', () => {
-  assert.deepEqual(normBoxes({ id: 'x', boxes: { a: [0, 0, 2, 2], bad: [1, 2], worse: 'no' } }), { a: [0, 0, 2, 2] });
-  assert.deepEqual(normBoxes([{ sel: 'a', l: 0, t: 0, r: 4, b: 4 }, { sel: 'b' }]), { a: [0, 0, 4, 4] });
-  assert.deepEqual(normBoxes(null), {});
-  assert.deepEqual(normWords({ id: 'x', cards: { a: ['one', 2] } }), { a: ['one', '2'] });
-  assert.deepEqual(normProblems({ problems: [{ kind: 'scroll', text: 'b', line: 3, el: {} }, { kind: 'clipped', text: 'a' }] }).map((p) => p.kind), ['clipped', 'scroll']);
+test('a sweep opens each specimen in each look, checks it, and reports problems, failures and unsettled ones', async () => {
+  const seen = [];
+  const api = fakeApi({ seen, problems: { 'doppler/b': [{ kind: 'small', text: 'a label is 10 px', where: 'slide' }] }, fail: { 'trace/c': 'No opener' }, unsettled: { 'tests-hvpg/d': true } });
+  const r = await runSweep({ looks: ['light', 'navy'] }, api, env());
+  assert.equal(seen.length, 8);
+  assert.deepEqual(seen.slice(0, 3), ['doppler/a@light', 'doppler/a@navy', 'doppler/b@light']);
+  assert.equal(r.summary.opens, 8);
+  assert.equal(r.summary.withProblems, 2);
+  assert.equal(r.summary.problems, 2);
+  assert.equal(r.summary.failed, 2);
+  assert.equal(r.summary.unsettled, 2);
+  assert.match(r.text, /Did not open:\n {2}- trace\/c \[light\]: No opener/);
+  assert.match(r.text, /Fit problems:\ndoppler\/b \[light\]\n {2}- \[slide\] small: a label is 10 px/);
+  assert.match(r.text, /Did not settle in time/);
 });
 
-test('a box change is told in words, and the 2 px rounding is not a change', () => {
-  assert.equal(describeBoxChange([0, 0, 300, 200], [0, 0, 300, 238]), 'grew 38 px taller (200 to 238)');
-  assert.equal(describeBoxChange([0, 0, 300, 200], [0, 0, 300, 202]), '');
-  assert.equal(describeBoxChange([0, 0, 300, 200], [0, 40, 300, 240]), 'moved 40 px down');
-  assert.match(describeBoxChange([0, 0, 300, 200], [20, 0, 280, 200]), /shrank 40 px wider/);
-  assert.match(describeBoxChange([0, 0, 300, 200], [0, 0, 340, 200]), /grew 40 px wider/);
+test('the spec forms the page address makes: all, a family word, nothing named, affected with its ids filled, and a request that names nothing', async () => {
+  assert.equal((await runSweep({ all: true }, fakeApi(), env())).summary.opens, 4);
+  assert.equal((await runSweep({ family: 'trace' }, fakeApi(), env())).summary.opens, 1);
+  assert.equal((await runSweep({ affected: true, ids: ['doppler/a'], looks: [] }, fakeApi(), env())).summary.opens, 1);
+  const none = await runSweep({ family: 'nope' }, fakeApi(), env());
+  assert.equal(none.summary.opens, 0);
+  assert.match(none.text, /Nothing to sweep: no specimen in the catalog matches this request\./);
+  assert.ok(!/Every card fits/.test(none.text));
 });
 
-test('a result is compared with its baseline: boxes, words, problems, and a specimen that stopped opening', () => {
-  const base = res();
-  assert.deepEqual(diffResult(base, res()), []);
-  const taller = diffResult(base, res({ boxes: { '.pz-data': [0, 0, 300, 238], '.pz-text': [0, 0, 10, 10] } }));
-  assert.deepEqual(taller.map((c) => c.text), ['.pz-data grew 38 px taller (200 to 238)', '.pz-text appeared (10 x 10)']);
-  assert.deepEqual(diffResult(base, res({ boxes: {} })).map((c) => c.text), ['.pz-data is gone']);
-  assert.deepEqual(diffResult(base, res({ words: { '.pz-data': ['A', 'C'] } })).map((c) => c.kind), ['words']);
-  assert.deepEqual(diffResult(base, res({ problems: [{ kind: 'scroll', text: 'x' }] })).map((c) => c.text), ['new problem: scroll: x']);
-  assert.deepEqual(diffResult(res({ problems: [{ kind: 'scroll', text: 'x' }] }), res()).map((c) => c.kind), ['fixed']);
-  assert.match(diffResult(base, res({ ok: false, error: 'boom' }))[0].text, /no longer opens: boom/);
-  assert.equal(diffResult(res({ ok: false, error: 'boom' }), res())[0].kind, 'fixed-open');
+test('a specimen the API calls ok:false with "did not settle in time" is checked and counted as not settled, not as failed to open', async () => {
+  const r = await runSweep({ ids: ['tests-hvpg/d'] }, fakeApi({ unsettled: { 'tests-hvpg/d': true }, problems: { 'tests-hvpg/d': [{ kind: 'cut', text: 'cut', where: 'card' }] } }), env());
+  assert.equal(r.summary.failed, 0);
+  assert.equal(r.summary.unsettled, 1);
+  assert.equal(r.results[0].problems.length, 1, 'the check still ran');
+  assert.ok(!r.results[0].error);
 });
 
-test('a run is diffed with the baseline over what it covered only', () => {
-  const baseline = { results: { 'a/x@mac': res(), 'a/x@iphone': res(), 'b/y@mac': res(), 'gone/z@mac': res(), 'b/y#lifted@mac': res() } };
-  const report = { devices: ['mac'], catalogIds: ['a/x', 'b/y', 'c/new'], results: { 'a/x@mac': res({ boxes: { '.pz-data': [0, 0, 300, 260] } }), 'c/new@mac': res() } };
-  const d = diffReports(baseline, report);
-  assert.deepEqual(d.added, ['c/new@mac']);
-  assert.deepEqual(d.removed, ['gone/z@mac']);   // (b/y was left out of this run, not removed; a/x on the iPhone is a size this run did not take)
-  assert.equal(d.same, 0);
-  assert.deepEqual(d.changes.map((c) => c.key), ['a/x@mac']);
+test('with: words and boxes keep each specimen\'s words and boxes in its result, but not in the saved place', async () => {
+  const storage = store();
+  const api = fakeApi(); api.words = () => ({ cards: { '.pz-text': ['hello'] } }); api.boxes = () => ({ boxes: { '.pz-text': [0, 0, 10, 10] } });
+  const r = await runSweep({ ids: ['doppler/a'], with: ['check', 'words', 'boxes'] }, api, env({ storage }));
+  assert.deepEqual(r.results[0].words, { cards: { '.pz-text': ['hello'] } });
+  assert.deepEqual(r.results[0].boxes.boxes['.pz-text'], [0, 0, 10, 10]);
+  assert.ok(!/hello/.test(storage.getItem(SWEEP_KEY)));
+  const none = await runSweep({ ids: ['doppler/a'] }, api, env());
+  assert.equal(none.results[0].words, undefined);
 });
 
-test('trouble is what the baseline does not already hold', () => {
-  const known = { kind: 'scroll', text: 'a card scrolls' };
-  const baseline = { results: { 'a/x@mac': res({ problems: [known] }), 'a/z@mac': res({ ok: false, error: 'old' }) } };
-  const report = { results: { 'a/x@mac': res({ problems: [known, { kind: 'off', text: 'new one' }] }), 'a/z@mac': res({ ok: false, error: 'old' }), 'a/w@mac': res({ ok: false, error: 'boom' }), 'a/v@mac': res({ errors: ['TypeError: x'] }) } };
-  assert.deepEqual(newTrouble(report, baseline), ['a/v@mac: page error: TypeError: x', 'a/w@mac: does not open: boom', 'a/x@mac: off: new one']);
-  assert.equal(newTrouble({ results: { 'a/x@mac': res() } }, null).length, 0);
-  assert.equal(newTrouble({ results: { 'a/x@mac': res({ problems: [known] }) } }, null).length, 1, 'with no baseline every problem is new');
+test('errors the API counted for a specimen (open().errors) are used when the sweep has no probe of its own', async () => {
+  const api = fakeApi(); const open = api.open;
+  api.open = async (i, o) => ({ ...(await open(i, o)), errors: i === 'doppler/b' ? 4 : 0 });
+  const r = await runSweep({ ids: ['doppler/a', 'doppler/b'] }, api, env());
+  assert.equal(r.results[1].errors, 4);
+  assert.equal(r.summary.errors, 4);
+  assert.match(r.text, /Errors counted while open[^]*doppler\/b: 4/);
 });
 
-test('the summary names the counts, the trouble and each changed specimen', () => {
-  const baseline = { results: { 'a/x@mac': res() } };
-  const report = { commit: 'abc1234', seconds: 12, devices: ['mac'], catalogIds: ['a/x'], results: { 'a/x@mac': res({ boxes: { '.pz-data': [0, 0, 300, 238] }, problems: [{ kind: 'scroll', text: 'a card scrolls' }] }) } };
-  const diff = diffReports(baseline, report), trouble = newTrouble(report, baseline);
-  const text = summaryText(report, diff, trouble);
-  assert.match(text, /1 opens \(1 specimens x 1 sizes\) in 12 s/);
-  assert.match(text, /TROUBLE 1/);
-  assert.match(text, /a\/x on mac:\n(\s+.*\n)*\s+\.pz-data grew 38 px taller/);
+test('a clean sweep says so and counts nothing as a problem', async () => {
+  const r = await runSweep({ family: 'doppler' }, fakeApi(), env());
+  assert.equal(r.summary.clean, 2);
+  assert.match(r.text, /Every card fits on all 2 opens: no problems, no errors, every specimen settled\./);
+  assert.ok(!/Fit problems:/.test(r.text));
 });
 
-test('a baseline keeps the old results a partial run did not take, and says why it changed', () => {
-  const old = { history: [{ at: 'then', commit: 'old', why: 'first' }], results: { 'a/x@mac': res(), 'b/y@mac': res() } };
-  const report = { commit: 'new1234', results: { 'a/x@mac': res({ boxes: { '.c': [0, 0, 4, 4] }, ms: 99, errors: ['e'] }) } };
-  const b = makeBaseline(report, old, { why: 'the card grew on purpose', at: 'now' });
-  assert.deepEqual(Object.keys(b.results), ['a/x@mac', 'b/y@mac']);
-  assert.deepEqual(b.results['a/x@mac'].boxes, { '.c': [0, 0, 4, 4] });
-  assert.equal('ms' in b.results['a/x@mac'], false, 'timings are not kept: they differ every run');
-  assert.equal(b.why, 'the card grew on purpose');
-  assert.deepEqual(b.history.map((h) => h.why), ['first', 'the card grew on purpose']);
+test('a specimen that throws is a result with its reason, and the sweep goes on', async () => {
+  const r = await runSweep({}, fakeApi({ die: 'doppler/b' }), env());
+  assert.equal(r.results.length, 4);
+  const b = r.results.find((x) => x.id === 'doppler/b');
+  assert.equal(b.ok, false); assert.equal(b.error, 'boom');
 });
 
-test('the catalog is narrowed by family, section, kind, ids and a shard that keeps a family whole', () => {
-  const cat = [{ id: 'a/1', family: 'a', section: 'S', kind: 'slide' }, { id: 'a/2', family: 'a', section: 'S', kind: 'slide' }, { id: 'b/1', family: 'b', section: 'T', kind: 'pane' }, { id: 'c/1', family: 'c', section: 'T', kind: 'pane' }];
-  assert.deepEqual(pickIds(cat, { family: ['a'] }), ['a/1', 'a/2']);
-  assert.deepEqual(pickIds(cat, { kind: ['pane'] }), ['b/1', 'c/1']);
-  assert.deepEqual(pickIds(cat, { ids: ['c/1'] }), ['c/1']);
-  const shards = [1, 2].map((i) => pickIds(cat, { shard: [i, 2] }));
-  assert.deepEqual(shards.flat().sort(), cat.map((e) => e.id).sort(), 'every specimen in exactly one shard');
-  for (const s of shards) assert.ok(!(s.includes('a/1') !== s.includes('a/2')), 'a family is not split');
-  assert.equal(pickIds(CATALOG.map(({ id, family, section, kind }) => ({ id, family, section, kind })), { shard: [1, 3] }).length > 0, true);
+test('errors counted by the app while a specimen was open are named with it', async () => {
+  let n = 0;
+  const api = fakeApi();
+  const open = api.open;
+  api.open = async (i, o) => { if (i === 'trace/c') n += 2; return open(i, o); };
+  const r = await runSweep({}, api, env({ probes: { errors: () => n, gpuMB: () => 180, peakMB: () => 230 } }));
+  assert.equal(r.summary.errors, 2);
+  assert.equal(r.results.find((x) => x.id === 'trace/c').errors, 2);
+  assert.match(r.text, /Errors counted while open[^]*trace\/c: 2/);
+  assert.match(r.text, /GPU memory: peak 230 MB/);
 });
 
-test('the sweep script stays layout-only: GL draws stubbed, no screenshot, no shoot settle', () => {
-  const src = readFileSync(new URL('../scripts/gallery-sweep.mjs', import.meta.url), 'utf8');
-  assert.match(src, /drawArrays/);
-  assert.doesNotMatch(src.replace(/^\/\/.*$/gm, ''), /\.screenshot\(|\.settle\(|colourShare|assertGpuLive/, 'no pictures: the ban lifted for layout runs only');
+test('frame times and the slowest frame come from the frame recorder, per specimen', async () => {
+  const stops = [{ gaps: [16, 90], scripts: [3], long: [{}] }, { gaps: [16], scripts: [2], long: [] }];
+  let k = 0;
+  const r = await runSweep({ ids: ['doppler/a', 'doppler/b'] }, fakeApi(), env({ probes: { framesStart() {}, framesStop: () => stops[k++] } }));
+  assert.equal(r.results[0].worstFrameMs, 90);
+  assert.equal(r.results[0].longFrames, 1);
+  assert.deepEqual(r.summary.slowestFrame, { id: 'doppler/a', look: null, ms: 90 });
+  assert.match(r.text, /Slowest frame: 90 ms at doppler\/a/);
+});
+
+test('the place is kept after every specimen, and a reload carries on from the next one', async () => {
+  const storage = store();
+  const seen1 = [];
+  // The first run is killed while doppler/b is open: the page goes away, so nothing after open() runs. (Simulated by never resolving it and reading the storage.)
+  const api1 = fakeApi({ seen: seen1 });
+  let release;
+  const open1 = api1.open;
+  api1.open = (i, o) => (i === 'doppler/b' ? new Promise((ok) => { release = () => ok(open1(i, o)); }) : open1(i, o));
+  const run1 = runSweep({}, api1, env({ storage }));
+  for (let i = 0; i < 20 && !release; i++) await new Promise((r) => setTimeout(r, 0));
+  const saved = savedSweep(storage);
+  assert.equal(saved.state, 'running');
+  assert.equal(saved.open, 'doppler/b@-');
+  assert.deepEqual(saved.results.map((x) => x.id), ['doppler/a']);
+  // The reload: a new runSweep with the same spec resumes.
+  const seen2 = [];
+  const r = await runSweep(saved.spec, fakeApi({ seen: seen2 }), env({ storage }));
+  assert.deepEqual(seen2, ['trace/c@-', 'tests-hvpg/d@-']);
+  assert.equal(r.resumed, true);
+  assert.equal(r.results.length, 4);
+  const lost = r.results.find((x) => x.lost);
+  assert.equal(lost.id, 'doppler/b');
+  assert.match(r.text, /Lost to a reload \(open when the tab was ended\):\n {2}- doppler\/b/);
+  assert.equal(r.summary.lost, 1);
+  assert.equal(savedSweep(storage), null, 'a finished sweep is not resumed again');
+  release?.(); await run1.catch(() => {});
+});
+
+test('fresh starts over; a different spec starts over; a stopped or finished sweep is not resumed', async () => {
+  const storage = store();
+  storage.setItem(SWEEP_KEY, JSON.stringify({ sig: 'x', state: 'running', results: [], kills: 0, wall: Date.now() }));
+  const seen = [];
+  await runSweep({ family: 'trace' }, fakeApi({ seen }), env({ storage }));
+  assert.deepEqual(seen, ['trace/c@-']);
+  let n = 0;
+  const r = await runSweep({ family: 'doppler' }, fakeApi({ seen: [] }), env({ storage, shouldStop: () => n++ > 0 }));
+  assert.equal(r.results.length, 1);
+  assert.match(r.text, /Stopped early: 1 of 2 opens done\./);
+  assert.equal(savedSweep(storage), null, 'a stopped sweep is not resumed');
+  const again = []; await runSweep({ family: 'doppler' }, fakeApi({ seen: again }), env({ storage }));
+  assert.equal(again.length, 2);
+});
+
+test('a specimen that keeps ending the tab stops the sweep after MAX_KILLS reloads, with the report so far', async () => {
+  const storage = store();
+  const sig = 'doppler/a@-|doppler/b@-';
+  storage.setItem(SWEEP_KEY, JSON.stringify({ sig, state: 'running', spec: { family: 'doppler' }, results: [], kills: MAX_KILLS - 1, open: 'doppler/a@-', wall: Date.now() }));
+  const seen = [];
+  const r = await runSweep({ family: 'doppler' }, fakeApi({ seen }), env({ storage }));
+  assert.equal(seen.length, 0);
+  assert.equal(r.kills, MAX_KILLS);
+  assert.match(r.text, /Stopped after 3 reloads/);
+  assert.match(r.text, /Lost to a reload[^]*doppler\/a/);
+});
+
+test('savedSweep ignores a sweep that is not running or is a day old, and forgetSweep clears it', () => {
+  const s = store();
+  assert.equal(savedSweep(s), null);
+  s.setItem(SWEEP_KEY, JSON.stringify({ state: 'done', wall: Date.now() })); assert.equal(savedSweep(s), null);
+  s.setItem(SWEEP_KEY, JSON.stringify({ state: 'running', wall: Date.now() - 86400000 })); assert.equal(savedSweep(s), null);
+  s.setItem(SWEEP_KEY, JSON.stringify({ state: 'running', wall: Date.now() })); assert.equal(savedSweep(s).state, 'running');
+  forgetSweep(s); assert.equal(savedSweep(s), null);
+});
+
+test('a storage that refuses writes does not stop the sweep', async () => {
+  const bad = { getItem() { throw new Error('denied'); }, setItem() { throw new Error('full'); }, removeItem() {} };
+  const r = await runSweep({ family: 'trace' }, fakeApi(), env({ storage: bad }));
+  assert.equal(r.summary.opens, 1);
+});
+
+test('the report names ids that are not in the catalog and keeps the verdict honest when anything failed', () => {
+  const rep = buildReport({ spec: {}, results: [{ id: 'a', look: null, ok: true, settled: true, problems: [], ms: 1 }, { id: 'b', look: null, ok: false, error: 'No opener', problems: [], ms: 1 }], jobs: [1, 2], unknown: ['zzz'] });
+  assert.match(rep.text, /Not in the catalog: zzz/);
+  assert.ok(!/Every card fits/.test(rep.text));
+});
+
+test('the link names its specimens: ?ids=a,b or ?sweep=ids:a,b', () => {
+  assert.deepEqual(linkIds('?gallery&ids=doppler/a,doppler/b,doppler/a'), ['doppler/a', 'doppler/b']);
+  assert.deepEqual(linkIds('?gallery&sweep=ids:trace/c,tests-hvpg/d&fresh=1'), ['trace/c', 'tests-hvpg/d']);
+  assert.deepEqual(linkIds('?gallery&sweep=all'), []);
+  assert.deepEqual(linkIds(''), []);
+});
+
+test('the scope menu offers the link first, then everything, each section and each family', () => {
+  const c = scopeChoices(LIST, ['doppler/a']);
+  assert.deepEqual(c.map((x) => x.value), ['ids', 'all', 'section:Teaching cards', 'section:Tests card', 'family:doppler', 'family:trace', 'family:tests-hvpg']);
+  assert.deepEqual(c[0].spec, { ids: ['doppler/a'] });
+  assert.equal(scopeChoices(LIST).some((x) => x.value === 'ids'), false);
+  assert.match(c[1].label, /Every specimen \(4\)/);
+  assert.equal(scopeChoices(CATALOG).find((x) => x.value === 'all').spec && true, true);
+});
+
+test('the device probes tolerate a page with none of them', () => {
+  const p = devicePps({});
+  assert.equal(p.errors(), 0); assert.equal(p.gpuMB(), null); assert.equal(p.framesStop(), null);
+  const q = devicePps({ caught: () => ({ a: { n: 2 }, b: { n: 3 } }), budget: { memoryMB: () => 12.345, peakMB: () => 20 } });
+  assert.equal(q.errors(), 5); assert.equal(q.gpuMB(), 12.3); assert.equal(q.peakMB(), 20);
 });

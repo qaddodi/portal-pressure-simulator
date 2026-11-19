@@ -32,7 +32,7 @@ import { HVPG_CUTS, PPG_CUTS, HVPG_WORDS } from '../engine/pressure-cuts.js';
 import { TILE, tileShown, numName } from './table-marks.js';
 import { plotPanel } from './plot-look.js';
 import { BAVENO, BAVENO_AXES, bavenoRects, bavenoHatch, zoneArt, plotHeight, hatchKey } from './baveno-zones.js';
-import { frameFor, easeNow } from './frame.js';
+import { frameFor, easeNow, cancelFrame } from './frame.js';
 import { easeArrive, D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { createSvgGL, svgModel, setPts, moveAt } from './svg-gl.js';
 import { chartCtx } from './chart-ctx.js';
@@ -953,6 +953,9 @@ export function planePlot(plane, { card = false } = {}) {
     const key = `${size}|${fs}|${ptsVer}|${rg ? ringKeys.map((k) => rg[k]).join(',') : '-'}|${sizeWas}|${was ? `${was.x},${was.y}` : '-'}|${stops.length ? stops.map((s) => `${s.f[pl.x.key]},${s.f[pl.y.key]},${s.name}`).join(';') : ''}`;
     if (key === drawn) return;
     drawn = key;
+    // (Marks the screen report reads, selfcheck/chart-reader.js: the keys of the axes, and whether they are cut to the points plotted.)
+    svg.setAttribute('data-xk', pl.x.key); svg.setAttribute('data-yk', pl.y.key);
+    svg.setAttribute('data-fit', pl.fit && !card ? 'on' : 'off');
     // (A scatter, a plane with no zones, draws axes of its own on a panel: hasAxes.)
     const axed = !card && hasAxes(pl), fr = axed ? axesFrame(pl, W, H, fs) : frame(W, H), { X, Y } = scaler(pl, fr);
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
@@ -1024,6 +1027,7 @@ export function planePlot(plane, { card = false } = {}) {
       const sx = now.x.toFixed(1), sy = now.y.toFixed(1), to = { x: +sx, y: +sy };
       if (!dotGo || dotGo.tx !== to.x || dotGo.ty !== to.y) { const at = dotEased() || to; dotGo = { fx: at.x, fy: at.y, tx: to.x, ty: to.y, t0: easeNow() }; }
       ringG.style.transform = `translate(${sx}px, ${sy}px)`;
+      ringG.setAttribute('data-v', `${pl.x.key}:${rg[pl.x.key]},${pl.y.key}:${rg[pl.y.key]}`);   // (the readings the dot is placed from, as the tiles print them: the screen report's number check)
       ringG.style.opacity = '1';
     } else ringG.style.opacity = '0';
     // The card's zones name themselves, clear of the dot where it stands and all along its way there.
@@ -1152,7 +1156,8 @@ export function planePlot(plane, { card = false } = {}) {
     const step = () => { paintWalk(); if (stops.length && performance.now() < followTill) follow = nextFrame(step); else follow = 0; };
     follow = nextFrame(step);
   };
-  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (`${el.clientWidth}x${el.clientHeight}` !== size) frameFor('plane plot')(draw); }).observe(el);
+  const plotRO = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (`${el.clientWidth}x${el.clientHeight}` !== size) frameFor('plane plot')(draw); }) : null;
+  plotRO?.observe(el);
   const redraw = () => { if (el.isConnected) draw(); else frameFor('plane plot')(draw); };
   return {
     el,
@@ -1166,6 +1171,8 @@ export function planePlot(plane, { card = false } = {}) {
       drawn = '';
       redraw(); followDot();
     },
+    /** The plot is let go (its card replaced or closed): its size observer, the dot's follow and its picture's GPU context. */
+    dispose() { plotRO?.disconnect(); cancelFrame(follow); follow = 0; gl.dispose(); },
   };
 }
 
@@ -1228,6 +1235,7 @@ export function createPlaneTool() {
       if (!(k === sig && plot)) {
         sig = k; pl = p; had = '';
         if (!pl) { el.replaceChildren(); plot = null; return; }
+        plot?.dispose();   // (the plot the last slide's plane drew: its GPU context goes with it)
         plot = planePlot(pl, { card: true });
         el.replaceChildren(...[plot.el, pl.key === 'never' ? null : planeCardKey(pl), pl.hatchOf ? hatchKey() : null, read].filter(Boolean));
         if (last) this.pin(last);
@@ -1243,5 +1251,6 @@ export function createPlaneTool() {
       if (read.textContent !== t) read.textContent = t;
     },
     clear() { last = null; },
+    dispose() { plot?.dispose(); plot = null; },
   };
 }

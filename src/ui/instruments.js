@@ -544,7 +544,7 @@ export function createVarixWall() {
     dataSoon(cv, 'labels', WALL_LABELS[L.drawn]);
     cv.wallGaps = L.gaps;
   }
-  return { id: 'varixwall', label: 'Varix wall', el, update, pin };
+  return { id: 'varixwall', label: 'Varix wall', el, update, pin, dispose() { wallGL?.dispose(); } };
 }
 
 // ── Ascites (L2c) ───────────────────────────────────
@@ -644,7 +644,8 @@ function iapDial() {
     wrapMO = new MutationObserver(() => gl.setCtx({ view: viewNow() }));
     wrapMO.observe(w, { attributes: true, attributeFilter: ['class'] });
   };
-  if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const b = es[es.length - 1].contentBoxSize?.[0]; boxW = b ? b.inlineSize : es[es.length - 1].contentRect.width; hookView(); fit(); }).observe(el);
+  const dialRO = typeof ResizeObserver === 'function' ? new ResizeObserver((es) => { const b = es[es.length - 1].contentBoxSize?.[0]; boxW = b ? b.inlineSize : es[es.length - 1].contentRect.width; hookView(); fit(); }) : null;
+  dialRO?.observe(el);
   // The knob's turn, eased on the frame clock as the page's transition was (D_SURFACE on the arrive curve); reduced motion: at once.
   let ang = 90, turn = null, turnAsk = 0;
   const KNOB_STILL = typeof matchMedia === 'function' ? reduceMotionMQ : { matches: false };
@@ -677,7 +678,9 @@ function iapDial() {
     if (fitK) fitWord(); else gl.paint();
   }
   el.setAttribute('role', 'img');
-  return { el, set };
+  /** The dial is let go: its observers and the knob's turn stop, and its picture's GPU context is given back. */
+  const dispose = () => { dialRO?.disconnect(); wrapMO?.disconnect(); cancelFrame(turnAsk); turnAsk = 0; turn = null; gl.dispose(); };
+  return { el, set, dispose };
 }
 /** A stepper's number rolls to its new value over a small step instead of jumping (the tiles' number roll, util.js countTo); the
  *  first paint is written at once, the unit stays put beside it. */
@@ -831,5 +834,5 @@ export function createAbdomen({ onAction }) {
     const bh = riseTxt(Math.round(a.volume > 150 ? 15 + clamp(a.volume / 8000, 0, 1) * 70 : 0));   // (risen by sliding up inside the belly: app.css .ab-belly-fill)
     if (bellyFill.style.translate !== bh) bellyFill.style.translate = bh;
   }
-  return { id: 'abdomen', label: 'Ascites and paracentesis', el, update };
+  return { id: 'abdomen', label: 'Ascites and paracentesis', el, update, dispose() { dial.dispose(); } };
 }

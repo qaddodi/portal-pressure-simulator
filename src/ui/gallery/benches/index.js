@@ -24,7 +24,7 @@ export const BENCHES = [
   { id: 'memory-loop', title: 'Memory loop', group: 'Memory', order: 40, blurb: 'Repeat a move and watch the GPU estimate, its peak, the contexts and the heap.', load: () => import('./memory-loop.js') },
   { id: 'flags', title: 'Diagnostics switches', group: 'Diagnostics', order: 50, blurb: 'The ?perf, ?fps, ?offgpu, ?budget, ?lap and ?inputs flags as toggles, and the copyable reports.', load: () => import('./flags.js') },
   { id: 'looks-table', title: 'Looks table', group: 'Data', order: 60, blurb: 'Colour tokens and the resolved chart looks for each of the five looks.', load: () => import('./looks-table.js') },
-  { id: 'words-dump', title: 'Words dump', group: 'Data', order: 70, blurb: 'Every string the decks show, as one copyable text, with a Baveno VII check.', load: () => import('./words-dump.js') },
+  { id: 'words-dump', title: 'Words dump', group: 'Data', order: 70, blurb: 'Every string the decks show, as one copyable text, with a guideline-wording check.', load: () => import('./words-dump.js') },
   { id: 'model-table', title: 'Model table', group: 'Data', order: 80, blurb: 'Each patient\'s settled numbers next to the live model\'s.', load: () => import('./model-table.js') },
   { id: 'glyph-atlas', title: 'Glyph atlas', group: 'Diagnostics', order: 90, blurb: 'The GPU text atlas as a picture.', load: () => import('./glyph-atlas.js') },
 ];

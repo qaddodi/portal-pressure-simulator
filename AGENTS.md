@@ -60,6 +60,14 @@ links the shader strings of `scripts/glsl-compile-list.mjs` in headless Chromium
 (never the app), draws nothing, takes no picture and measures nothing, and runs in no workflow. The Tube renderer's threads run it on their own programs
 before a push (`docs/tube-renderer.md`); every other headless run stays off.
 
+## Questions about the model's numbers (use the terminal model command)
+
+Ask the model, not a browser. `npm run model -- --preset <id> [--carvedilol|--tips 8|--set path=value ...] [--days N] [--compare] [--json]`
+prints the engine's numbers (HVPG, PPG, portal flow, ascites, varices, stiffness, MAP/HR...) for a patient, a treatment and some days;
+`--deck <id> --slide <n>` prints what a slide shows; `--list` lists presets and decks. It is the same engine and step chain as the
+app, takes about a second, and needs no browser (so it is allowed under the no-headless rule). Use it for "what does the model say",
+for checking a clinical claim, and for the number a test or a slide should expect. Options and output: `docs/model-cli.md`.
+
 ## Per-frame work (the GPU is the only per-frame painter)
 
 - No per-frame work on the main thread outside the scheduler: ask for a frame with `frameFor(tag)` from `src/ui/frame.js`,
@@ -144,6 +152,15 @@ A new card kind, instrument option, visual, readout tile, trial, flowchart, Test
 updates its specimen in `src/ui/gallery/catalog.js` (teaching cards, one slide each in the generated deck under Present > Testing) or
 `src/ui/gallery/catalog-main.js` (Tests panes, structure cards, sheets) in the same push. `tests/gallery-coverage.test.js` fails until it has one.
 A debug tool plugs in with `registerPanel` / `registerBench` (`src/ui/gallery/registry.js`) and one import line in `src/ui/gallery/plugins.js`.
+Every push message that touches the app says what to test: run `npm run gallery:affected` and paste its output (deep links to the specimens the change touches
+and one Sweep link; `Tools > Sweep` on a device runs the fit rules over them and copies one report). A new catalog family needs its modules in
+`scripts/gallery-affected.mjs` (`FAMILY_ENTRY`); its test fails until it has them.
+
+## Bug packets ("What's wrong here?", preview only)
+
+When Mohammad pastes a block starting `PPS BUG PACKET`, do not ask him for a screenshot: read it, replay it (`node scripts/packet.mjs replay <file>`, Node; `--env headless` for layout, GL draws stubbed, no picture),
+fix at the root, prove it with `compare`, and make the test (`node scripts/packet.mjs test`). The loop, the commands and what each verdict means are in `docs/bug-packet.md`. A bug no self-check named
+needs its rule first (`src/ui/selfcheck/`, with a case that must not fire). The packet sits on `pps.screen()` (`docs/screen-report.md`) and the `?watch` recorder (`docs/watch.md`).
 
 ## Tester guides
 

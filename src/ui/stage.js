@@ -2,6 +2,7 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { breath } from './slide-read.js';
+import { qP } from './colour-bin.js';
 import { stageCovered } from './seen.js';
 import { createCircTurn } from './circ-turn.js';
 import { peelAt, peelRank } from './flow-peel.js';
@@ -1059,7 +1060,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Colors follow the beat-filtered mean pressure (the scale shows mean venous pressure) in
   // 0.5 mmHg steps, so a vessel's gradient is not rewritten on every heartbeat; widths move in
   // 0.5 px steps once settled (below, with hysteresis), so tubes are not rebuilt either.
-  const qP = (v) => Math.round(v * 2) / 2;
 
   // Nodes (circuit view): each station's dot, a disc in the stage's colour under a ring in the text's (1.6 wide, as the SVG's stroke was),
   // drawn by the GPU over the vessels with the outlines (olStep; 2 Nov 2026, no element). on: a vessel is drawn at it (updateNodesCircuit),
@@ -3193,6 +3193,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     },
     /** The vessels shown now, by id (for the checks: there is no element per vessel). */
     shownVessels: () => EV.filter((x) => x.vis).map((x) => x.e.id),
+    /** For the screen report (screen/read-figure.js): each vessel shown as the vessel painter holds it now (width, the two end colours the GPU row takes, the model's pressure at its ends), and the lens and view morph. alloc-rare: asked on a tap. */
+    figureRows: () => ({ lens: layerMode(), morph: lastMorph, rows: EV.filter((x) => x.vis).map((x) => { const PM = F && (F.Pf || F.P); return { id: x.e.id, kind: x.e.kind, art: !!x.isArt, from: x.e.from, to: x.e.to, w: x.width, col: x.col ? [x.col[0], x.col[1]] : null, opa: x.opa ?? 1, rev: !!x.rev, sel: !!x.sel, ghost: !!x.ghost, stent: !!x.stenF, p: PM ? [PM[NI[x.e.from]], PM[NI[x.e.to]]] : null }; }) }),
     /** Half way along a vessel's drawn course, in client px, and the course's length on screen (for the checks), or null. */
     vesselMid: (id) => {
       const P = geo[id]?.cur;

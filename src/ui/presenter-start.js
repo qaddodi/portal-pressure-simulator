@@ -336,7 +336,7 @@ export function createStart(st, live) {
     if (live.pageHeld) { clearTimeout(live.pageHeld.t); live.pageHeld = null; }
     live.pull = null; live.pageForce = false; live.bare = false; live.throwDir = ''; live.throwD = 0;
     live.dataOn = live.textOn = null; live.keepNow = NO_KEEP; live.keepSnap = null; live.keepBad = []; live.keepArgs = null;
-    live.pillW = 0; live.ui?.zoom.reset(); live.ui?.tools.dispose(); evDrop(); live.ui?.scope?.dispose(); live.ui?.tiles?.dispose(); live.ui?.figKey.dispose(); live.ui?.glass?.remove(); live.ui?.lipRO?.disconnect(); live.ui?.lipMO?.disconnect(); live.ui?.shadeMO?.disconnect(); live.ui?.root.remove(); live.ui?.shade.remove(); live.ui?.fscrim.remove(); live.ui = null; app.classList.remove('pz-blacked');
+    live.pillW = 0; live.ui?.zoom.reset(); live.ui?.tools.dispose(); live.mon?.dispose(); live.mon = null; evDrop(); live.ui?.scope?.dispose(); live.ui?.tiles?.dispose(); live.ui?.figKey.dispose(); live.ui?.glass?.remove(); live.ui?.lipRO?.disconnect(); live.ui?.lipMO?.disconnect(); live.ui?.shadeMO?.disconnect(); live.ui?.root.remove(); live.ui?.shade.remove(); live.ui?.fscrim.remove(); live.ui = null; app.classList.remove('pz-blacked');
     view.classList.remove('pz-out');
     insets.reset();   // (and a room held through the last slide change is never written back after the talk: inset-hold.js)
     stage.lobuleHold?.(false);   // (a way out of the lobule left unfinished: the lobule follows the free space again)

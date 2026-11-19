@@ -82,7 +82,7 @@ const ZOOM_TITLES = [['#zoomOut', 'Zoom out', 'Back out to the lobule'], ['#zoom
 import { initDebug } from './debug.js';
 import { initTopbarMotion } from './topbar-motion.js';
 import { FIRSTPASS, ORIGINS } from './blood.js';
-import { parseShare, cleanShare } from './share-link.js';
+import { parseShare, cleanShare, encodeShare as encodeShareCode } from './share-link.js';
 import { focusBack } from './focus-flow.js';
 import { deepMerge, sanitizeParamsReport } from '../engine/scenario.js';
 import { createPaintGate } from './paint-gate.js';
@@ -469,9 +469,12 @@ async function main() {
   if (window.ppsTestClock) window.pps.testClock(true);
   window.pps.cameraGate = async (o) => { const [{ createCameraGate }, { DECKS }, p] = await Promise.all([import('./cam-gate.js'), import('./decks.js'), presenterL.get()]); return createCameraGate({ presenter: p, stage, decks: DECKS, withTestClock: async (r) => (await import('./test-mode.js')).withTestClock(r) })(o); };   // (the presenter itself, not main.js's few-call facade: the gate needs its count and skipLapse)
   window.pps.decks = async () => (await import('./decks.js')).DECKS.map((d, n) => ({ n: n + 1, id: d.id, title: d.title }));   // (the deck ids pps.cameraGate takes)
+  window.pps.screen = Object.assign((o) => import('./screen/index.js').then((m) => m.screen(o)), { text: (r) => import('./screen/index.js').then((m) => m.text(r)) });   // (what is on the screen as data and text, from the app's own records: screen/index.js, read in only when called)
   window.pps.lookNow = (id) => applyLookAttrs(document.documentElement, knownLook(id));   // (a look on the page's attributes with nothing saved: the gallery page's looks, which must not change the look this browser keeps for the live site)
   // ?gallery on the preview copy only: the card gallery and debug page (gallery/page.js). The live site never reads it.
   { const g = new URLSearchParams(location.search).get('gallery'); if (g !== null && g !== 'frame' && /\/preview\//.test(location.pathname)) import('./gallery/page.js').then(({ startGallery }) => startGallery({ pps: window.pps })).catch((e) => caught('main:gallery', e)); }
+  // The bug packet ("What's wrong here?": a key chord, a long press on the preview pill, pps.packet) and a state link's extras (the `x` of its #s= payload), on the preview copy and a local run only: the live site never reads them.
+  if (/\/preview\//.test(location.pathname) || /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) import('./packet/trigger.js').then(({ installPacketTrigger }) => installPacketTrigger({ pps: window.pps })).catch((e) => caught('main:packet', e));
   const linked = await presenter.readLink();
   if (linked) mainMenu.open('scripts', { mark: typeof linked === 'string' ? linked : null });
   const shared = readShare(), back = new URLSearchParams(location.search).has('back');
@@ -758,7 +761,7 @@ async function loadPreset(id, opts = {}) {
 function encodeShare(extra) {
   const st = store.get();
   const payload = { v: 1, preset: st.presetId, params: st.params, view: st.view, ...extra };
-  return btoa(unescape(encodeURIComponent(JSON.stringify(payload)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return encodeShareCode(payload);
 }
 // (Read through share-link.js: prototype keys dropped, and only a known patient, view, selection and a finite camera kept.)
 function readShare() {
@@ -1369,6 +1372,8 @@ function wireTopbar() {
   if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
   // ?offgpu=1 in the address: the live count of work off the GPU, flashing red when it happens during motion (offgpu-overlay.js). Without it, never loaded.
   if (/[?&]offgpu=1\b/.test(location.search)) import('./offgpu-overlay.js').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
+  // ?watch in the address, on the preview copy (or a local run): the motion recorder and its red dot (watch/start.js; docs/watch.md). Without it, never loaded.
+  if (/[?&]watch\b/.test(location.search) && (/\/preview\//.test(location.pathname) || /^(localhost|127\.0\.0\.1)$/.test(location.hostname))) import('./watch/start.js').then(({ startWatch }) => startWatch(() => window.pps)).catch(() => { /* a measuring aid only */ });
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());
@@ -1404,6 +1409,8 @@ function openSettings(anchor, withSearch = false) {
     // (From the thumb dock's Settings tab, History (Search is a tab of its own there) and Help follow it: the dock has no More menu, and a touch keyboard has no ?. Enter full screen acts once, so it sits with them.)
     menuSection(null,
       ...(FEEDBACK_EMAIL ? [menuItem('Send feedback', { icon: 'mail', onClick: () => { closePopover(); sendFeedback(); } })] : []),
+      // (Preview copy only, where packet/trigger.js has loaded: the same sheet as holding the orange PREVIEW pill, for a person who does not know the hold.)
+      ...(window.pps?.packet?.open ? [menuItem("What's wrong here?", { icon: 'help', onClick: () => { closePopover(); window.pps.packet.open(); } })] : []),
       // (History and Help are pages inside this sheet, menu recs P4: they slide in over Settings with a back row, and the sheet stays open.)
       ...(withSearch ? [menuItem('History', { icon: 'clock', kb: $('#timeline .tl-hc')?.textContent || null, onClick: () => menuPush('Settings', 'History', timeline.historyList()) }),
         menuItem('Help', { icon: 'help', onClick: () => menuPush('Settings', 'Help', helpRows()) })] : []),

@@ -34,3 +34,30 @@ preview copy).
   `window.ppsGalleryResult` and `<pre id="gallery-result">` (JSON), with `data-gallery-sweep="running|done|failed"` on the root.
   `sweep=affected` reads `gallery-affected.json` beside the page.
 - The settled test is sampled (100 ms) only while a call waits: the presenter and the camera announce no "done" event, so a quiet window is the signal.
+
+## The Node specimen runner (`tests/gallery-specimens.test.js`)
+
+Runs in `npm test` (so in Quick on every push), no browser. Each specimen of the catalog is opened on the page's own DOM (jsdom, `scripts/warm/` GL stand-in,
+a clock `tests/gallery-node.js` moves): a teaching-card slide as the presenter puts it up (instrument, tiles, words), a Tests-card pane in the real dock, a structure
+card (and its Details face) in the real card. Each must open with no throw, console error or caught error; its words (title, line, notes, card, tiles, aria-labels,
+as the page writes them) pass `scripts/clinical-wording.mjs` plus Baveno VIII only and "PPG (PV − IVC)"; a tile's and a header reading's number is the model's, as the
+tile table prints it; and a card that is opened and closed twice leaves the GPU holding what the first close left (a context a card gives up with `WEBGL_lose_context`
+counts as freed). A failing leak names where the kept context was made. A new instrument needs a `dispose` that gives its GL context back.
+Cannot judge: fit (jsdom has no layout), shaders (`scripts/glsl-compile.mjs`), looks, timing. The sheets (Treat, History, menus, palette, toasts) are not opened here.
+The first run works out each deck's states and each curve's sweep (about 100 s); they are kept in `node_modules/.cache/pps-deck-states`.
+
+## Sweep and "what to test" (preview, with `?gallery`)
+
+- **Sweep button** (`sweep-panel.js`, Tools > Sweep; logic in `sweep.js`, pure and tested by `tests/gallery-sweep.test.js`). Pick a scope (everything, a section,
+  a family, or the specimens a link names) and the looks, press Sweep, and leave the device on the table. It keeps the screen awake, opens each specimen
+  through `pps.gallery.open`, runs the shared fit rules (`check()`), and ends with one report to copy: fit problems per specimen, specimens that did not open
+  or settle, errors counted (`pps.caught`), GPU memory peak, the slowest frame (from `pps.perf.frames`) and the slowest openings. The same runner answers the
+  address (`?gallery&sweep=...`, through `registerSweep`), so a link starts it with no tap.
+- **Resume.** The place is kept in `sessionStorage` after every specimen. If the browser ends the tab (an iPhone kill), the reload goes on from the next
+  specimen and the report lists the one that was open as "Lost to a reload". After 3 such reloads the sweep stops and reports what it has.
+- **`npm run gallery:affected`** (`scripts/gallery-affected.mjs`, tested by `tests/gallery-affected.test.js`). Maps the files changed since the branch's upstream
+  (`--base <ref>`, `--files a,b`) to specimens: each family's modules in `FAMILY_ENTRY`, walked through their imports three levels deep but not through a
+  module a dozen others import, plus `SHARED_FILES` and `CSS_FAMILIES`. A catalog change names exactly the entries that differ from the base. A hub change
+  (util.js, store.js, tokens.css) is "broad" and says to sweep everything; a deck file is listed as "test by hand". It prints a deep link for each of up to 10
+  specimens and one Sweep link (`?gallery&sweep=ids:a,b&fresh=1`) for the rest. A new catalog family needs its modules in `FAMILY_ENTRY` (the test fails until it has them).
+  `--write <file>` also writes the ids as a JSON array, the file `?gallery&sweep=affected` reads beside the page (the deploy does not write it yet).
