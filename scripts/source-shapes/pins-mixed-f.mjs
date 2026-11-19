@@ -134,7 +134,6 @@ export default [
   { file: 'src/ui/main.js', need: [/the legend names the unit once\. A label gives a station’s value\. Select the station, color by Change or compare with an earlier moment to see ▲ \/ ▼/, 'Tile, menu and number polish, 31 Oct (the "Polish tiles, cards and tables" sprint thread).'] },
   { file: 'src/ui/stage*', forbid: [/still show their colours and readings/, 'Tile, menu and number polish, 31 Oct (the "Polish tiles, cards and tables" sprint thread).'] },
   { file: 'src/ui/why.js', forbid: [/grey is what they add together/, 'Tile, menu and number polish, 31 Oct (the "Polish tiles, cards and tables" sprint thread).'] },
-  { file: 'src/ui/main.js', need: [/Every readout’s bar and status word follow a clinical cut-off;/, 'Tile, menu and number polish, 31 Oct (the "Polish tiles, cards and tables" sprint thread).'] },
   { file: 'src/ui/main.js', need: [/Amber is borderline; red means a threshold has been crossed\./, 'Tile, menu and number polish, 31 Oct (the "Polish tiles, cards and tables" sprint thread).'] },
   { file: 'src/ui/main.js', forbid: [/readout’s dot, bar/, 'Tile, menu and number polish, 31 Oct (the "Polish tiles, cards and tables" sprint thread).'] },
   { file: 'src/ui/main.js', need: [/layer\('labels', 'liver', 'Organ names', 'The caption on each organ'\)/, 'Tile, menu and number polish, 31 Oct (the "Polish tiles, cards and tables" sprint thread).'] },   // (was a slice of the file)

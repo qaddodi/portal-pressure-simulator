@@ -30,7 +30,7 @@ export default [
 
   // lobule-callout-leader-gap
   { file: 'src/ui/lobule-zoom*', need: [/const le = leaderEnd\(ink, a\[0\], a\[1\]\);/, 'lobule-zoom ends the pointer leader on the letters box grown by a gap'] },
-  { file: 'src/ui/lobule-zoom*', need: [/setGeo\(callLine, 'x2', ex\); setGeo\(callLine, 'y2', ey\)/, 'lobule-zoom ends the pointer leader on the letters box grown by a gap'] },
+  { file: 'src/ui/lobule-zoom*', need: [/ln\[2\] = ex; ln\[3\] = ey;/, 'lobule-zoom ends the pointer leader on the letters box grown by a gap'] },
   { file: 'src/ui/lobule-zoom*', forbid: [/setGeo\(callLine, 'x2', bx\)/, 'the leader no longer runs to the pill\'s middle'] },
 
   // menu-preview-one-card

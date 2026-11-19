@@ -19,17 +19,17 @@
 // problems differ between a full run and a cards-only one over the same slides, so the shortcut is never trusted on its own word.
 // Runs go side by side (--jobs): a chunk is one device and one part of the decks, one browser page each (touch devices get touch, so `(pointer: coarse)` rules apply).
 
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright';
-import { CHROMIUM_ARGS, openApp } from './shoot.mjs';
-import { serve } from './serve.mjs';
+import { launchLayout } from './headless.mjs';
 import { DECKS } from '../src/ui/decks.js';
 import { SIZES } from './gallery-sweep-lib.mjs';
 import { chunksFor, slideProblems, summarize, parseSlides } from './deck-sweep-lib.mjs';
 import { deckRun } from '../src/ui/report/emit.js';
 import { runBlock } from '../src/ui/report/run.js';
+import { pointTo } from './debug-notice.mjs';
+pointTo('sweep decks ...');
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);
@@ -50,23 +50,18 @@ const CARDS = flag('cards-only');
 const FAST = flag('fast') || CARDS;
 const NAP = CARDS ? 120 : 250;   // (the read-until-two-agree pause, real ms)
 const VERBOSE = flag('verbose');
-const EXE = process.env.CHROMIUM || (existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : '');
-
-const STUB = `(() => { for (const C of [window.WebGL2RenderingContext]) { if (!C) continue; const P = C.prototype; for (const k of ['drawArrays', 'drawElements', 'drawArraysInstanced', 'drawElementsInstanced', 'drawRangeElements', 'clear', 'blitFramebuffer']) if (P[k]) P[k] = function () {}; } })();`
-  + (FAST ? 'window.ppsLayoutOnly = true;' : '') + (CARDS ? 'window.ppsCardsOnly = true;' : '');
 
 const withTimeout = (p, ms, what) => { let t; return Promise.race([p, new Promise((_, no) => { t = setTimeout(() => no(new Error(`${what} took more than ${Math.round(ms / 1000)} s`)), ms); })]).finally(() => clearTimeout(t)); };
 
 const decks = DECKS.filter((d) => WANT[0] === 'all' || WANT.includes(d.id));
 if (!decks.length) { console.error('no deck matches'); process.exit(2); }
-const server = await serve(resolve(ROOT, DIR), 0, { prefix: '/preview' });
-const browser = await chromium.launch({ args: CHROMIUM_ARGS, ...(EXE ? { executablePath: EXE } : {}) });
+const L = await launchLayout({ dir: resolve(ROOT, DIR), prefix: '/preview' });   // (scripts/headless.mjs: the one layout-only opener, GL draws stubbed)
 const T0 = Date.now();
 const results = {};
 
 const bootFor = async (device) => {
   const s = SIZES[device];
-  const app = await openApp({ device: device === 'mac-short' ? 'mac' : device, theme: 'light', query: `gallery&testclock=${RATE}${FAST ? '&testframe=100' : ''}&look=light`, url: server.url, dir: DIR, browser, initScript: STUB, dpr: 1, timeout: 120000, gpuPath: !CARDS });
+  const app = await L.open({ device: device === 'mac-short' ? 'mac' : device, query: `gallery&testclock=${RATE}${FAST ? '&testframe=100' : ''}&look=light`, layoutOnly: FAST, cardsOnly: CARDS });
   await app.page.setViewportSize({ width: s.w, height: s.h });
   await app.page.waitForFunction(() => !!window.pps?.gallery?.slide, null, { timeout: 120000 });
   return app;
@@ -149,8 +144,7 @@ await Promise.all(Array.from({ length: Math.min(JOBS, chunks.length) }, async ()
     try { await runChunk(chunks[j]); } catch (e) { console.log(`${chunks[j].name}: the run stopped: ${String(e.message).split('\n')[0]}`); }
   }
 }));
-await browser.close();
-server.close();
+await L.close();
 
 const report = { schema: 1, at: new Date().toISOString(), devices: DEVICES, decks: decks.map((d) => d.id), fast: FAST, cardsOnly: CARDS, rate: RATE, seconds: (Date.now() - T0) / 1000, results: Object.fromEntries(Object.entries(results).sort(([a], [b]) => a.localeCompare(b))) };
 const run = deckRun(report);

@@ -105,7 +105,7 @@ test('the catalog is narrowed by family, section, kind, ids and a shard that kee
 
 test('the sweep script stays layout-only: GL draws stubbed, no screenshot, no shoot settle', () => {
   const src = readFileSync(new URL('../scripts/gallery-sweep.mjs', import.meta.url), 'utf8');
-  assert.match(src, /drawArrays/);
+  assert.match(src, /from '\.\/headless\.mjs'/, 'it opens the app through the one layout-only opener, which stubs every GL draw (tests/headless-only.test.js)');
   assert.doesNotMatch(src.replace(/^\/\/.*$/gm, ''), /\.screenshot\(|\.settle\(|colourShare|assertGpuLive/, 'no pictures: the ban lifted for layout runs only');
 });
 

@@ -200,7 +200,7 @@ test('a strict reading takes visibility as the page computes it, and refuses a m
 
 test('the stage: off unless asked for; the painted groups\' SVG hidden by an empty clip; read again on a change, and while a CSS ease runs', () => {
   const st = stageSource(), css = appCss();
-  assert.match(st, /const OVER_ASK = typeof location !== 'undefined' && \/\[\?&\]stageover=gpu\\b\/\.test\(location\.search\);/);
+  assert.match(st, /const OVER_ASK = flagOn\('stageover'\);/);   // (the flag reader, flags.js: ?stageover=gpu)
   assert.doesNotMatch(st, /OVER_GPU|stageover=svg/);
   assert.match(st, /let OVER_ON = !!(?:live\.)?veins\?\.overlay && \(!(?:live\.)?SOFTWARE \|\| OVER_ASK\);/);
   assert.match(css, /\.stage-view svg#stageOver \.gpu-over \{ clip-path: inset\(50%\) !important; \}/);

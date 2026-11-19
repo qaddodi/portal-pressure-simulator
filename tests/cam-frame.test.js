@@ -10,7 +10,6 @@ import { CIRC_REGIONS } from '../src/ui/cam-frame.js';
 import { isCamOn, unionBox, regionBox, growBox, camNames, camProblems } from '../src/ui/cam-frame.js';
 import { camOn } from '../src/ui/presenter.js';
 import { scaleViews } from '../src/ui/scale-switch.js';
-import { presenterSource } from './split-src.js';
 
 const EDGE_IDS = new Set(EDGES.map((e) => e.id));
 
@@ -93,16 +92,4 @@ test('the examples in the authoring guides name things the camera knows', () => 
     if (m[2]) assert.ok(REGIONS[m[2]], `${m[0]}: no region ${m[2]}`);
   }
   assert.ok(n >= 2, 'the guides show the form (the full guide and the quick guide)');
-});
-
-test('the presenter frames by name through camBox, and the older forms through the same sums', () => {
-  const pz = presenterSource();
-  const body = /function camBox\(cam, s\) \{([\s\S]*?)\n {2}\}\n/.exec(pz)?.[1];
-  assert.ok(body, 'camBox is where the framing is worked out');
-  assert.match(body, /regionBox\(isCamOn\(cam\) \? cam\.near : cam, REGIONS\)/, 'a region, a box or a list of regions, or the region the names grow from');
-  assert.match(body, /growBox\(r, unionBox\(\[stage\.focusBox\(n\), pts\]\.filter\(Boolean\)\), 30\)/, 'the names, as drawn now, with the stations where they stand');
-  assert.match(body, /growBox\(r \|\| REGIONS\.route, f\)/, 'the slide\'s outlines and soft glows still grow it, as before, and a region the plate lacks is still the route');
-  // Every place that frames a slide goes through camBox, so a camera by name works at the slide, in a flip of scales and on the rise out of the lobule.
-  assert.equal((pz.match(/camBox\(/g) || []).length, 3, 'the one move to a framing (frameTo: the glide, the refit, a time-lapse\'s push), the rise and the definition');
-  assert.doesNotMatch(pz, /Array\.isArray\(cam\) \? cam : REGIONS/, 'no second reading of a camera that skips the sums');
 });

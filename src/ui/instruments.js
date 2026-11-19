@@ -8,6 +8,7 @@ import { pressureColor } from './colormap.js';
 import { fmtG } from './num.js';
 import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js';
 import { wordSetter } from './gl-words.js';
+import { procLabel } from './procedure-names.js';
 import { simTime, isPaused } from './clock.js';
 import { acquireEndoGL } from './endo-gl.js';
 import { surface } from './gpu-surfaces.js';
@@ -67,7 +68,7 @@ export function createEndoscopy({ onAction }) {
   const view = 'eso'; // the esophageal variceal view only
   // The position is a caption under the view, never over it.
   const stage = h('div', { class: 'endo-stage' }, box, h('span', { class: 'endo-pos' }, 'Distal esophagus · 36 cm'));
-  const bandBtn = h('button', { class: 'btn primary', onclick: () => onAction({ kind: 'band' }) }, icon('band'), 'Band (EVL)');   // (one name on every card: the phone's and the side card's, 13 Nov 2026)
+  const bandBtn = h('button', { class: 'btn primary', onclick: () => onAction({ kind: 'band' }) }, icon('band'), procLabel('band'));   // (one name on every card: the phone's and the side card's, 13 Nov 2026)
   // The readings: the bands placed lead, then the grade, size and wall side by side,
   // and the stigmata as a chip. Built once; each frame only changes text, widths and states.
   const dd = (cls) => h('dd', { class: cls });

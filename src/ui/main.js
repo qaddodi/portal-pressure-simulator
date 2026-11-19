@@ -98,6 +98,7 @@ import { createScope } from './scope.js';
 import { classSoon, runSoon } from './class-soon.js';
 import { sizeOf, watchSize, rectsSoon, restTask } from './geom.js';
 import { feedbackDiagnostics } from './feedback-diag.js';
+import { fitMailto } from './packet/short.js';
 import { startReport, reportLines, note as noteEvent } from './report.js';
 import { extendHandle } from './pps-handle.js';
 import { noteJump } from './display-state.js';
@@ -1386,8 +1387,9 @@ function wireTopbar() {
   if (flagOn('perf')) import('./perf-readout.js').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
   // ?offgpu=1 in the address: the live count of work off the GPU, flashing red when it happens during motion (offgpu-overlay.js). Without it, never loaded.
   if (flagOn('offgpu')) import('./offgpu-overlay.js').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
-  // ?watch in the address, on the preview copy (or a local run): the motion recorder and its red dot (watch/start.js; docs/watch.md). Without it, never loaded.
-  if (flagOn('watch')) import('./watch/start.js').then(({ startWatch }) => startWatch(() => window.pps)).catch(() => { /* a measuring aid only */ });
+  // ?watch in the address, on the preview copy (or a local run): the motion recorder and its red dot (watch/start.js; docs/watch.md), and on the debug page (?debug). Without either, never loaded.
+  // (The debug page, ?debug, has the recorder on by default: a person who pressed Report there has the last 10 s of motion in the packet without having to know the flag.)
+  if (flagOn('watch') || flagValue('debug') !== null) import('./watch/start.js').then(({ startWatch }) => startWatch(() => window.pps)).catch(() => { /* a measuring aid only */ });
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());
@@ -1530,17 +1532,27 @@ function helpRows(titled = false) {
 // Send feedback: a draft in the viewer's own email app, addressed to the author, with what a bug report needs underneath
 // (the build from the preview pill, the device, the screen and a link back to this exact view). The app itself sends
 // nothing, so the Privacy page stays true.
-function sendFeedback() {
+async function sendFeedback() {
   try { prefs.setItem(ASK_KEY, 'done'); } catch (e) { caught('main:1120', e); /* storage unavailable */ }   // (sent once: the timed ask never comes)
   const pill = document.getElementById('preview-badge')?.textContent.trim();
   const build = `${pill || 'Live site'} · ${RELEASE}`;   // (the release too: the tag and commit this page was built from, so a report from the live site names its build, SHL-3)
   const theme = currentLook() || (darkMQ.matches ? 'dark' : 'light');
-  const body = ['What happened, and what did you expect to happen?', '', '', '',
+  const base = ['What happened, and what did you expect to happen?', '', '', '',
     'Please keep these details:', `Build: ${build}`, `Device: ${navigator.userAgent}`,
     `Screen: ${innerWidth} × ${innerHeight} at ${devicePixelRatio}×, ${theme} theme`, `View: ${resumeUrl()}`,
     ...feedbackDiagnostics({ perf: framePerf, blurWhy: (el) => stage.blurWhy?.(el) ?? null }), ...reportLines()].join('\n');
+  // (What the app's own self-checks find on this screen, as a few lines under the details, and the whole report kept ready to copy: read once, here, after the Settings sheet has left, never for longer
+  // than FEEDBACK_READ_MS so the draft is not held up. The whole body is capped so the mail link stays one a mail app takes: PROD-29.)
+  let fb = null;
+  try {
+    await new Promise((ok) => appScope.timer(ok, FEEDBACK_SHEET_MS));
+    fb = await Promise.race([import('./packet/feedback.js').then((m) => m.readFeedback(window.pps)), new Promise((ok) => appScope.timer(() => ok(null), FEEDBACK_READ_MS))]);
+  } catch (e) { caught('main:feedback-read', e); /* the draft goes without it */ }
+  const body = fitMailto(base, fb?.short || '');
   location.href = `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent('Portal Pressure Simulator feedback')}&body=${encodeURIComponent(body)}`;
+  if (fb?.full) toast('Your email app has the short report.', '', { actions: [['Copy the full report', () => { navigator.clipboard?.writeText(fb.full).then(() => toast('Full report copied: paste it under your message.'), () => toast('Could not copy it from here.', 'bad')); }]] });
 }
+const FEEDBACK_SHEET_MS = 380, FEEDBACK_READ_MS = 2500;   // (the Settings sheet's leave, then the most the screen read may take)
 function doUndo() { timeline.undo(); }
 function doRedo() { timeline.redo(); }
 function toggleTheme() {
@@ -2516,14 +2528,14 @@ function openAbout(section) {
     h('p', { class: 'sub' }, 'Each is an automated test that must pass before a release:'),
     h('ol', { class: 'refs' }, VALIDATION.map((v) => h('li', {}, v))),
     h('h3', {}, 'Status colors'),
-    h('p', { class: 'sub' }, 'Every readout’s bar and status word follow a clinical cut-off; the ticks on its bar mark the cut-offs below. A change (▲ / ▼) is drawn in neutral ink and appears only when a value keeps moving for several seconds, never for the heartbeat or breathing. Amber is borderline; red means a threshold has been crossed.'),
+    h('p', { class: 'sub' }, 'Every readout’s bar and status word follow a cut-off: a guideline’s where one exists (HVPG, liver stiffness, ascites grade) and the model’s own reference line where none does (the PPG lines at 6 and 12 mmHg, the portal vein pressure, the varix wall stress). The ticks on a bar mark the cut-offs below. A change (▲ / ▼) is drawn in neutral ink and appears only when a value keeps moving for several seconds, never for the heartbeat or breathing. Amber is borderline; red means a threshold has been crossed.'),
     tableRoles(h('div', { class: 'table-wrap' }, h('table', { class: 'cut-table' },
       h('thead', {}, h('tr', {}, CUT_HEADS.map((x, i) => h('th', {}, i ? h('span', { class: 'cut-h', 'data-sev': CUT_SEV[i] }, x) : x)))),
       // (On a phone each row stacks, its readout over four labelled lines, and an empty band is left out: five columns did not fit and the table scrolled sideways, cut off at the edge.)
       h('tbody', {}, CUTOFFS.map((r) => h('tr', {}, r.map((c, i) => h('td', i ? { 'data-label': CUT_HEADS[i], 'data-sev': CUT_SEV[i], class: c === '—' ? 'none' : '' } : {}, c)))))))),
-    h('p', { class: 'sub' }, 'Thresholds belong to gradients, not to the color of a vessel. HVPG ≥10 mmHg is clinically significant portal hypertension (CSPH) in cirrhosis. HVPG ≥20 mmHg is prognostic when measured during acute variceal bleeding. An HVPG of 12 mmHg is not a bleeding threshold: varices can bleed below it. After a TIPS for variceal bleeding, 12 mmHg is the reference for the directly measured portosystemic gradient (AASLD 2024).'),
+    h('p', { class: 'sub' }, 'The guidelines grade the HVPG, not the pressure at a single vessel; the portal vein pressure rows above are the model’s own reference. HVPG ≥10 mmHg is clinically significant portal hypertension (CSPH) in cirrhosis. HVPG ≥20 mmHg is prognostic when measured during acute variceal bleeding. An HVPG of 12 mmHg is not a bleeding threshold: varices can bleed below it. After a TIPS for variceal bleeding, 12 mmHg is the reference for the directly measured portosystemic gradient (AASLD 2024).'),
     h('h3', {}, 'Reference review'),
-    h('p', {}, 'The presentations follow Baveno VIII (J Hepatol, August 2026), with AASLD guidance where US practice differs (octreotide). Baveno VIII changed the recompensation criteria (>6 months, Child–Pugh A), the indeterminate zone for stiffness (ANTICIPATE probability ≥75%, or spleen stiffness >55 kPa on the 100 Hz probe), the window for preemptive TIPS and anticoagulation for portal vein thrombosis.'),
+    h('p', {}, 'The presentations follow Baveno VIII (J Hepatol, 2026), with AASLD guidance where US practice differs, for example the vasoactive drug and the antibiotic in variceal bleeding. Baveno VIII changed the recompensation criteria (>6 months, Child–Pugh A), the criteria that establish CSPH without a measured gradient (LSM ≥25 kPa in selected causes, ANTICIPATE probability ≥75%, or spleen stiffness ≥55 kPa), the window for preemptive TIPS and anticoagulation for portal vein thrombosis. A statement number in a talk (for example Baveno VIII 8.18) refers to the full text of the guideline.'),
     h('h3', {}, 'Clinical review'),
     h('p', {}, 'Presentation and patient content follows the guidance below. An external clinical advisory review with named reviewers is pending; their sign-off will be listed here.'),
     h('h3', { 'data-sec': 'refs' }, 'References'),
@@ -2533,7 +2545,7 @@ function openAbout(section) {
       h('li', {}, 'EASL Clinical Practice Guidelines on vascular diseases of the liver. J Hepatol 2026;84:399–456.'),
       h('li', {}, 'Biggins SW, et al. Diagnosis, evaluation, and management of ascites, spontaneous bacterial peritonitis and hepatorenal syndrome: 2021 practice guidance by the AASLD. Hepatology 2021;74:1014–1048.'),
       h('li', {}, 'Northup PG, et al. Vascular liver disorders, portal vein thrombosis, and procedural bleeding in patients with liver disease: 2020 practice guidance by the AASLD. Hepatology 2021;73:366–413.'),
-      h('li', {}, 'Bosch J, Groszmann RJ, et al. Measurement of portal pressure (HVPG). Hepatology / Semin Liver Dis.'),
+      h('li', {}, 'Bosch J, Garcia-Pagán JC, Berzigotti A, Abraldes JG. Measurement of portal pressure and its role in the management of chronic liver disease. Semin Liver Dis 2006;26:348–362.'),
       h('li', {}, 'Prognostic role of endoscopic ultrasound-guided direct portal pressure gradient measurement in porto-sinusoidal vascular disorder. Liver Int 2025. Mean direct gradient 16.7 and mean HVPG 5.5 mmHg. ', pmid(40251984)),
       h('li', {}, 'Directly measured portal pressure gradient and variceal hemorrhage in patients undergoing TIPS: bleeding occurred at <12 mmHg. ', pmid(7485008)),
       h('li', {}, 'Hepatic venous pressure gradient and prognosis in patients with acute variceal bleeding treated with pharmacologic and endoscopic therapy. ', pmid(18093686)),
@@ -2549,7 +2561,7 @@ function openPrivacy() {
   openModal('Privacy', h('div', {},
     h('p', {}, 'The simulator runs entirely in your browser. It makes no requests to any other site: no analytics, no trackers, no advertising, no third-party fonts or scripts. There is no account and no server that stores anything about you.'),
     h('p', {}, 'What stays on this device, in your browser’s storage: your preferences (theme) and presenter scripts you create. It leaves the device only when you share it (a link or a script file).'),
-    FEEDBACK_EMAIL ? h('p', {}, 'Send feedback (in Settings) opens a draft in your own email app with your device, screen size, how fast the page is running, which blurs the browser is drawing, a short list of recent errors and page reloads, and a link to the view you were on. Nothing is sent unless you send that email yourself.') : null,
+    FEEDBACK_EMAIL ? h('p', {}, 'Send feedback (in Settings) opens a draft in your own email app with your device, screen size, how fast the page is running, which blurs the browser is drawing, a short list of recent errors and page reloads, a few lines on what the app\'s own checks found on the screen, and a link to the view you were on. Nothing is sent unless you send that email yourself.') : null,
     h('p', {}, 'For institutions: no personal data is processed by the publisher, which supports FERPA and GDPR compliance.'),
     h('p', { class: 'sub' }, keys.length ? `Stored now: ${keys.join(', ')}.` : 'Nothing is stored on this device yet.'),
     clearRow()));

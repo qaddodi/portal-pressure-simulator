@@ -83,7 +83,7 @@ const TIPS_COIL_STOPS = [TIPS_T.travel1 + 600, TIPS_T.over1 + 300, TIPS_T.inflat
 // camMs, 480 to 900 ms by how far it goes), this being the ceiling. The procedure waits for the glide to land, and a little more, at each new shot.
 const SHOT_MS = 1500;   // motion-scale: own pace (a shot's camera glide of a procedure)
 // (cathFocus's options, made once. A shot with no times of its own is timed by the camera, on an arc for a long move; BRTO's, BATO's and the glue's keep their own, straight.)
-const SHOT_CAM = { arc: true, scale: true }, SHOT_OWN = { arc: false, scale: false };
+const SHOT_CAM = { scale: true }, SHOT_OWN = { scale: false };   // (both go straight: no arcs since 19 Nov 2026, STG-4)
 // BRTO and BATO glide straight (no arc), each shot as long as its move needs: the way in, the short push in to the balloon, the fill (the
 // same framing: no move), the pull back to the result. Played step by step, their result stays framed when they end, until the slide
 // moves on (holdEnd: the old camera glided home while the catheter was still backing out). Mock B, his pick, 7 Nov 2026.

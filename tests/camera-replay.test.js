@@ -1,7 +1,7 @@
 // Every slide-to-slide camera move, replayed (15 Nov 2026, Mohammad: "make sure the camera movement is not funky, like going around in circles
 // while zooming in or out or panning in slides"). Node only: each deck's neighbouring framings are worked out the way the stage frames a region
 // (a box fitted into the room the cards leave, centred there), on the three screens, and the path the camera takes between them is the app's own
-// (cam-arc.js camPath and lerpVT, ease.js easeMove and carried, and stage-glide.js animateVT itself on a clock the test moves), judged on the screen:
+// (cam-arc.js lerpVT, ease.js easeMove and carried, and stage-glide.js animateVT itself on a clock the test moves), judged on the screen:
 //   - the framing the slide lands on never goes away from where it will be and back (no reversal), never curls (turning of its screen path), and
 //     comes in on one straight line;
 //   - the zoom never overshoots the two framings (a plain move) or goes out once and back in (a pull-back), and a pull-back never goes wider than
@@ -22,7 +22,7 @@ import { oneLadder } from '../src/ui/teach-extras.js';
 import { instrumentOf } from '../src/ui/slide-instrument.js';
 import { STALL_MAX } from '../src/ui/glide-clock.js';
 import { VB_ANAT, VB_CIRC, VIEW } from '../src/ui/anatomy.js';
-import { camPath, camWindow, geomView, lerpVT, viewGeom, blendPaths } from '../src/ui/cam-arc.js';
+import { camWindow, geomView, lerpVT, viewGeom } from '../src/ui/cam-arc.js';
 import { isCamOn, regionBox } from '../src/ui/cam-frame.js';
 import { CAM_CARRY_MAX, CAM_MS_FAR, CAM_MS_MAX, camMs, carriedCam, carried, easeMove, createGlideTracker, slideMs } from '../src/ui/ease.js';
 import { diveAlong, diveMapInto } from '../src/ui/dive-map.js';
@@ -141,19 +141,13 @@ test('the stage window is the real view box: a phone, a Mac, and the circuit', (
 });
 
 
-test('the stage\'s arc room and screen width are its real view box\'s, the free room\'s middle, and the circuit\'s own', () => {
-  const box = { ...BOX }, live = { fitKept: 1.1, morphTarget: 0, lastFree: null };
+test('the stage\'s screen width is its real view box\'s, and the circuit\'s own (there is no arc room any more: STG-4)', () => {
+  const box = { ...BOX }, live = { morphTarget: 0, lastFree: null };
   const ride = createRide({ stageBox: () => ({ sw: 390, sh: 520 }), vbBox: box }, live);
-  const room = ride.arcRoom(null);
-  assert.equal(Math.round(room.vb.w), 820, 'a phone shows the anatomy 820 wide, not the old plate\'s 1400');
-  assert.ok(Math.abs(room.wMax - room.vb.w / 1.1) < 1e-9, 'the widest pull-back is the whole figure\'s fit');
-  assert.equal(Math.round(ride.screenW()), 820, 'and a screen is that many units wide for a glide\'s time');
-  const free = ride.arcRoom({ l: 8, t: 60, r: 382, b: 330 });
-  assert.ok(free.vb.cy < room.vb.cy, 'the path travels the middle of the room above the cards, not of the whole screen');
+  assert.equal(ride.arcRoom, undefined, 'no pull-back room is asked of the stage');
+  assert.equal(Math.round(ride.screenW()), 820, 'a phone shows the anatomy 820 wide, not the old plate\'s 1400: a screen is that many units wide for a glide\'s time');
   Object.assign(box, { x: VB_CIRC[0], y: VB_CIRC[1], width: VB_CIRC[2], height: VB_CIRC[3] }); live.morphTarget = 1;
-  const circ = ride.arcRoom(null);
-  assert.ok(Math.abs(circ.vb.w - 390 / Math.min(390 / VB_CIRC[2], 520 / VB_CIRC[3])) < 1e-9 && circ.wMax === circ.vb.w, 'the circuit has its own box, and its whole is the box');
-  assert.equal(createRide({ stageBox: () => ({ sw: 0, sh: 0 }), vbBox: box }, live).arcRoom(), null, 'no box yet: no room');
+  assert.ok(Math.abs(ride.screenW() - 390 / Math.min(390 / VB_CIRC[2], 520 / VB_CIRC[3])) < 1e-9, 'the circuit has its own box');
 });
 
 for (const [name, scr] of Object.entries(SCREENS)) {
@@ -185,7 +179,7 @@ for (const [name, scr] of Object.entries(SCREENS)) {
         const g1 = viewGeom(b, vb), pts = [[g1.cx, g1.cy], [400, 200], [1000, 250], [500, 800], [950, 750]], track = pts.map(() => []), ks = [];
         const rec = () => { const v = r.live.vt; pts.forEach((P, i) => track[i].push([v.k * P[0] + v.x, v.k * P[1] + v.y])); ks.push(v.k); };
         r.now(0); rec();
-        r.g.animateVT(b, 1500, { arc: true, scale: true, slide: true });
+        r.g.animateVT(b, 1500, { scale: true, slide: true });
         const plan = r.moves[0], ms = plan?.ms;
         assert.ok(plan && plan.slide, `${name}, ${at}: the slide's move is asked`);
         assert.equal(plan.arc, false, `${name}, ${at}: a slide's move never pulls back (the zoom one way)`);
@@ -243,38 +237,19 @@ for (const [name, scr] of Object.entries(SCREENS)) {
 /** The view b moved by `f` of a screen sideways (a refit to cards that settled a little). */
 function nudge(b, vb, f) { return { k: b.k, x: b.x + f * vb.w, y: b.y }; }
 
-test('a far move pulls back once and lands straight, on every screen', () => {
-  let seed = 3;
+test('a far move lands straight with no pull-back, on every screen', () => {
+  let seed = 3, far = 0;
   const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
-  let arcs = 0;
   for (const [name, scr] of Object.entries(SCREENS)) {
-    const vb = camWindow(scr.sw, scr.sh, BOX, scr.free), wMax = vb.w * 1.05;
+    const vb = camWindow(scr.sw, scr.sh, BOX, scr.free);
     for (let i = 0; i < 400; i++) {
       const a = geomView({ cx: 300 + rnd() * 820, cy: rnd() * 920, w: vb.w / (1 + rnd() * 2.5) }, vb), b = geomView({ cx: 300 + rnd() * 820, cy: rnd() * 920, w: vb.w / (1 + rnd() * 2.5) }, vb);
-      const p = camPath(a, b, vb, wMax);
-      if (p.arc) arcs++;
-      judge((u) => p.at(u), a, b, vb, Math.max(wMax, vb.w / a.k, vb.w / b.k), p.arc, `${name} #${i}`);
+      const ga = viewGeom(a, vb), gb = viewGeom(b, vb);
+      if (Math.abs(ga.cx - gb.cx) > (ga.w + gb.w) / 2) far++;   // (the two framings share nothing: the case the pull-back used to take)
+      judge((u) => lerpVT(a, b, u), a, b, vb, Math.max(vb.w / a.k, vb.w / b.k), false, `${name} #${i}`);
     }
   }
-  assert.ok(arcs > 100, `the sweep reaches the pull-back (${arcs})`);
-});
-
-test('a refit while a move runs takes the move over without a jump or a turn back', () => {
-  // (the cards settle half way through a pull-back: the same arc from where it began, now to the new framing, blended in from the moment of the refit)
-  const scr = SCREENS.Mac, vb = camWindow(scr.sw, scr.sh, BOX, scr.free), wMax = vb.w * 1.05;
-  const a = geomView({ cx: 380, cy: 120, w: vb.w / 3 }, vb), b = geomView({ cx: 1000, cy: 800, w: vb.w / 3 }, vb), b2 = geomView({ cx: 1030, cy: 780, w: vb.w / 2.9 }, vb);
-  const first = camPath(a, b, vb, wMax);
-  assert.ok(first.arc);
-  for (const uR of [0.2, 0.4, 0.6, 0.8]) {
-    const second = camPath(a, b2, vb, wMax), at = blendPaths((u) => first.at(u), (u) => second.at(u), uR, vb);
-    const here = at(uR), was = first.at(uR);
-    assert.ok(Math.abs(here.k - was.k) < 1e-9 && Math.abs(here.x - was.x) < 1e-6 && Math.abs(here.y - was.y) < 1e-6, `the refit at ${uR} starts where the move stands`);
-    const end = at(1);
-    assert.ok(Math.abs(end.k - b2.k) < 1e-9 && Math.abs(end.x - b2.x) < 1e-6, 'and lands on the new framing');
-    const g1 = viewGeom(b2, vb), sp = [];
-    for (let i = 0; i <= FRAMES; i++) { const v = at(easeMove(i / FRAMES)); sp.push([v.k * g1.cx + v.x, v.k * g1.cy + v.y]); }
-    assert.equal(bend(sp).rev, 0, `the refit at ${uR}: the landing framing goes away and back`);
-  }
+  assert.ok(far > 100, `the sweep reaches framings that share nothing (${far})`);
 });
 
 test('a plain move with the speed of one it took over from stays ahead of the start and never passes the end', () => {
@@ -404,9 +379,9 @@ function rig(from, room = null) {
   // (the stage's camera lock and its one write of the view, as stage.js wires them: slide-cam.js)
   let vtv = { ...from }, hand = false;
   const camLock = createCamLock();
-  const live = { aiming: false, vtAnim: 0, arcRun: null, drifting: false, vtTarget: null, vtGliding: false, cath: {}, sites: {}, scan: {}, camMove: false, dprLet() {}, dprobePaint() {}, gestureOn: () => hand, following: false, rideCTM: null, morphTarget: 0, lastFree: null, camLock,
+  const live = { aiming: false, vtAnim: 0, drifting: false, vtTarget: null, vtGliding: false, cath: {}, sites: {}, scan: {}, camMove: false, dprLet() {}, dprobePaint() {}, gestureOn: () => hand, following: false, rideCTM: null, morphTarget: 0, lastFree: null, camLock,
     get vt() { return vtv; }, set vt(v) { if (lockedWrite(camLock, () => hand)) vtv = v; }, setHand(h) { hand = h; } };
-  const st = { CIRC_C: [0, 0], applyVT() {}, arcRoom: () => ({ vb, wMax }), screenW: () => vb.w, camSettle() {}, camSettleIdle() {}, circVB: () => [0, 0, 1000, 600], dpr: {}, driftEnd() {}, glideXfStart() {}, glideXfStep() {}, logMove: (m) => moves.push(m), nextFrame: (cb) => { frames.push(cb); return frames.length; }, refreshCTM() {}, rideStep() {}, safeInsets: () => ({ l: 0, t: 0, r: 0, b: 0 }), sameView: (a, b) => a && b && Math.abs(a.k - b.k) < 0.001 && Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1, sitesPaint() {}, svg: { clientWidth: 1440, clientHeight: 800 }, vbCenter: () => [vb.cx, vb.cy], vtTrack: createGlideTracker(), viewXfRetargetTo: () => false, geo: {} };
+  const st = { CIRC_C: [0, 0], applyVT() {}, screenW: () => vb.w, camSettle() {}, camSettleIdle() {}, circVB: () => [0, 0, 1000, 600], dpr: {}, driftEnd() {}, glideXfStart() {}, glideXfStep() {}, logMove: (m) => moves.push(m), nextFrame: (cb) => { frames.push(cb); return frames.length; }, refreshCTM() {}, rideStep() {}, safeInsets: () => ({ l: 0, t: 0, r: 0, b: 0 }), sameView: (a, b) => a && b && Math.abs(a.k - b.k) < 0.001 && Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1, sitesPaint() {}, svg: { clientWidth: 1440, clientHeight: 800 }, vbCenter: () => [vb.cx, vb.cy], vtTrack: createGlideTracker(), viewXfRetargetTo: () => false, geo: {} };
   const g = createGlide(st, live);
   return { live, g, vb, moves, now(t) { clock = t; performance.now = () => clock; }, run(t) { clock = t; const c = frames; frames = []; for (const cb of c) cb(t); }, done() { performance.now = real; } };
 }
@@ -414,17 +389,17 @@ function rig(from, room = null) {
 test('a framing asked for while a move runs (the cards settled, or the next slide) goes on to it without going back or overshooting', () => {
   const A = { k: 1.2, x: -100, y: -50 }, B = { k: 3, x: -2300, y: -1000 };
   const cases = [
-    ['the cards settle half way: a small correction', 0.5, { k: 3.05, x: -2330, y: -1010 }, { arc: true, steady: true }, 400],
-    ['the cards settle near the end', 0.8, { k: 3.05, x: -2330, y: -1010 }, { arc: true, steady: true }, 400],
-    ['the cards settle: a bigger correction', 0.5, { k: 3.2, x: -2450, y: -1000 }, { arc: true, steady: true }, 400],
-    ['Next pressed half way: on the same way', 0.5, { k: 3.6, x: -2900, y: -1300 }, { arc: true, scale: true }, 900],
+    ['the cards settle half way: a small correction', 0.5, { k: 3.05, x: -2330, y: -1010 }, { steady: true }, 400],
+    ['the cards settle near the end', 0.8, { k: 3.05, x: -2330, y: -1010 }, { steady: true }, 400],
+    ['the cards settle: a bigger correction', 0.5, { k: 3.2, x: -2450, y: -1000 }, { steady: true }, 400],
+    ['Next pressed half way: on the same way', 0.5, { k: 3.6, x: -2900, y: -1300 }, { scale: true }, 900],
   ];
   for (const [what, f, C, opt, ms2] of cases) {
     const r = rig(A);
     try {
       const g1 = viewGeom(C, r.vb), T = [g1.cx, g1.cy], pts = [];
       const rec = () => pts.push([r.live.vt.k * T[0] + r.live.vt.x, r.live.vt.k * T[1] + r.live.vt.y, r.live.vt.k]);
-      r.now(0); r.g.animateVT(B, 900, { arc: true, scale: true }); rec();
+      r.now(0); r.g.animateVT(B, 900, { scale: true }); rec();
       const tr = Math.round((f * 900) / 16) * 16;
       for (let t = 16; t <= tr; t += 16) { r.run(t); rec(); }
       r.now(tr); r.g.animateVT(C, ms2, opt);
@@ -494,7 +469,7 @@ test('a glide whose first frame comes late starts from where it stood, and its e
   for (const late of [20, 60, 150, 400]) {
     const r = rig(A);
     try {
-      r.now(0); r.g.animateVT(B, 900, { arc: true, scale: true });
+      r.now(0); r.g.animateVT(B, 900, { scale: true });
       const ms = r.live.vtMs;
       r.run(late);
       const frac = Math.log(r.live.vt.k / A.k) / Math.log(B.k / A.k);
@@ -507,7 +482,7 @@ test('a glide whose first frame comes late starts from where it stood, and its e
   }
   // a first frame on time is not held
   const r = rig(A);
-  try { r.now(0); r.g.animateVT(B, 900, { arc: true, scale: true }); const u0 = r.live.vtUntil; r.run(16); assert.equal(r.live.vtUntil, u0, 'on time: nothing moves'); } finally { r.done(); }
+  try { r.now(0); r.g.animateVT(B, 900, { scale: true }); const u0 = r.live.vtUntil; r.run(16); assert.equal(r.live.vtUntil, u0, 'on time: nothing moves'); } finally { r.done(); }
 });
 
 test('a move taken over mid-way keeps its speed: the landing framing\'s screen step does not jump or stop at the hand-over', () => {
@@ -517,10 +492,10 @@ test('a move taken over mid-way keeps its speed: the landing framing\'s screen s
     try {
       const g1 = viewGeom(C, r.vb), T = [g1.cx, g1.cy], pts = [];
       const rec = () => pts.push([r.live.vt.k * T[0] + r.live.vt.x, r.live.vt.k * T[1] + r.live.vt.y]);
-      r.now(0); r.g.animateVT(B, 900, { arc: true, scale: true }); rec();
+      r.now(0); r.g.animateVT(B, 900, { scale: true }); rec();
       let t = 0; for (; t < 400; t += 16) { r.run(t + 16); rec(); }
       const before = pts.length - 1;
-      r.now(t); r.g.animateVT(C, 900, { arc: true, scale: true });
+      r.now(t); r.g.animateVT(C, 900, { scale: true });
       for (t += 16; t < 3000 && r.live.vtGliding; t += 16) { r.run(t); rec(); }
       const step = (i) => Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
       const v0 = step(before), v1 = step(before + 2);
@@ -549,7 +524,7 @@ test('a real change asked while a slide\'s move runs (a card folded, the screen 
   const r = rig(A);
   try {
     const g1 = viewGeom(B, r.vb), T = [g1.cx, g1.cy], first = [];
-    r.now(0); r.g.animateVT(B, 1500, { arc: true, scale: true, slide: true });
+    r.now(0); r.g.animateVT(B, 1500, { scale: true, slide: true });
     const ms = r.live.vtMs;
     let t = 16;
     for (; r.live.vtTarget === B && t < 4000; t += 16) {
@@ -568,7 +543,7 @@ test('a real change asked while a slide\'s move runs (a card folded, the screen 
     // (and the judge fails that slide: its plan was made before the room it frames was final)
     assert.ok(judgeSlideMove(r.live.camLock.traces().at(-1), r.vb).some((f) => /second move after the landing/.test(f)), 'the judge names the second move');
     // a new slide, a hand and a slow push are never held
-    r.now(t); r.g.animateVT(B, 1500, { arc: true, scale: true, slide: true });
+    r.now(t); r.g.animateVT(B, 1500, { scale: true, slide: true });
     r.now(t + 100); r.g.animateVT(A, 900, { scale: true, v0: { k: 0, x: 0.1, y: 0 } });
     assert.equal(r.live.vtTarget, A, 'a hand takes over at once');
   } finally { r.done(); }

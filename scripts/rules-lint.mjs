@@ -74,6 +74,12 @@ const allowed = JSON.parse(readFileSync(join(ROOT, 'scripts/lazy-imports.json'),
 const errors = [];
 for (const [n, at] of switches) if (!KEEP.has(n) && !left.includes(n)) errors.push(`new runtime switch ?${n} (${at.join(', ')}): no new switches; build the one path`);
 for (const n of left) if (!switches.has(n) && !flagReads.has(n)) errors.push(`?${n} is no longer read: take it out of scripts/switches-left.json`);
+// The address is read through src/ui/flags.js only: two files reading location.search themselves let the same flag mean different things in two places (moved here from a test that
+// walked src/, 19 Nov 2026; the allowance is 0 and a new flag goes through the module).
+for (const f of files) {
+  if (!f.endsWith('.js') || f.endsWith('/ui/flags.js')) continue;
+  readFileSync(f, 'utf8').split('\n').forEach((l, i) => { if (/\blocation\??\.search\b/.test(l) && !/^\s*\/\//.test(l)) errors.push(`${f.slice(ROOT.length + 1)}:${i + 1} reads location.search itself: go through flagOn / flagValue / searchNow in src/ui/flags.js`); });
+}
 for (const l of new Set(lazy)) if (!(l in allowed)) errors.push(`dynamic import ${l} is not in scripts/lazy-imports.json: say what reads it in before a person can reach it`);
 for (const l of Object.keys(allowed)) if (!lazy.includes(l)) errors.push(`scripts/lazy-imports.json lists ${l}, which the source no longer has`);
 
@@ -412,14 +418,23 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     [/D\.lumBox\.on = !!C && joinBase < 0;/, "the lumen pass is scissored to the rows' box only at rest: between the views the rows' points move, and the bundle's points are the first sample's"],
   ]);
 
-  // The lobule's label search keeps to a deadline (15 Nov 2026, app review LZ2-1): source shapes moved out of tests (PR-02), each with its reason.
+  // The lobule's label search is a generator bounded by a count of solves (15 Nov 2026 LZ2-1; 19 Nov 2026 STG-1): source shapes moved out of tests (PR-02), each with its reason.
   need('src/ui/lobule-zoom*', [
-    [/searchBudget\.begin\(\);\n\s+do \{\n\s+const s2 = solve\(permOf\(items, idx, ord\), base, LC\.ld0, trial\);/, "the order search begins its budget and checks it between solves, so a crowded layout is never 0.6 s in one frame"],
-    [/if \(searchBudget\.over\(\)\) break;\n\s+\} while \(nextPerm\(idx, items\.length\)\);/, "the six-label order loop stops at its deadline"],
-    [/if \(sol\.total >= 1e5 && !searchBudget\.over\(\)\) sol = retryClash\(/, "the other-sinusoid retry (30 x 120 solves, 2 s) only starts inside the deadline"],
-    [/if \(searchBudget\.end\(\)\) nextFrame\(\(\) => \{ if \((?:live\.)?geo && (?:live\.)?fade > 0\) \{ (?:live\.)?layoutKey = ''; lzLoop\.want\(true\); \} \}\);/, "a cut search is run again, longer, in a later frame"],
+    [/searchBudget\.begin\(\);\n\s+do \{\n\s+const s2 = solve\(permOf\(items, idx, ord\), base, LC\.ld0, trial\);\n\s+searchBudget\.spend\(\);/, "the order search begins its budget and counts each solve, so a crowded layout is bounded by the same number of solves on every device"],
+    [/if \(searchBudget\.over\(\)\) break;\n\s+if \(sliceOver\(\)\) yield;\n\s+\} while \(nextPerm\(idx, items\.length\)\);/, "the six-label order loop stops at its budget and yields between solves once its frame's slice is spent"],
+    [/if \(sol\.total >= 1e5 && !searchBudget\.over\(\)\) sol = yield\* retryClash\(/, "the other-sinusoid retry only starts inside the budget, and goes on in later frames where it stopped"],
+    [/function\* layoutBody\(fr0, g, jb\)/, "the layout is a generator: a search that is not finished goes on in the next frame, the labels standing where they were seen until it lands (STG-1)"],
     [/cands\.length = Math\.min\(cands\.length, 8\);/, "eight other sinusoids at most"],
-    [/if \(searchBudget\.over\(\)\) break;\n\s+sinIt\.a\[0\] = a\[0\]; sinIt\.a\[1\] = a\[1\];/, "the candidate loop stops at its deadline"],
+    [/if \(searchBudget\.over\(\)\) break;\n\s+sinIt\.a\[0\] = a\[0\]; sinIt\.a\[1\] = a\[1\];/, "the candidate loop stops at its budget"],
+    [/if \(winSin != null\) pick\.sin = winSin;/, "the sinusoid that carries the label is set once, when the search has finished, never under a search that is cut"],
+    [/const callLead = placeCall\(fr, placed, cards, LC\.none, crosses, ring, hex, keep, into, callOutMain, true\);/, "the pill is placed dry (no write to the page) and written once, landCall, when the layout lands"],
+  ]);
+  forbid('src/ui/lobule-zoom*', /performance\.now\(\) > (?:live\.)?deadline|searchBudget\.end\(/, 'the label search is bounded by a count of solves, never a clock: the same lobule state must give the same layout on every device (STG-1)');
+  forbid('src/ui/lobule-zoom*', /pick\.sin = t\.id/, 'pick.sin is set once when the search has finished (STG-1)');
+  // What covers the figure is one list, src/ui/blockers.js (19 Nov 2026, bible review STG-2): source shapes moved out of tests (PR-02), each with its reason.
+  for (const f of ['src/ui/stage-label-items.js', 'src/ui/lobule-zoom.js', 'src/ui/sinusoid-view.js']) forbid(f, /querySelectorAll\(\s*['"`]\.stage-blocker:not\(\[hidden\]\)['"`]\s*\)|BLOCKER_SEL\s*=/, 'what covers the figure is read from src/ui/blockers.js (one list, one set of rules, rest boxes), never a copy: a label tucked under the teaching glass in the lobule and sinusoid when each kept its own');
+  need('src/ui/stage-fit.js', [
+    [/function cardSpaceFrom\(list\) \{[\s\S]{0,300}for \(const \{ el, rest: q,/, "the room the catheter's readings keep to counts each card at its rest box, so a card still sliding in does not move them twice (STG-2)"],
   ]);
 
   // The sinusoid view's cells pass is scissored to the cells' boxes (15 Nov 2026, app review OG-2): source shapes moved out of tests (PR-02), each with its reason.
@@ -573,14 +588,26 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   need('src/ui/stage-view.js', [[/vb0: \[vbBox\.x, vbBox\.y, vbBox\.width, vbBox\.height\]/, 'a change keeps the view box its camera was written for'], [/sameView\(live\.vt, to\), \[vbBox\.x/, 'a retarget keeps the box the camera it sets out from stands in']]);
   need('src/ui/stage-fit.js', [[/viewXfCameraInto\(g\.x, /, "the phone's turn glide is worked out on the screen too: the view box turns under the camera"]]);
   forbid('src/ui/stage-glide.js', /camMs\([^)]*VIEW\.w|springSlope\([^)]*VIEW\.w/, "a glide's time and carried speed count the screen's real width (stage-ride.js screenW), not the old 1400 plate");
-  need('src/ui/stage-glide.js', [[/else if \(opt\.slow\) animateVT\(to, ms, \{ arc: true, scale: true, floor: CAM_MS_MAX, slide \}\)/, "the move in from a case card takes the time the move out took (frameBox opt.slow)"]]);
+  need('src/ui/stage-glide.js', [[/else if \(opt\.slow\) animateVT\(to, ms, \{ scale: true, floor: CAM_MS_MAX, slide \}\)/, "the move in from a case card takes the time the move out took (frameBox opt.slow)"]]);
   need('src/ui/presenter.js', [
     [/prep = bare \? unseenFit\(cut\) : null, Promise\.resolve\(prep\)\.then\(\(ok\) => \(bare && !ok \? null : camera\(cam, fv, cut\)\)\)/, "the lead-in camera frames only after the unseen cards' last fitting (Carvedilol 3 to 4, 16 Nov 2026: a framing taken before it was undone by a second move)"],
     [/else if \(cam\) \{ if \(prepWith\) \{ prep \|\|= unseenFit\(cut\); if \(!await prep\) return; \} await camera\(cam, fv, cut, plate \? CARDS_AT : 0\); \}/, "the slide's camera frames only after the unseen cards' last fitting, for every kind of slide change over the plate (same patient, new patient, case card)"],
   ]);
   need('src/ui/presenter.js', [[/await caseLifted\(cut\); if \(cut\(\)\) return; caseExit = true;/, "the camera behind a case card is at the whole patient: its move in takes 900 ms (presenter-proc.js frameTo reads caseExit)"]]);
   need('src/ui/presenter-proc.js', [[/live\.caseExit && !opt\.drift \? \{ \.\.\.opt, slow: true \} : opt/, "frameTo asks the move in from a case card slow"]]);
-  need('src/ui/stage-glide.js', [[/arcRoom\(freeAsk\)/, "a framing's arc travels the middle of the room the cards left (cam-arc.js camWindow)"]]);
+  // A card zoom's callouts come back through their fade (19 Nov 2026, bible review STG-6): source shapes kept here (PR-02), each with its reason.
+  need('src/ui/stage-zoom.js', [
+    [/h\.el\.style\.transition = `opacity \$\{D_SMALL\}ms var\(--ease\)`; h\.el\.style\.opacity = h\.was; \}\n\s+stageScope\.timer\(\(\) => \{ for \(const h of back\) h\.el\.style\.transition = h\.tr; \}, D_SMALL \+ 40\);/, "the callouts hidden under a zoomed card return under the fade they left by, and drop the inline transition once it has run: opacity and transition written together popped them back in one frame"],
+  ]);
+  // The catheter stack's row flip is a soft dip and rise, and a crossing is marked (19 Nov 2026, bible review STG-9): source shapes kept here (PR-02).
+  need('src/ui/stage-cath.js', [[/t\.classList\.toggle\('sw-a', on\); t\.classList\.toggle\('sw-b', !on\)/, 'the order flip of the HVPG stack replays a dip-and-rise on the box and its leaders (two class names take turns), never an instant swap'], [/el\.dataset\.leadsUnclean = '1'/, 'a stack whose leaders cross either way is marked on its root']]);
+  need('styles/app-06-plate.css', [[/@keyframes cath-swap-a \{ from \{ opacity: 0\.25; \} \} @keyframes cath-swap-b/, 'the dip the stack makes as its two rows swap']]);
+  // One reading-text rule for the figure's labels and the lobule's stations (19 Nov 2026, bible review STG-5): source shapes kept here (PR-02).
+  need('src/ui/lobule-zoom-labels.js', [[/badgeOn\(m\.cmp\), off = badgeOff\(m\.cmp\)/, 'the lobule station badge reads the one rule (change-badge.js)'], [/rollStep\(rl, v, 0\.5, performance\.now\(\), reduce\.matches\)/, 'a lobule station number counts to its new value as every other reading does (count-roll.js)'], [/padDigits\(L\.el\.innerHTML\)/, 'a label key pads its digits: 9.9 and 10.0 are one key']]);
+  need('src/ui/stage-label-items.js', [[/badge\(\(cmp \? 'pc:' : 'p:'\) \+ id, Math\.abs\(P - ref\), badgeOn\(cmp\), badgeOff\(cmp\)\)/, 'the figure\'s change badge reads the one rule (change-badge.js)']]);
+  // The camera has one path, the straight one (19 Nov 2026, bible review STG-4; Mohammad, 18 Nov: "camera must zoom straight from any view to any view"): no pull-back arc, no blend of two paths, no arc option.
+  for (const f of ['src/ui/stage.js', 'src/ui/stage-glide.js', 'src/ui/stage-cath.js', 'src/ui/stage-ride.js', 'src/ui/stage-fit.js', 'src/ui/stage-view.js']) forbid(f, /\barcRoom\b|\bcamPath\b|\bblendPaths\b|\barcRun\b|\bviewsOverlap\b|\barc: true|\{ arc\b/, 'the camera goes straight from any view to any view: no pull-back arc, no blended refit, no arc option (cam-arc.js lerpInto)');
+  forbid('src/ui/proc-anim.js', /\barc:\s*(?:true|false)/, 'a procedure shot goes straight: no arc option (STG-4)');
   forbid('src/ui/stage-ride.js', /VIEW\./, 'the arcs read the stage\'s real view box (cam-arc.js camWindow), never the old 1400 x 1000 plate');
   need('src/ui/lobule-zoom*', [[/diveMapInto\(D\.p, D\.c, D\.rot, D\.Z, g, DM\)/, 'the lobule is carried by the dive map: turned and grown about its sinusoid, which goes straight to its place']]);
   forbid('src/ui/lobule-zoom*', /D\.q\b/, 'no fixed point: the zoom into a sinusoid spiralled about it (15 Nov 2026)');
@@ -719,8 +746,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   }
   need('src/ui/stage-glide.js', [
     [/const v0 = opt\.v0 \|\| \(!drift && live\.vtGliding \? vtTrack\.take\(performance\.now\(\)\) : null\);/, "a glide takes the hand's speed (opt.v0) or the glide's it replaces"],
-    [/if \(v0 && \(!live\.arcRun \|\| newArc\) && !sameView\(from, to\)\) \{/, 'a fresh arc carries the old speed on, as a plain glide does (item 14)'],
-    [/t0 = prev\.t0; ms = prev\.ms;\n\s+live\.arcRun = \{ from: prev\.from, to, t0, ms, at \};/, "a refit's blend of a running arc keeps its pace and end time"],
+    [/if \(v0 && !sameView\(from, to\)\) \{/, 'a glide carries the old speed on (item 14), on the straight path'],
   ]);
   need('src/ui/stage-ride.js', [[/lerpInto\(a, b, f, FOLLOW_V\)/, 'the card-room follow zooms in log space (item 14)']]);
   need('src/ui/card-zoom.js', [

@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { Engine } from '../src/engine/engine.js';
 import { computeMetrics } from '../src/engine/metrics.js';
 import { PRESETS } from '../src/engine/scenario.js';
+import { VALIDATION } from '../src/version.js';
 
 const run = (g) => { let n; do { n = g.next(); } while (!n.done); };
 const r1 = (v) => Math.round(v * 10) / 10;
@@ -54,6 +55,8 @@ function check(text, r, id) {
   if (/reverses/.test(t)) need(m.pvFlow < 0, `reversed portal flow, shown ${m.pvFlow.toFixed(2)} L/min`);
   if (/(?:high right atrial|raises RA|RA pressure)/.test(t) && /(?:High right|raises RA)/.test(t)) need(m.ra > 10, `raised RA pressure, shown ${m.ra.toFixed(1)}`);
   if (/splenomegaly/.test(t)) need(m.spleen.length > 13, `splenomegaly, spleen ${m.spleen.length.toFixed(1)} cm`);
+  // Severity words sit in bands (bible review 19 Nov, ENG-9: "very high sinusoidal resistance" and "end-stage" over an HVPG of 11): they need the HVPG of the decompensated band.
+  if (/end-stage|very high (?:sinusoidal )?resistance/i.test(t)) need(lo.hvpg >= 16, `severity word (end-stage / very high resistance) over an HVPG of ${lo.hvpg}`);
   // Varices and ascites: a sentence that says the patient grows them is not a statement about the resting size.
   const v = t.replace(/small varices (?:grow|enlarge)[^.]*|enlarge small varices|Varices (?:common|can form)|fundal varices/gi, '');
   if (/\bno varices/i.test(v)) need(m.varix.d < 2.5, `no varices, shown ${m.varix.d.toFixed(1)} mm`);
@@ -86,4 +89,11 @@ test('the checker itself fails the old wording (review 15 Nov)', () => {
   assert.ok(check('HVPG 7 to 9 mmHg', comp, 'cirr-comp').length > 0, `7 to 9 over ${comp.lo.hvpg} to ${comp.hi.hvpg}`);
   assert.ok(check('HVPG ≈ 3 mmHg', healthy, 'healthy').length > 0, 'about 3 over 2.1 to 2.5 with the breath');
   assert.ok(check('Mesenteric congestion; no collaterals yet', pvt, 'pvt-acute').length > 0, 'no collaterals over a large shunt');
+});
+
+test('the About page\'s validation line for the arterioportal-shunt patient says what that preset shows (ENG-9)', () => {
+  const line = VALIDATION.find((v) => /arterioportal shunting/.test(v));
+  assert.ok(line, 'the validation list names the arterioportal-shunt patient');
+  assert.deepEqual(check(line, settled('cirr-hepatofugal'), 'cirr-hepatofugal'), []);
+  assert.ok(check('End-stage cirrhosis with arterioportal shunting: hepatofugal portal flow', settled('cirr-hepatofugal'), 'cirr-hepatofugal').length > 0, 'the old words fail');
 });

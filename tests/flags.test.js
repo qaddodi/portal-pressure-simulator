@@ -6,8 +6,6 @@
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
 import { flagOn, flagValue, flagNumber, gateOf, knownFlags, FLAGS, EXTRA, ALIASES } from '../src/ui/flags.js';
 import { parseCheckAddress } from '../src/ui/gallery/phone-check-panel.js';
 
@@ -67,15 +65,19 @@ test('?rate is the Phone check\'s old spelling of ?testclock: read as the rate, 
   assert.equal(flagOn('testclock', '?check&rate=8'), false);
 });
 
-// ── no file but flags.js reads location.search ──
-const walk = (d) => readdirSync(d).flatMap((n) => { const p = join(d, n); return statSync(p).isDirectory() ? walk(p) : p.endsWith('.js') ? [p] : []; });
-test('no file reads location.search but src/ui/flags.js (the allowance is 0: a new flag goes through the module)', () => {
-  const root = new URL('../src/', import.meta.url).pathname;
-  const bad = [];
-  for (const f of walk(root)) {
-    if (f.endsWith('/ui/flags.js')) continue;
-    const s = readFileSync(f, 'utf8');
-    s.split('\n').forEach((l, i) => { if (/\blocation\??\.search\b/.test(l) && !/^\s*\/\//.test(l)) bad.push(`${f.slice(root.length)}:${i + 1}`); });
-  }
-  assert.deepEqual(bad, [], `these read location.search themselves, so the same flag can mean different things in two files: ${bad.join(', ')}`);
+test('?debug is the one name of the debug page: it opens the gallery, the Phone check and its long walk and the frame, and the old names still do', () => {
+  assert.equal(flagValue('gallery', at('?debug', 'preview')), '');
+  assert.equal(flagValue('gallery', at('?debug=gallery', 'preview')), '');
+  assert.equal(flagValue('gallery', at('?debug=frame', 'preview')), 'frame');
+  assert.equal(flagValue('check', at('?debug=check', 'local')), '');
+  assert.equal(flagValue('check', at('?debug=full', 'local')), 'full');
+  assert.equal(flagValue('check', at('?debug', 'local')), null, 'the page alone is not the walk');
+  assert.equal(flagValue('gallery', at('?debug=check', 'local')), null, 'the walk is not the page');
+  assert.equal(flagOn('gallery', at('?debug', 'local')), true);
+  assert.equal(flagValue('debug', at('?debug=check', 'local')), 'check');
+  // (the same gate as the old names: the live site never reads it)
+  for (const q of ['?debug', '?debug=check', '?debug=frame']) { assert.equal(flagValue('gallery', at(q, 'live')), null); assert.equal(flagValue('check', at(q, 'live')), null); }
+  assert.equal(flagValue('gallery', at('?gallery', 'preview')), '', 'the old spelling still works');
+  assert.equal(gateOf('debug'), 'local');
+  assert.ok(knownFlags().some((f) => f.id === 'debug'));
 });

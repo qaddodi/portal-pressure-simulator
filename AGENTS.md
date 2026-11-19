@@ -60,6 +60,10 @@ links the shader strings of `scripts/glsl-compile-list.mjs` in headless Chromium
 (never the app), draws nothing, takes no picture and measures nothing, and runs in no workflow. The Tube renderer's threads run it on their own programs
 before a push (`docs/tube-renderer.md`); every other headless run stays off.
 
+**Layout-only runs open the app through `scripts/headless.mjs` (19 Nov 2026).** Its `launchLayout()` / `open()` stub every GL draw, take no picture (`page.screenshot` throws) and are the only way the deck sweep,
+the gallery sweep, the turn sweep, the packet replay and `card-fit` start a browser; `tests/headless-only.test.js` fails a runner that imports the picture tool's `openApp` or pastes its own stub. Pictures stay in `scripts/shoot.mjs`.
+Every debug tool ends with one report block (`docs/report.md`); `node scripts/report.mjs show|compare <paste>` reads it. `npm run debug` lists every debug verb (packet, report, model, sweep, rules, flags, scan, affected).
+
 ## Questions about the model's numbers (use the terminal model command)
 
 Ask the model, not a browser. `npm run model -- --preset <id> [--carvedilol|--tips 8|--set path=value ...] [--days N] [--compare] [--json]`
@@ -147,7 +151,7 @@ open on it, and never touches the other copy's.
 
 ## The card gallery (preview only)
 
-`/preview/?gallery` opens the app with a catalog of every card (plan: `/mnt/project-files/card-gallery-plan/debug-page-recs.md`, notes: `docs/card-gallery.md`).
+`/preview/?debug` (the old `?gallery` still works) opens the app with a catalog of every card (plan: `/mnt/project-files/card-gallery-plan/debug-page-recs.md`, notes: `docs/card-gallery.md`).
 A new card kind, instrument option, visual, readout tile, trial, flowchart, Tests pane or structure-card shape, or a visible change to a card, adds or
 updates its specimen in `src/ui/gallery/catalog.js` (teaching cards, one slide each in the generated deck under Present > Testing) or
 `src/ui/gallery/catalog-main.js` (Tests panes, structure cards, sheets) in the same push. `tests/gallery-coverage.test.js` fails until it has one.

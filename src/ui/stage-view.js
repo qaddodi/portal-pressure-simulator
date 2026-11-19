@@ -195,7 +195,7 @@ export function createView(st, live) {
     xfVisFill();
     const pending = solveTargetView(d);
     // (A glide of the camera that was running is over: the change's own clock moves it now.)
-    cancelFrame(live.vtAnim); live.arcRun = null; live.following = false;
+    cancelFrame(live.vtAnim); live.following = false;
     if (live.drifting) driftEnd();
     live.drifting = false;
     const to = { k: d.k, x: d.x, y: d.y };

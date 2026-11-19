@@ -15,8 +15,6 @@
  "blood-zoom-look.test.js",
  "blur-off-labels.test.js",
  "breakpoints.test.js",
- "cam-arc.test.js",
- "cam-frame.test.js",
  "camera-only-revisions.test.js",
  "camera-room.test.js",
  "caption-text-policy.test.js",

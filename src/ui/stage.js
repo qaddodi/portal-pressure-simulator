@@ -169,7 +169,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get adaptK() { return adaptK; }, set adaptK(v) { adaptK = v; },
     get aimed() { return aimed; }, set aimed(v) { aimed = v; },
     get aiming() { return aiming; }, set aiming(v) { aiming = v; },
-    get arcRun() { return arcRun; }, set arcRun(v) { arcRun = v; },
     get ascEls() { return ascEls; },
     get ascShown() { return ascShown; }, set ascShown(v) { ascShown = v; },
     get ascStale() { return ascStale; }, set ascStale(v) { ascStale = v; },
@@ -275,7 +274,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get figureHidden() { return figureHidden; },
     get figureShown() { return figureShown; }, set figureShown(v) { figureShown = v; },
     get firstFit() { return firstFit; }, set firstFit(v) { firstFit = v; },
-    get fitKept() { return fitKept; }, set fitKept(v) { fitKept = v; },
     get fitted() { return fitted; }, set fitted(v) { fitted = v; },
     get fluidAmp() { return fluidAmp; }, set fluidAmp(v) { fluidAmp = v; },
     get fluidBandH() { return fluidBandH; }, set fluidBandH(v) { fluidBandH = v; },
@@ -1354,7 +1352,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // are refreshed in place (see refreshValues); a value whose text changes shape lays the labels out again.
   let labelKey = null, labelFonts = 0, labelShown = [], noChevBoxes = [], labelPainted = false;   // labelPainted: the last updateLabels painted the callouts and probes
   const { ANCHOR_W, NO_ANCHOR, animZoomAt, applyClampFs, applyVT, clientToVB, clientToWorld, flushVT, freeCentre, localToWorldInto, refreshCTM, saSides, stageBox, syncView, worldToLocal, worldToLocalInto, zoomAt } = createCamera({ CIRC_C, DOT_MIN_PX, animateVT, clampGs, clientToVBFast, flushGeo, geoHeld, haloEls, mapTurn, nd, nextFrame, nodeVerts, onViewChange, placeClampLabels, readFrame, rotDeg, safeInsets, sitesPaint, svg, syncSemantic, updateLabels, vbBox, world, wrap }, live);
-    let fitKept = 0;
     let circFit = null;
     // A card or sheet opened or closed: glide to the framing for the space that is now free (not in the lobule, which refits itself).
   // (circAgain: lookHome has it take the circuit's last kind of framing again, for a new shape, instead of the close-up.)
@@ -1497,7 +1494,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let drifting = false;
     // A card's zoom (zoomOpen) carries the labels that have no world anchor by the scene camera's ride (label-gl.js ride). Every other camera move (a hand, a glide, a slow push, a presenter's move) rides nothing: the labels are pose-driven (updateLabels, labels-plan.md).
   let labelRider = null, rideCTM = null;
-    // opt.arc: a presenter's framing. A long move (the two views share nothing) pulls back and comes in rather than panning across at full zoom.
   // The view following a presenter's card frame by frame (Mohammad, 30 Oct, iPhone: "The view still snaps/jumps when I untuck a stacked
   // card"): as the readings' card slides out or tucks away, under the finger or on its own ease, the view is set each frame between the
   // framing for the readings tucked (v0) and the framing for them out (v1), at the same share u the card has travelled. The figure then
@@ -1506,11 +1502,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // push (drifting) and are solved again once it ends (followEnd, driftEnd). Any glide or framing set outright ends it (animateVT).
   // aimView: where a framing would go, without moving: the camera functions run with animateVT only noting its target.
   let following = false, follow0 = null, follow1 = null, aiming = false, aimed = null, followScene = false, followU = 0;
-  const { aimView, arcRoom, screenW, camSettle, camSettleIdle, driftEnd: driftEnd$, followAt, followStart, rideLeaders, rideNow, rideStart, rideStep, rideStop, stagePx, stagePxInto, stagePxNow, viewNow } = createRide({ applyVT, dpr, labelSettleSoon, refreshCTM, sameView, sceneSet, sceneStart, sitesPaint, stageBox, updateLabels, vCanvas, vbBox, wrap }, live);
+  const { aimView, screenW, camSettle, camSettleIdle, driftEnd: driftEnd$, followAt, followStart, rideLeaders, rideNow, rideStart, rideStep, rideStop, stagePx, stagePxInto, stagePxNow, viewNow } = createRide({ applyVT, dpr, labelSettleSoon, refreshCTM, sameView, sceneSet, sceneStart, sitesPaint, stageBox, updateLabels, vCanvas, vbBox, wrap }, live);
   function driftEnd(...a) { return driftEnd$(...a); }   // <stage-split stub>
   let handRide = false, handRideT = 0, layCTM = null;   // (handRide: the labels are held while the camera moves, see updateLabels; layCTM: the camera they were last laid out under)
   // The arc a presenter's long move is taking (see cam-arc.js), so a refit while it runs bends it to the new framing instead of starting over.
-  let arcRun = null;
   // The camera zoomed with a card (card-zoom.js, 4 Nov 2026, "zoom the entire camera"): the whole view is scaled by S about the screen point (px, py)
   // and then moved by (dx, dy) screen px, the same transform the zoomed cards are given, so the figure, the liver and the labels' places ride with them.
   // zoomOpen takes the view as it stands (null: it is not at rest, nothing is zoomed); zoomAt is one frame of it, written as the view (k, x, y), one
@@ -1538,7 +1533,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // zooms straight to that framing, so there is no stop at the fit on the way. The box is asked for when the rise
   // begins (the plate is brought up to date first, so it is measured as it will be). It expires if the lobule was not open to rise from.
   let riseBox = null, riseExp = 0, riseUsed = false;
-  const { animateVT: animateVT$, frameBox, railEnd, riseTo, riseToVT, riseVT: riseVT$, vtFor, zoomToBox } = createGlide({ CIRC_C, applyVT, arcRoom, screenW, camSettle, camSettleIdle, circVB, dpr, driftEnd, glideXfStart, glideXfStep, logMove, nextFrame, refreshCTM, rideStep, safeInsets, sameView, sitesPaint, svg, vbCenter, vtTrack, viewXfRetargetTo }, live);
+  const { animateVT: animateVT$, frameBox, railEnd, riseTo, riseToVT, riseVT: riseVT$, vtFor, zoomToBox } = createGlide({ CIRC_C, applyVT, screenW, camSettle, camSettleIdle, circVB, dpr, driftEnd, glideXfStart, glideXfStep, logMove, nextFrame, refreshCTM, rideStep, safeInsets, sameView, sitesPaint, svg, vbCenter, vtTrack, viewXfRetargetTo }, live);
   function animateVT(...a) { return animateVT$(...a); }   // <stage-split stub>
   function riseVT(...a) { return riseVT$(...a); }   // <stage-split stub>
   function zoomLiver() {
@@ -3084,7 +3079,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     siteFp(fp) { if (fp && store.get().presenting) store.set1('presentFp', fp); slideFp = fp; if (sites.list) sites.fp = fp; },   // (the lobule's labels read the same fingerprint, from the store: lobule-model.js pinToSlide)   // (the numbers the slide's tiles now show: a what-if, a time-lapse)
     setSites(list, fp = null) { sites.list = list?.length ? [...list] : null; sites.fp = fp; if (fp) slideFp = fp; if (!sites.list) for (const k of [...resMade.keys()]) resPaint(k, SITE_DEF[k], null); if (!sites.list) for (const [k, el] of [...sites.made]) siteLeave(k, el); else { refreshCTM(); sitesPaint(); } },
     /** Frame the catheter's route ('route'), its tip close up ('tip'), or go back to the view before ('home'); a treatment's
-     *  shots are 'way' (its whole route) and 'tip' (the stretch it works on). arc: a long move pulls back and comes in. */
+     *  shots are 'way' (its whole route) and 'tip' (the stretch it works on). Every move is the straight one. */
     cathFocus,
     /** Where cathFocus(mode, ms, opt) would frame the view, without moving it (null: no route to frame yet). The way out of the lobule lands on it (riseToVT). */
     cathShot(mode, opt) { const had = !!cath.saved; let ok = false; const v = aimView(() => { ok = cathFocus(mode, 0, opt); }); if (!had) cath.saved = null; return ok ? v : null; },

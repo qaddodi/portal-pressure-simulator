@@ -1,4 +1,4 @@
-// The card fit rules, in one place (docs/card-gallery.md, plan 2.7). The judging that scripts/card-fit.mjs and scripts/phone-card-fit.mjs used
+// The card fit rules, in one place (docs/card-gallery.md, plan 2.7). The judging that scripts/card-fit.mjs and (until 19 Nov 2026) scripts/phone-card-fit.mjs used
 // to keep to themselves, and four checks from Mohammad's standing rules, so a script in headless Chromium and the Check button on the device in
 // his hand give the same verdict:
 //
@@ -32,7 +32,7 @@ import { EDGE_KINDS, EDGE_WORDS } from './edge-rules.js';
 export { TITLE_RATIO, WORDS_MIN_PX };
 
 /** Every category a judge may name, in the order a list shows them. */
-export const KINDS = ['enlarged', 'zoomed', 'scroll', 'clipped', 'off', 'small', 'ratio', 'sideways', 'styled', 'chart', 'blank', 'cut', 'tall'];
+export const KINDS = ['enlarged', 'zoomed', 'scroll', 'clipped', 'off', 'small', 'ratio', 'sideways', 'styled', 'chart', 'blank', 'cut', 'tall', 'sheet'];
 /** What each kind means, one line, for the list the Check button copies. */
 export const KIND_WORDS = {
   enlarged: 'a card up while nothing asked for it',
@@ -48,6 +48,7 @@ export const KIND_WORDS = {
   blank: 'empty glass above or below the words',
   cut: 'a line runs past the card',
   tall: 'the card scrolls though its words fit the space',
+  sheet: 'a phone sheet scrolls while it stops short of the room under the top bar',
 };
 /** The four kinds that are new (the checks from the standing rules); scripts can leave them out with --old-rules. */
 export const NEW_KINDS = ['small', 'ratio', 'sideways', 'styled', 'chart'];
@@ -313,6 +314,35 @@ export function judgeStructureCard(m, opts = {}) {
     for (const t of m.styled || []) out.push(P('styled', t));
   }
   return out;
+}
+
+/**
+ * ONE SELF-CONTAINED FUNCTION (like readCards: scripts/fit-io.mjs can send it into a page). The phone sheet on show (Treat, Settings, History, the menus and the palette) and the room it has: its box, the top
+ * bar's foot, the room between them and whether anything in it scrolls. Null when no sheet shows or the screen is not a phone's width (the sheets are sheets only there; a wider screen's are popovers).
+ * Folded in from scripts/phone-sheet-fit.mjs (19 Nov 2026), which opened each sheet on a phone by hand.
+ */
+export function readSheet(io) {
+  const vis = (e) => { const cs = io.style(e); return !e.hidden && cs.display !== 'none' && cs.visibility !== 'hidden' && +cs.opacity > 0.5 && io.box(e).height > 40; };
+  const el = [...document.querySelectorAll('.treat-card, .history-card, .menu.as-sheet, .why-pop.as-sheet, .pal, .modal')].filter(vis).at(-1);
+  if (!el || window.innerWidth > 500) return null;
+  const r = io.box(el);
+  const tbEl = document.querySelector('.topbar'), tb = tbEl ? io.box(tbEl).bottom : 56;
+  const scrollers = [el, ...el.querySelectorAll('*')].filter((n) => { const o = io.style(n).overflowY; return (o === 'auto' || o === 'scroll') && io.metric(n, 'scrollHeight') > io.metric(n, 'clientHeight') + 1 && io.metric(n, 'clientHeight') > 40; });
+  return { cls: String(el.className).split(' ').slice(0, 3).join('.'), name: el.getAttribute('aria-label') || '', pal: el.classList.contains('pal'), top: Math.round(r.top), bottom: Math.round(r.bottom), h: Math.round(r.height), topBar: Math.round(tb), room: Math.round(r.top - tb), scrolls: scrollers.length > 0, moving: !!el.getAnimations && el.getAnimations().length > 0 };
+}
+
+/** How far a sheet's top may stand below the top bar's foot while its words scroll (a sheet that scrolls has used the room; this is the gap). */
+export const SHEET_SHORT_MAX = 40;
+
+/**
+ * The problems of a readSheet result (null: no sheet). A sheet that scrolls while it stops short of the room is a sheet that could have been taller (the tester at 390 x 844, 18 Nov 2026: Treat at 405 px with
+ * 726 px of words and free room above it). The Layers menu stops under half the screen on purpose (the figure stays in view as its rows are toggled), and the command palette's list is a fixed height on purpose
+ * (it must not jump as the query changes): neither is held to it. A sheet still gliding is not read.
+ */
+export function judgeSheet(m) {
+  if (!m || m.moving) return [];
+  if (m.scrolls && m.room > SHEET_SHORT_MAX && !m.pal && !/layers/i.test(m.name || m.cls)) return [P('sheet', `${m.name || m.cls} scrolls while stopping ${m.room}px short of the room under the top bar (sheet ${m.top}-${m.bottom}, ${m.h}px)`)];
+  return [];
 }
 
 /** The problems as plain lines, for a script's log or a copied list. */
