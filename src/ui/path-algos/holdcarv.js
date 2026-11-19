@@ -2,7 +2,7 @@
 // (systolic <90 or mean <65 mmHg) and/or HRS-AKI; restart and re-titrate once the HRS-AKI has resolved and/or the pressure has recovered.
 // Patient { held, sbp, hrs, map? }: a slide that types sbp or map is judged on what it types (a story the model's patient does not show); one that
 // types neither reads the model's own blood pressure (engine.js bpNow), so a bleed or a drug moves the path.
-import { MAP_BETA_CUT, SBP_BETA_CUT } from '../../engine/kidney-cuts.js';
+import { MAP_BETA_CUT, SBP_BETA_CUT } from '../../engine/portal/kidney-cuts.js';
 import { inheritTone } from './helpers.js';
 
 const tree = inheritTone({

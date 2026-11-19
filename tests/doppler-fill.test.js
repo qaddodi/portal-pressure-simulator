@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SYNTH_FS, SYNTH_UNIS, lineBand, BAND_LOW } from '../src/ui/doppler-synth.js';
-import { EDGES, dopplerK } from '../src/engine/topology.js';
+import { EDGES, dopplerK } from '../src/engine/portal/topology.js';
 
 test('the line shader has one band shape: no venous switch, no artery or stent branch', () => {
   assert.doesNotMatch(SYNTH_FS, /venous/i, 'the shader names no venous flag');

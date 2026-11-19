@@ -13,7 +13,7 @@
     "types": []
   },
   "include": [
-    "src/engine/*.js",
+    "src/engine/**/*.js",
     "src/ui/store.js",
     "src/ui/host.js",
     "src/ui/frame.js",

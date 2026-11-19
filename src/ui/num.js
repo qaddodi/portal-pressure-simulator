@@ -7,7 +7,7 @@
 //   shape   clamp(x, a, b) (always this order), clamp01, lerp, smooth01 (the ease of a fade against a clock)
 
 // (The text a value that is not there (null, NaN, ±Infinity) is shown as: one glyph, kept with the bands' words in pressure-cuts.js.)
-import { NOT_SHOWN } from '../engine/pressure-cuts.js';
+import { NOT_SHOWN } from '../engine/portal/pressure-cuts.js';
 export { NOT_SHOWN };
 
 // (A value's text is made once and kept for the repeats: a readout that holds its value, or comes back to one, asks for the same text on

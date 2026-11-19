@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { rateShown, tileShown, tipsGoal, RATE } from '../src/ui/table-marks.js';
-import { TOKEN_OF_RATE } from '../src/engine/pressure-cuts.js';
+import { TOKEN_OF_RATE } from '../src/engine/portal/pressure-cuts.js';
 
 const SRC = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
 const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');

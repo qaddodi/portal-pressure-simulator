@@ -1,6 +1,6 @@
 // The vessel glow engine: one set of glow sources (hover, slides, focus, Doppler, pressure change) lit by the GPU with the vessels.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { EDGES, STENT_SPANS, isStent, stentGate } from '../engine/topology.js';
+import { EDGES, STENT_SPANS, isStent, stentGate } from '../engine/portal/topology.js';
 import { makeProbeDraw, makeProbePose } from './dop-probe.js';
 import { D_SMALL, D_SURFACE } from './ease.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';

@@ -26,7 +26,7 @@ import { restPass, cancelRest } from './rest-pass.js';
 import { runSoon, propSoon, attrSoon } from './class-soon.js';
 import { readBox, readMetric } from './layout-snap.js';
 import { gradientCss } from './colormap.js';
-import { hvpgSev, ppgSev } from '../engine/pressure-cuts.js';
+import { hvpgSev, ppgSev } from '../engine/portal/pressure-cuts.js';
 import { reduceMotionMQ } from './motion.js';
 const nextFrame = frameFor('card');
 

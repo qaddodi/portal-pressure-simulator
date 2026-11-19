@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createShownState, createFollow, noteJump, SHOWN_TAU } from '../src/ui/display-state.js';
-import { tenthGap } from '../src/engine/gap.js';
+import { tenthGap } from '../src/engine/core/gap.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 // A scheduler the test drives: ask() keeps the one callback asked for; run(t) runs it at time t.

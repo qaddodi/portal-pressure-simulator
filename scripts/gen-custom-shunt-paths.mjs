@@ -7,7 +7,7 @@
 //   node scripts/gen-custom-shunt-paths.mjs
 
 import { writeFileSync } from 'node:fs';
-import { EDGES } from '../src/engine/topology.js';
+import { EDGES } from '../src/engine/portal/topology.js';
 import { NODE_POS } from '../src/ui/anatomy.js';
 import { CurveRouter, anatomyLines, anatomyStations, cubicsToD, searchCourse } from './shunt-route-lib.mjs';
 import { isLiverStent, liverStentSet } from './liver-stent-course.mjs';

@@ -5,8 +5,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { CHANGE_STEPS, STEP_AT, NAME_LEAD_MS, frontDelay, FRONT_MAX_MS, causeOf, hopsFrom, edgeHops, noteChange, changeDrawn, stepLeft, resetChange } from '../src/ui/change-order.js';
-import { defaultParams, deepMerge } from '../src/engine/scenario.js';
-import { EDGES } from '../src/engine/topology.js';
+import { defaultParams, deepMerge } from '../src/engine/portal/scenario.js';
+import { EDGES } from '../src/engine/portal/topology.js';
 import { routeLine, alongPath, project, ROUTES, ALONG_STRETCH } from '../src/ui/cam-routes.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');

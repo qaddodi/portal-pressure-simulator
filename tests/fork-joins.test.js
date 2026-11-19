@@ -166,7 +166,7 @@ test('a fork keeps its trunk through the strands: indexes, trunks and the vessel
 // (Sampled as the stage does, 64 samples even by arc length, an end's direction taken three samples in.)
 test('the coronary vein runs on into the varices, the varices into the azygos route, the fundal feeder into its shunt, and the portal tree keeps its own run-ons beside the collaterals', async () => {
   const { EDGE_PATH, STRANDS } = await import('../src/ui/anatomy.js');
-  const { EDGES } = await import('../src/engine/topology.js');
+  const { EDGES } = await import('../src/engine/portal/topology.js');
   const even = (id, N = 64) => {
     const P = sample(EDGE_PATH[id]), cum = [0];
     for (let i = 1; i < P.length; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));

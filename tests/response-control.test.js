@@ -3,13 +3,13 @@
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
 import { withOverview, DECKS } from '../src/ui/decks.js';
 import { abChoice } from '../src/ui/presenter.js';
 import { NSBB_GAIN, RESPONSE_LEVELS, responseButtons, responseOwn, isResponse } from '../src/ui/nsbb-response.js';
 import { railAt, RAIL_LO, RAIL_HI, vitalsShown } from '../src/ui/vitals-monitor.js';
-import { MAP_BETA_CUT } from '../src/engine/kidney-cuts.js';
+import { MAP_BETA_CUT } from '../src/engine/portal/kidney-cuts.js';
 
 /** The HVPG fall (percent) on a drug at a gain, settled, from the same patient untreated. */
 function fall(preset, drug, gain) {

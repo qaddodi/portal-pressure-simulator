@@ -4,9 +4,9 @@ import { stageSource } from './stage-src.js';
 // vein between the shunt and the IMV, so the IMV still drains to the portal vein.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { deepMerge } from '../src/engine/scenario.js';
-import { EDGES } from '../src/engine/topology.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { deepMerge } from '../src/engine/portal/scenario.js';
+import { EDGES } from '../src/engine/portal/topology.js';
 import { EDGE_PATH, NODE_POS } from '../src/ui/anatomy.js';
 
 const edge = (id) => EDGES.find((e) => e.id === id);
@@ -52,7 +52,7 @@ test('splenorenal shunt flow: blood runs from the splenic vein into the renal ve
 
 test('Warren slide: the varices decompress while the PPG stays high and the liver keeps more portal flow than TIPS', async () => {
   const { SHUNTS } = await import('../src/ui/decks/shunts.js');
-  const { computeMetrics } = await import('../src/engine/metrics.js');
+  const { computeMetrics } = await import('../src/engine/portal/metrics.js');
   const sl = SHUNTS.slides.find((x) => x.id === 'dsrs');
   assert.ok(sl && sl.params.dsrs && sl.mark.edges.includes('S_DSR'), 'the shunts deck has a Warren slide');
   assert.ok(SHUNTS.slides.find((x) => x.id === 'summary').of.some((r) => r.id === 'dsrs'), 'the summary table lists it');
@@ -66,7 +66,7 @@ test('Warren slide: the varices decompress while the PPG stays high and the live
 test('the figure ties off the same vessels the engine closes for each surgical shunt', async () => {
   const fs = await import('node:fs');
   const stage = stageSource();
-  const engine = fs.readFileSync(new URL('../src/engine/engine.js', import.meta.url), 'utf8');
+  const engine = fs.readFileSync(new URL('../src/engine/portal/engine.js', import.meta.url), 'utf8');
   assert.match(stage, /\['S_DSR', 'SV_MID'\]/);
   assert.match(stage, /\['S_PC', 'PV_TRUNK'\]/);
   // The divided vein is drawn apart: its stretch at the shunt is cut away on the GPU, and the ties sit on the stump past the gap.
@@ -113,10 +113,10 @@ test('Warren shunt ties off the coronary vein: no flow in it, sutures, a cross a
   assert.equal(base('V_STO_SG'), 0, 'shut without the Warren shunt');
   const pr = (p) => { const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams(deepMerge(e.params, p)); e.settle(); return e.P[e.ni.LGV]; };
   assert.ok(pr({ dsrs: true }) < pr({}) - 5, 'the coronary vein is decompressed, not dammed up behind the tie');
-  const engine = fs.readFileSync(new URL('../src/engine/engine.js', import.meta.url), 'utf8');
+  const engine = fs.readFileSync(new URL('../src/engine/portal/engine.js', import.meta.url), 'utf8');
   assert.match(engine, /p\.dsrs && e\.id === 'LGV_CONF'/);
   // Cut off from the portal vein, the esophageal varices follow their own vein's pressure and collapse (Mohammad, 7 Nov: "do the varices go away?!").
-  const { computeMetrics } = await import('../src/engine/metrics.js');
+  const { computeMetrics } = await import('../src/engine/portal/metrics.js');
   const vm = (p) => { const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams(deepMerge(e.params, p)); e.settle(); return computeMetrics(e).varix; };
   assert.ok(vm({}).present && vm({}).d >= 5, 'large varices before');
   // (Real life, 8 Nov: the pressure in them falls at once, the veins shrink over months, most are small or gone by a year: the "Warren shunt varices" test below.)
@@ -126,7 +126,7 @@ test('Warren shunt ties off the coronary vein: no flow in it, sutures, a cross a
   assert.match(stage, /ligature\('LGV_CONF', 'S_DSR', CORONARY_TIE\)/);
   assert.match(stage, /putMark\(ov\.plugs, `tieX:\$\{id\}`/, 'the plug cross is half way along the tied vein');
   assert.doesNotMatch(stage, /class: 'tied-off'/, 'no grey band over the tied vein: it fades as any vessel with no flow does (Mohammad, 13 Nov)');
-  const { tiedOff } = await import('../src/engine/topology.js');
+  const { tiedOff } = await import('../src/engine/portal/topology.js');
   assert.ok(tiedOff({ dsrs: true }, 'LGV_CONF') && tiedOff({ dsrs: true }, 'LGV') && !tiedOff({}, 'LGV_CONF') && !tiedOff({ dsrs: true }, 'SV_CONF'), 'only the tied coronary vein and its station read "—"');
   assert.match(stage, /tiedOff\(f\.viewParams \|\| st\.params, id\)/, 'the station label reads —');
   assert.match(fs.readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8'), /tiedOff\(store\.get\(\)\.params, info\.id\)\) \{ vals\[0\] = '—'/, 'the tooltip reads —');
@@ -139,7 +139,7 @@ test('Warren shunt ties off the coronary vein: no flow in it, sutures, a cross a
 // shrink over weeks to months and are small or gone in most patients (83% disappeared or decreased, up to 10 years; Henderson 2006: variceal rebleeding
 // 5.5% with a Warren shunt); a failed (thrombosed) shunt gives the pressure back and the varices stay or recur.
 test('Warren shunt varices: slack at once, shrinking over months, back when the shunt fails', async () => {
-  const { computeMetrics } = await import('../src/engine/metrics.js');
+  const { computeMetrics } = await import('../src/engine/portal/metrics.js');
   const fs = await import('node:fs');
   const at = (p, days) => {
     const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams(deepMerge(e.params, p)); e.settle();
@@ -165,7 +165,7 @@ test('Warren shunt varices: slack at once, shrinking over months, back when the 
   assert.ok(e.slow.vCut != null, 'the varices keep their size while they shrink');
   e.setParams(deepMerge(e.params, { dsrs: false })); e.settle();
   assert.equal(e.slow.vCut, null, 'no kept size once the shunt is gone');
-  const engine = fs.readFileSync(new URL('../src/engine/engine.js', import.meta.url), 'utf8');
+  const engine = fs.readFileSync(new URL('../src/engine/portal/engine.js', import.meta.url), 'utf8');
   assert.match(engine, /if \(!prev\.dsrs && p\.dsrs\) this\.slow\.vCut = this\.varixTarget\('VAR'/);
 });
 
@@ -180,8 +180,8 @@ test('the Warren slide plays the months after the operation', async () => {
 // without it the pancreatic veins grow across the division and the shunt behaves like a total one within months (a 1981 angiographic series). He decided the model's
 // Warren shunt always includes it. A few patients still lose selectivity late through gastric collaterals (hyperammonemia 9% at 5 years in one series): not modelled.
 test('Warren shunt includes the splenopancreatic disconnection: no pancreatic collaterals, the liver keeps its portal flow for years', async () => {
-  const { computeMetrics } = await import('../src/engine/metrics.js');
-  const { EDGES } = await import('../src/engine/topology.js');
+  const { computeMetrics } = await import('../src/engine/portal/metrics.js');
+  const { EDGES } = await import('../src/engine/portal/topology.js');
   assert.ok(!EDGES.some((e) => e.from === 'SV' && e.to === 'SVD'), 'no vessel bridges the division of the splenic vein');
   const at = (days) => {
     const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams(deepMerge(e.params, { dsrs: true })); e.settle();

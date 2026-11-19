@@ -11,9 +11,9 @@ import { frameFor, cancelFrame } from './frame.js';
 import { ease, cruise, k01, legMs, ROUTE_LEN, BALLOON_IN_MS, BALLOON_OUT_MS } from './hvpg-clock.js';
 import { COIL_B } from './proc-routes.js';
 import { easeMove, createReversible } from './motion.js';
-import { NODES } from '../engine/topology.js';
-import { hvpgSev, ppgSev, hvBlocked } from '../engine/pressure-cuts.js';
-import { tenthGap } from '../engine/gap.js';
+import { NODES } from '../engine/portal/topology.js';
+import { hvpgSev, ppgSev, hvBlocked } from '../engine/portal/pressure-cuts.js';
+import { tenthGap } from '../engine/core/gap.js';
 const NODE_I = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const nextFrame = frameFor('proc-anim');
 

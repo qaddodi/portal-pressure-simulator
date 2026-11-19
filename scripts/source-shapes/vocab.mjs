@@ -1,6 +1,6 @@
 // One vocabulary for a gradient's band (unification audit, findings 3 and 16, 13 Nov 2026): the HVPG's and PPG's band words, the maps between
 // the rating vocabularies (status ok / caution / danger, table rating ok / mid / hi, colour token --ok / --caution / --danger) and the
-// missing-number glyph live once, in src/engine/pressure-cuts.js. These rules fail any other file of src/ that writes them again; what each
+// missing-number glyph live once, in src/engine/portal/pressure-cuts.js. These rules fail any other file of src/ that writes them again; what each
 // card prints is checked by tests/rating-vocabulary.test.js.
 import { readdirSync, statSync } from 'node:fs';
 import { join, dirname, resolve, relative } from 'node:path';
@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const walk = (d) => readdirSync(d).flatMap((f) => (statSync(join(d, f)).isDirectory() ? walk(join(d, f)) : [join(d, f)]));
-const HOME = 'src/engine/pressure-cuts.js';
+const HOME = 'src/engine/portal/pressure-cuts.js';
 // The pressure-monitor thread's files, which still hold their own copy until that thread moves them onto the table (unification audit 3 and 16:
 // hvpg-proc.js SEV, SEV_WORD and its "not measurable" sentence; eus-ppg.js SEV_WORD and NOT). Take a file off this list when it reads the table.
 const WAITING = new Set(['src/ui/hvpg-proc.js', 'src/ui/eus-ppg.js']);

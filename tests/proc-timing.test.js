@@ -9,7 +9,7 @@ import { procSpecs, rawRoute } from '../src/ui/proc-routes.js';
 import { EUS_ROUTE, EUS_GLUE_ROUTE } from '../src/ui/eus-scope.js';
 import { EDGE_PATH } from '../src/ui/anatomy.js';
 import { easeMove, easeIn } from '../src/ui/motion.js';
-import { raWave } from '../src/engine/physiology.js';
+import { raWave } from '../src/engine/core/physiology.js';
 
 // ── 7: the cruise profile ──
 test('cruise: a steady pace with soft starts and stops', () => {

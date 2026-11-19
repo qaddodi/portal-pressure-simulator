@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import './dom-shim.js';
-import { INK_OF_SEV, INK_OF_RATE, INK_SHARE, TOKEN_OF_SEV, RATE_OF_SEV } from '../src/engine/pressure-cuts.js';
+import { INK_OF_SEV, INK_OF_RATE, INK_SHARE, TOKEN_OF_SEV, RATE_OF_SEV } from '../src/engine/portal/pressure-cuts.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');

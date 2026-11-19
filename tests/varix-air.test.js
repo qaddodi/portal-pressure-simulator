@@ -3,8 +3,8 @@
 // solver is never told: the varix's own pressure, the HVPG and the portal pressure are the same with any air.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
 
 const run = (g) => { let n; do { n = g.next(); } while (!n.done); };
 const patient = (preset) => { const e = new Engine(); run(e.loadPresetSteps(preset, {})); e.settle(); return e; };

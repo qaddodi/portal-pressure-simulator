@@ -3,7 +3,7 @@
 // figure holds them (custom-shunt-paths.js) and the vessels' runs (anatomy.js).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { EDGES, isCoveredStent, isLiverStent } from '../src/engine/topology.js';
+import { EDGES, isCoveredStent, isLiverStent } from '../src/engine/portal/topology.js';
 import { EDGE_PATH } from '../src/ui/anatomy.js';
 import { CUSTOM_SHUNT_PATH } from '../src/ui/custom-shunt-paths.js';
 import { sampleD } from '../scripts/shunt-route-lib.mjs';

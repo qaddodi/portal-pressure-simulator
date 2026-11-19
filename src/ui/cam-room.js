@@ -12,7 +12,7 @@
 //   probe        the vessel a Doppler probe lies on
 //   reading      a site's pressure pill (a station's reading on the figure)
 import { NODE_POS, EDGE_PATH, LABEL_VESSEL, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES } from './anatomy.js';
-import { EDGES } from '../engine/topology.js';
+import { EDGES } from '../engine/portal/topology.js';
 import { flattenPath } from './shape-gl.js';
 import { expandIds } from './slide-ext.js';
 

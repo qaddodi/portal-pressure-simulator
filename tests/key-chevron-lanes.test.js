@@ -1,7 +1,7 @@
 import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { EDGES } from '../src/engine/topology.js';
+import { EDGES } from '../src/engine/portal/topology.js';
 import { keyChevron, KEY_CHEV_LANES } from '../src/ui/blood.js';
 
 const edge = (id) => EDGES.find((e) => e.id === id);

@@ -1,6 +1,6 @@
 // The selection and focus marks: which organs the selection lights, the focus sets and their marks and colour.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { EDGES, STENT_SPANS, isStent, stentGate } from '../engine/topology.js';
+import { EDGES, STENT_SPANS, isStent, stentGate } from '../engine/portal/topology.js';
 import { D_SURFACE } from './ease.js';
 import { store } from './store.js';
 import { s } from './util.js';

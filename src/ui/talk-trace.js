@@ -10,7 +10,7 @@
 // HVPG lane. WHVP is violet (--s7), not --tr-wedge: pink against orchid failed the palette check (normal-vision ΔE 9.9, the floor 15).
 
 import { h, fmt, clamp } from './util.js';
-import { hvpgRate } from '../engine/pressure-cuts.js';
+import { hvpgRate } from '../engine/portal/pressure-cuts.js';
 import { traceLabel } from './trace-labels.js';
 import { plotPanel } from './plot-look.js';
 import { bandKeys, bandRuns } from './rx-bands.js';

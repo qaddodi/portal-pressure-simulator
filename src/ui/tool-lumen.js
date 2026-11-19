@@ -5,7 +5,7 @@
 // a compare button or the days of anticoagulation, easing from one state to the next.
 
 import { h, clamp } from './util.js';
-import { EDGES } from '../engine/topology.js';
+import { EDGES } from '../engine/portal/topology.js';
 import { store } from './store.js';
 import { frameFor, cancelFrame, frameAnimating, easeNow } from './frame.js';
 import { createSvgGL, svgModel, snapOp, setWords, wordsOf, setGeo, setPts } from './svg-gl.js';

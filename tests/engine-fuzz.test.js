@@ -4,12 +4,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { PRESETS, sanitizeParams } from '../src/engine/scenario.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { PRESETS, sanitizeParams } from '../src/engine/portal/scenario.js';
 
 // (The parameter ranges are not exported: read from the source, so the test follows them.)
-const src = readFileSync(new URL('../src/engine/scenario.js', import.meta.url), 'utf8');
+const src = readFileSync(new URL('../src/engine/portal/scenario.js', import.meta.url), 'utf8');
 const at = src.indexOf('const RANGES = {');
 const RANGES = new Function(src.slice(at, src.indexOf('};', at) + 1).replace('const RANGES =', 'return'))();
 

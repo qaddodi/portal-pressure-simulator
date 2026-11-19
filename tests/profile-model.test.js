@@ -39,7 +39,7 @@ globalThis.getComputedStyle = () => ({ fontSize: '14px', getPropertyValue: (k) =
 
 const { createProfileTool, STATIONS } = await import('../src/ui/tool-profile.js');
 const { geoOf } = await import('../src/ui/svg-gl.js');
-const { NODES } = await import('../src/engine/topology.js');
+const { NODES } = await import('../src/engine/portal/topology.js');
 const { cssVar } = await import('../src/ui/util.js');   // (the one the page's modules share)
 cssVar('--ramp-pressure');   // (asks for the token; the page's styles are read between frames)
 await new Promise((r) => setTimeout(r, 60));

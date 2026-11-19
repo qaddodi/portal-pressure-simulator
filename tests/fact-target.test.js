@@ -3,10 +3,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { Engine } from '../src/engine/engine.js';
-import { EDGES } from '../src/engine/topology.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { EDGES } from '../src/engine/portal/topology.js';
 import { factTarget } from '../src/ui/fact-target.js';
-import { PRESETS } from '../src/engine/scenario.js';
+import { PRESETS } from '../src/engine/portal/scenario.js';
 
 const ORGANS = new Set(['liver', 'spleen', 'varices', 'gastric', 'heart']);
 const ELSEWHERE = /^(drug:|albumin$|diuretics$|anticoag$|splTone$|sysTone$|habr$|apShunt$)/;

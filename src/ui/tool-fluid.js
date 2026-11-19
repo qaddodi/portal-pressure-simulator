@@ -10,7 +10,7 @@ import { frame, cancelFrame } from './frame.js';
 import { createSvgGL, svgModel } from './svg-gl.js';
 import { chartCtx } from './chart-ctx.js';
 import { h, fmt, clamp } from './util.js';
-import { NODES } from '../engine/topology.js';
+import { NODES } from '../engine/portal/topology.js';
 import { store } from './store.js';
 import { measure } from './glyph-measure.js';
 import { setGeo, setPts, setWords, setHidden } from './svg-gl.js';

@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createCore } from '../src/worker-core.js';
-import { Engine } from '../src/engine/engine.js';
-import { detectEvents } from '../src/engine/events.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { detectEvents } from '../src/engine/portal/events.js';
 
 test('paused and hidden engines are idle, but mutations and resume publish immediately', (t) => {
   t.mock.timers.enable({ apis: ['setInterval'] });

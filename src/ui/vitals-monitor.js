@@ -15,7 +15,7 @@ import { h, fmt, canvasSize, clamp, cssVar } from './util.js';
 import { createVitalsGL, colorOf, textWidth } from './vitals-gl.js';
 import { frameFor, cancelFrame, paceMs, restGapFor, restPark, noteDraw, frameAnimating, pageRest, onPageWake } from './frame.js';
 import { VITALS, vitalReading, bpText } from './vital-read.js';
-import { MAP_BETA_CUT, SBP_BETA_CUT } from '../engine/kidney-cuts.js';
+import { MAP_BETA_CUT, SBP_BETA_CUT } from '../engine/portal/kidney-cuts.js';
 import { createBeatClock, ekgSeries, beatWalk, walkBeats, seedBeats } from './ekg.js';
 import { olderThan, inFront } from './backfill.js';
 import { dropFrontNums } from './drop-front.js';

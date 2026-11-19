@@ -7,12 +7,12 @@
 
 import { h, icon, toast } from './util.js';
 import { glWords } from './gl-words.js';
-import { hvpgSev, hvpgWord, NOT_SHOWN } from '../engine/pressure-cuts.js';
+import { hvpgSev, hvpgWord, NOT_SHOWN } from '../engine/portal/pressure-cuts.js';
 import { store, logAction } from './store.js';
 import { dataSoon, propSoon, attrSoon } from './class-soon.js';
 import { MEASURES, READS, playProcedure, procRunning } from './proc-anim.js';
 import { createReading } from './tool-reading.js';
-import { NODES } from '../engine/topology.js';
+import { NODES } from '../engine/portal/topology.js';
 
 let stageRef = null;
 /** main.js hands over the figure once it exists. */

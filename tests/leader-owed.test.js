@@ -11,7 +11,7 @@ import { bootGL, now } from './stage-gl-boot.js';
 const { st, page, frame } = await bootGL({ labels: 'none' });   // (no leader or dot laid out before the slide)
 const { store } = await import('../src/ui/store.js');
 const { stepPlan } = await import('../src/ui/callout-math.js');
-const { EDGES } = await import('../src/engine/topology.js');
+const { EDGES } = await import('../src/engine/portal/topology.js');
 const EIDS = new Set(EDGES.map((e) => e.id));
 const GLOW = ['V_INT', 'PV_TRUNK', 'SIN_RR', 'RHV_IVC', 'IVCS_RA'];
 

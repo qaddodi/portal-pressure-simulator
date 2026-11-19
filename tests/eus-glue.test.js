@@ -8,10 +8,10 @@ import assert from 'node:assert/strict';
 import { ENDO, GLUE_ESO_U, PROCS, PROC_KINDS, specOf, procFrame, stepAt, stepMarks, markAt, procBlocked, procOffered } from '../src/ui/proc-anim.js';
 import { EUS_GLUE_ROUTE, EUS_GLUE_TARGET, EUS_GLUE_STATION, EUS_RHO, EUS_SCOPE_R, EUS_COIL_EDGE, coilReach, lumenPath, eusPose, eusDraw, newTip, pointOn } from '../src/ui/eus-scope.js';
 import { EDGE_PATH, SEAM_D } from '../src/ui/anatomy.js';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { deepMerge } from '../src/engine/scenario.js';
-import { EDGES } from '../src/engine/topology.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { deepMerge } from '../src/engine/portal/scenario.js';
+import { EDGES } from '../src/engine/portal/topology.js';
 import { GASTRIC } from '../src/ui/decks/gastric-varices.js';
 
 const G = ENDO.eusglue, T = G.T;

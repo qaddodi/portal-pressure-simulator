@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { EDGES, stentCourse } from '../src/engine/topology.js';
+import { EDGES, stentCourse } from '../src/engine/portal/topology.js';
 
 const edge = (id) => EDGES.find((e) => e.id === id);
 

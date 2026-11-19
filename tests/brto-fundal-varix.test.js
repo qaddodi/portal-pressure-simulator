@@ -4,9 +4,9 @@
 // esophageal varices still grow (the portal pressure they see has risen), as the acceptance tests check.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { deepMerge } from '../src/engine/scenario.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { deepMerge } from '../src/engine/portal/scenario.js';
 
 const preset = (id) => { const e = new Engine(); e.loadPreset(id); return e; };
 const M = (e) => computeMetrics(e);

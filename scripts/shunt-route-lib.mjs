@@ -5,7 +5,7 @@
 // and "runs alongside" it within the PAR radius. A crossing at a decent angle is neither. Both are measured on the course sampled
 // every few units, ignoring the stretch next to the shunt's own two stations (it leaves and joins vessels there).
 
-import { EDGES } from '../src/engine/topology.js';
+import { EDGES } from '../src/engine/portal/topology.js';
 import { ANAT_HIDDEN, CIRCUIT_PATH, EDGE_PATH, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES, NODE_POS, metroPath } from '../src/ui/anatomy.js';
 
 // ── sampling a path's text (M, L, C and Q only: all the stage's courses) ──

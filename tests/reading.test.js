@@ -13,7 +13,7 @@ const { WAVE_GAIN, WEDGE_DAMP } = await import('../src/ui/hvpg-clock.js');
 const { keepData, dataPlan } = await import('../src/ui/card-keep.js');
 const { GRADIENTS } = await import('../src/ui/decks/gradients.js');
 const { deckStates } = await import('./deck-states.js');
-const { hvpgSev, ppgSev } = await import('../src/engine/pressure-cuts.js');
+const { hvpgSev, ppgSev } = await import('../src/engine/portal/pressure-cuts.js');
 
 const V = { hvpg: { a: 5.3, b: 16.9, g: 11.6 }, eus: { a: 15.1, b: 2.6, g: 12.5 }, ppg: { a: 4.4, b: 17.9, g: 13.5 }, tips: { a: 14.2, b: 5.0, g: 9.2 } };
 const stops = (kind) => specOf(kind).stops;
@@ -183,7 +183,7 @@ test('a gradient is the difference of its two readings as printed, never a later
   P.capture(1, rp, fr(0)); P.capture(2, rp, fr(0.3));
   assert.equal(rp.ppg, Math.round((rp.pv - rp.iv) * 10) / 10, `PPG ${rp.ppg} from PV ${rp.pv} and IVC ${rp.iv}`);
   // (The EUS-PPG's needle reads two veins' node pressures; the TIPS gradient reads both when its result comes: each gradient the printed difference too.)
-  const { NODES } = await import('../src/engine/topology.js');
+  const { NODES } = await import('../src/engine/portal/topology.js');
   const ni = (id) => NODES.findIndex((n) => n.id === id), nodesAt = (k) => { const P2 = new Float64Array(NODES.length); P2[ni('LPV')] = 15.06 + k; P2[ni('LHV')] = 2.64 + k; return { P: P2 }; };
   const E = specOf('eus'), re = {};
   E.capture(1, re, nodesAt(0)); E.capture(2, re, nodesAt(0.37));

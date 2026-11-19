@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { METRICS } from '../src/engine/explain.js';
+import { METRICS } from '../src/engine/portal/explain.js';
 
 const src = readFileSync(new URL('../src/ui/dock.js', import.meta.url), 'utf8');
 const tiles = [...src.matchAll(/^ {2}\{ id: '([\w-]+)',[^\n]*?\bwhy: '(\w+)'/gm)].map((m) => ({ id: m[1], why: m[2] }));

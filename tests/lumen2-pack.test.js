@@ -40,7 +40,7 @@ test('the round trip keeps the row whole, the across within a 128th, the arc wit
 
 test('the figure\'s vessel rows fit the packed row, with room to spare', async () => {
   const A = await import('../src/ui/anatomy.js');
-  const { EDGES } = await import('../src/engine/topology.js');
+  const { EDGES } = await import('../src/engine/portal/topology.js');
   const strands = Object.values(A.STRANDS).reduce((n, l) => n + l.length, 0);
   let feeders = 0;
   for (const fd of Object.values(A.FEEDERS)) feeders += (fd.fan ? A.fanFeeders(fd.fan).length : 0) + (fd.paths || []).length;

@@ -6,8 +6,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { PROCS, ENDO, PROC_KINDS, specOf, procKindOf, procBlocked, procOffered, procFrame, stepAt, stepMark, STEP_NUM, markAt, playProcedure, GV_MIN_MM } from '../src/ui/proc-anim.js';
 import { LABEL_VESSEL } from '../src/ui/anatomy.js';
-import { defaultParams } from '../src/engine/scenario.js';
-import { isOccluded } from '../src/engine/topology.js';
+import { defaultParams } from '../src/engine/portal/scenario.js';
+import { isOccluded } from '../src/engine/portal/topology.js';
 import { DECKS } from '../src/ui/decks.js';
 import { adopted } from './deck-adopted.js';
 

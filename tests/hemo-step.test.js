@@ -2,8 +2,8 @@
 // and the larger step reads the same as the smaller to a few hundredths of a mmHg.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
 import { hemoStep } from '../src/worker-core.js';
 
 test('the step is 4 ms with the pulse below 4×, 8 ms at 4× and 8×, 20 ms without the pulse', () => {

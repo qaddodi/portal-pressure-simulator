@@ -3,10 +3,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { Engine } from '../src/engine/engine.js';
-import { PRESETS } from '../src/engine/scenario.js';
-import { formula } from '../src/engine/explain.js';
-import { wallRead } from '../src/engine/wall-read.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { PRESETS } from '../src/engine/portal/scenario.js';
+import { formula } from '../src/engine/portal/explain.js';
+import { wallRead } from '../src/engine/portal/wall-read.js';
 
 test('the tiles shown multiply out to the index shown, in every preset, beat by beat, at both varix sites', () => {
   let n = 0;
@@ -71,5 +71,5 @@ test('the headline, the "above the tear point" switch, the Tests row, Compare, t
   assert.match(ui('compare.js'), /m\.varix\.ratioShown \* 100/);
   assert.match(ui('inspector.js'), /metrics\.varix\.ratioShown \* 100/);
   assert.match(ui('inspector.js'), /metrics\.gastricVarix\.ratioShown \* 100/);
-  assert.match(readFileSync(new URL('../src/engine/explain.js', import.meta.url), 'utf8'), /m\.varix\.ratioShown \* 100/);
+  assert.match(readFileSync(new URL('../src/engine/portal/explain.js', import.meta.url), 'utf8'), /m\.varix\.ratioShown \* 100/);
 });

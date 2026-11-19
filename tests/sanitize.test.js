@@ -1,9 +1,9 @@
 // Hand-edited share links: out-of-range or malformed values are clamped, and the model stays finite.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sanitizeParams, defaultParams } from '../src/engine/scenario.js';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
+import { sanitizeParams, defaultParams } from '../src/engine/portal/scenario.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
 
 test('share-link params are clamped to the control ranges', () => {
   const p = sanitizeParams({ systemicTone: 0, cirrhosis: 7, albumin: 'x', drugs: 'yes', tips: { on: 1, d: 99 }, thrombus: { PV_TRUNK: -3 } });

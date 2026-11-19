@@ -1,9 +1,9 @@
 // Instruments (blueprint §8.3, §9.4, §9.5, §6.4): endoscopy,
 // varix cross-section, abdomen.
 
-import { NODES } from '../engine/topology.js';
-import { gastricUp } from '../engine/scenario.js';
-import { wallRead } from '../engine/wall-read.js';
+import { NODES } from '../engine/portal/topology.js';
+import { gastricUp } from '../engine/portal/scenario.js';
+import { wallRead } from '../engine/portal/wall-read.js';
 import { pressureColor } from './colormap.js';
 import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js';
 import { wordSetter } from './gl-words.js';
@@ -28,7 +28,7 @@ import { textWidth } from './text-gl.js';
 import { D_SURFACE, easeArrive } from './ease.js';
 import { inkBox } from './glyph-measure.js';
 import { reduceMotionMQ } from './motion.js';
-import { TOKEN_OF_SEV } from '../engine/pressure-cuts.js';
+import { TOKEN_OF_SEV } from '../engine/portal/pressure-cuts.js';
 import { darkMQ } from './look.js';
 import { createEusPpg } from './eus-ppg.js';
 // (The endoscope's field: drawn in the late part of a frame, after the model's frame of it has been taken in, so once a frame.)

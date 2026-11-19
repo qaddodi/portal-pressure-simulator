@@ -6,9 +6,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createCore } from '../src/worker-core.js';
-import { Engine } from '../src/engine/engine.js';
-import { explain } from '../src/engine/explain.js';
-import { DRUGS } from '../src/engine/scenario.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { explain } from '../src/engine/portal/explain.js';
+import { DRUGS } from '../src/engine/portal/scenario.js';
 import { EXT, PACKAGES, stepExtra } from '../src/ui/slide-ext.js';
 import { curveSteps, curveSeries, curveXs, patchOf, getAt, leftScale, rightScale, cutsOf, xTicks, ringAt, placeWord, segHits, onCurve, curveAt, againstOf, mergeOf, curveLines, drawnLines } from '../src/ui/tool-curve.js';
 import { causeBars, groupOf, GROUPS, wrapLabel, MOST, OTHER, steps, domainOf, layout, fitBars, shownText, GAP } from '../src/ui/tool-causes.js';
@@ -163,7 +163,7 @@ test('every cause the Why? panel can name falls in a mechanism', () => {
   assert.ok(named.length >= 25, `${named.length} causes named`);
   for (const l of named) assert.ok(groupOf(l), `"${l}" falls in a mechanism`);
   // (And every label written plainly in explain.js, including the hemoglobin's and a bleed's.)
-  const src = readFileSync(new URL('../src/engine/explain.js', import.meta.url), 'utf8');
+  const src = readFileSync(new URL('../src/engine/portal/explain.js', import.meta.url), 'utf8');
   const plain = [...src.matchAll(/add\('([^']+)'/g), ...src.matchAll(/\['([A-Z][a-z][^']+)', '[a-z]/g), ...src.matchAll(/\? '([A-Z][^']+)' :/g)].map((m) => m[1]);
   for (const l of [...plain, 'Blood loss 400 mL', 'Extra blood volume +600 mL', 'Splenectomy', 'Partial splenic embolization', 'Splanchnic vasodilation, set', 'Splanchnic vasoconstriction, set']) assert.ok(groupOf(l), `"${l}" falls in a mechanism`);
   assert.equal(groupOf('Something new'), null);

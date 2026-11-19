@@ -7,8 +7,8 @@
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { PRESETS } from '../src/engine/scenario.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { PRESETS } from '../src/engine/portal/scenario.js';
 import { createCore } from '../src/worker-core.js';
 
 const TOL = 1e-9;

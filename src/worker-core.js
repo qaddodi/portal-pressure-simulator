@@ -1,17 +1,17 @@
 // Simulation host: owns the Engine, runs the clocks, streams frames (blueprint §13.4).
 // Used inside a Web Worker (src/worker.js) or on the main thread as a fallback.
 
-import { Engine } from './engine/engine.js';
+import { Engine } from './engine/portal/engine.js';
 import { easeMove } from './ui/ease.js';
-import { computeMetrics } from './engine/metrics.js';
-import { fingerprintOf } from './engine/fingerprint.js';
-import { detectEvents } from './engine/events.js';
-import { explain } from './engine/explain.js';
-import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js';
+import { computeMetrics } from './engine/portal/metrics.js';
+import { fingerprintOf } from './engine/portal/fingerprint.js';
+import { detectEvents } from './engine/portal/events.js';
+import { explain } from './engine/portal/explain.js';
+import { deepMerge, sanitizeParams, PRESETS } from './engine/portal/scenario.js';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
 
-// A state's fingerprint (engine/fingerprint.js: the presenter builds the live model's from the same function).
+// A state's fingerprint (engine/portal/fingerprint.js: the presenter builds the live model's from the same function).
 const fingerprint = (m, e) => fingerprintOf(m, {
   P: e.Pf || e.P, Q: e.Qf || e.Q, D: Float32Array.from(e.edges, (ed) => e.diameter(ed.id)), copy: true,
   params: e.params, fluid: e.starling() });
@@ -44,7 +44,7 @@ const morphAt = (from, to, k) => ({ ...to, ...Object.fromEntries(MORPH_KEYS.map(
 const easeInOut = easeMove;   // (the patient's change: the app's one in-out curve, ui/ease.js)
 
 // A slide's extra work, asked for by a deck visuals package (slide-ext.js steps), on scratch engines so the chain is untouched:
-// explain: a metric id or a list (engine/explain.js METRICS), the Why? contributions at the slide's state;
+// explain: a metric id or a list (engine/portal/explain.js METRICS), the Why? contributions at the slide's state;
 // wave: a vessel id, { vessel, secs } or a list of them, the Doppler velocity (cm/s, signed) over secs (default 3) of beats
 // from the slide's state, a point every 20 ms after a second's run-in: { t: [s], v: [cm/s] }.
 const WAVE_DT = 0.004, WAVE_EVERY = 5, WAVE_RUNIN = 1;

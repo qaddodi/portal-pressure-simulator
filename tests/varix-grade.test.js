@@ -3,8 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics, varixGrade } from '../src/engine/metrics.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics, varixGrade } from '../src/engine/portal/metrics.js';
 
 const run = (g) => { let n; do { n = g.next(); } while (!n.done); };
 

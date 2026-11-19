@@ -24,7 +24,7 @@ import { sheetLayer } from './sheet-layer.js';
 import { layoutTip, covers } from './tip-layout.js';
 import { tipDraw, tipUndrawn } from './tip-gl.js';
 import { darkMQ } from './look.js';
-import { NOT_SHOWN, INK_SHARE } from '../engine/pressure-cuts.js';
+import { NOT_SHOWN, INK_SHARE } from '../engine/portal/pressure-cuts.js';
 import { labelWritten } from './label-theme.js';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.

@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import './dom-shim.js';
-import { EDGES } from '../src/engine/topology.js';
+import { EDGES } from '../src/engine/portal/topology.js';
 
 const idx = Object.fromEntries(EDGES.map((e, k) => [e.id, k]));
 const node = (tag) => ({

@@ -2,8 +2,8 @@
 // vein is reached directly through the skin and the liver (percutaneous transhepatic) and read there. The gradient is the portal reading less the IVC reading, the PPG the tiles show.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
 import { MEASURES, PROCS, PROC_KINDS, READS, specOf, procFrame, stepAt, stepMarks, markAt, procBlocked, procOffered } from '../src/ui/proc-anim.js';
 import { legMs, ROUTE_LEN } from '../src/ui/hvpg-clock.js';
 

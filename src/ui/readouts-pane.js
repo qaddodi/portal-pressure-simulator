@@ -4,7 +4,7 @@
 // comes from there (TILES, GROUPS, VITALS, readoutValue), passed in so this file does not import the dock.
 
 import { store, hiddenNow } from './store.js';
-import { hvBlocked, SEV_OF_RATE, NOT_MEASURABLE } from '../engine/pressure-cuts.js';
+import { hvBlocked, SEV_OF_RATE, NOT_MEASURABLE } from '../engine/portal/pressure-cuts.js';
 import { h, fmt, clamp, shownOf, countTo, swapText, fadeIn, putText } from './util.js';
 import { vitalReading, bpText } from './vital-read.js';
 import { SCALE, RATE } from './table-marks.js';

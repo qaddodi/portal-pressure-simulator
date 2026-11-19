@@ -61,7 +61,7 @@ test('the toast wears the cards\' frosted glass: listed to the glass, its tint d
 });
 
 test('a preset note: a dot, the name and its lines, as wide as the words need up to 420 px, no ×, fixed once laid out', async () => {
-  const { PRESETS } = await import('../src/engine/scenario.js');
+  const { PRESETS } = await import('../src/engine/portal/scenario.js');
   for (const p of PRESETS) {
     assert.ok(p.note && p.note.length > 20 && p.note.length < 130, `${p.id}: a short note`);
     assert.ok(!/[—]/.test(p.note), `${p.id}: no em dash`);

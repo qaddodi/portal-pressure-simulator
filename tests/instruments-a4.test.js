@@ -10,8 +10,8 @@ import { VITALS, vitalReading } from '../src/ui/vital-read.js';
 import { vitalsShown, vitalCells, metricsOfFp, VITALS_DEFAULT } from '../src/ui/vitals-monitor.js';
 import { levelsOf } from '../src/ui/tool-hvpg.js';
 import { eases, dataPlan } from '../src/ui/card-keep.js';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8');
 const tools = read('../src/ui/presenter-tools.js');

@@ -50,10 +50,10 @@ No percentage blocks a push or a deploy; the honest score is printed and the tar
 
 | File:line | Category | Function | What | Owner |
 |---|---|---|---|---|
-| src/engine/engine.js:910 | unreached | trackPulsatility | attrWrite: .value = — runs during use (a method of this name is called from event handler) | unassigned (coordinator to map) |
-| src/engine/metrics.js:142 | alloc | computeMetrics | object literal — frame path: src/worker-core.js#tick@302 → src/worker-core.js#tickOnce@334 → src/worker-core.js#tickBody@342 → src/worker-core.js#frame@239 → src/engine/events.js#detectEvents@112 → computeMetrics@66 | unassigned (coordinator to map) |
-| src/engine/scenario.js:203 | alloc | deepMerge | closure — frame path: src/worker-core.js#tick@302 → src/worker-core.js#tickOnce@334 → src/worker-core.js#tickBody@342 → src/worker-core.js#bedsideStep@428 → deepMerge@201 | unassigned (coordinator to map) |
-| src/engine/scenario.js:204 | alloc | deepMerge › merge | Object.keys() — frame path: src/worker-core.js#tick@302 → src/worker-core.js#tickOnce@334 → src/worker-core.js#tickBody@342 → src/worker-core.js#bedsideStep@428 → deepMerge@201 → merge@203 | unassigned (coordinator to map) |
+| src/engine/portal/engine.js:910 | unreached | trackPulsatility | attrWrite: .value = — runs during use (a method of this name is called from event handler) | unassigned (coordinator to map) |
+| src/engine/portal/metrics.js:142 | alloc | computeMetrics | object literal — frame path: src/worker-core.js#tick@302 → src/worker-core.js#tickOnce@334 → src/worker-core.js#tickBody@342 → src/worker-core.js#frame@239 → src/engine/portal/events.js#detectEvents@112 → computeMetrics@66 | unassigned (coordinator to map) |
+| src/engine/portal/scenario.js:203 | alloc | deepMerge | closure — frame path: src/worker-core.js#tick@302 → src/worker-core.js#tickOnce@334 → src/worker-core.js#tickBody@342 → src/worker-core.js#bedsideStep@428 → deepMerge@201 | unassigned (coordinator to map) |
+| src/engine/portal/scenario.js:204 | alloc | deepMerge › merge | Object.keys() — frame path: src/worker-core.js#tick@302 → src/worker-core.js#tickOnce@334 → src/worker-core.js#tickBody@342 → src/worker-core.js#bedsideStep@428 → deepMerge@201 → merge@203 | unassigned (coordinator to map) |
 | src/ui/actions.js:157 | alloc | buildEdgeCard › run | closure, object literal, template string with a value — frame path: main.js#anon@1455 → main.js#renderLegend@942 → main.js#lgPut@936 → legend-morph.js#morphKey@101 → legend-morph.js#current@186 → legend-morph.js#mixLabs@62 → legend-morph.js#anon@62 → run@157 | unassigned (coordinator to map) |
 | src/ui/actions.js:241 | alloc | signed | template string with a value — frame path: theme-epoch.js#run@20 → main.js#anon@838 → main.js#hoverInfo@1096 → edgeValue@278 → edgeReading@247 → signed@241 | unassigned (coordinator to map) |
 | src/ui/actions.js:246 | alloc | satPct | String() — frame path: theme-epoch.js#run@20 → main.js#anon@838 → main.js#hoverInfo@1096 → edgeValue@278 → edgeReading@247 → satPct@246 | unassigned (coordinator to map) |
@@ -4912,37 +4912,37 @@ Allocations a frame path reaches only on a branch that never runs per frame (fir
 
 | File:line | Function | What |
 |---|---|---|
-| src/engine/events.js:59 | collDetail | template string with a value — rare: only when a collateral event fires (a share crossed its cut and held), never per frame |
-| src/engine/events.js:84 | breathAveraged | object literal — rare: only when the average starts over (a new engine, a reset or a restored state clears evAvg) |
-| src/engine/events.js:114 | detectEvents | object literal — rare: once per engine |
-| src/engine/events.js:121 | detectEvents | object literal — rare: only the first time a condition is seen (and after a reset or a restored state, which clear evState) |
-| src/engine/events.js:127 | detectEvents | object literal — rare: only when an event fires (a condition crossed its cut and held), never per frame |
-| src/engine/metrics.js:64 | spareOf | object literal — rare: made once for a record |
-| src/engine/metrics.js:65 | part | object literal — rare: a record inside the metrics, made when the metrics record is (once for the tick's, per call for a reader that gave none) |
-| src/engine/metrics.js:75 | computeMetrics | object literal — rare: a reader that gives no record to write into gets one of its own; the tick always gives its kept record |
-| src/engine/scenario.js:6 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:8 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:9 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:10 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:12 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:13 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:14 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:29 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:31 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:32 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:33 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:36 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:45 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:48 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:170 | sanitizeParams | Object.keys() — rare: checked when parameters are set, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:173 | sanitizeParams | Object.keys() — rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame |
-| src/engine/scenario.js:181 | sanitizeParams | Object.keys() — rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame |
-| src/engine/scenario.js:182 | sanitizeParams | Object.keys() — rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame |
-| src/engine/scenario.js:184 | sanitizeParams | Object.keys() — rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame |
-| src/engine/scenario.js:185 | sanitizeParams | Object.keys() — rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame |
-| src/engine/scenario.js:196 | keepKnown | Object.keys() — rare: checked when parameters are set, in the simulation worker, never by a drawn frame |
-| src/engine/topology.js:277 | stentSegments | array literal — rare: only a caller that gives no list of its own (a test); the drawn paths pass one |
-| src/engine/wall-read.js:19 | shown | .toFixed() — rare: a value's text is made the first time it is shown |
+| src/engine/portal/events.js:59 | collDetail | template string with a value — rare: only when a collateral event fires (a share crossed its cut and held), never per frame |
+| src/engine/portal/events.js:84 | breathAveraged | object literal — rare: only when the average starts over (a new engine, a reset or a restored state clears evAvg) |
+| src/engine/portal/events.js:114 | detectEvents | object literal — rare: once per engine |
+| src/engine/portal/events.js:121 | detectEvents | object literal — rare: only the first time a condition is seen (and after a reset or a restored state, which clear evState) |
+| src/engine/portal/events.js:127 | detectEvents | object literal — rare: only when an event fires (a condition crossed its cut and held), never per frame |
+| src/engine/portal/metrics.js:64 | spareOf | object literal — rare: made once for a record |
+| src/engine/portal/metrics.js:65 | part | object literal — rare: a record inside the metrics, made when the metrics record is (once for the tick's, per call for a reader that gave none) |
+| src/engine/portal/metrics.js:75 | computeMetrics | object literal — rare: a reader that gives no record to write into gets one of its own; the tick always gives its kept record |
+| src/engine/portal/scenario.js:6 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:8 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:9 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:10 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:12 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:13 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:14 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:29 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:31 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:32 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:33 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:36 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:45 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:48 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:170 | sanitizeParams | Object.keys() — rare: checked when parameters are set, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:173 | sanitizeParams | Object.keys() — rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame |
+| src/engine/portal/scenario.js:181 | sanitizeParams | Object.keys() — rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame |
+| src/engine/portal/scenario.js:182 | sanitizeParams | Object.keys() — rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame |
+| src/engine/portal/scenario.js:184 | sanitizeParams | Object.keys() — rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame |
+| src/engine/portal/scenario.js:185 | sanitizeParams | Object.keys() — rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame |
+| src/engine/portal/scenario.js:196 | keepKnown | Object.keys() — rare: checked when parameters are set, in the simulation worker, never by a drawn frame |
+| src/engine/portal/topology.js:277 | stentSegments | array literal — rare: only a caller that gives no list of its own (a test); the drawn paths pass one |
+| src/engine/portal/wall-read.js:19 | shown | .toFixed() — rare: a value's text is made the first time it is shown |
 | src/ui/actions.js:173 | buildEdgeCard › format | template string with a value — rare: the slider's number label, made on the slider's own input event (a drag moves it at pointer rate, not a frame's work) |
 | src/ui/actions.js:175 | buildEdgeCard › run | object literal — rare: a click handler (a verb of the open card): runs once per tap, never in a frame; the scan reaches it only through the conservative callback dispatch of the halo step |
 | src/ui/actions.js:177 | buildEdgeCard › format | template string with a value — rare: the slider's number label, made on the slider's own input event (a drag moves it at pointer rate, not a frame's work) |
@@ -7928,10 +7928,10 @@ Still off the GPU: 4433. Grouped by kind, then file; tick a box by moving the si
 
 ### Memory allocated in a frame or motion callback (new array, object, typed array, closure, spread, string build: garbage every frame; keep a buffer and write in place) (`alloc`): 1451
 
-**src/engine/metrics.js** (1)
+**src/engine/portal/metrics.js** (1)
 - [ ] line 142, computeMetrics: object literal — frame path: src/worker-core.js#tick@302 → src/worker-core.js#tickOnce@334 → src/worker-core.j
 
-**src/engine/scenario.js** (2)
+**src/engine/portal/scenario.js** (2)
 - [ ] line 203, deepMerge: closure — frame path: src/worker-core.js#tick@302 → src/worker-core.js#tickOnce@334 → src/worker-core.js#tickB
 - [ ] line 204, deepMerge › merge: Object.keys() — frame path: src/worker-core.js#tick@302 → src/worker-core.js#tickOnce@334 → src/worker-core.js
 
@@ -9614,7 +9614,7 @@ Still off the GPU: 4433. Grouped by kind, then file; tick a box by moving the si
 
 ### Site no frame path reaches, that runs during use (event, timer, promise, listener) or has no caller the scan can find: never credited as on the GPU, with its reason (`unreached`): 1848
 
-**src/engine/engine.js** (1)
+**src/engine/portal/engine.js** (1)
 - [ ] line 910, trackPulsatility: attrWrite: .value = — runs during use (a method of this name is called from event handler)
 
 **src/ui/balance-hold.js** (3)

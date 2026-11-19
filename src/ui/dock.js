@@ -2,7 +2,7 @@
 // Instruments card (blueprint §9.1, §9.2).
 
 import { store, hiddenNow } from './store.js';
-import { EDGES } from '../engine/topology.js';
+import { EDGES } from '../engine/portal/topology.js';
 import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js';
 import { lobuleFlows } from './lobule-model.js';
 import { createProfile } from './charts.js';
@@ -22,10 +22,10 @@ import { dropFrontNums } from './drop-front.js';
 import { classSoon, classHas, classNow, runSoon } from './class-soon.js';
 import { vitalReading, vitalHeading, VITALS } from './vital-read.js';
 import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js';
-import { tenthGap } from '../engine/gap.js';
+import { tenthGap } from '../engine/core/gap.js';
 import { TILE } from './table-marks.js';
-import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked, HVPG_WORDS, PPG_WORDS, NOT_MEASURABLE } from '../engine/pressure-cuts.js';
-import { KIDNEY_CUTS, rppSev, RPP_WORDS } from '../engine/kidney-cuts.js';
+import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked, HVPG_WORDS, PPG_WORDS, NOT_MEASURABLE } from '../engine/portal/pressure-cuts.js';
+import { KIDNEY_CUTS, rppSev, RPP_WORDS } from '../engine/portal/kidney-cuts.js';
 import { compareRows } from './idle-keys.js';
 import { releaseSpeed, carryCurve, cubicBezier, D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE, EASE_MOVE } from './ease.js';
 import { readAnims, readBox, readMetric, readStyle, scrollInto } from './layout-snap.js';

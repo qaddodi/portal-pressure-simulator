@@ -3,10 +3,10 @@
 // through the lungs' store; the arteries are a Windkessel with a root impedance (physiology.js ARTERY). The MAP stays the true mean.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { deepMerge } from '../src/engine/scenario.js';
-import { pulseOf } from '../src/engine/physiology.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { deepMerge } from '../src/engine/portal/scenario.js';
+import { pulseOf } from '../src/engine/core/physiology.js';
 import { bpText } from '../src/ui/vital-read.js';
 
 const H = 0.004;

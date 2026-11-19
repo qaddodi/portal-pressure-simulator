@@ -5,7 +5,7 @@
 // One representative lobule stands for the whole liver, read from the right lobe (most of the
 // liver's flow).
 
-import { NODES, EDGES } from '../engine/topology.js';
+import { NODES, EDGES } from '../engine/portal/topology.js';
 import { clamp } from './util.js';
 import { oxygenFor } from './blood.js';
 import { sinceNow } from './since-ref.js';

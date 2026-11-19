@@ -9,7 +9,7 @@
 //   glow: [['V_INT', 'V_SPL', 'V_IMV'], 'PV_TRUNK']    with steps: a list in the glow is one step, its number on a leader to each
 //   span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }]   on the circuit view, a bracket from one station to another (V25)
 //   zone: 'liver'                                      on the circuit view, one of its five zone bands lit softly (V25)
-import { EDGES } from '../engine/topology.js';
+import { EDGES } from '../engine/portal/topology.js';
 import { SETS } from './highlight-math.js';
 import { REGIONS } from './decks.js';
 import { heartReadingOn } from './heart-reading.js';

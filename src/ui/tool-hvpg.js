@@ -16,7 +16,7 @@ import { createHvpgMonitor } from './hvpg-proc.js';
 import { monitorTitle } from './monitor.js';
 import { T, ease, k01 } from './hvpg-clock.js';
 import { frameFor, cancelFrame } from './frame.js';
-import { tenthGap } from '../engine/gap.js';
+import { tenthGap } from '../engine/core/gap.js';
 import { follow2, SHOWN_TAU } from './display-state.js';
 import { reduceMotionMQ } from './motion.js';
 const nextFrame = frameFor('tool-hvpg');

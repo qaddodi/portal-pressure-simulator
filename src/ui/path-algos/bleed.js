@@ -1,6 +1,6 @@
 // Acute variceal bleeding from an oesophageal varix or GOV1: Baveno VIII Fig. 3 and 5.4, 5.16, 5.18, 5.20, 5.31, 5.35 to 5.37. Three leaf columns (E3, 7 Nov 2026):
 // the gastric half of the figure (GOV2, IGV1; 5.39 to 5.41) is its own chart, gastric.js. Patient { src: 'ov', cp, active, hvpg, ctrl, fit }.
-import { PTIPS_HVPG } from '../../engine/pressure-cuts.js';
+import { PTIPS_HVPG } from '../../engine/portal/pressure-cuts.js';
 import { inheritTone, cpClass } from './helpers.js';
 
 const tree = inheritTone({

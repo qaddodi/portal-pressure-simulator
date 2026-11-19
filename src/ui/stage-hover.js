@@ -1,6 +1,6 @@
 // Hover and pick: the interaction section (pointer reads, hover link, label explain) and the shunts card.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { EDGES, SHUNT_PORTAL, SHUNT_PORTAL_VEINS, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js';
+import { EDGES, SHUNT_PORTAL, SHUNT_PORTAL_VEINS, SHUNT_SYSTEMIC, customShuntId } from '../engine/portal/topology.js';
 import { ABDOMEN_CLIP, BACK_EDGES, CONTEXT_EDGES, IVC_EDGES, LIVER_SPLIT_X, ORGANS } from './anatomy.js';
 import { classSoon } from './class-soon.js';
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js';

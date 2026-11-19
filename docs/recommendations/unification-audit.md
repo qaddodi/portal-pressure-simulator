@@ -170,7 +170,7 @@ ellipsis (`callout-math.js:34` `valueText`) or two hyphens (`scan-ease.js:89`).
 
 ### The standard
 
-One table of band words in `src/engine/pressure-cuts.js` beside the cut-offs (it already has `sevOfCuts`): HVPG `Normal`, `Mild portal
+One table of band words in `src/engine/portal/pressure-cuts.js` beside the cut-offs (it already has `sevOfCuts`): HVPG `Normal`, `Mild portal
 hypertension` (short `Mild`), `CSPH` (long `Clinically significant portal hypertension (CSPH)`); PPG `Normal`, `High`, `Bleed risk`. A short and
 a long form, chosen by the room, never a third wording. "Not measurable" everywhere (it is what the tiles, the most-seen place, say). The em
 dash for a number not known, as `util.js fmt` prints it; the ellipsis stays only for a value still being worked out, if the owner wants that

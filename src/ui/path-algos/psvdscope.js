@@ -5,7 +5,7 @@
 //   8.48 the LSM criteria for cirrhosis must not be used.
 // The model gives the spleen stiffness (fp.ssm, as the tile prints it). Bilirubin and what the scope found are the slide's own facts.
 import { inheritTone } from './helpers.js';
-import { SSM_CUTS } from '../../engine/ssm-cuts.js';
+import { SSM_CUTS } from '../../engine/portal/ssm-cuts.js';
 
 const SSM_SPARE = SSM_CUTS.spareScope;   // 40 kPa
 const BILI_SPARE = 1;                    // mg/dL

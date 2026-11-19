@@ -5,9 +5,9 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { Engine } from '../src/engine/engine.js';
-import { explain, METRICS } from '../src/engine/explain.js';
-import { computeMetrics } from '../src/engine/metrics.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { explain, METRICS } from '../src/engine/portal/explain.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const settled = (id) => { const e = new Engine(); e.loadPreset(id); for (let i = 0; i < 4; i++) e.settleQuick(); return e; };

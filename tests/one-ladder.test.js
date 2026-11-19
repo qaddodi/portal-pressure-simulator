@@ -92,7 +92,7 @@ test('the six-case summary keeps its six patients, the heart failure one include
 test('the profile\'s HVPG and PPG brackets round the true values, never the difference of the drawn readings (Mohammad\'s pick: they may be 1 off it)', () => {
   const src = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
   assert.doesNotMatch(src, /wholeGap/);
-  assert.doesNotMatch(readFileSync(new URL('../src/engine/gap.js', import.meta.url), 'utf8'), /wholeGap/, 'the whole-number gap is gone');
+  assert.doesNotMatch(readFileSync(new URL('../src/engine/core/gap.js', import.meta.url), 'utf8'), /wholeGap/, 'the whole-number gap is gone');
   assert.match(src, /const b = m\.br\[r\], v = shown\[b\.key\], vi = whole0\(v\)/);
   assert.match(src, /spans\.map\(\(\[k, name\]\) => `\$\{name\} \$\{whole\(goal\[k\]\)\}`\)/);   // (the label reads each bracket the chart draws, HVPG and PPG by default)
   assert.match(src, /return \{ v, hvpg: fp\.hvpg, eus: Number\.isFinite\(fp\.eus\) \? fp\.eus : 0, ppg: fp\.ppg \};/);

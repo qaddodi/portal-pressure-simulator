@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DOPPLER } from '../src/ui/decks/doppler.js';
 import { createCore } from '../src/worker-core.js';
-import { PRESETS, defaultParams } from '../src/engine/scenario.js';
+import { PRESETS, defaultParams } from '../src/engine/portal/scenario.js';
 import { CIRCUIT } from '../src/ui/decks/circuit.js';
 
 test('the meal slide is a bedside time-lapse with its meal ramp', () => {

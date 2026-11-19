@@ -1,13 +1,13 @@
-// One fingerprint (engine/fingerprint.js) for the worker's slide states and the presenter's live model during a time-lapse. Before 22 Oct they were
+// One fingerprint (engine/portal/fingerprint.js) for the worker's slide states and the presenter's live model during a time-lapse. Before 22 Oct they were
 // two lists that had drifted: the live one read the breath-averaged RA, lacked the albumin, central vein, hepatic encephalopathy and liver
 // resistance keys (a tile bound to one showed "—" mid time-lapse), and the worker's lacked the clot.
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { fingerprintOf, liverRes } from '../src/engine/fingerprint.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { fingerprintOf, liverRes } from '../src/engine/portal/fingerprint.js';
 import { createCore } from '../src/worker-core.js';
 import { fluidOf } from '../src/ui/tool-fluid.js';
 import { TILE } from '../src/ui/table-marks.js';

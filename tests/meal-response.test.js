@@ -6,7 +6,7 @@ import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createCore } from '../src/worker-core.js';
-import { MEAL_TONE } from '../src/engine/scenario.js';
+import { MEAL_TONE } from '../src/engine/portal/scenario.js';
 
 async function meal(preset, ramp = { meal: [0, 1] }) {
   const msgs = [], core = createCore((m) => msgs.push(m));

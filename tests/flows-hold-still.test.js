@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import './dom-shim.js';
-import { EDGES } from '../src/engine/topology.js';
+import { EDGES } from '../src/engine/portal/topology.js';
 const { smallMove, HOLD_PP, routeLayout, inflowGeo, inflowSpans, inflowLabels, barOrder, flowParts, TIER_BAND, KEEP_NAMED, LABEL_GAP, routeGeo } = await import('../src/ui/tool-flows.js');
 
 const measure = (t, f, wt = 600) => t.length * f * (wt >= 700 ? 0.6 : 0.56);

@@ -1,6 +1,6 @@
 // The tubes: update and updateInner, the widths and the tube render.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { EDGES, NODES, PORTAL_TERRITORY, dMinOf, isOccluded } from '../engine/topology.js';
+import { EDGES, NODES, PORTAL_TERRITORY, dMinOf, isOccluded } from '../engine/portal/topology.js';
 import { ART_FADE, BACK_EDGES, CONTEXT_EDGES, FEEDERS, IVC_EDGES, LABEL_VESSEL, LIVER_EDGES, SIN_EDGES, TIP_CONNECT } from './anatomy.js';
 import { bandsStep } from './band-ease.js';
 import { oxygenFor } from './blood.js';

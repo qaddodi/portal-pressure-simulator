@@ -2,9 +2,9 @@
 // stiffness must be what the simulation shows.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { deepMerge, PRESETS } from '../src/engine/scenario.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { deepMerge, PRESETS } from '../src/engine/portal/scenario.js';
 
 const run = (g) => { let n; do { n = g.next(); } while (!n.done); };
 

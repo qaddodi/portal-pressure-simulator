@@ -8,7 +8,7 @@ import { DECKS } from '../src/ui/decks.js';
 import { SITES } from '../src/ui/decks/sites.js';
 import { adopted } from './deck-adopted.js';
 import { EXT } from '../src/ui/slide-ext.js';
-import { NODES } from '../src/engine/topology.js';
+import { NODES } from '../src/engine/portal/topology.js';
 import { portalSplit } from '../src/ui/table-marks.js';
 import { profileOf, STATIONS, TIGHT_NAMES, NAME_GAP, axisTop, nameFit, profileGeo, valueSides, placeValues, curveRuns, labelPlacer, bracketLabel, bracketFit, oneLineGap, LABEL_PAD, BAR_MIN, BR_CLEAR, BR_MIN, BRACE_NAME, SPANS, placeBrackets, bracketBox, BR_PAD, ZONES, ZONE_GAP, ZONE_TOP, zoneSize, zoneSpans, zoneFit, zoneBoxes } from '../src/ui/tool-profile.js';
 import { flowParts, routeFlows, wholeShares, flowView, MAX_ROUTES, routeLayout, routeRows, routeHeight, LABEL_GAP, inflowGeo, inflowMarker, inflowSpans, inflowLabels, barOrder } from '../src/ui/tool-flows.js';

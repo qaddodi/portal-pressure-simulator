@@ -4,7 +4,7 @@ import { stageSource } from './stage-src.js';
 // sits on a dot: every visible dot, with a reading beside it or not, has a box the readings keep out of.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { EDGES, NODES } from '../src/engine/topology.js';
+import { EDGES, NODES } from '../src/engine/portal/topology.js';
 import { HIDDEN_EDGES, HIDDEN_NODES, NEEDS_C3, NODE_POS } from '../src/ui/anatomy.js';
 import { nodeEnds, nodeDrawn, drawnAt, leadEnd, dotRadius, dotBox, bareDots } from '../src/ui/circuit-nodes.js';
 

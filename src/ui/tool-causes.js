@@ -6,7 +6,7 @@
 // per cause from the running total (right for a rise, left for a fall, its signed mmHg at the step's end), then a "Now" bar at
 // the case's reading in its rating's colour, the same number and colour as its tile. Thin dashed lines at the reading's
 // cut-offs (PPG 6 and 12, HVPG 5 and 10, portal 10 and 15) run behind the bars, numbered under them, so the steps show where
-// the case crosses them. The causes come from the Why? panel's leave-one-out code (engine/explain.js) run on the slide's own
+// the case crosses them. The causes come from the Why? panel's leave-one-out code (engine/portal/explain.js) run on the slide's own
 // state on the presenter's calculation worker (the slide's step asks for it: ext-model.js). At most five causes, the largest
 // (fewer when the card is too short for their rows); whatever they leave of the rise (the causes overlap, and the smaller
 // ones) is the grey "Causes together" step, so the printed steps add up exactly to the printed "Now". Each step takes
@@ -16,7 +16,7 @@
 
 import { TILE, RATE, tileShown } from './table-marks.js';
 import { cutsOf } from './tool-curve.js';
-import { DRUGS } from '../engine/scenario.js';
+import { DRUGS } from '../engine/portal/scenario.js';
 import { restClass } from './rest-pass.js';
 import { frameFor } from './frame.js';
 import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js';
@@ -40,7 +40,7 @@ export const GROUPS = [
   ['drugs', 'Drugs', '--tr-hv'],
 ];
 const DRUG_LABELS = new Set(Object.values(DRUGS).map((d) => d.label));
-// Each cause the Why? panel can name (engine/explain.js factors), by its label, to its mechanism. (The ascites's pressure
+// Each cause the Why? panel can name (engine/portal/explain.js factors), by its label, to its mechanism. (The ascites's pressure
 // on the veins counts as resistance; a splenectomy, less inflow; balloon tamponade closes collaterals.)
 const RULES = [
   ['res', /^(Cirrhosis\b|(Presinusoidal|Sinusoidal|Postsinusoidal) fibrosis|Stenosis of |Clot in |Occluded |Ascites\b)/],

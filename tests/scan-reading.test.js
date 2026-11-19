@@ -8,7 +8,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { scanKpaOf, scanReadingText } from '../src/ui/scan-ease.js';
-import { NOT_SHOWN } from '../src/engine/pressure-cuts.js';
+import { NOT_SHOWN } from '../src/engine/portal/pressure-cuts.js';
 
 const read = (f) => fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 

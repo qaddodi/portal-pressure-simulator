@@ -3,9 +3,9 @@
 // stent in cirr-decomp, 7.9 through 10 mm, the recs' figures) and under AASLD 2024's 12 mmHg.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { deepMerge } from '../src/engine/scenario.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { deepMerge } from '../src/engine/portal/scenario.js';
 import { MEASURES, PROCS, PROC_KINDS, READS, playProcedure, specOf, procFrame, stepAt, stepMarks, markAt, procBlocked, procOffered } from '../src/ui/proc-anim.js';
 
 const G = MEASURES.tipsgrad, T = G.T;

@@ -2,8 +2,8 @@
 // violet above it. Run through the TIPS Doppler talk, the bands match what the slides say.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { deepMerge } from '../src/engine/scenario.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { deepMerge } from '../src/engine/portal/scenario.js';
 import { velNormal, dopplerVel, velPos } from '../src/ui/velNormal.js';
 import { TIPS_DOPPLER } from '../src/ui/decks/tips-doppler.js';
 

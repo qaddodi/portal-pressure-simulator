@@ -10,7 +10,7 @@
 
 import { h, fmt, icon, toast, swapText } from './util.js';
 import { glWords } from './gl-words.js';
-import { hvpgSev, hvBlocked, NOT_SHOWN } from '../engine/pressure-cuts.js';
+import { hvpgSev, hvBlocked, NOT_SHOWN } from '../engine/portal/pressure-cuts.js';
 import { pressureColor } from './colormap.js';
 import { store, logAction, hiddenNow, updateParams } from './store.js';
 import { shownOr } from './shown.js';

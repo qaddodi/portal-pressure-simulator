@@ -7,11 +7,11 @@
 // structure's verbs, whose readings are functions of the model frame, so choosing a structure looks its card up and a frame reads
 // it, and nothing here is built while the app runs. What a frame reads is written in place (see steady, the stats' cells below).
 
-import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent, isStent, stentSite } from '../engine/topology.js';
+import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent, isStent, stentSite } from '../engine/portal/topology.js';
 import { dopplerVel, flowReversed } from './velNormal.js';
 import { store, updateParams, hiddenNow } from './store.js';
 import { fmt, fmtFlow, clamp } from './util.js';
-import { PREGNANCY_INFO } from '../engine/scenario.js';
+import { PREGNANCY_INFO } from '../engine/portal/scenario.js';
 import { lobuleState } from './lobule-model.js';
 import { oxygenFor } from './blood.js';
 import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js';

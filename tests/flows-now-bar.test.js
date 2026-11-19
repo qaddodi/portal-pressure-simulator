@@ -2,7 +2,7 @@
 // whole percents, decided on what the card shows so a 0.1% wobble never flickers it; the Now bar returns when any share differs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { EDGES } from '../src/engine/topology.js';
+import { EDGES } from '../src/engine/portal/topology.js';
 await import('./dom-shim.js');   // (the card draws on the GPU, svg-gl.js, which loads only with a page)
 const { sameShares, flowParts } = await import('../src/ui/tool-flows.js');
 

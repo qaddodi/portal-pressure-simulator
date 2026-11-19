@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PROBE_NORMAL, DOPPLER_NORMAL, STENT_PV_NORMAL, velNormal } from '../src/ui/velNormal.js';
-import { EDGES } from '../src/engine/topology.js';
+import { EDGES } from '../src/engine/portal/topology.js';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const noStent = { D: EDGES.map((e) => (e.id === 'TIPS' || e.id === 'DIPS' ? 0 : 1)) };   // (the shunts closed: no stent in)

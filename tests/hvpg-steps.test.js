@@ -2,8 +2,8 @@
 // Each step plays once on Next and holds; nothing shows before the tip is in the vein; the readings are the model's own (metrics.fhvp, whvp, hvpg).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
 import { MEASURES, PROCS, PROC_KINDS, READS, specOf, procFrame, stepAt, stepMarks, markAt, procBlocked, procOffered } from '../src/ui/proc-anim.js';
 import { legMs, ROUTE_LEN, BALLOON_IN_MS } from '../src/ui/hvpg-clock.js';
 

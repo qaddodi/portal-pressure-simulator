@@ -6,9 +6,9 @@ import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { Engine } from '../src/engine/engine.js';
-import { NODES } from '../src/engine/topology.js';
-import { deepMerge } from '../src/engine/scenario.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { NODES } from '../src/engine/portal/topology.js';
+import { deepMerge } from '../src/engine/portal/scenario.js';
 import { lobuleState, sinceOf, LOBE } from '../src/ui/lobule-model.js';
 
 // (The module's stamped URL is the one the lobule's model imports: a bare import would be a second copy with its own reference.)

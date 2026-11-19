@@ -1,20 +1,20 @@
 // The kidney pressure tile (renal perfusion pressure, metrics.rpp): the mean arterial pressure less the pressure inside the abdomen.
-// A pressure, not kidney function: the model has no GFR or creatinine. Its cut-offs live once, in src/engine/kidney-cuts.js.
+// A pressure, not kidney function: the model has no GFR or creatinine. Its cut-offs live once, in src/engine/portal/kidney-cuts.js.
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { deepMerge } from '../src/engine/scenario.js';
-import { iapFromAscites } from '../src/engine/physiology.js';
-import { KIDNEY_CUTS, rppSev, RPP_WORDS } from '../src/engine/kidney-cuts.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { deepMerge } from '../src/engine/portal/scenario.js';
+import { iapFromAscites } from '../src/engine/core/physiology.js';
+import { KIDNEY_CUTS, rppSev, RPP_WORDS } from '../src/engine/portal/kidney-cuts.js';
 import { TILE, RATE, SCALE, CUT, COLS, bandsOf, rateOf } from '../src/ui/table-marks.js';
-import { METRICS } from '../src/engine/explain.js';
+import { METRICS } from '../src/engine/portal/explain.js';
 import { runSteps } from './deck-states.js';
-import { fingerprintOf } from '../src/engine/fingerprint.js';
+import { fingerprintOf } from '../src/engine/portal/fingerprint.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');
@@ -67,7 +67,7 @@ test('the tile is rated from the cut-off module alone: red below the MAP line ca
 });
 
 test('no wording on the tile claims kidney function', () => {
-  const words = [TILE.rpp.t, TILE.rpp.s, CUT.rpp, METRICS.rpp.label, read('src/engine/kidney-cuts.js').split('\n').slice(0, 12).join(' ')];
+  const words = [TILE.rpp.t, TILE.rpp.s, CUT.rpp, METRICS.rpp.label, read('src/engine/portal/kidney-cuts.js').split('\n').slice(0, 12).join(' ')];
   for (const w of words) assert.ok(!/\b(GFR|filtration rate|creatinine clearance)\b/i.test(w.replace(/no GFR|not kidney function|no GFR, no creatinine/g, '')), w);
   // (The bar's tile takes its tooltip from the reading's one definition, TILE.rpp.long: unification audit, finding 6.)
   assert.match(TILE.rpp.long, /not kidney function/, 'the tile\'s tooltip says it is a pressure');
@@ -83,7 +83,7 @@ test('no file but the module writes the kidney pressure cut-off as a number', ()
       if (/\brpp\b[^;\n]{0,24}(?:>=?|<=?|===?)\s*-?\d/i.test(code) || /\bmap\b[^;\n]{0,24}(?:<=?|>=?)\s*65\b/i.test(code) || /\bcut:\s*65\b/.test(code)) stray.push(`${f}:${i + 1}: ${line.trim().slice(0, 100)}`);
     });
   }
-  assert.deepEqual(stray, [], 'read the cut-off from src/engine/kidney-cuts.js');
+  assert.deepEqual(stray, [], 'read the cut-off from src/engine/portal/kidney-cuts.js');
 });
 
 test('the kidney talk types the same two rules as the module (a deck is one file with no imports)', async () => {

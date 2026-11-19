@@ -20,7 +20,7 @@
 // 'tips10', 'mesocaval', 'portocaval', 'rex', 'recanalization').
 
 import { RATE } from './table-marks.js';
-import { SEV_OF_RATE } from '../engine/pressure-cuts.js';
+import { SEV_OF_RATE } from '../engine/portal/pressure-cuts.js';
 import { fittedType } from './chart-ctx.js';
 import { plotPanel } from './plot-look.js';
 import { createSvgGL, svgModel } from './svg-gl.js';

@@ -2,7 +2,7 @@
 // engine.js controllers), so the number holds through each breath. Its red flag needs that mean past the cut-off, holds
 // 1.5 s before it changes, and clears only a little inside the cut-off (hysteresis), so a patient sitting on a cut-off
 // does not flicker red; a paused model takes its flag at once.
-import { MAP_BETA_CUT, SBP_BETA_CUT } from '../engine/kidney-cuts.js';
+import { MAP_BETA_CUT, SBP_BETA_CUT } from '../engine/portal/kidney-cuts.js';
 
 export const VITAL_HOLD = 1500;
 

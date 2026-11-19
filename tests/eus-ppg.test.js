@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { MEASURES, READS, PROC_KINDS, specOf, procFrame, stepAt, stepMarks, markAt, procBlocked, procOffered } from '../src/ui/proc-anim.js';
 import { EUS_ROUTE, EUS_TARGETS, EUS_STATIONS, EUS_RHO, EUS_RIGID, EUS_SCOPE_R, EUS_EXIT_SIDE, EUS_PORT_R, eusPose, eusDraw, newTip, pointOn } from '../src/ui/eus-scope.js';
 import { EDGE_PATH, ORGANS, SEAM_D } from '../src/ui/anatomy.js';
-import { NODES } from '../src/engine/topology.js';
+import { NODES } from '../src/engine/portal/topology.js';
 
 const E = MEASURES.eus, T = E.T;
 const times = Array.from({ length: Math.ceil(T.end / 20) + 1 }, (_, i) => i * 20);

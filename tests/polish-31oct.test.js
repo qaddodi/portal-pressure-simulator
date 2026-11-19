@@ -138,7 +138,7 @@ test('the Guide lists every key the figure answers: dye, zoom, color lens, undo,
 });
 
 test('a percentage is "75%" everywhere a person reads it: the cards, the Why bars, the toasts and the timeline match the figure and the slides', () => {
-  for (const f of ['src/ui/actions.js', 'src/ui/inspector.js', 'src/ui/about.js', 'src/ui/tool-lumen.js', 'src/ui/instruments.js', 'src/ui/chart.js', 'src/engine/explain.js', 'src/engine/events.js']) {
+  for (const f of ['src/ui/actions.js', 'src/ui/inspector.js', 'src/ui/about.js', 'src/ui/tool-lumen.js', 'src/ui/instruments.js', 'src/ui/chart.js', 'src/engine/portal/explain.js', 'src/engine/portal/events.js']) {
     const code = src(f).split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
     assert.doesNotMatch(code, /(\d|\}|\)) %(?=['"`.,:;)\]]| (of|stays|compensated|CSPH|decompensated|blood)\b)/, `${f}: a space before the percent sign`);
   }
@@ -149,7 +149,7 @@ test('a percentage is "75%" everywhere a person reads it: the cards, the Why bar
 });
 
 test('the drug class is "beta-blocker" on the Treat card, the Why card and the slides alike', () => {
-  for (const f of ['src/ui/actions.js', 'src/ui/inspector.js', 'src/engine/scenario.js']) assert.doesNotMatch(src(f), /'(Non-?selective )?[βΒ]-blocker/, f);
+  for (const f of ['src/ui/actions.js', 'src/ui/inspector.js', 'src/engine/portal/scenario.js']) assert.doesNotMatch(src(f), /'(Non-?selective )?[βΒ]-blocker/, f);
   assert.match(src('src/ui/actions.js'), /propranolol: 'Nonselective beta-blocker', carvedilol: 'Beta-blocker \+ α1 blockade'/);
   assert.match(src('src/ui/decks/treatment.js'), /kicker: 'Nonselective beta-blocker'/);
 });
@@ -170,14 +170,14 @@ test('the credit in the Help menu keeps one voice: "Created by <name>" over "Mor
 test('where pressure is lost is "resistance", never a "block" (cards, About and the Why text)', () => {
   assert.doesNotMatch(src('src/ui/actions.js'), /local block|makes the block post-sinusoidal/);
   assert.doesNotMatch(src('src/ui/inspector.js'), /Blocked in schistosomiasis/);
-  assert.doesNotMatch(src('src/engine/scenario.js'), /Presinusoidal block/);
-  assert.match(src('src/engine/scenario.js'), /summary: 'Presinusoidal resistance: high portal pressure/);
+  assert.doesNotMatch(src('src/engine/portal/scenario.js'), /Presinusoidal block/);
+  assert.match(src('src/engine/portal/scenario.js'), /summary: 'Presinusoidal resistance: high portal pressure/);
   assert.match(src('src/ui/actions.js'), /makes the resistance post-sinusoidal/);
   assert.doesNotMatch(src('src/ui/about.js'), /when the IVC is blocked|hepatic veins are blocked/);
 });
 
 test('the bleed-risk event is named for what it means, not as a threshold (12 is not a cut-off; the number sits in its line)', () => {
-  const ev = src('src/engine/events.js');
+  const ev = src('src/engine/portal/events.js');
   assert.match(ev, /title: 'Bleeding more likely', detail: 'HVPG ≥12 mmHg\. Bleeding risk climbs with the gradient from about 12 mmHg, but varices can bleed below it/);
   assert.doesNotMatch(ev, /title: 'HVPG ≥ 12 mmHg'/);
   assert.match(ev, /15–30% of blood volume lost/);
@@ -188,7 +188,7 @@ test('the bleed-risk event is named for what it means, not as a threshold (12 is
 });
 
 test('the Patients menu groups say Pre-hepatic and Post-hepatic as the slides do, and every group has its "where" line', () => {
-  const sc = src('src/engine/scenario.js'), menu = src('src/ui/menu.js');
+  const sc = src('src/engine/portal/scenario.js'), menu = src('src/ui/menu.js');
   const groups = [...new Set([...sc.matchAll(/group: '([^']+)'/g)].map((m) => m[1]))];
   assert.ok(groups.includes('Pre-hepatic') && groups.includes('Post-hepatic'));
   assert.ok(!groups.includes('Prehepatic') && !groups.includes('Posthepatic'));
@@ -197,8 +197,8 @@ test('the Patients menu groups say Pre-hepatic and Post-hepatic as the slides do
 });
 
 test('a percent hugs its number in the Why headline and on the readout tiles ("69%", "41% of rupture")', async () => {
-  const { Engine } = await import('../src/engine/engine.js');
-  const { explain, METRICS } = await import('../src/engine/explain.js');
+  const { Engine } = await import('../src/engine/portal/engine.js');
+  const { explain, METRICS } = await import('../src/engine/portal/explain.js');
   const e = new Engine(); e.loadPreset('csph'); for (let i = 0; i < 4; i++) e.settleQuick();
   for (const id of Object.keys(METRICS).filter((k) => METRICS[k].unit.startsWith('%'))) {
     const { sentence } = explain(e, id);
@@ -248,8 +248,8 @@ test('the Readouts tab on a phone (two columns) gives the last tile of an odd gr
 });
 
 test('the Why headline never says "-0" and never repeats a zero baseline ("69%, 69 above healthy")', async () => {
-  const { Engine } = await import('../src/engine/engine.js');
-  const { explain, METRICS } = await import('../src/engine/explain.js');
+  const { Engine } = await import('../src/engine/portal/engine.js');
+  const { explain, METRICS } = await import('../src/engine/portal/explain.js');
   const e = new Engine(); e.loadPreset('cirr-decomp'); for (let i = 0; i < 4; i++) e.settleQuick();
   for (const id of Object.keys(METRICS)) {
     const { sentence } = explain(e, id);
@@ -263,8 +263,8 @@ test('the Why headline never says "-0" and never repeats a zero baseline ("69%, 
 });
 
 test('the MAP formula ends in its result and carries its units, as the HVPG and PPG lines do', async () => {
-  const { Engine } = await import('../src/engine/engine.js');
-  const { explain } = await import('../src/engine/explain.js');
+  const { Engine } = await import('../src/engine/portal/engine.js');
+  const { explain } = await import('../src/engine/portal/explain.js');
   const e = new Engine(); e.loadPreset('cirr-decomp'); for (let i = 0; i < 4; i++) e.settleQuick();
   assert.match(explain(e, 'map').formula, /^MAP = CO × SVR \+ RA = [\d.]+ L\/min × [\d.]+ WU \+ [\d.]+ mmHg = \d+ mmHg$/);
 });

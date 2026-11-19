@@ -1,8 +1,8 @@
 // Clinical readouts derived from engine state (blueprint §9.1).
 
 import { PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES, EDGES } from './topology.js';
-import { clamp } from './physiology.js';
-import { tenthGap } from './gap.js';
+import { clamp } from '../core/physiology.js';
+import { tenthGap } from '../core/gap.js';
 import { ssmOf } from './ssm-cuts.js';
 
 const STENTS = new Set(['TIPS', 'DIPS']);   // the stents from the portal side: their flow is part arterial (see computeMetrics)

@@ -4,7 +4,7 @@
 
 import { store, hiddenNow } from './store.js';
 import { fmt } from './util.js';
-import { EDGES } from '../engine/topology.js';
+import { EDGES } from '../engine/portal/topology.js';
 import { judgeFlow } from './velNormal.js';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

@@ -4,10 +4,10 @@
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { defaultParams, deepMerge, sanitizeParams } from '../src/engine/scenario.js';
-import { EDGES, SHUNT_PORTAL_VEINS, isPortalLink, isStent, stentCourse } from '../src/engine/topology.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { defaultParams, deepMerge, sanitizeParams } from '../src/engine/portal/scenario.js';
+import { EDGES, SHUNT_PORTAL_VEINS, isPortalLink, isStent, stentCourse } from '../src/engine/portal/topology.js';
 import { routeFlows } from '../src/ui/tool-flows.js';
 import { CUSTOM_SHUNT_PATH } from '../src/ui/custom-shunt-paths.js';
 

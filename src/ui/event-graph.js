@@ -36,7 +36,7 @@ import { fittedType, tokName } from './chart-ctx.js';
 import { readMetric } from './layout-snap.js';
 import { LINE, withUnit, headLeft } from './flow-time.js';
 import { SCALE, RATE, PRESS } from './table-marks.js';
-import { PPG_CUTS } from '../engine/pressure-cuts.js';
+import { PPG_CUTS } from '../engine/portal/pressure-cuts.js';
 const nextFrame = frameFor('event-graph');
 
 // (The clock: seconds before the change, seconds after it, the step between the clock's numbers.)

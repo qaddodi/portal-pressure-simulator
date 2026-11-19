@@ -2,7 +2,7 @@
 // is happening to it in this patient right now (reversed flow, a clot, a collateral opening). The
 // first sentence is fixed; the rest is read from the live model.
 
-import { EDGES, NODES, dMinOf } from '../engine/topology.js';
+import { EDGES, NODES, dMinOf } from '../engine/portal/topology.js';
 import { fmt, clamp } from './util.js';
 import { LABEL_VESSEL } from './anatomy.js';
 import { judgeFlow } from './velNormal.js';

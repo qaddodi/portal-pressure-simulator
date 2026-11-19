@@ -5,7 +5,7 @@ import './dom-shim.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { NODES, EDGES } from '../src/engine/topology.js';
+import { NODES, EDGES } from '../src/engine/portal/topology.js';
 import { LABEL_VESSEL } from '../src/ui/anatomy.js';
 import { HOVER_LINK, labelTarget, labelsOf, edgesOfLabel } from '../src/ui/hover-link.js';
 

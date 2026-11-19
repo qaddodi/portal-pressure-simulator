@@ -1,9 +1,9 @@
 // Physiological acceptance tests (blueprint §12). Run: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine, VARIX } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { defaultParams, deepMerge } from '../src/engine/scenario.js';
+import { Engine, VARIX } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { defaultParams, deepMerge } from '../src/engine/portal/scenario.js';
 
 const fresh = () => new Engine();
 const preset = (id, opts) => { const e = new Engine(); e.loadPreset(id, opts); return e; };

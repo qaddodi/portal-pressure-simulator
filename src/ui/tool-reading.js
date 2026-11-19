@@ -18,8 +18,8 @@ import { k01, waveAt, WAVE_GAIN, WEDGE_DAMP } from './hvpg-clock.js';
 import { createTraceGL } from './trace-gl.js';
 import { drawMonitor, HVPG_TEXT, monitorTitle } from './monitor.js';
 import { specOf, markAt, READS } from './proc-anim.js';
-import { hvpgSev, ppgSev, PPG_CUTS } from '../engine/pressure-cuts.js';
-import { NODES } from '../engine/topology.js';
+import { hvpgSev, ppgSev, PPG_CUTS } from '../engine/portal/pressure-cuts.js';
+import { NODES } from '../engine/portal/topology.js';
 import { store } from './store.js';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

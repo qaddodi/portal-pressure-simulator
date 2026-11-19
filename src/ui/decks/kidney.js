@@ -18,7 +18,7 @@
 // - AASLD 2024 (introduction, Figure 2): splanchnic and systemic vasodilation, a lower effective arterial blood volume, sodium and
 //   water retention and, at late stages, hepatorenal syndrome from compensatory renal vasoconstriction.
 // Neither file gives a cut-off for a kidney pressure: the tile's line is the MAP line of 4.6 at the abdomen's resting pressure
-// (src/engine/kidney-cuts.js). A deck is one file with no imports (deck-source.js), so the two rules are typed below, 65 and 60 mmHg;
+// (src/engine/portal/kidney-cuts.js). A deck is one file with no imports (deck-source.js), so the two rules are typed below, 65 and 60 mmHg;
 // tests/kidney-pressure.test.js keeps them equal to the module's.
 
 const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`;
