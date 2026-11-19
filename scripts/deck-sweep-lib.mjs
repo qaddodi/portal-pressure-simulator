@@ -65,3 +65,24 @@ export function summarize(report) {
   }
   return out.join('\n');
 }
+
+/**
+ * Two deck-sweep reports over the slides both hold: per slide-size key, the problems only one found (a slide that did not open in either is
+ * left out: there is nothing to compare). { both, same, differ: [{ key, onlyA, onlyB }], onlyA, onlyB }.
+ */
+export function compareReports(a, b) {
+  const A = a?.results || {}, B = b?.results || {};
+  const out = { both: 0, same: 0, differ: [], onlyA: 0, onlyB: 0 };
+  for (const key of Object.keys(A)) {
+    const x = A[key], y = B[key];
+    if (!y) { out.onlyA++; continue; }
+    if (x.ok === false || y.ok === false) continue;
+    out.both++;
+    const px = new Set(x.problems || []), py = new Set(y.problems || []);
+    const onlyA = [...px].filter((p) => !py.has(p)), onlyB = [...py].filter((p) => !px.has(p));
+    if (onlyA.length || onlyB.length) out.differ.push({ key, onlyA, onlyB }); else out.same++;
+  }
+  for (const key of Object.keys(B)) if (!A[key]) out.onlyB++;
+  out.differ.sort((p, q) => p.key.localeCompare(q.key));
+  return out;
+}

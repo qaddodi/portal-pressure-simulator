@@ -14,6 +14,7 @@ import { store, viewKey, setViewKey, updateParams, replaceParams, bindParamSende
 import { hvBlocked } from '../engine/pressure-cuts.js';
 import { fibroReading } from './clock.js';
 import { createStage } from './stage.js';
+import { cardsOnly, voidStage } from './cards-only.js';
 import { createCreditPlacer } from './credit.js';
 import { whenQuiet, booting, holdCover } from './quiet.js';
 import { sinusoidSupported } from './gl-support.js';
@@ -199,7 +200,7 @@ async function main() {
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL], ['trials', trialsL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
   why = createWhy($('#whyPop'));
-  stage = createStage({
+  stage = cardsOnly() ? voidStage() : createStage({   // (a cards-only layout sweep has no figure at all: cards-only.js)
     wrap: view,
     onSelect: (sel, opts) => { if (sel && isPhone() && treatOpen()) closeTreat(); select(sel); if (opts?.keyboard) setTimeout(() => card?.focusFirst(), 30); },
     onAction: doAction,

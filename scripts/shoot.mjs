@@ -131,7 +131,7 @@ export const CARDS_LANDED = () => {
 };
 
 /** Opens the app on a fresh page on the GPU path. Rejects (naming the cause) when that is not what it got. */
-export async function openApp({ device = 'mac', theme = 'light', query = '', dir = '.', url = '', timeout = 180000, dpr, browser: shared, fakeClock = false, initScript = '', setup } = {}) {
+export async function openApp({ device = 'mac', theme = 'light', query = '', dir = '.', url = '', timeout = 180000, dpr, browser: shared, fakeClock = false, initScript = '', setup, gpuPath = true } = {}) {
   const dev = DEVICES[device];
   if (!dev) throw new Error(`unknown device "${device}" (${Object.keys(DEVICES).join(', ')})`);
   const isTalk = /(^|[?&])script=/.test(query);   // (a deck slide: its cards are waited for, settle)
@@ -151,7 +151,7 @@ export async function openApp({ device = 'mac', theme = 'light', query = '', dir
     const base = url || server.url;
     await page.goto(base + (query && !query.startsWith('?') ? `?${query}` : query));
     await page.waitForFunction(() => window.pps?.store?.get().frame, null, { timeout });
-    assertGpuPath(await readPath(page), `${device} ${theme}`);
+    if (gpuPath) assertGpuPath(await readPath(page), `${device} ${theme}`);   // (gpuPath false: a cards-only sweep, which builds no figure to check)
   } catch (e) { await close(); throw e; }
 
   /** Pauses the model (its beat and the moving blood hold still) so two shots can be identical. */
