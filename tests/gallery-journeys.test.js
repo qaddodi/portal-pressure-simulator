@@ -93,8 +93,8 @@ test('heaviness: instruments, procedures, the catheter and the lobule weigh more
 
 test('the address: ?check, ?check=full, the rate, a subset of paths', () => {
   assert.equal(parseCheckAddress('?gallery'), null);
-  assert.deepEqual(parseCheckAddress('?check'), { full: false, rate: 6, only: [], fresh: false });
-  assert.deepEqual(parseCheckAddress('?check=full&rate=10&only=views,decks&fresh=1'), { full: true, rate: 10, only: ['views', 'decks'], fresh: true });
+  assert.deepEqual(parseCheckAddress('?check'), { full: false, rate: 6, only: [], fresh: false, steps: true });
+  assert.deepEqual(parseCheckAddress('?check=full&rate=10&only=views,decks&fresh=1'), { full: true, rate: 10, only: ['views', 'decks'], fresh: true, steps: true });
   assert.equal(parseCheckAddress('?check&rate=0').rate, 6);
   assert.equal(parseCheckAddress('?check&rate=99').rate, 20);
   assert.deepEqual(pickJourneys(J, ['decks']).map((j) => j.id).every((id) => /^decks-/.test(id)), true);

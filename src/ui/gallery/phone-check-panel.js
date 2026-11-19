@@ -4,6 +4,7 @@
 // reads the GPU estimate, the live contexts and who grew after every step (walk-exec.js), runs the fit rules and the self-check rules at each stop, and keeps its
 // place so a tab the browser ends is reported on the step it ended on (walk.js). Preview only: main.js loads the gallery page for ?check on the preview copy.
 //
+//   &steps=0          leave the every-step table out of the report (it is on by default)
 //   ?check            the check (about 3 minutes; paths that would start after 200 s are dropped and named)
 //   ?check=full       no time limit
 //   &rate=8           test-clock speed (default 6; rate=1 is real pace)   &only=views,panes   just those paths (ids from journeys.js)   &fresh=1  forget a half-done run
@@ -30,6 +31,7 @@ export function parseCheckAddress(search) {
     rate: Number.isFinite(rate) && rate >= 1 ? Math.min(20, rate) : DEFAULT_RATE,
     only: (q.get('only') || '').split(',').map((s) => s.trim()).filter(Boolean),
     fresh: q.get('fresh') === '1',
+    steps: q.get('steps') !== '0',
   };
 }
 
@@ -92,7 +94,7 @@ function mount(host, ctx) {
     const exec = createExecutor({ pps, api });
     const w = `${readMetric(window, 'innerWidth')} x ${readMetric(window, 'innerHeight')}`;
     const io = {
-      storage: safeStorage(), exec: exec.exec, read: readDevice, judge: () => judgeHere(pps, api), errors: () => errorTotal(pps),
+      storage: safeStorage(), exec: exec.exec, read: readDevice, judge: () => judgeHere(pps, api), errors: () => errorTotal(pps), errorTags: () => { try { return pps?.caught?.() || {}; } catch { return {}; } },
       shouldStop: () => stopFlag,
       onProgress: (p) => {
         keepAwake(true);
@@ -103,7 +105,7 @@ function mount(host, ctx) {
         fill.style.transform = `scaleX(${total ? done / total : 0})`;
       },
     };
-    const info = { device: `${deviceClass()}, ${w} at ${window.devicePixelRatio || 1}x`, look: ctx.look?.(), build: RELEASE, rate: clock?.on ? rate : 0, lastSeen: [] };
+    const info = { steps: req.steps !== false, device: `${deviceClass()}, ${w} at ${window.devicePixelRatio || 1}x`, look: ctx.look?.(), build: RELEASE, rate: clock?.on ? rate : 0, lastSeen: [] };
     current = runWalk(journeys, io, { deadlineMs: req.full ? 0 : DEADLINE_MS, envelope: env, fresh: !!req.fresh, info }).then(async (report) => {
       try { info.lastSeen = reportLines().filter((l) => /last-seen/.test(l)); } catch { /* (no report yet) */ }
       if (info.lastSeen.length) report.text = report.text.replace(/\n\nNOT CHECKED HERE/, `\n  the page's own record: ${info.lastSeen.join('; ')}\n\nNOT CHECKED HERE`);

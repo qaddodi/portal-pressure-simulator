@@ -10,7 +10,7 @@ import { contextStats } from '../gl-contexts.js';
 const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
 export const STEP_LIMIT_MS = 15000;   // the longest a step may take to come to rest before the walk calls it "not settled" and goes on
 
-/** What the page holds now, as walk.js reads it: { mb, peak, own, charts, live, lost, heap, owners: [{ owner, mb }] }. One read per step. */
+/** What the page holds now, as walk.js reads it: { mb, peak, own, charts, live, lost, unmet, heap, owners: [{ owner, mb }], holders: [{ owner, kind, mb }] }. One read per step. */
 export function readDevice() {
   let heap = null;
   try { const u = globalThis.performance?.memory?.usedJSHeapSize; if (Number.isFinite(u)) heap = u / 1e6; } catch { /* (Safari has no heap figure) */ }
@@ -19,7 +19,9 @@ export function readDevice() {
   try { const s = contextStats(); live = s.live; lost = s.lost; } catch { /* (the registry is not up) */ }
   try { owners = budget().owners.map((o) => ({ owner: o.owner, mb: o.mb })); } catch { /* (the registry is not up) */ }
   try { unmet = holdersNow().unmetMB; } catch { /* (the registry is not up) */ }
-  return { mb: memoryMB(), peak: peakMB(), own, charts, live, lost, unmet, heap, owners };
+  let holders = [];
+  try { holders = holdersNow().list; } catch { /* (the registry is not up) */ }
+  return { mb: memoryMB(), peak: peakMB(), own, charts, live, lost, unmet, heap, owners, holders };
 }
 
 /** The executor for walk.js: exec(step) plays it and waits for rest. `api` is the gallery API (pps.gallery) when the page has one. */
