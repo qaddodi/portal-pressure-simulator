@@ -8,6 +8,7 @@ const walk = (dir) => readdirSync(join(ROOT, dir)).flatMap((n) => { const rel = 
 const KEEP = new Set([
   'src/ui/num.js',                 // (the one)
   'src/engine/physiology.js',      // (the engine imports nothing from src/ui)
+  'src/engine/trail-calm.js',      // (the engine imports nothing from src/ui; its clamp is one line)
   'src/ui/chart-looks/dsl.js',     // (a look's clamp() expression, not the number helper)
   'src/ui/tube-cel-glsl.js', 'src/ui/tube-join-glsl.js', 'src/ui/tube-lean-glsl.js', 'src/ui/tube-lumen-glsl.js',   // (JS twins of GLSL)
   'src/ui/tube-geo.js', 'src/ui/tube-joint.js', 'src/ui/veins-mesh.js',   // (mirror their shaders' clamp, min(max(x, a), b): the Tube and blood renderers' own pass)
