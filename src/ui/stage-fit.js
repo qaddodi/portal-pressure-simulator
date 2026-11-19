@@ -1,6 +1,6 @@
 // The framing: card and pill insets, the clear-of-pill view, the fit and default view for each view, refit, close view, the circuit rotation and reveal.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { VB_ANAT, VB_CIRC } from './anatomy.js';
+import { RECTUM_FADE, VB_ANAT, VB_CIRC } from './anatomy.js';
 import { viewBoxAt, viewXfCameraInto, viewXfDetach } from './view-xf.js';
 import { caught } from './caught.js';
 import { figureShift, panInto, revealDelta, roomiest, squeezeBottom, topOverColumn, uprightFitOf } from './card-clear.js';
@@ -22,6 +22,9 @@ export function createFit(st, live) {
   // centered on the portal vein and liver, and the learner pans sideways to the beds or heart.
   // The esophagus and the great veins run on above the plate and fade out; Fit stops where they fade.
   const FIT_TOP = -40;
+  // (The rectum's fade-out is not framed: the clipped gut art runs on to y ~1097 but is gone by RECTUM_FADE's end, and framing the invisible tail left
+  // the figure's visible end far above the dock, a wide empty margin at the bottom: Mohammad, 19 Nov 2026. The organs and the ascites still count in full.)
+  const FIT_BOTTOM = RECTUM_FADE[0] + 0.6 * (RECTUM_FADE[1] - RECTUM_FADE[0]);
   // The figure fills the window and the rest of the interface floats over it. Each floating piece
   // says which edge it holds (data-safe="top|bottom|left|right"); the default framing keeps the
   // figure in the space they leave. Side cards count only on a wide screen (on a phone they are
@@ -334,7 +337,7 @@ export function createFit(st, live) {
       }
     }
   }
-  const fitAcc = [0, 0, 0, 0];
+  const fitAcc = [0, 0, 0, 0], empty = [];
   // The anatomy's drawn box in world units (what Fit frames), measured from what is drawn: written into one shared list, read at once.
   function anatBox() {
     let x0 = VB_ANAT[0], y0 = VB_ANAT[1], x1 = VB_ANAT[0] + VB_ANAT[2], y1 = VB_ANAT[1] + VB_ANAT[3];
@@ -348,7 +351,10 @@ export function createFit(st, live) {
     fitWhole.push(gAscites);
     const acc = fitAcc;
     acc[0] = x0; acc[1] = y0; acc[2] = x1; acc[3] = y1;
-    fitBoxes(fitWhole, gutKids(), acc);
+    fitBoxes(fitWhole, empty, acc);
+    const whole = acc[3];   // (the bottom of what stands: the organs and the ascites)
+    fitBoxes(empty, gutKids(), acc);
+    acc[3] = Math.min(acc[3], Math.max(whole, FIT_BOTTOM));
     x0 = acc[0]; y0 = acc[1]; x1 = acc[2]; y1 = acc[3];
     y0 = Math.max(y0, FIT_TOP) - 8; y1 += 8;
     acc[0] = x0; acc[1] = y0; acc[2] = x1; acc[3] = y1;
