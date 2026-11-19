@@ -150,12 +150,17 @@ const expand = (group, title) => {
   if (title.includes('${l.name}')) return LOOKS.map((l) => title.replace('${l.name}', l.name));
   return [title];
 };
-const fixed = [...pal.matchAll(/\badd\('([A-Za-z ]+)', ('([^']+)'|`([^`]+)`|[A-Za-z.]+\([^)]*\))/g)].flatMap((m) => expand(m[1], m[3] ?? m[4] ?? m[2]).map((t) => ({ group: m[1], title: t })));
+const fixed = pal.split('\n').flatMap((line) => {
+  const m = line.match(/\badd\('([A-Za-z ]+)', ('([^']+)'|`([^`]+)`|[A-Za-z.]+\([^)]*\))/);
+  if (!m) return [];
+  const extra = { kw: (line.match(/kw: '([^']*)'/) || [])[1] ?? '', num: (line.match(/num: '([^']*)'/) || [])[1] ?? null, hint: unescape((line.match(/hint: '((?:[^'\\]|\\.)*)'/) || [])[1] ?? '') };
+  return expand(m[1], m[3] ?? m[4] ?? m[2]).map((t) => ({ group: m[1], title: t, ...extra }));
+});
 const dyn = [
-  ...Object.values(DRUGS).map((d) => ({ group: 'Treat', title: d.label })),
-  ...['+1 week', '+1 month', '+6 months', '+1 year'].map((t) => ({ group: 'Time', title: t })),
-  ...EDGES.filter((e) => !HIDDEN_EDGES.has(e.id) && e.kind !== 'wedge' && e.kind !== 'shunt' && e.label).map((e) => ({ group: 'Go to', title: e.label })),
-  ...goOrgans.map((t) => ({ group: 'Go to', title: t })),
+  ...Object.values(DRUGS).map((d) => ({ group: 'Treat', title: d.label, kw: 'drug start stop', num: null, hint: '' })),
+  ...['+1 week', '+1 month', '+6 months', '+1 year'].map((t) => ({ group: 'Time', title: t, kw: 'jump advance months weeks forward disease', num: null, hint: '' })),
+  ...EDGES.filter((e) => !HIDDEN_EDGES.has(e.id) && e.kind !== 'wedge' && e.kind !== 'shunt' && e.label).map((e) => ({ group: 'Go to', title: e.label, kw: 'select vessel', num: null, hint: '' })),
+  ...goOrgans.map((t) => ({ group: 'Go to', title: t, kw: 'organ select', num: null, hint: '' })),
 ];
 const seenCmd = new Set();
 const palette = {
