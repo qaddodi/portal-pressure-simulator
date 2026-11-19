@@ -2,6 +2,7 @@
 // ended on is the finding), the time limit, and the stop. Runs with fake steps, a fake page reading and a fake storage: no page, no GPU.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { judgeHere, isFitRule } from '../src/ui/gallery/walk-judge.js';
 import { runWalk, flagsFor, grewOwners, buildWalkReport, groupProblems, savedWalk, forgetWalk, WALK_KEY, MAX_KILLS, NEAR_SHARE, LIMIT_SHARE, JUMP_MB, KEPT_MB } from '../src/ui/gallery/walk.js';
 
 const store = () => { const m = new Map(); return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k), m }; };
@@ -228,4 +229,18 @@ test('errors are printed once per tag with the words the app caught and the firs
   assert.ok(!/tests 3/.test(r.text), 'an owner under 5 MB is not named');
   const quiet = await runWalk([J('a', ['one'])], rig().io, { envelope: { mb: ENV }, info: { steps: false } });
   assert.ok(!/EVERY STEP/.test(quiet.text));
+});
+
+test('a stop is judged once: the screen report\'s fit-* findings are left out when the gallery check judges the same cards, and every other rule stays (B2)', async () => {
+  const problems = [{ kind: 'small', text: 'span.pz-tile "4.2 mmHg" 10.0 px' }];
+  const findings = [{ rule: 'fit-small', what: 'Slide cards', where: 'span.pz-tile "4.2 mmHg" 10.0 px' }, { rule: 'label-under-card', what: 'Label "Splenic vein"', where: '40% under the data card' }];
+  const pps = { screen: async () => ({ findings }) };
+  const both = await judgeHere(pps, { check: () => ({ problems }) });
+  assert.equal(both.problems.length, 1);
+  assert.deepEqual(both.findings.map((f) => f.rule), ['label-under-card']);
+  const none = await judgeHere(pps, null);   // (no gallery check at hand: the screen report is the only judge, and keeps its fit findings)
+  assert.deepEqual(none.findings.map((f) => f.rule), ['fit-small', 'label-under-card']);
+  assert.ok(isFitRule('fit-clipped') && !isFitRule('label-detached'));
+  // what the walk's grouping then prints: one line for the tile, not two
+  assert.equal(groupProblems([{ label: 's', ...both }]).filter((g) => /4\.2 mmHg/.test(g.text)).length, 1);
 });

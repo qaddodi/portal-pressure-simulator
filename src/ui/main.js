@@ -464,7 +464,9 @@ async function main() {
   for (const k of ['focus', 'labelLevel', 'selection']) { let was = store.get()[k]; store.on(k, (v) => { if (v === was) return; was = v; redraw(); }); }
 
   // Console handle for educators preparing a class (and for automated screenshots).
-  window.pps = { resumeUrl, loadPreset, store, updateParams, setTool, dock, details: (sel) => { store.set({ details: sel }); openPanel(); }, stage, host, card, timeline, menu: mainMenu, palette, presenter, get perf() { return framePerf(); }, motionBudget, budget: gpuBudget, get credit() { return creditPlacer; }, caught: caughtNow };   // (caught: the app's counted errors; the assignment above had replaced the one caught.js puts on window.pps, so no device report could read them)
+  // (MERGED into the handle the modules made before boot, never replaced: caught.js, report.js and gl-contexts.js each put pps.caught, pps.report and pps.contexts on it at import. A plain assignment here dropped them,
+  // so the flags bench had no Device report or WebGL contexts button. Getters stay getters: defineProperties with the literal's own descriptors, not Object.assign, which would read them once.)
+  Object.defineProperties(window.pps ||= {}, Object.getOwnPropertyDescriptors({ resumeUrl, loadPreset, store, updateParams, setTool, dock, details: (sel) => { store.set({ details: sel }); openPanel(); }, stage, host, card, timeline, menu: mainMenu, palette, presenter, get perf() { return framePerf(); }, motionBudget, budget: gpuBudget, get credit() { return creditPlacer; }, caught: caughtNow, toast: (t, kind) => toast(t, kind) }));   // (toast: the packet's "Packet copied." says itself through it)
   // (The slide camera's gate on this device: every deck, Next and Back, each move judged from its own frames. cam-gate.js; loaded when asked.)
   // (The test clock: the page's time on a clock a window that is not in front does not throttle. test-mode.js; ?testclock starts it at boot, the camera gate turns it on for its run.)
   window.pps.testClock = async (o) => (await import('./test-mode.js')).testClock(o);

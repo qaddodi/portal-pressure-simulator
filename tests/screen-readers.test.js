@@ -156,3 +156,38 @@ test('JSON is stable and round-trips; text names what is odd', () => {
   assert.match(t, /Label "Portal vein" at 10,10 \(70×16\), 100%.*under the data card/);
   assert.match(t, /Label "Splenic vein".*30 px off the stage/);
 });
+
+// ── 4. one value, one table (DBG-2, B3, B4 of the 19 Nov review) ──
+test('the label dim is one value: the token --label-dim, label-explain.js DIM_ALPHA and the screen reader\'s LABEL_DIM agree', async () => {
+  const { DIM_ALPHA } = await import('../src/ui/label-explain.js');
+  const css = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
+  const tok = Number(/--label-dim:\s*(\.?\d*\.?\d+)/.exec(css)?.[1]);
+  assert.equal(LABEL_DIM, DIM_ALPHA);
+  assert.equal(DIM_ALPHA, tok, 'styles/tokens.css --label-dim and label-explain.js DIM_ALPHA differ');
+  assert.ok(!/LABEL_DIM\s*=\s*[\d.]/.test(src('screen/read-labels.js')), 'read-labels.js defines its own dim value');
+  assert.ok(!/DIM_ALPHA\s*=\s*[\d.]/.test(src('watch/motion-rules.js')), 'motion-rules.js defines its own dim value');
+});
+
+test('a card has one name in every part of a report, and the case card is a card the cards part reads', async () => {
+  const { CARD_KINDS } = await import('../src/ui/screen/read-cards.js');
+  const { CARD_NAMES } = await import('../src/ui/screen/read-labels.js');
+  const { WORD_ROOTS } = await import('../src/ui/gallery/readers.js');
+  assert.equal(CARD_NAMES, CARD_KINDS);
+  for (const root of WORD_ROOTS) assert.ok(CARD_KINDS[root], `${root} has no name in words`);
+  // (readCardLines is one self-contained function that is sent into a page, so its default roots are written out in it: they must be WORD_ROOTS.)
+  const m = /const roots = \(env && env\.roots\) \|\| (\[[^\]]*\])/.exec(src('screen/read-cards.js'));
+  assert.deepEqual(JSON.parse(m[1].replace(/'/g, '"')), WORD_ROOTS, 'readCardLines default roots differ from WORD_ROOTS (the case card was left out once)');
+});
+
+test('window.pps is merged at boot, never replaced: pps.report, pps.contexts and pps.caught (put there at import) survive, getters stay getters', () => {
+  const main = src('main.js');
+  assert.ok(!/window\.pps\s*=\s*\{/.test(main), 'main.js assigns window.pps = { ... } and drops what modules put there first');
+  assert.match(main, /Object\.defineProperties\(window\.pps \|\|= \{\}, Object\.getOwnPropertyDescriptors\(/);
+  // the same merge on a plain object
+  const early = { report: () => 'r', contexts: () => 'c' };
+  const lit = { store: 1, get perf() { return 'live'; } };
+  Object.defineProperties(early, Object.getOwnPropertyDescriptors(lit));
+  assert.equal(early.report(), 'r'); assert.equal(early.contexts(), 'c'); assert.equal(early.store, 1);
+  assert.equal(Object.getOwnPropertyDescriptor(early, 'perf').get !== undefined, true);
+  assert.match(main, /toast: \(t, kind\) => toast\(t, kind\)/, 'pps.toast is what the packet\'s "Packet copied." calls');
+});

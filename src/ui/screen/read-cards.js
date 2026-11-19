@@ -7,9 +7,9 @@
 import { registerReader } from './registry.js';
 import { WORD_ROOTS, readWords, readBoxes } from '../gallery/readers.js';
 import { readCards, readStructureCard, WORDS_MIN_PX } from '../gallery/fit-rules.js';
-import { box4, r1, r2 } from './util.js';
+import { box4, r1, r2, CARD_KINDS } from './util.js';
 
-export const CARD_KINDS = { '.pz-text': 'teaching card', '.pz-data': 'data card', '.pz-panel': 'panel card', '.action-card': 'structure card', '#dock': 'Tests dock', '.toast': 'toast' };
+export { CARD_KINDS };
 
 /**
  * ONE SELF-CONTAINED FUNCTION (like fit-rules.js's readers; scripts/fit-io.mjs can send it into a page). For each root of env.roots (default WORD_ROOTS) that is
@@ -18,7 +18,7 @@ export const CARD_KINDS = { '.pz-text': 'teaching card', '.pz-data': 'data card'
  * of its own is one line.
  */
 export function readCardLines(io, env) {
-  const roots = (env && env.roots) || ['.pz-text', '.pz-data', '.pz-panel', '.action-card', '#dock', '.toast'];
+  const roots = (env && env.roots) || ['.pz-case', '.pz-text', '.pz-data', '.pz-panel', '.action-card', '#dock', '.toast'];
   const memo = new Map();
   const st = (el) => { let s = memo.get(el); if (!s) { s = io.style(el); memo.set(el, s); } return s; };
   const vis = (el) => {
