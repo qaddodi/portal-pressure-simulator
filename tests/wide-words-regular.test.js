@@ -7,7 +7,8 @@ import { readFileSync } from 'node:fs';
 import { WIDE, SIDEWAYS_MAX_H } from '../src/ui/card-type.js';
 
 const src = readFileSync(new URL('../src/ui/presenter-ladders.js', import.meta.url), 'utf8');
-const a = src.indexOf('let below = false, gap = 0'), b = src.indexOf('fitCards(live.ui.data, live.ui.panel);', a);
+// (The slice starts at the layout's `let below = false, ...` declaration, whatever else that line declares: it carried only `gap = 0` until the Shuffle added `shuf` and `wider`, and an exact-text anchor then matched nothing.)
+const a = src.search(/let below = false,[^;]*\bgap = 0/), b = src.indexOf('fitCards(live.ui.data, live.ui.panel);', a);
 const wide = src.slice(a, b);
 
 test('off a phone on its side every step of the stacked layout puts the words at Regular', () => {
