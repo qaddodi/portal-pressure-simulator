@@ -68,5 +68,5 @@ test('a shared link with a value out of range still applies its view, selection 
   assert.match(fn, /clamped = true; \}/);
   assert.ok(fn.indexOf('clamped = true') < fn.indexOf('if (s.view && s.view !== store.get().view) setViewKey('));
   assert.match(fn, /if \(clamped\) toast\(missing \|\| `This link had values the model does not accept/);
-  assert.match(main, /catch \{ history\.replaceState\(null, '', location\.pathname \+ searchNow\(\) \+ `#s=\$\{encodeShare\(\)\}`\);/);
+  assert.match(main, /(?:catch \{|\n\s+)history\.replaceState\(null, '', location\.pathname \+ searchNow\(\) \+ `#s=\$\{encodeShare\(\)\}`\);/);
 });

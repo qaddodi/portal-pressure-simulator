@@ -169,4 +169,4 @@ start guides, served at `/guides/` and `/preview/guides/` under stable names tha
 When a change alters anything a guide shows or says (buttons, Settings rows, Send feedback, the first steps),
 update both PDFs in the same push and keep the file names. The repo holds no generator for them: edit the pictures and text in
 place (for example with pypdf) and keep the layout. Their Settings pictures and rows must match the app's Settings sheet (Appearance:
-Light, Soft, Dark, Navy, Black, System; Display: Blur effect, Figure size, Sharp while moving).
+Light, Soft, Dark, Navy, Black, System; Display: Blur effect, Figure detail, Sharp while moving, Keyboard shortcuts).

@@ -816,7 +816,11 @@ async function share() {
   // by scripts/share-pages.mjs), so iMessage or Slack previews show the patient's name.
   const id = store.get().presetId, page = location.hostname.endsWith('github.io') && store.get().presetList?.some((p) => p.id === id);
   const url = `${page ? new URL(`c/${id}.html`, location.href).href : location.origin + location.pathname}#s=${encodeShare()}`;
-  try { await navigator.clipboard.writeText(url); toast('Link to this exact scenario copied.'); } catch { history.replaceState(null, '', location.pathname + searchNow() + `#s=${encodeShare()}`); toast('Link placed in the address bar.'); }   // (the page's own path: a share page's /c/ path would make every later link /c/c/…)
+  try { await navigator.clipboard.writeText(url); toast('Link to this exact scenario copied.'); } catch {
+    // (An embedded copy has no address bar of its own to put the link in: the link opens the full app in a tab, where it is in the address bar to copy, SHL-5.)
+    if (EMBED) { window.open(url, '_blank', 'noopener'); toast('Link opened in a new tab: copy it from the address bar.'); return; }
+    history.replaceState(null, '', location.pathname + searchNow() + `#s=${encodeShare()}`); toast('Link placed in the address bar.');
+  }   // (the page's own path: a share page's /c/ path would make every later link /c/c/…)
 }
 
 // ── Restart & reset ─────────────────────────────────

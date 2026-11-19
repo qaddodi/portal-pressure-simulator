@@ -1,5 +1,4 @@
-// When the app and its model content were last updated, shown as a date (no version number is shown
-// anywhere). A class taught on content of one date
+// When the app and its model content were last updated, shown as a date (no version number; About also names the build, RELEASE below). A class taught on content of one date
 // behaves the same all term: the model, presets and decks only change when the content date does.
 // A no-break space keeps month and year on one line.
 export const UPDATED = 'November\u00a02026';
