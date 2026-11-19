@@ -4,6 +4,8 @@
 // the sweeps name. No layout-snap import and no DOM at top level: the caller hands in the layout reads (`io`, the page gives layout-snap.js's) and the document, so a unit test runs it
 // with a fake page. It runs on a tap, never per frame.
 import { reportText } from './fit-rules.js';
+import { checkRun } from '../report/emit.js';
+import { runBlock } from '../report/run.js';
 import { readCardsJudged } from '../screen/read-cards.js';
 import { runRules } from '../selfcheck/rules.js';
 import '../selfcheck/rules-fit.js';
@@ -70,5 +72,5 @@ export function drawOutlines(problems, { box, doc = document }) {
 /** The text to copy: the report, with each problem numbered as its outline is. */
 export function numberedReport(problems, where) {
   const text = reportText(problems.map((p, i) => ({ ...p, text: `#${i + 1} ${p.text}` })), where);
-  return text;
+  return `${text}\n\n${runBlock(checkRun(problems, where))}`;
 }
