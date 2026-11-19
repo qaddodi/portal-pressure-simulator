@@ -10,10 +10,10 @@ import { HOVER_LINK } from './hover-link.js';
 import { RING_DIRS, RING_SPOTS, boxGap, inLaneBox, createSlideInView, crosses, hits, needsLeader, offset, triDist, within } from './label-place.js';
 import { NAME_BREAK, OFF_NEAR, nameSpots, onOtherOrgan } from './organ-names.js';
 import { leaderVesselHits, segHitsBox, segsCross } from './seg-hits.js';
-import { elBoxInto } from './shape-gl.js';
 import { store } from './store.js';
 const ZONE_AIR = 8;   // (px a circuit reading keeps clear of a zone header's words, A15)
 import { stentFacts } from './stent-waist.js';
+import { createBoxOfEl } from './stage-label-box.js';
 import { spreadDots } from './label-dots.js'; import { createLabelCol } from './stage-label-col.js'; import { labelCourse } from './label-course.js';
 
 // The stations the Anatomy never leaves out for want of room (play-test, 16 Nov 2026: "the PV pressure label must always show"): with no clear spot beside its vessel one stands farther out on a leader or on the ring of spots round its station, and only with none anywhere keeps a spot on a vessel (solid halo).
@@ -39,19 +39,8 @@ export function createLabelSolve(st, live) {
   const { pointAtLocal, segBoxes, colSideScore, focusMarkOn, laneFor, dimObstacles, CLB, PROBE_STEPS, clBoxAt, clFree, grow } = createLabelCol({ geo, pointAt, worldToLocalInto, lineHits, stenosisAt, live, E });
   const CLB_BASE = { x0: 0, y0: 0, x1: 0, y1: 0 }, BOX_TMP = { x0: 0, y0: 0, x1: 0, y1: 0 };
   const PROBE_BUF = [], CLAMP_SEEN = new Set();
-  // An element's box in stage px, `m` px grown, written into `out` (or null when it has none).
-  function boxOfElInto(out, el, m = 2) {
-    const b = el._txt != null ? clampTextBox(el) : elBoxInto(el, EBOX, clampTextBox);
-    if (!b?.width) return null;
-    const bx = b.x, by = b.y, bw = b.width, bh = b.height;
-    worldToLocalInto(SB_A, bx, by); let x0 = SB_A[0], y0 = SB_A[1], x1 = x0, y1 = y0;
-    worldToLocalInto(SB_A, bx + bw, by); x0 = Math.min(x0, SB_A[0]); y0 = Math.min(y0, SB_A[1]); x1 = Math.max(x1, SB_A[0]); y1 = Math.max(y1, SB_A[1]);
-    worldToLocalInto(SB_A, bx, by + bh); x0 = Math.min(x0, SB_A[0]); y0 = Math.min(y0, SB_A[1]); x1 = Math.max(x1, SB_A[0]); y1 = Math.max(y1, SB_A[1]);
-    worldToLocalInto(SB_A, bx + bw, by + bh); x0 = Math.min(x0, SB_A[0]); y0 = Math.min(y0, SB_A[1]); x1 = Math.max(x1, SB_A[0]); y1 = Math.max(y1, SB_A[1]);
-    out.x0 = x0 - m; out.y0 = y0 - m; out.x1 = x1 + m; out.y1 = y1 + m;
-    return out;
-  }
-  function boxOfEl(el, m = 2) { const b = boxOfElInto(BOX_TMP, el, m); return b && { x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 }; }
+  // An element's box in stage px, `m` px grown, written into `out` (or null when it has none): stage-label-box.js.
+  const { boxOfElInto, boxOfEl } = createBoxOfEl({ worldToLocalInto, clampTextBox, EBOX, SB_A });
   // (The layout itself, a generator: a solve yields between labels once its slice is spent (sliceOver); run whole, it never yields.)
   function* layoutLabelsGen(f, solve, dry = false) {
     live.frameNo++;

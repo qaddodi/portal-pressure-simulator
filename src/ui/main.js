@@ -962,11 +962,12 @@ function buildHud() {
   // The lobule is made ready as the reader reaches for it (17 Nov 2026, the tester: opening it cold took 565 ms of stage, 386 of tissue, 161 of labels in one go): the pointer resting 0.22 s on its button, or a finger
   // down on it, warms it a piece at a time (stage.warmLobule), as a deck's rows warm theirs on hover.
   { const lb = $('#viewSeg button[data-view="lobule"]'); let warmT = 0;
+    const warmSoon = () => { appScope.clear(warmT); warmT = appScope.timer(() => stage.warmLobule?.(), 220); };   // (the page's scope owns the timer: docs/scheduling.md)
     if (lb) {
-      lb.addEventListener('pointerenter', (e) => { if (e.pointerType === 'touch') return; clearTimeout(warmT); warmT = setTimeout(() => stage.warmLobule?.(), 220); });
-      lb.addEventListener('pointerleave', () => clearTimeout(warmT));
-      lb.addEventListener('pointerdown', () => { clearTimeout(warmT); stage.warmLobule?.(); });
-      lb.addEventListener('focus', () => { clearTimeout(warmT); warmT = setTimeout(() => stage.warmLobule?.(), 220); });
+      lb.addEventListener('pointerenter', (e) => { if (e.pointerType === 'touch') return; warmSoon(); });
+      lb.addEventListener('pointerleave', () => appScope.clear(warmT));
+      lb.addEventListener('pointerdown', () => { appScope.clear(warmT); stage.warmLobule?.(); });
+      lb.addEventListener('focus', warmSoon);
     } }
   $$('#viewSeg button').forEach((b) => b.addEventListener('click', () => (viewTapAgain(b.dataset.view, store.get()) ? stage.fitAgain() : b.dataset.view === 'lobule' ? zoomLobule() : b.dataset.view === 'sinusoid' ? (store.get().lobule ? stage.askSinusoid() : stage.diveToSinusoid()) : b.dataset.view === 'anatomic' && store.get().sinusoid ? stage.exitSinusoid() : b.dataset.view === 'circuit' && store.get().sinusoid ? circuitFromSinusoid() : setViewKey(b.dataset.view === 'circuit' ? 'circuit' : 'anatomy'))));
   // The legend is the lens switcher: it shows what the colors mean and changes what they show.

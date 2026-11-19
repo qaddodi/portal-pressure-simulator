@@ -16,6 +16,7 @@
 // Pure helpers (shufPose, shufKeyframes, shufDim, spring) are unit-tested in node: tests/card-shuffle.test.js.
 
 import { frameFor } from './frame.js';
+import { clamp01, lerp } from './num.js';
 import { readMetric, readBox } from './layout-snap.js';
 
 export const SHUF = Object.freeze({
@@ -34,8 +35,6 @@ export const SHUF = Object.freeze({
   w: 13,          // the spring's stiffness: about 0.4 s to settle
 });
 
-const lerp = (a, b, t) => a + (b - a) * t;
-const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 /**
  * Where a card is when the shuffle is at p (0: the words in front; 1: the instrument in front). card: 'words' or 'data'; h: the card's height, px
