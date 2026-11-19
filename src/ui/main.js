@@ -35,7 +35,7 @@ import { viewTapAgain } from './view-tap.js';
 import { YOURS_NOTE } from '../engine/yours.js';
 import { caption } from './a11y.js';
 import { sharpMoving, setSharpMoving } from './adapt-tier.js';
-import { UPDATED, RELEASE, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js';
+import { UPDATED, RELEASE, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js';
 import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js';
 import { EDGES, PORTAL_TERRITORY, tiedOff } from '../engine/topology.js';
@@ -2495,7 +2495,7 @@ const CUT_HEADS = ['Readout', 'Normal', 'Borderline', 'Past a threshold', 'High 
 function openAbout(section) {
   openModal('About the model', h('div', {},
     h('p', {}, 'Created by ', h('b', {}, AUTHOR), '. ', h('a', { href: AUTHOR_URL, target: '_blank', rel: 'noopener' }, 'See all of the author’s teaching\u00a0tools'), '.'),
-    h('p', {}, `The model, patients and presentations are dated ${CONTENT_UPDATED} and change only when that date does, so a class taught on them behaves the same all term.`),
+    h('p', {}, 'The model, patients and presentations change as the app is updated. If a class is taught on them across a term, note the build date shown under the title and check it before each session.'),
     h('h3', {}, 'The model'),
     h('p', {}, 'A lumped-parameter hemodynamic network of the splanchnic, portal, hepatic and systemic veins with the heart, arterial inflow and the hepatic arterial buffer; collateral recruitment and remodeling on a disease clock; Starling filtration and lymph for ascites; Laplace wall stress for varices; blood volume, bleeding and transfusion. Every number on screen comes out of it; nothing is scripted.'),
     h('h3', {}, 'Validation targets'),
@@ -2509,13 +2509,16 @@ function openAbout(section) {
       h('tbody', {}, CUTOFFS.map((r) => h('tr', {}, r.map((c, i) => h('td', i ? { 'data-label': CUT_HEADS[i], 'data-sev': CUT_SEV[i], class: c === '—' ? 'none' : '' } : {}, c)))))))),
     h('p', { class: 'sub' }, 'Thresholds belong to gradients, not to the color of a vessel. HVPG ≥10 mmHg is clinically significant portal hypertension (CSPH) in cirrhosis. HVPG ≥20 mmHg is prognostic when measured during acute variceal bleeding. An HVPG of 12 mmHg is not a bleeding threshold: varices can bleed below it. After a TIPS for variceal bleeding, 12 mmHg is the reference for the directly measured portosystemic gradient (AASLD 2024).'),
     h('h3', {}, 'Reference review'),
-    h('p', {}, 'The presentations follow Baveno VIII (J Hepatol, August 2026), with AASLD guidance where US practice differs (octreotide). Baveno VIII changed the recompensation criteria (>6 months, Child–Pugh A), the indeterminate zone for stiffness (ANTICIPATE probability ≥75%, or spleen stiffness >55 kPa on the 100 Hz probe), the window for preemptive TIPS and anticoagulation for portal vein thrombosis. Baveno VIII statements were taken from published summaries; a line-by-line check against the full text is still pending.'),
+    h('p', {}, 'The presentations follow Baveno VIII (J Hepatol, August 2026), with AASLD guidance where US practice differs (octreotide). Baveno VIII changed the recompensation criteria (>6 months, Child–Pugh A), the indeterminate zone for stiffness (ANTICIPATE probability ≥75%, or spleen stiffness >55 kPa on the 100 Hz probe), the window for preemptive TIPS and anticoagulation for portal vein thrombosis. Every statement number a presentation cites is kept with its source text in the project’s guidelines folder: Baveno VIII, AASLD 2024, AASLD 2021 (ascites), AASLD 2020 (vascular liver disorders) and EASL 2025 (vascular diseases of the liver), listed below.'),
     h('h3', {}, 'Clinical review'),
     h('p', {}, 'Presentation and patient content follows the guidance below. An external clinical advisory review with named reviewers is pending; their sign-off will be listed here.'),
     h('h3', { 'data-sec': 'refs' }, 'References'),
     h('ol', { class: 'refs' },
       h('li', {}, 'Baveno VIII: advancing consensus in portal hypertension. J Hepatol, August 2026. ', pmid(42624290)),
       h('li', {}, 'Kaplan DE, et al. AASLD Practice Guidance on risk stratification and management of portal hypertension and varices in cirrhosis. Hepatology 2024;79:1180–1211.'),
+      h('li', {}, 'Biggins SW, et al. Diagnosis, evaluation, and management of ascites, spontaneous bacterial peritonitis and hepatorenal syndrome: 2021 practice guidance by the AASLD. Hepatology 2021;74:1014–1048.'),
+      h('li', {}, 'Northup PG, et al. Vascular liver disorders, portal vein thrombosis, and procedural bleeding in patients with liver disease: 2020 practice guidance by the AASLD. Hepatology 2021;73:366–413.'),
+      h('li', {}, 'EASL Clinical Practice Guidelines on vascular diseases of the liver. J Hepatol 2026;84:399–456 (online 2025, doi 10.1016/j.jhep.2025.08.001).'),
       h('li', {}, 'Bosch J, Groszmann RJ, et al. Measurement of portal pressure (HVPG). Hepatology / Semin Liver Dis.'),
       h('li', {}, 'Prognostic role of endoscopic ultrasound-guided direct portal pressure gradient measurement in porto-sinusoidal vascular disorder. Liver Int 2025. Mean direct gradient 16.7 and mean HVPG 5.5 mmHg. ', pmid(40251984)),
       h('li', {}, 'Directly measured portal pressure gradient and variceal hemorrhage in patients undergoing TIPS: bleeding occurred at <12 mmHg. ', pmid(7485008)),
