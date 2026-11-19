@@ -49,7 +49,7 @@ export function claimsOf(text, { notes = false } = {}) {
   if (/\bno esophageal varices\b/i.test(t)) add('no esophageal varices', (f) => varixGrade(f.varix).label === 'None');
   // ascites
   if (/\btense ascites\b/i.test(t)) add('tense ascites', (f) => ascitesGrade(f.asc).grade === 3);
-  if (!RULE.test(t)) for (const m of t.matchAll(/\bno ascites\b/gi)) add('no ascites', (f) => ascitesGrade(f.asc).grade === 0);
+  if (!RULE.test(t)) if (/\bno ascites\b/i.test(t)) add('no ascites', (f) => ascitesGrade(f.asc).grade === 0);
   for (const m of t.matchAll(/\bgrade ([123]) ascites\b/gi)) add(`grade ${m[1]} ascites`, (f) => ascitesGrade(f.asc).grade === +m[1]);
   if (/\bascites (?:seen )?only on (?:an? )?ultrasound\b/i.test(t)) add('ascites seen only on ultrasound (grade 1)', (f) => ascitesGrade(f.asc).grade === 1);
   return out;

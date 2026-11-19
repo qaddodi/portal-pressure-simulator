@@ -140,8 +140,8 @@ export const PRESETS = [
   // slides' tables could rate it differently. At 0.84: HVPG 11.1 and PPG 11.2 at the bedside, 11.4 and 11.5 settled, and the portal flow
   // stays reversed (no higher setting clears 12 at the bedside: 1.0 reads 12.0). ENG-5.)
   { id: 'cirr-hepatofugal', facts: { decompensated: true }, group: 'Sinusoidal', label: 'Cirrhosis with reversed portal flow', apply: P({ cirrhosis: 0.84, apShunt: 1, albumin: 2.6, diuretics: true, spontaneous: { C6: true } }), days: 540,
-    summary: 'Very high sinusoidal resistance plus arterioportal shunting: the portal vein reverses and drains the liver into collaterals.',
-    note: 'Very high sinusoidal resistance plus arterioportal shunting. Portal flow reverses into collaterals.' },
+    summary: 'Cirrhosis with raised sinusoidal resistance and arterioportal shunting: the portal vein reverses and drains the liver into collaterals.',
+    note: 'Raised sinusoidal resistance plus arterioportal shunting. Portal flow reverses into collaterals.' },
   { id: 'gastric-varix', facts: { decompensated: true }, group: 'Sinusoidal', label: 'Cirrhosis with gastrorenal shunt', apply: P({ cirrhosis: 0.9, albumin: 3.0, diuretics: true, spontaneous: { C5: true }, isolatedGV: true }), days: 450,
     summary: 'Isolated fundal varices (IGV1), fed by the short and posterior gastric veins, decompress into the left renal vein through a gastrorenal shunt (the BRTO target); no communication with the coronary vein.',
     note: 'Isolated fundal varices (IGV1) drain through a gastrorenal shunt into the left renal vein: the BRTO target.' },

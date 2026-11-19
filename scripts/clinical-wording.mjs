@@ -31,6 +31,8 @@ export const RULES = [
   ['gut', /\b(?:gut|bowel)(?:[’']s)?\s+(?:arter\w*|arteriol\w*|veins?|blood|inflow)\b|\bthe gut[’']s\b/i, 'splanchnic arteries, mesenteric veins, splanchnic inflow'],
   ['scarring', /\bscarr(?:ing|ed)\b/i, 'fibrosis, fibrotic'],
   ['clotted', /\bclotted\b/i, 'thrombosed'],
+  // AASLD writes alcohol-associated liver disease (docs/ai-humanizer.md section 5; bible review 19 Nov ENG-10: 22 "alcohol-related" beside 39 "alcohol-associated").
+  ['alcohol-related', /\balcohol-related\b/i, 'alcohol-associated (AASLD)'],
   ['lymph-made', /\blymph (?:made|it makes)\b/i, 'lymph formation'],
   ['lay-anatomy', /\b(?:tricuspid|valve) leak\b|\bvein of the (?:left|right) kidney\b|\bwater in the (?:chest|lungs)\b|\bfluid in the (?:belly|lungs)\b/i, 'tricuspid regurgitation, left renal vein, hydrothorax, pulmonary edema'],
   ['british-idiom', /\bin brackets\b|\bcommonest\b|\bbooked for\b|\bcarr(?:y|ies) on\b|\bwhilst\b|\bper cent\b|\bat weekends\b|\bstraight away\b/i, 'American idiom (in parentheses, most common, scheduled for, continue)'],
