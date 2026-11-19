@@ -31,3 +31,12 @@ test('the outline gets its room from layout on a short landscape screen: two col
 test('the unit under the belly instrument\'s volume never goes under 12 px (half of a 23.7 px number was 11.9)', () => {
   assert.match(src('styles/app-08-cards.css'), /\.ab \.ab-belly > \.ab-big > b small \{[^}]*font-size: max\(12px, \.5em\) !important/);
 });
+
+test('on a phone on its side, lettering a fit zooms down is set at the size the zoom brings to 12 px (--pz-min), never under its own size', () => {
+  const css = src('styles/guideline-sides.css');
+  const m = /@media \(orientation: landscape\) and \(max-height: 500px\) \{[\s\S]*?\n\}/.exec(css);
+  assert.ok(m);
+  assert.match(m[0], /--pz-min: calc\(12\.02px \/ var\(--pz-fit, 1\)\)/);
+  for (const k of ['.pz-ab-cap', '.pz-side-who', '.pz-side-p', '.pz-step', '.pz-cell-t', '.pz-rail-liver span', '.pz-cite', '.pze-src']) assert.ok(m[0].includes(k), `${k} keeps 12 px under a fit`);
+  assert.equal((m[0].match(/var\(--pz-min\)/g) || []).length >= 5, true);
+});
