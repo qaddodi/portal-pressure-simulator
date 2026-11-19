@@ -8,3 +8,9 @@ export function toolRoomOf({ cap, pad = 0, parts = [], gap = 0, rows = parts.len
   const used = pad + parts.reduce((a, b) => a + (b > 0 ? b : 0), 0) + gap * Math.max(0, rows - 1);
   return Math.max(0, Math.floor(cap - used));
 }
+
+/** How far an instrument of height `h` stands past its room (px, 0 when it fits or no room was given). Pure: the layout reads the number back from the fitted card (presenter-zoom.js toolDemand, CRD-2) and answers it. */
+export function toolDemandOf(h, room) {
+  if (!(room > 0) || !(h > 0)) return 0;
+  return Math.max(0, Math.ceil(h - room - 0.5));
+}

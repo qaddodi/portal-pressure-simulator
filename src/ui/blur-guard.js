@@ -6,8 +6,9 @@
 // A person who turned Blur effect on in Settings (pps.noGlass '0', glass-mode.js) keeps it: that is asked for, not silent. ?swblur=1 leaves it as before.
 
 import { themeChanged } from './label-theme.js';
+import { flagOn } from './flags.js';
 
-export const SW_BLUR = typeof location !== 'undefined' && /[?&]swblur=1\b/.test(location.search || '');
+export const SW_BLUR = flagOn('swblur');
 
 /** Sets or takes back the automatic no-blur on `root` (document.documentElement): `low` is a software renderer or Battery saver,
  *  `asked` the stored Blur effect choice (pps.noGlass: '0' on, '1' off, null never chosen). Returns whether the page is without blur now. */

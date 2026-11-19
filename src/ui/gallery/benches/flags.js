@@ -4,120 +4,12 @@
 // errors (window.ppsBootErrors, index.html). The pure parts (FLAGS, flagState, withFlag, otherParams, reportsAvailable, formatReport) have no DOM
 // and are tested in node (tests/gallery-bench-flags.test.js); mount is the DOM part. Nothing here runs in a frame and no timer is started.
 //
-// Where each flag is read in the app (the meaning is the comment next to the read):
-//   ?perf          frame.js, main.js, motion-budget.js, glass-gl.js, layout-snap.js, caught.js, gpu-budget.js (the readout and the frame panel)
-//   ?fps=N         frame.js (frames asked for every refresh, every overrun logged)
-//   ?offgpu=1      main.js, offgpu-overlay.js, glass-gl.js, layout-snap.js
-//   ?watch         main.js, watch/start.js
-//   ?budget=1      motion-budget.js
-//   ?lap           main.js, lap.js, frame.js
-//   ?inputs        frame.js
-//   ?testclock[=N] test-boot.js
-//   ?rest=off      frame.js            ?scene=dom, ?scenecheck   scene-store.js     ?swblur=1   blur-guard.js
-//   ?stageover=gpu stage.js            ?gpuorgans=force         gpu-probe.js        ?lumen=off, ?lumenscale=N   tube-stage2.js
+// The table, the address functions and where each flag works live in src/ui/flags.js (the one place an address is read); this bench shows them.
 import { benchRoot, h, statusLine, ppsOf, copyButton } from './ui.js';
 import { caughtNow } from '../../caught.js';
 
-/**
- * The diagnostic flags. kind: 'bare' (on when present, as ?perf), 'fixed' (on only with that value, as ?offgpu=1), 'value' (on with a valid value,
- * as ?fps=120) or 'bare-or-value' (?testclock or ?testclock=4). `on` is the form a toggle writes; `valid` judges a typed value.
- */
-export const FLAGS = Object.freeze([
-  { id: 'perf', group: 'Measure', kind: 'bare', meaning: 'The frame panel and the lag readout after a pan or pinch (frame-hud.js, perf-readout.js); also counts GL budget sites, layout reads and caught errors in the console.' },
-  { id: 'fps', group: 'Measure', kind: 'value', def: '120', valid: /^\d+$/, meaning: 'Frames asked for every refresh while the page shows, and every overrun written to the console with its surfaces. It keeps the page drawing.' },
-  { id: 'offgpu', group: 'Measure', kind: 'fixed', fixed: '1', meaning: 'A live count of work that is not on the GPU, per frame, flashing red when any happens while something moves.' },
-  { id: 'watch', group: 'Measure', kind: 'bare', meaning: 'The motion recorder (preview copy or a local run): keeps 20 seconds of camera, label and card numbers, judges them with the motion rules and shows a red dot with the findings (src/ui/watch, docs/watch.md).' },
-  { id: 'budget', group: 'Measure', kind: 'fixed', fixed: '1', meaning: 'Counts the motion budget only, with no readout, for a run that reads pps.motionBudget.' },
-  { id: 'lap', group: 'Measure', kind: 'bare', meaning: 'The device lap: a fixed route of about 90 seconds the page drives itself and writes up as one block of text to paste back.' },
-  { id: 'inputs', group: 'Measure', kind: 'bare', meaning: 'Starts the input-to-paint tracker at load (tap, press or key to the first changed frame, last 200 inputs).' },
-  { id: 'testclock', group: 'Measure', kind: 'bare-or-value', def: '1', valid: /^\d+(\.\d+)?$/, meaning: 'Starts the page on the test clock before any other module reads the time (the number is the rate; none means the default).' },
-  { id: 'rest', group: 'Compare', kind: 'fixed', fixed: 'off', meaning: 'Turns the rest pacing off (frames at a lower rate when nothing moves), for comparing.' },
-  { id: 'scene', group: 'Compare', kind: 'fixed', fixed: 'dom', meaning: 'Turns the page\'s own layout engine off, so every element is asked of the browser.' },
-  { id: 'scenecheck', group: 'Compare', kind: 'bare', meaning: 'Compares every answer of the page\'s own layout engine with the browser\'s and logs a difference.' },
-  { id: 'swblur', group: 'Compare', kind: 'fixed', fixed: '1', meaning: 'Leaves the blur effect on a software renderer (it is dropped by default there).' },
-  { id: 'stageover', group: 'Compare', kind: 'fixed', fixed: 'gpu', meaning: 'Draws the figure\'s overlays on the GPU (off by default; on a software renderer only when asked for).' },
-  { id: 'gpuorgans', group: 'Compare', kind: 'fixed', fixed: 'force', meaning: 'Organs on the GPU on the software renderer too, for the browser check of the plate layers.' },
-  { id: 'lumen', group: 'Compare', kind: 'fixed', fixed: 'off', meaning: 'No lumen pass and no blood drawn by the Tube renderer (a device A/B that proves or clears the lumen pass).' },
-  { id: 'lumenscale', group: 'Compare', kind: 'value', def: '0.5', valid: /^(0?\.\d+|1(\.0+)?)$/, meaning: 'The lumen layer\'s size as a share of the vessel layer (0.25 to 1) for every instance.' },
-]);
-
-const byId = new Map(FLAGS.map((f) => [f.id, f]));
-
-const dec = (s) => { try { return decodeURIComponent(s.replace(/\+/g, ' ')); } catch { return s; } };
-/** Splits an address tail ('?a&b=1#x', the search with or without its hash) into { items: [{ key, value|null, raw }], hash }. */
-function parse(search) {
-  let s = String(search ?? ''), hash = '';
-  const at = s.indexOf('#');
-  if (at >= 0) { hash = s.slice(at); s = s.slice(0, at); }
-  if (s.startsWith('?')) s = s.slice(1);
-  const items = [];
-  for (const raw of s.split('&')) {
-    if (!raw) continue;
-    const eq = raw.indexOf('=');
-    items.push({ key: dec(eq < 0 ? raw : raw.slice(0, eq)), value: eq < 0 ? null : dec(raw.slice(eq + 1)), raw });
-  }
-  return { items, hash };
-}
-const build = (items, hash) => (items.length ? `?${items.map((i) => i.raw).join('&')}` : '') + hash;
-
-function isOn(flag, value) {
-  switch (flag.kind) {
-    case 'bare': return true;
-    case 'fixed': return value === flag.fixed;
-    case 'value': return value != null && flag.valid.test(value);
-    case 'bare-or-value': return value == null || value === '' || flag.valid.test(value);
-    default: return false;
-  }
-}
-
-/** Which flags an address has: { perf: { on, value }, ... } for every flag of FLAGS (value is the text after "=", or null for a bare one). */
-export function flagState(search) {
-  const { items } = parse(search);
-  const out = {};
-  for (const f of FLAGS) {
-    const it = items.find((i) => i.key === f.id);
-    out[f.id] = it ? { on: isOn(f, it.value), value: it.value } : { on: false, value: null };
-  }
-  return out;
-}
-
-/** The parameters of an address that are not diagnostic flags of FLAGS (?gallery, ?preset=... and the like), as their text. */
-export function otherParams(search) {
-  return parse(search).items.filter((i) => !byId.has(i.key)).map((i) => i.raw);
-}
-
-/** The text a toggle writes for a flag: 'perf', 'offgpu=1', 'fps=120'. A value (string or number) replaces the default. */
-export function flagText(flag, value) {
-  const f = byId.get(flag);
-  const v = value === true || value == null ? undefined : String(value);
-  if (v !== undefined) return v === '' ? flag : `${flag}=${encodeURIComponent(v)}`;
-  if (!f) return flag;
-  if (f.kind === 'fixed') return `${flag}=${f.fixed}`;
-  if (f.kind === 'value') return `${flag}=${f.def}`;
-  return flag;   // bare, and testclock with no rate
-}
-
-/**
- * The address tail (search plus hash) with a flag set or cleared. value: false/null clears it (every copy), true writes its own form (?perf,
- * ?offgpu=1, ?fps=120), a string or number writes flag=value. Every other parameter keeps its text and its place, the flag keeps its place
- * when it was there and goes last when it was not, and the hash is kept. '' when nothing is left.
- */
-export function withFlag(search, flag, value) {
-  const { items, hash } = parse(search);
-  const key = String(flag);
-  if (value === false || value == null) return build(items.filter((i) => i.key !== key), hash);
-  const raw = flagText(key, value);
-  const eq = raw.indexOf('=');
-  const made = { key, value: eq < 0 ? null : dec(raw.slice(eq + 1)), raw };
-  const at = items.findIndex((i) => i.key === key);
-  const next = [];
-  items.forEach((i, n) => { if (i.key !== key) next.push(i); else if (n === at) next.push(made); });
-  if (at < 0) next.push(made);
-  return build(next, hash);
-}
-
-/** Whether a typed value is fine for a flag that takes one. */
-export const validValue = (flag, v) => { const f = byId.get(flag); return !!f && (f.kind === 'value' || f.kind === 'bare-or-value') && f.valid.test(String(v)); };
+import { FLAGS, flagState, otherParams, flagText, withFlag, validValue, flagOn } from '../../flags.js';
+export { FLAGS, flagState, otherParams, flagText, withFlag, validValue };   // (the table and the address functions moved to src/ui/flags.js, the one place an address is read)
 
 // ---- the copyable reports on window.pps ----
 const fn = (k) => (p) => typeof p?.[k] === 'function';
@@ -127,7 +19,7 @@ export const REPORTS = Object.freeze([
   { id: 'report', label: 'Device report (pps.report)', has: fn('report'), read: (p) => p.report() },
   { id: 'budget', label: 'GPU budget (pps.budget)', has: fn('budget'), read: (p) => p.budget() },
   { id: 'perf', label: 'Frame counts (pps.perf)', has: (p) => !!p && 'perf' in p, read: (p) => { const o = p.perf || {}, rest = {}; for (const k of Object.keys(o)) if (k !== 'frames' && k !== 'inputToPaint') rest[k] = o[k]; return rest; } },   // (the recording and the input tracker are left out: large, and a getter that starts the tracker)
-  { id: 'inputs', label: 'Input to paint (pps.perf.inputToPaint)', has: (p) => !!p && 'perf' in p && /[?&](perf|inputs)(?=[=&#]|$)/.test(globalThis.location?.search || ''), read: (p) => { const t = p.perf?.inputToPaint; return t ? { summary: t.summary?.(), slowest: t.slowest?.() } : null; } },
+  { id: 'inputs', label: 'Input to paint (pps.perf.inputToPaint)', has: (p) => !!p && 'perf' in p && (flagOn('perf') || flagOn('inputs')), read: (p) => { const t = p.perf?.inputToPaint; return t ? { summary: t.summary?.(), slowest: t.slowest?.() } : null; } },
   { id: 'surfaces', label: 'Surfaces (pps.surfaces)', has: fn('surfaces'), read: (p) => p.surfaces() },
   { id: 'contexts', label: 'WebGL contexts (pps.contexts)', has: fn('contexts'), read: (p) => p.contexts() },
   { id: 'tiers', label: 'Quality tiers (pps.tiers)', has: fn('tiers'), read: (p) => p.tiers() },

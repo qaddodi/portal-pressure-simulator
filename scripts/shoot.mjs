@@ -26,17 +26,11 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { serve } from './serve.mjs';
+import { DEVICES as DEVICE_LIST, contextOptions } from '../src/ui/devices.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-export const DEVICES = {
-  mac: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 },   // (1, not the Retina 2: software GL at 2880x1800 draws 2 frames in 3 s; --dpr 2 asks for it)
-  'mac-xl': { viewport: { width: 1913, height: 1188 }, deviceScaleFactor: 1 },   // (the owner's Mac, full screen: 3826 x 2376 at 2x in his screenshots, 13 Nov 2026)
-  ipad: { viewport: { width: 1180, height: 820 }, deviceScaleFactor: 1.5, isMobile: true, hasTouch: true },
-  'ipad-portrait': { viewport: { width: 820, height: 1180 }, deviceScaleFactor: 1.5, isMobile: true, hasTouch: true },
-  iphone: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
-  'iphone-landscape': { viewport: { width: 844, height: 390 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
-};
+export const DEVICES = Object.fromEntries(DEVICE_LIST.map((d) => [d.id, contextOptions(d.id)]));   // (src/ui/devices.js: the one list of sizes)
 
 // Chromium's software WebGL2, switched on (it is off in headless by default), and not blocklisted.
 // The cloud agents' Chromium sits at a fixed path (the project's Playwright may expect another build number); CHROMIUM overrides it.

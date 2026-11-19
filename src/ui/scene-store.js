@@ -18,6 +18,7 @@
 import { parseCssColor } from './css-color.js';
 import { readStyle } from './layout-snap.js';
 import { listMatrix } from './transform-read.js';
+import { flagOn } from './flags.js';
 
 // ── The properties the painters read: initial value, and whether it inherits ──
 const INITIAL = {
@@ -578,8 +579,7 @@ function transformAttr(el) {
 }
 
 // ── The page's own engine ──
-const PARAMS = typeof location === 'object' && location ? new URLSearchParams(location.search) : null;
-const OFF = PARAMS?.get('scene') === 'dom', CHECK = PARAMS?.has('scenecheck');
+const OFF = flagOn('scene'), CHECK = flagOn('scenecheck');
 let pageEngine = null, pageSig = '';
 const mqls = new Map(), sups = new Map();
 const pageEnv = {

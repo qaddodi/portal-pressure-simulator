@@ -48,6 +48,10 @@ const walk = (p) => (statSync(p).isDirectory() ? readdirSync(p).flatMap((f) => w
 const files = [...walk(join(ROOT, 'src')).filter((f) => f.endsWith('.js')), join(ROOT, 'index.html'), join(ROOT, 'sw.js')];
 
 const switches = new Map();   // name → [file:line]
+// (A flag the flag reader knows, src/ui/flags.js (FLAGS and EXTRA: each with its meaning and the gate that says where it is open), is a measuring or debug aid, not a runtime switch of the product: reading
+// it through flagOn / flagValue / flagNumber adds no switch. It still counts as read, so a name in scripts/switches-left.json that only the reader uses is not reported as gone.)
+const { knownFlags } = await import(pathToFileURL(join(ROOT, 'src/ui/flags.js')).href);
+const registeredFlags = new Set(knownFlags().map((f) => f.id)), flagReads = new Set();
 const lazy = [];              // 'file → specifier'
 for (const f of files) {
   const rel = relative(ROOT, f).split('\\').join('/');
@@ -56,6 +60,8 @@ for (const f of files) {
     const code = line.replace(/^\s*\/\/.*$/, '').replace(/\s\/\/ .*$/, '');
     for (const m of code.matchAll(/\[\?&\]\(?((?:[a-z0-9_-]+\|?)+)\)?/gi)) for (const n of m[1].split('|').filter(Boolean)) (switches.get(n) || switches.set(n, []).get(n)).push(at);
     for (const m of code.matchAll(/(?:searchParams|URLSearchParams\([^)]*\))\.(?:has|get)\('([a-z0-9_-]+)'\)/gi)) (switches.get(m[1]) || switches.set(m[1], []).get(m[1])).push(at);
+    // (The flag reader, src/ui/flags.js, is the one place a page's flags are read since the debug tools merge, 19 Nov 2026: flagOn('name'), flagValue('name'), flagNumber('name') are reads of the address like the two above.)
+    for (const m of code.matchAll(/\bflag(?:On|Value|Number)\('([a-z0-9_-]+)'/gi)) { if (registeredFlags.has(m[1])) flagReads.add(m[1]); else (switches.get(m[1]) || switches.set(m[1], []).get(m[1])).push(at); }
     for (const m of code.matchAll(/\bimport\(\s*(['"`])([^'"`]+)\1/g)) lazy.push(`${rel} → ${m[2].replace(/\?v=[0-9a-f]+$/, '')}`);
     if (/\bimport\(\s*[^'"`\s)]/.test(code)) lazy.push(`${rel} → (computed specifier, line ${i + 1})`);
   });
@@ -67,7 +73,7 @@ const left = leftDoc.left;
 const allowed = JSON.parse(readFileSync(join(ROOT, 'scripts/lazy-imports.json'), 'utf8')).imports;
 const errors = [];
 for (const [n, at] of switches) if (!KEEP.has(n) && !left.includes(n)) errors.push(`new runtime switch ?${n} (${at.join(', ')}): no new switches; build the one path`);
-for (const n of left) if (!switches.has(n)) errors.push(`?${n} is no longer read: take it out of scripts/switches-left.json`);
+for (const n of left) if (!switches.has(n) && !flagReads.has(n)) errors.push(`?${n} is no longer read: take it out of scripts/switches-left.json`);
 for (const l of new Set(lazy)) if (!(l in allowed)) errors.push(`dynamic import ${l} is not in scripts/lazy-imports.json: say what reads it in before a person can reach it`);
 for (const l of Object.keys(allowed)) if (!lazy.includes(l)) errors.push(`scripts/lazy-imports.json lists ${l}, which the source no longer has`);
 

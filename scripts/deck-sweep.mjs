@@ -27,8 +27,9 @@ import { CHROMIUM_ARGS, openApp } from './shoot.mjs';
 import { serve } from './serve.mjs';
 import { DECKS } from '../src/ui/decks.js';
 import { SIZES } from './gallery-sweep-lib.mjs';
-import { judgeEdges } from '../src/ui/gallery/edge-rules.js';
 import { chunksFor, slideProblems, summarize, parseSlides } from './deck-sweep-lib.mjs';
+import { deckRun } from '../src/ui/report/emit.js';
+import { runBlock } from '../src/ui/report/run.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);
@@ -77,14 +78,14 @@ const IN_PAGE = async ({ deck, i, t, nap0 }) => {
   const nap = (ms) => new Promise((ok) => setTimeout(ok, ms));
   const opened = await g.slide(deck, i, { timeoutMs: t });
   const read = async () => {
-    let a = { check: g.check(), edges: g.edges(), boxes: JSON.stringify(g.boxes().boxes) }, stable = false;
+    let a = { check: g.check(), boxes: JSON.stringify(g.boxes().boxes) }, stable = false;
     for (let k = 0; k < 6; k++) {
       await nap(nap0);
-      const b = { check: g.check(), edges: g.edges(), boxes: JSON.stringify(g.boxes().boxes) };
+      const b = { check: g.check(), boxes: JSON.stringify(g.boxes().boxes) };
       if (a.boxes === b.boxes) { stable = true; a = b; break; }
       a = b;
     }
-    return { check: a.check, edges: a.edges, stable };
+    return { check: a.check, stable };
   };
   const out = { opened, main: null, held: null, back: null, shuffle: false };
   if (opened.ok === false && !opened.settled) { out.main = await read(); return out; }
@@ -102,7 +103,8 @@ const IN_PAGE = async ({ deck, i, t, nap0 }) => {
     // (The spring takes about 0.4 s to land: read when two reads 150 ms apart agree.)
     const still = async () => { let a = JSON.stringify(g.edges()); for (let k = 0; k < 12; k++) { await nap(150); const b = JSON.stringify(g.edges()); if (a === b) return JSON.parse(b); a = b; } return JSON.parse(a); };
     await g.shuffleTo(1);
-    out.back = { edges: await still() };
+    await still();
+    out.back = { check: g.check() };
     await g.shuffleTo(0);
     await still();
   }
@@ -124,7 +126,7 @@ async function runChunk(chunk) {
         try {
           const r = await withTimeout(app.page.evaluate(IN_PAGE, { deck: d.id, i, t: TIMEOUT_MS * RATE, nap0: NAP }), TIMEOUT_MS * 2 + 30000, `${d.id} slide ${i + 1} on ${chunk.device}`);
           const errors = app.errors.slice(seen); seen = app.errors.length;
-          const problems = slideProblems(r, judgeEdges);
+          const problems = slideProblems(r);
           rec = { deck: d.id, slide: i + 1, device: chunk.device, ok: r.opened.ok !== false, settled: r.opened.settled !== false, ms: Date.now() - t0, stable: !!r.main?.stable, shuffle: r.shuffle, problems,
             ...(errors.length ? { errors: errors.slice(0, 3).map((e) => e.slice(0, 200)) } : {}), ...(r.opened.error ? { error: String(r.opened.error) } : {}) };
         } catch (e) {
@@ -151,7 +153,8 @@ await browser.close();
 server.close();
 
 const report = { schema: 1, at: new Date().toISOString(), devices: DEVICES, decks: decks.map((d) => d.id), fast: FAST, cardsOnly: CARDS, rate: RATE, seconds: (Date.now() - T0) / 1000, results: Object.fromEntries(Object.entries(results).sort(([a], [b]) => a.localeCompare(b))) };
-const summary = summarize(report);
+const run = deckRun(report);
+const summary = `${summarize(report)}\n\n${runBlock(run)}`;   // (the text, then the one report block `npm run debug -- report show|compare` reads)
 if (OUT) { mkdirSync(dirname(resolve(OUT)), { recursive: true }); writeFileSync(OUT, JSON.stringify(report, null, 1)); writeFileSync(OUT.replace(/\.json$/, '') + '.txt', `${summary}\n`); }
 console.log(`\n${summary}`);
 process.exit(Object.values(results).some((r) => r.ok === false || r.problems.length) ? 1 : 0);

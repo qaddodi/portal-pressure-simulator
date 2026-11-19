@@ -18,6 +18,7 @@
 import { frameFor } from './frame.js';
 import { clamp01, lerp } from './num.js';
 import { readMetric, readBox } from './layout-snap.js';
+import { setThrowPose } from './card-throw.js';
 
 export const SHUF = Object.freeze({
   lift: 22,       // px of the slot above the front card where the strip of the card behind shows
@@ -67,15 +68,31 @@ export const shufInk = (f) => smooth(INK_FROM, INK_TO, f);
 export const shufHandle = (f) => 1 - smooth(HANDLE_FROM, HANDLE_TO, f);
 const INK_FROM = 0.3, INK_TO = 0.75, HANDLE_FROM = 0.05, HANDLE_TO = 0.45;
 
-/** The keyframes of one card's transform (to be ADDED to its own), its clip-path, its veil, its contents' opacity (ADDED to their own: 0 whole, -1 gone) and its handle's, from p = 0 (offset 0) to p = 1 (offset 1). */
-export function shufKeyframes(card, h, layers = 1, lo = SHUF.strip, w = 0) {
+/**
+ * A card's pose at p as one CSS transform, free of the card's size: every length that depended on the height or the width is a percentage of the card's own box (translate's
+ * percentages are of the element's own box), so the same text is right for a card of any height and any width. CRD-3 (bible review, 19 Nov 2026): the keyframes used to be made
+ * from the heights and widths the cards had when the shuffle was built, and a slide change replaces the teaching card's words while the shuffle stands (the layout waits for the
+ * throws to land), so the new, taller card was clipped for the old height and showed its top above the front card. It is the one text both the shuffle's animation and the
+ * throw's inline write use (card-throw.js composes it, setThrowPose), so a card thrown on a slide change keeps its lift and its scale and the two never fight over `transform`.
+ * Same numbers as shufPose; the top edge is held where the pose says (the translate makes up for the turn about the centre).
+ */
+export function shufPoseCss(card, p) {
+  const q = clamp01(p), f = card === 'words' ? 1 - q : q, o = card === 'words' ? Math.sin(Math.PI * q) : 0;
+  const s = lerp(SHUF.back, 1, f) - 0.02 * o, y = lerp(-SHUF.lift, 0, f) + SHUF.drop * o;
+  return `translate(calc(${(o * 100).toFixed(3)}% + ${(SHUF.gapX * o).toFixed(2)}px), calc(${y.toFixed(2)}px - ${((1 - s) * 50).toFixed(3)}%)) rotate(${(SHUF.tilt * o).toFixed(3)}deg) scale(${s.toFixed(4)})`;
+}
+
+/** The keyframes of one card's transform (to be ADDED to its own), its clip-path, its veil, its contents' opacity (ADDED to their own: 0 whole, -1 gone) and its handle's, from p = 0 (offset 0) to p = 1 (offset 1).
+ *  None depends on the card's size (the clip's foot is a share of the card's own height, 100%, not a length measured at some time), so a card whose words are replaced, or whose height changes, keeps a true pose. */
+export function shufKeyframes(card, layers = 1, lo = SHUF.strip) {
   const tf = [], clip = [], dim = [], ink = [], tab = [];
   for (let i = 0; i <= SHUF.steps; i++) {
-    const offset = i / SHUF.steps, g = shufPose(card, offset, h, lo, w);
-    tf.push({ offset, transform: `translate(${g.x.toFixed(2)}px, ${g.ty.toFixed(2)}px) rotate(${g.rz.toFixed(3)}deg) scale(${g.s.toFixed(4)})` });
-    // (the front card's clip reaches 40 px past its box on every side, so its shadow is never cut; the strip's clip is the card's own edge)
+    const offset = i / SHUF.steps, g = shufPose(card, offset, 100, lo), sm = g.f * g.f * (3 - 2 * g.f);
+    tf.push({ offset, transform: shufPoseCss(card, offset) });
+    // (the front card's clip reaches 40 px past its box on every side, so its shadow is never cut; the strip's clip is the card's own edge. The foot: the card's height less
+    // what shows, as in shufPose: vis = lo + (h - lo) * sm, so the inset from the bottom is (h - lo) * (1 - sm) less the reach.)
     const e = 40 * g.f;
-    clip.push({ offset, clipPath: `inset(${(-e).toFixed(1)}px ${(-e).toFixed(1)}px ${(h - g.vis - e).toFixed(1)}px ${(-e).toFixed(1)}px round ${SHUF.radius}px)` });
+    clip.push({ offset, clipPath: `inset(${(-e).toFixed(1)}px ${(-e).toFixed(1)}px calc((100% - ${lo}px) * ${(1 - sm).toFixed(4)} - ${e.toFixed(1)}px) ${(-e).toFixed(1)}px round ${SHUF.radius}px)` });
     dim.push({ offset, opacity: shufDim(card, offset, layers).toFixed(3) });
     ink.push({ offset, opacity: (shufInk(g.f) - 1).toFixed(3) });
     tab.push({ offset, opacity: shufHandle(g.f).toFixed(3) });
@@ -111,6 +128,7 @@ export function shufDrag(p0, dy) {
 /**
  * The shuffle of the presenter's two cards. live.ui: { root, text, shade, data }. All methods are safe to call when it is off.
  *   sync(on, key)   after a layout: on = the slide's pair is shuffled; key = the slide and size it was laid out for (a new key brings the words back in front)
+ *   mark(on)        the classes alone, before the cards are fitted (the instruments read them), where sync comes after
  *   park() / resume()   take the animations off for a layout read, put them back
  *   active()        the shuffle is on
  *   touch(type, y, onBehind)  a finger: 'start' (onBehind: it came down on the card behind, so a tap there brings that card forward), 'move', 'end'
@@ -123,8 +141,20 @@ export function createShuffle(live) {
   const nowMs = () => performance.now();
 
   const root = () => live.ui?.root;
-  function dropAnims() { for (const a of anims) for (const k of [a.tf, a.clip, a.dim, a.tab, ...(a.inks || [])]) { try { k?.cancel(); } catch { /* (an animation already gone) */ } } anims = []; }
+  // (CRD-3: a slide change replaces the words of the teaching card, the instrument's parts and the glass's children while the shuffle stands: the layout, and with it the rebuild, waits for the
+  // throws to land. A child that arrives is hidden at once if its card is behind: the one animation the others have, added to it here, in the microtask after the change, before any frame
+  // shows it. Before, the new words stood with no hiding animation through the throw in and showed over the card in front.)
+  const kids = typeof MutationObserver === 'function' ? new MutationObserver((recs) => {
+    for (const r of recs) {
+      const a = anims.find((x) => x.el === r.target);
+      if (!a) continue;
+      for (const c of r.removedNodes) { const i = a.inks.findIndex((k) => k.effect?.target === c); if (i >= 0) { try { a.inks[i].cancel(); } catch { /* (gone with its child) */ } a.inks.splice(i, 1); } }
+      for (const c of r.addedNodes) if (c.nodeType === 1 && c.animate && !a.inks.some((k) => k.effect?.target === c)) a.inks.push(a.mkInk(c));   // alloc-rare: once per child that arrives while the shuffle stands
+    }
+  }) : null;
+  function dropAnims() { kids?.disconnect(); for (const a of anims) for (const k of [a.tf, a.clip, a.dim, a.tab, ...(a.inks || [])]) { try { k?.cancel(); } catch { /* (an animation already gone) */ } } anims = []; }
   function scrub() { const t = p * 1000; for (const a of anims) { a.tf.currentTime = t; a.clip.currentTime = t; a.dim.currentTime = t; if (a.tab) a.tab.currentTime = t; for (const k of a.inks) k.currentTime = t; } }
+  function marks(onNow) { const r = root(); if (r) { r.classList.toggle('pz-shuf', onNow); live.ui.shade?.classList.toggle('pz-shuf', onNow); live.ui.data?.classList.toggle('pz-shuf', onNow); } }
   function front() { const r = root(); if (r) r.classList.toggle('pz-shuf-data', p > 0.5); }
 
   function build() {
@@ -139,7 +169,7 @@ export function createShuffle(live) {
       const h = readMetric(el, 'offsetHeight'), b = readBox(el);
       if (!(h > 0) || !b) continue;
       const w = b.width;
-      const kf = shufKeyframes(card, h, layers, lo, w);
+      const kf = shufKeyframes(card, layers, lo);
       const mk = (frames, opts, on = el) => { const a = on.animate(frames, { duration: 1000, fill: 'both', easing: 'linear', ...opts }); a.pause(); a.currentTime = p * 1000; return a; };   // motion-scale: own pace (paused: the finger and the spring set the time, 1000 is the timeline's unit, never a length of time)
       anims.push({
         el, card, h, w, lo, top: b.top, left: b.left, glass,
@@ -149,8 +179,10 @@ export function createShuffle(live) {
         // (The words and numbers of a card behind are not there, and its handle is: the strip never holds a piece of a line. Each part of the card takes the same
         // keyframes, added to its own opacity, so a part that is fading in or out for its own reasons keeps doing it.)
         inks: [...el.children].filter((c) => c.animate).map((c) => mk(kf.ink, { composite: 'add' }, c)),
+        mkInk: (c) => mk(kf.ink, { composite: 'add' }, c),
         tab: glass ? mk(kf.tab, { pseudoElement: '::before' }) : null,
       });
+      kids?.observe(el, { childList: true });
     }
     front();
   }
@@ -200,15 +232,26 @@ export function createShuffle(live) {
   }
   function run() { if (!raf && on) { last = 0; raf = frameFor('shuffle')(frame); } }
 
+  // The pose a card has now, as the throw composes it into its own inline transform (card-throw.js): '' when the shuffle is off or the element is not one of its cards. By the cards, not by the
+  // built animations: a throw that begins before the rebuild still keeps the pose, and the first build never shows a snap when the throw lets go.
+  const poseOf = (el) => {
+    if (!on || !el) return '';
+    const ui = live.ui;
+    return el === ui?.text || el === ui?.shade ? shufPoseCss('words', p) : el === ui?.data ? shufPoseCss('data', p) : '';
+  };
+  setThrowPose(poseOf);
   const api = {
+    poseOf,
     active: () => on,
     front: () => (p > 0.5 ? 'data' : 'words'),
     position: () => p,
+    /** The classes only (no build, no motion): the layout writes the slide's decision before the cards are fitted, so the instruments draw against it, never against the last slide's (CRD-1). */
+    mark(next) { marks(!!next); },
     sync(next, k) {
       const r = root();
       const was = on;
       on = !!next;
-      if (r) { r.classList.toggle('pz-shuf', on); live.ui.shade?.classList.toggle('pz-shuf', on); live.ui.data?.classList.toggle('pz-shuf', on); }
+      marks(on);
       if (!on) { dropAnims(); if (r) r.classList.remove('pz-shuf-data'); p = 0; v = 0; target = 0; key = ''; return; }
       // (A new slide or size: the words come back in front, by the spring, never by a jump: the cards are still leaving or just arriving.)
       if (k !== key) { key = k; if (was && p !== 0) { target = 0; v = 0; } else { p = 0; target = 0; v = 0; } }

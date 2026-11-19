@@ -3,12 +3,12 @@
 // pace (rate 1, but driven by a loop a background pane does not throttle) until the figure is up, so the engine's worker and the modules
 // have real time to arrive in; main.js then calls pps.testClock (test-mode.js), which links the worker and sets the rate.
 import { createTestClock } from '../test-clock.js';
+import { flagOn, flagNumber } from './flags.js';
 
 try {
-  const q = new URLSearchParams(location.search);
-  if (q.has('testclock')) {
-    const asked = Number(q.get('testclock'));
-    const clock = createTestClock(window, { rate: 1, frame: Number(q.get('testframe')) || 0 });
+  if (flagOn('testclock')) {
+    const asked = flagNumber('testclock') ?? 0;
+    const clock = createTestClock(window, { rate: 1, frame: flagNumber('testframe') || 0 });
     clock.wanted = asked >= 1 ? asked : 0;   // (0: test-mode.js's default)
     clock.install(); clock.start();
     window.ppsTestClock = clock;

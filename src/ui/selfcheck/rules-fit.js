@@ -19,6 +19,6 @@ for (const kind of KINDS) {
   if (kind === 'zoomed') continue;   // (needs a second reading with the card enlarged: the gallery's zoom check, not a state of one report)
   registerRule({
     id: `fit-${kind}`, owner: OWNER[kind] || 'src/ui/presenter.js', why: WHY[kind] || `Cards must fit: ${KIND_WORDS[kind]}`,
-    check: (report) => (report.cards ? judged(report.cards).filter((p) => p.kind === kind).map((p) => ({ what: p.where === 'card' ? 'Structure card' : 'Slide cards', where: p.text })) : []),
+    check: (report) => (report.cards ? judged(report.cards).filter((p) => p.kind === kind).map((p) => ({ what: p.where === 'card' ? 'Structure card' : 'Slide cards', where: p.text, kind: p.kind, line: p.line, scope: p.where })) : []),
   });
 }

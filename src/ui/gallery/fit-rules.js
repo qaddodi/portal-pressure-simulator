@@ -27,6 +27,7 @@
 //
 // No DOM import at top level: a unit test loads this in node.
 import { TITLE_RATIO, WORDS_MIN_PX } from '../card-type.js';
+import { EDGE_KINDS, EDGE_WORDS } from './edge-rules.js';
 
 export { TITLE_RATIO, WORDS_MIN_PX };
 
@@ -322,10 +323,10 @@ export function reportText(problems, where = {}) {
   const head = [`Card check${where.title ? `: ${where.title}` : ''}`, [where.look && `look ${where.look}`, where.size && `screen ${where.size}`, where.when].filter(Boolean).join(', ')].filter(Boolean).join('\n');
   if (!problems.length) return `${head}\nEvery card fits: no problems found.`;
   const lines = [head, `${problems.length} problem${problems.length === 1 ? '' : 's'}:`];
-  for (const k of KINDS) {
+  for (const k of [...KINDS, ...EDGE_KINDS]) {
     const of = problems.filter((p) => p.kind === k);
     if (!of.length) continue;
-    lines.push('', `${k} (${KIND_WORDS[k]})`, ...of.map((p) => `  - ${p.where ? `[${p.where}] ` : ''}${p.text}`));
+    lines.push('', `${k} (${KIND_WORDS[k] || EDGE_WORDS[k]})`, ...of.map((p) => `  - ${p.where ? `[${p.where}] ` : ''}${p.text}`));
   }
   return lines.join('\n');
 }

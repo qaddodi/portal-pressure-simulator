@@ -6,6 +6,7 @@ import { clearAll } from './openers.js';
 import { viewKey } from '../store.js';
 import { memoryMB, peakMB, contextCount, budget, holdersNow } from '../gpu-budget.js';
 import { contextStats } from '../gl-contexts.js';
+export { judgeHere, isFitRule } from './walk-judge.js';   // (the judges at a stop: pure, so a node test loads them without a page)
 
 const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
 export const STEP_LIMIT_MS = 15000;   // the longest a step may take to come to rest before the walk calls it "not settled" and goes on
@@ -26,11 +27,11 @@ export function readDevice() {
 
 /** The executor for walk.js: exec(step) plays it and waits for rest. `api` is the gallery API (pps.gallery) when the page has one. */
 export function createExecutor({ pps, api, limitMs = STEP_LIMIT_MS }) {
-  const settler = createSettler(pps, { quietMs: 250 });
+  const settler = createSettler(pps);
   async function still() {
     const s = await settler.wait(limitMs);
     let more = { settled: true };
-    if (api?.settled) more = await api.settled({ timeoutMs: Math.max(2000, Math.round(limitMs / 2)), quietMs: 200 });
+    if (api?.settled) more = await api.settled({ timeoutMs: Math.max(2000, Math.round(limitMs / 2)) });
     return { settled: !!s.ok && !!more.settled };
   }
   const presenter = () => pps?.presenter || null;
@@ -73,12 +74,4 @@ export function createExecutor({ pps, api, limitMs = STEP_LIMIT_MS }) {
     return still();
   }
   return { exec, still, cancel: () => settler.cancel() };
-}
-
-/** The judges at a stop: the shared fit rules (pps.gallery.check) and the self-check rules over pps.screen (docs/screen-report.md). Each is optional. */
-export async function judgeHere(pps, api) {
-  const out = { problems: [], findings: [] };
-  try { out.problems = api?.check?.().problems || []; } catch { /* (no card up: nothing to fit) */ }
-  try { const r = await pps?.screen?.({ detail: 'summary' }); out.findings = r?.findings || []; } catch { /* (the report part that failed is in the report's own errors) */ }
-  return out;
 }

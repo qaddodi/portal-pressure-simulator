@@ -18,6 +18,7 @@
 
 import { prefs } from './prefs.js';
 import { gpuProbe } from './gpu-probe.js';
+import { flagOn, flagNumber } from './flags.js';
 import { createFrameRecorder } from './frame-stats.js';
 import { createInputLatency, describeTarget } from './input-latency.js';
 import { caught } from './caught.js';
@@ -189,7 +190,7 @@ function flush(now) {
 // make no performance.now() pair per callback.)
 export const TIME_EVERY = 30;
 const FRAME_END = 'frame end';   // (the surface name of the frame-end hooks' time: the figure's present and the ink)
-const TIME_ALL = typeof location !== 'undefined' && /[?&](perf|fps)(?=[=&#]|$)/.test(location.search || '');
+const TIME_ALL = flagOn('perf') || flagOn('fps');
 let timeFrame = false;
 /** Whether this frame's callbacks are each timed (every frame while watched or under ?perf/?fps, else one in TIME_EVERY). */
 export const framesTimed = () => timeFrame;
@@ -511,10 +512,10 @@ function runMay(now) {
 // ── ?fps=120 (recs, quick win 1): frames asked for every refresh while the page shows, and every overrun logged ──
 // The scheduler keeps its chain alive (no idle stop), and each frame whose interval passed 1.5 refreshes, or whose script passed the
 // budget, is written to the console with the surfaces that ran in it (largest first). A measuring aid: it keeps the page drawing.
-const FPS_Q = typeof location !== 'undefined' ? /[?&]fps=(\d+)\b/.exec(location.search || '') : null;
-export const FPS_FORCE = !!FPS_Q;
-const FPS_LOG = !!FPS_Q;
-const FPS_HZ = FPS_Q ? +FPS_Q[1] || 120 : 0;
+const FPS_ON = flagOn('fps');   // (?fps=N: digits only)
+export const FPS_FORCE = FPS_ON;
+const FPS_LOG = FPS_ON;
+const FPS_HZ = FPS_ON ? flagNumber('fps') || 120 : 0;
 let fpsUnwatch = null, fpsPrev = 0;
 if (FPS_LOG) fpsUnwatch = watchFrames(() => {});   // (a watcher on, so every frame's surfaces are timed for the log)
 function logOverrun(now, script, list) {
@@ -730,7 +731,7 @@ function inputMeasure() {
 
 // (Asked for in the address, ?perf or ?inputs, it is made now, at load, before the presenter and the rest add their own window key
 // listeners: a key one of them uses stops at its listener (stopImmediatePropagation), and a tracker made later never sees it.)
-if (typeof location !== 'undefined' && /[?&](perf|inputs|lap)(?=[=&#]|$)/.test(location.search || '')) inputMeasure();
+if (flagOn('perf') || flagOn('inputs') || flagOn('lap')) inputMeasure();
 
 // Frame recording (recs R5): perf().frames.start() records every frame the scheduler runs; .stop() returns the recording's raw
 // numbers (frame-stats.js: intervals, script times, each surface's ms in each frame it ran in, each phase's) and the long frames.
@@ -907,7 +908,7 @@ export function calmFlowRule(cheapBlood = false) {
 // any input brings the full rate back on the next frame. ?rest=off turns it off for comparing.
 export const REST_AFTER_MS = 4000, REST_MS = 28, IDLE_AFTER_MS = 30000, IDLE_MS = 46, TALK_IDLE_MS = IDLE_MS;
 let restTouch = true, restOff = false, restTalk = null;   // (restTouch: rest pacing on; every device since 12 Nov 2026, the name kept for the tests' hook)
-try { restOff = typeof location !== 'undefined' && new URLSearchParams(location.search).get('rest') === 'off'; } catch (e) { caught('frame:rest-o', e); /* no address */ }   // (?rest=off: for comparing)
+try { restOff = flagOn('rest'); } catch (e) { caught('frame:rest-o', e); /* no address */ }   // (?rest=off: for comparing)
 let restInputAt = wall(), restMotionAt = 0, restRuleNow = '', restRuleAt = -1e9;
 /** Turns rest pacing on or off for this page (on for every device since 12 Nov 2026; tests set it). */
 export function setRestTouch(on) { restTouch = !!on; }

@@ -22,6 +22,8 @@
 // The settled test is sampled only while somebody waits (one timer, 100 ms, gone when the wait ends): the presenter and the camera announce no "done"
 // event, so a quiet window is the honest signal. Nothing here runs per frame or when no call is waiting.
 
+import { pageBusy, waitQuiet, QUIET_MS, POLL_MS } from '../screen/settle.js';
+
 export const STATE_ATTR = 'data-gallery-state';
 export const SWEEP_ATTR = 'data-gallery-sweep';
 export const RESULT_ID = 'gallery-result';
@@ -48,25 +50,7 @@ export function parseSweepAddress(search, lookIds = ['light', 'soft', 'dark', 'n
   return spec;
 }
 
-/**
- * Is anything still arriving? The presenter changing cards, the camera or the view change gliding, a card not yet styled, a running animation that
- * will end, fonts loading. pps: window.pps; doc: the document; anims(doc): the animation list (the page hands in layout-snap.js's readAnims, so the
- * layout-read count stays with that file). Reads no layout box.
- */
-export function probeBusy(pps, doc = document, anims = () => []) {
-  try {
-    // (A case or question card holds the talk until a tap lifts it: the presenter is busy by design while it stands, and the card standing whole is the landing.)
-    const held = !!doc.querySelector('.pz-case.on');   // (the slide's own cards are fitted unseen behind it, pz-prep: also the card standing, not motion)
-    if (pps?.presenter?.busy?.() && !held) return true;
-    if (pps?.stage?.viewChanging?.() || pps?.stage?.gliding?.()) return true;
-    if (doc.querySelector(held ? '.pz-load.on, .pz-cover, .action-card.ac-prep' : '.pz-load.on, .pz-cover, .pz.pz-prep, .pz-text[aria-busy="true"], .pz-data[aria-busy="true"], .action-card.ac-prep')) return true;
-    if (doc.fonts && doc.fonts.status === 'loading') return true;
-    // (The Doppler pane's marker glides to each new reading of the live model, always: a gallery page's own chrome and that marker are not motion to wait for.)
-    const running = anims(doc)?.some((a) => a.playState === 'running' && Number.isFinite(a.effect?.getTiming?.().iterations) && !a.effect?.target?.closest?.('[data-gallery], .dop-mark'));
-    if (running) return true;
-  } catch { /* (a page that cannot be asked is not held up) */ }
-  return false;
-}
+export { pageBusy as probeBusy };   // (the one probe is screen/settle.js: this name is kept for the page, the packet and the tests)
 
 /** The sum of the app's counted errors (pps.caught()), so open() can say how many happened while a specimen opened. */
 export function errorTotal(pps) {
@@ -90,7 +74,7 @@ const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Da
  *   entries, byId     the catalog
  *   go(id)            opens a specimen (page.js's go), resolves when its opener returned
  *   setLook(id), look()      the look
- *   busy()            true while something still arrives (default probeBusy(pps, doc))
+ *   busy()            true while something still arrives (default pageBusy(pps, doc), screen/settle.js)
  *   check(), words(), boxes()   the page's own readers, raw (runCheck's result, readWords, readBoxes); the API strips elements
  *   id()              the open specimen's id (default: the last one api.open opened)
  *   size()            { w, h } of the screen
@@ -101,7 +85,7 @@ const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Da
 export function createGalleryApi(env) {
   const doc = env.doc || document;
   const sleep = env.sleep || sleepFor, now = env.now || nowMs;
-  const busy = env.busy || (() => probeBusy(env.pps, doc));
+  const busy = env.busy || (() => pageBusy(env.pps, doc));
   const errors = env.errors || (() => errorTotal(env.pps));
   let current = null, runner = null;
   const setState = (s, id) => { doc.documentElement.setAttribute(STATE_ATTR, s); if (id != null) doc.documentElement.setAttribute('data-gallery-id', id); };
@@ -111,16 +95,7 @@ export function createGalleryApi(env) {
     return env.entries.filter((e) => (!f.family || e.family === f.family) && (!f.section || e.section === f.section) && (!f.kind || e.kind === f.kind)).map(brief);
   }
 
-  async function settled({ timeoutMs = 30000, quietMs = 300, pollMs = 100 } = {}) {
-    const t0 = now();
-    let quiet = -1;
-    for (;;) {
-      const t = now();
-      if (!busy()) { if (quiet < 0) quiet = t; if (t - quiet >= quietMs) return { settled: true, ms: Math.round(t - t0) }; } else quiet = -1;
-      if (t - t0 >= timeoutMs) return { settled: false, ms: Math.round(t - t0) };
-      await sleep(pollMs);
-    }
-  }
+  const settled = ({ timeoutMs = 30000, quietMs = QUIET_MS, pollMs = POLL_MS } = {}) => waitQuiet(busy, { timeoutMs, quietMs, pollMs, now, sleep });
 
   async function open(id, { look, timeoutMs } = {}) {
     const e = env.byId[id];
@@ -169,7 +144,7 @@ export function createGalleryApi(env) {
     const sh = env.pps?.presenter?.shuffle?.();
     if (!sh || !sh.active?.()) return { ok: false, settled: false };
     sh.go(to);
-    const s = await settled({ timeoutMs, quietMs: 200 });
+    const s = await settled({ timeoutMs });
     return { ok: true, settled: s.settled };
   }
 

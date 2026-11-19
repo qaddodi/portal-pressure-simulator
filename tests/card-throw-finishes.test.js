@@ -122,5 +122,5 @@ test('presses landing mid-move in any order leave no card moving or part way', a
 test('window.pps keeps caught(): main.js fills pps with it (extendHandle keeps what other modules put there first), so the counted errors can be read', () => {
   const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
   assert.match(main, /import \{ caught, caughtNow \} from '\.\/caught\.js/);
-  assert.match(main, /extendHandle\(window\.pps \|\|= \{\}, \{[^\n]*caught: caughtNow \}\)/);
+  assert.match(main, /extendHandle\(window\.pps \|\|= \{\}, \{[^\n]*caught: caughtNow[,} ]/);
 });

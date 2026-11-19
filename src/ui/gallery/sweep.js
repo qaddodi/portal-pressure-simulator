@@ -17,6 +17,8 @@
 // Resume: the place is kept in storage (sessionStorage) after every specimen, with the specimen that is open. A reload that follows a tab kill
 // finds it, reports that specimen as "lost to a reload" (a finding, not a silent restart) and goes on from the next one. After MAX_KILLS reloads in one
 // sweep it stops and reports what it has, so a specimen that always kills the tab cannot loop.
+import { sweepRun } from '../report/emit.js';
+import { runBlock } from '../report/run.js';
 
 export const SWEEP_KEY = 'pps.gallery.sweep';
 export const MAX_KILLS = 3;
@@ -190,5 +192,6 @@ export function buildReport({ spec = {}, results, jobs = [], unknown = [], resum
     }
   }
   if (busy.length) lines.push('', `Taken while cards still moved (check these again by hand): ${busy.map(at).join(', ')}`);
-  return { summary, results, text: lines.join('\n'), spec: { ...spec, fresh: false }, resumed, kills };
+  const run = sweepRun({ results, summary, spec, size, ms, stoppedEarly, tooMany, kills, unknown });
+  return { summary, results, text: `${lines.join('\n')}\n\n${runBlock(run)}`, run, spec: { ...spec, fresh: false }, resumed, kills };
 }

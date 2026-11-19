@@ -18,6 +18,7 @@ import { PATHS } from '../path-data.js';
 import { LOOKS } from '../looks.js';
 import { PRESETS } from '../../engine/scenario.js';
 import { MAIN } from './catalog-main.js';
+import { GALLERY_DEVICES } from '../devices.js';
 
 export const KINDS = ['slide', 'pane', 'pick', 'sheet', 'view', 'bench'];
 export const SECTIONS = ['Teaching cards', 'Tests card', 'Structure cards', 'Sheets', 'Figure', 'Benches'];
@@ -25,15 +26,8 @@ export const SECTIONS = ['Teaching cards', 'Tests card', 'Structure cards', 'She
 export const DECK_SECTIONS = [['record', 'Recordings and measurements'], ['chart', 'Charts and models'], ['card', 'Cards and panels'], ['tiles', 'Readout tiles'], ['teach', 'The teaching card']];
 /** The looks the page switches between (the app's own list). */
 export const LOOK_IDS = LOOKS.map((l) => l.id);
-/** The sizes the page and the manual shoot at (section 1.6 of the plan). */
-export const DEVICES = [
-  { id: 'mac', name: 'Mac 1440×900', w: 1440, h: 900 },
-  { id: 'mac-short', name: 'Mac short 1440×780', w: 1440, h: 780 },
-  { id: 'ipad', name: 'iPad landscape 1180×820', w: 1180, h: 820 },
-  { id: 'ipad-portrait', name: 'iPad portrait 820×1180', w: 820, h: 1180 },
-  { id: 'iphone', name: 'iPhone 390×844', w: 390, h: 844 },
-  { id: 'iphone-landscape', name: 'iPhone sideways 844×390', w: 844, h: 390 },
-];
+/** The sizes the page and the manual shoot at (section 1.6 of the plan): src/ui/devices.js, the one list. */
+export const DEVICES = GALLERY_DEVICES;
 
 /** The slide id a specimen gets in the gallery deck. */
 export const sid = (id) => id.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
