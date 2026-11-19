@@ -490,7 +490,8 @@
    card's Doppler, Dye and Remove fold away while it is open (option A, 17 Nov); nothing covers the stent. */
 .tv { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .tv > .tf { margin-top: 4px; }   /* (the mock: 10 px under the name, 8 px over the numbers, 10 px over the rows) */
-.tv-keys { padding: 0 2px; }
+.tv-keys { padding: 0 2px; column-gap: 4px; }   /* (the vessel card's three readings: 12 px, the standing floor, on one line in a 240 px card: 243 px of content with the line's own 7 px gap, 237 with this) */
+.tv-keys .ir-kv { font-size: var(--fs-12); }   /* (the line's own type scaled with its width, min(12px, 3.2cqi): 7.6 px words and 8.8 px numbers in a 240 px card, on Mac, iPad and iPhone; the layout sweep, 18 Nov) */
 .tv-keys .ir-kv b { font-size: 1.17em; }   /* (the three on one line in a 240 px card) */
 .ac-panel:has(> .tv) { position: relative; z-index: 4; }
 .ac-panel:has(> .tv) + .ac-as { transition: opacity var(--d-small) var(--ease); flex-wrap: wrap; gap: 0 12px; align-content: center; min-height: 48px; border-top: 1px solid var(--hairline); }

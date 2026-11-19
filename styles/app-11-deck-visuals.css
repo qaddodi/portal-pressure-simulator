@@ -284,6 +284,7 @@
 .pzc-and { margin-left: .5em; font: 500 max(12px, .5em)/1 var(--font-ui); font-variant-numeric: tabular-nums lining-nums; color: var(--text-2); }   /* (the rule's second condition on the cut-off's own line, small in the sans, after a "+": "≤15 kPa + PLT ≥150K", never two lines; 12 px floor) */
 .pzc-end { grid-column: 3; display: flex; flex-direction: column; align-items: flex-start; gap: .1em; white-space: nowrap; padding-left: 22px; font: 500 calc(1em / 1.07)/1.25 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-3); }
 .pzc-hrow .pzc-end { font: inherit; color: inherit; }
+.pzc-note .pzc-v { white-space: normal; text-wrap: balance; }   /* (a case's note may wrap: nowrap, "LSM 13, platelets 160" ran 190 px from x 253 off a 390 px phone's right edge, the layout sweep, 18 Nov) */
 .pz-crit:not(.has-case) .pzc-end { display: none; }   /* (a plain list: its words take the full width) */
 .pzc-v { transition: none; }
 .pzc-row:is([data-lit], [data-met]) .pzc-v, .pzc-live .pzc-v { font-size: 1.3em; font-weight: 600; line-height: 1.15; color: var(--text); }

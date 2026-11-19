@@ -22,7 +22,8 @@ import { createGalleryApi, probeBusy } from './api.js';
 import { readWords, readBoxes } from './readers.js';
 import { runCheck } from './fit-check.js';
 
-const DECK_ID = 'test-gallery';
+/** The id the presenter gives the gallery deck: the Testing decks are listed as 'test-' + their own id (presenter.js testingLoad). */
+export const DECK_ID = 'test-gallery';
 const IO = { box: readBox, rects: readRects, style: readStyle, metric: readMetric, ctm: readCTM };
 const LOOK_NAMES = { light: 'Light', soft: 'Soft', dark: 'Dark', navy: 'Navy', black: 'Black' };
 
@@ -228,7 +229,7 @@ export async function startGallery({ pps = window.pps, root = document } = {}) {
     if (e.kind === 'slide') {
       const at = order.indexOf(sid(e.id)) + 1;
       const pos = pps?.presenter?.position?.();
-      if (pos?.id === deck.id) pps.presenter.go(at); else await pps.presenter.start(DECK_ID, at);
+      if (pos?.id === DECK_ID) pps.presenter.go(at); else await pps.presenter.start(DECK_ID, at);
     } else {
       pps?.presenter?.active?.() && pps.presenter.stop?.();
       await openEntry(e, pps);
@@ -312,7 +313,7 @@ export async function startGallery({ pps = window.pps, root = document } = {}) {
     clearTimeout(followTimer);
     followTimer = setTimeout(() => {
       const pos = pps?.presenter?.position?.();
-      if (!pos || pos.id !== deck.id) return;
+      if (!pos || pos.id !== DECK_ID) return;
       const e = byId[Object.keys(byId).find((id) => sid(id) === order[pos.at - 1])];
       if (e && e.id !== open?.id) { open = e; history.replaceState(null, '', linkFor(location, e.id, look)); for (const [k, b] of items) b.toggleAttribute('aria-current', k === e.id); sync(); told(); if (shoot) shotLabel(); settledSoon(); }
     }, 450);
