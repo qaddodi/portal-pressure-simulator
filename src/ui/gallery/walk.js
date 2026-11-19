@@ -15,6 +15,8 @@
 // Resume. The place is kept in storage (sessionStorage) BEFORE each step starts and again after it. A reload that finds a step still open means the browser ended
 // the tab on that step: it is the finding ("TAB ENDED on step k of journey J, after these steps, holding N MB at the last read"). The page that comes back is empty,
 // so the journey that died is not repeated from the middle; the check goes on with the next journey from a clean page. After MAX_KILLS the check stops and reports.
+import { walkRun } from '../report/emit.js';
+import { runBlock } from '../report/run.js';
 
 export const WALK_KEY = 'pps.phonecheck';
 export const MAX_KILLS = 3;
@@ -281,5 +283,6 @@ export function buildWalkReport({ journeys = [], rows = [], events = [], jStart 
   }
   for (const l of info.lastSeen || []) lines.push(`  the page's own record: ${l}`);
   lines.push('', 'NOT CHECKED HERE: how anything looks (pictures, colours, motion smoothness), wording, shaders other than the ones these steps compile, and any state no step reached. Layout across all 290 cards is the gallery Sweep (about an hour), or the headless layout sweep.');
-  return { summary, rows, journeys: jr, events, text: lines.join('\n'), killed: kill, dropped };
+  const run = walkRun({ rows, problems, killed: kill, dropped: dropped.map((d) => byJ.get(d)?.title || d), summary, info, ms });
+  return { summary, rows, journeys: jr, events, text: `${lines.join('\n')}\n\n${runBlock(run)}`, run, killed: kill, dropped };
 }

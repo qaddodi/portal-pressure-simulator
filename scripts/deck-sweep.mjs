@@ -28,6 +28,8 @@ import { serve } from './serve.mjs';
 import { DECKS } from '../src/ui/decks.js';
 import { SIZES } from './gallery-sweep-lib.mjs';
 import { chunksFor, slideProblems, summarize, parseSlides } from './deck-sweep-lib.mjs';
+import { deckRun } from '../src/ui/report/emit.js';
+import { runBlock } from '../src/ui/report/run.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);
@@ -151,7 +153,8 @@ await browser.close();
 server.close();
 
 const report = { schema: 1, at: new Date().toISOString(), devices: DEVICES, decks: decks.map((d) => d.id), fast: FAST, cardsOnly: CARDS, rate: RATE, seconds: (Date.now() - T0) / 1000, results: Object.fromEntries(Object.entries(results).sort(([a], [b]) => a.localeCompare(b))) };
-const summary = summarize(report);
+const run = deckRun(report);
+const summary = `${summarize(report)}\n\n${runBlock(run)}`;   // (the text, then the one report block `npm run debug -- report show|compare` reads)
 if (OUT) { mkdirSync(dirname(resolve(OUT)), { recursive: true }); writeFileSync(OUT, JSON.stringify(report, null, 1)); writeFileSync(OUT.replace(/\.json$/, '') + '.txt', `${summary}\n`); }
 console.log(`\n${summary}`);
 process.exit(Object.values(results).some((r) => r.ok === false || r.problems.length) ? 1 : 0);
