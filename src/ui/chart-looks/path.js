@@ -28,11 +28,11 @@ export const PATH = {
   'path.word': {
     state: { lit: 'class:lit' },
     base: { weight: 500, fill: tok('text-2'), opacity: UNLIT, halo },
-    when: [[{ lit: true }, { weight: 600, fill: param('tone'), opacity: 1 }]],
+    when: [[{ lit: true }, { weight: 600, fill: param('tone', true), opacity: 1 }]],
   },
   // the nodes' words of the whole chart: a condition, a verdict (the branch's colour when lit), a detail, the statement's number
   'path.t': { state: { lit: 'class:lit' }, base: { weight: 400, fill: tok('text-2'), opacity: UNLIT, halo }, when: [[{ lit: true }, { opacity: 1 }]] },
-  'path.r': { state: { lit: 'class:lit' }, base: { weight: 600, fill: tok('text'), opacity: UNLIT, halo }, when: [[{ lit: true }, { fill: param('tone'), opacity: 1 }]] },
+  'path.r': { state: { lit: 'class:lit' }, base: { weight: 600, fill: tok('text'), opacity: UNLIT, halo }, when: [[{ lit: true }, { fill: param('tone', true), opacity: 1 }]] },
   'path.s': { state: { lit: 'class:lit' }, base: { weight: 400, fill: tok('text-3'), opacity: UNLIT, halo }, when: [[{ lit: true }, { opacity: 1 }]] },
   'path.st': { state: { lit: 'class:lit' }, base: { weight: 500, fill: tok('text-3'), opacity: UNLIT, halo }, when: [[{ lit: true }, { opacity: 1 }]] },
   // the card's head and foot: the source, the patient's numbers, the guideline's statements
@@ -42,7 +42,7 @@ export const PATH = {
   'path.chips': { base: { weight: 500, fill: tok('text'), halo } },
   'path.foot': { base: { weight: 400, fill: tok('text-3'), halo } },
   // the small map's reading: the verdict in its colour, the statement, the why and the next step
-  'path.rh': { state: { lit: 'class:lit' }, base: { weight: 600, fill: tok('text'), halo }, when: [[{ lit: true }, { fill: param('tone') }]] },
+  'path.rh': { state: { lit: 'class:lit' }, base: { weight: 600, fill: tok('text'), halo }, when: [[{ lit: true }, { fill: param('tone', true) }]] },
   'path.rs': { base: { weight: 500, fill: tok('text-3'), halo } },
   'path.rp': { base: { weight: 400, fill: tok('text'), halo } },
   // ── the other kinds (path-cards.js): the score card and checklist, the grid, the ladder ──
@@ -56,14 +56,14 @@ export const PATH = {
     base: { fill: 'none', stroke: QUIET, width: 1, opacity: UNLIT },
     when: [[{ lit: true }, { fill: mix('srgb', param('tone'), 14, 'transparent'), stroke: param('tone'), width: 1.5, opacity: 1 }]],
   },
-  'path.op': { state: { lit: 'class:lit' }, base: { weight: 600, fill: tok('text-2'), opacity: UNLIT, halo }, when: [[{ lit: true }, { fill: param('tone'), opacity: 1 }]] },
-  'path.pt': { state: { lit: 'class:lit' }, base: { weight: 600, fill: tok('text-3'), opacity: UNLIT, halo }, when: [[{ lit: true }, { fill: param('tone'), opacity: 1 }]] },
+  'path.op': { state: { lit: 'class:lit' }, base: { weight: 600, fill: tok('text-2'), opacity: UNLIT, halo }, when: [[{ lit: true }, { fill: param('tone', true), opacity: 1 }]] },
+  'path.pt': { state: { lit: 'class:lit' }, base: { weight: 600, fill: tok('text-3'), opacity: UNLIT, halo }, when: [[{ lit: true }, { fill: param('tone', true), opacity: 1 }]] },
   // the score's bar of zones and the zones' names under it
   'path.bar': { state: { lit: 'class:lit' }, base: { fill: QUIET, opacity: UNLIT }, when: [[{ lit: true }, { fill: param('tone'), opacity: 1 }]] },
-  'path.zl': { state: { lit: 'class:lit' }, base: { weight: 500, fill: tok('text-3'), opacity: UNLIT, halo }, when: [[{ lit: true }, { weight: 500, fill: param('tone'), opacity: 1 }]] },
+  'path.zl': { state: { lit: 'class:lit' }, base: { weight: 500, fill: tok('text-3'), opacity: UNLIT, halo }, when: [[{ lit: true }, { weight: 500, fill: param('tone', true), opacity: 1 }]] },
   // the grid: the columns' and rows' names, a cell and its words (the cell's colour is its own)
-  'path.gh': { state: { lit: 'class:lit' }, base: { weight: 500, fill: tok('text-3'), halo }, when: [[{ lit: true }, { fill: param('tone') }]] },
-  'path.gr': { state: { lit: 'class:lit' }, base: { weight: 600, fill: tok('text-2'), halo }, when: [[{ lit: true }, { fill: param('tone') }]] },
+  'path.gh': { state: { lit: 'class:lit' }, base: { weight: 500, fill: tok('text-3'), halo }, when: [[{ lit: true }, { fill: param('tone', true) }]] },
+  'path.gr': { state: { lit: 'class:lit' }, base: { weight: 600, fill: tok('text-2'), halo }, when: [[{ lit: true }, { fill: param('tone', true) }]] },
   'path.gs': { state: { lit: 'class:lit' }, base: { weight: 400, fill: tok('text-3'), halo }, when: [[{ lit: true }, { fill: tok('text-2') }]] },
   // (7 Nov 2026, mock C) the cells with the same answer are one shape in the answer's colour, faint at rest; the patient's cell a filled inset in it
   'path.group': {
@@ -73,14 +73,14 @@ export const PATH = {
   },
   'path.cell': { base: { fill: mix('srgb', param('tone'), 24, 'transparent'), stroke: 'none' } },
   // an answer's words in its own colour, quieter at rest; the column and row names lit in the ink on the patient's answers
-  'path.ct': { state: { lit: 'class:lit' }, base: { weight: 600, fill: mix('srgb', param('tone'), 100, 'transparent'), opacity: 0.75, halo }, when: [[{ lit: true }, { opacity: 1 }]] },
-  'path.ctc': { state: { lit: 'class:lit' }, base: { weight: 600, fill: mix('srgb', param('tone'), 100, 'transparent'), opacity: 0.75, halo }, when: [[{ lit: true }, { opacity: 1 }]] },
+  'path.ct': { state: { lit: 'class:lit' }, base: { weight: 600, fill: mix('srgb', param('tone', true), 100, 'transparent'), opacity: 0.75, halo }, when: [[{ lit: true }, { opacity: 1 }]] },
+  'path.ctc': { state: { lit: 'class:lit' }, base: { weight: 600, fill: mix('srgb', param('tone', true), 100, 'transparent'), opacity: 0.75, halo }, when: [[{ lit: true }, { opacity: 1 }]] },
   'path.cs': { state: { lit: 'class:lit' }, base: { weight: 400, fill: tok('text-3'), opacity: 0.75, halo }, when: [[{ lit: true }, { fill: tok('text-2'), opacity: 1 }]] },
   'path.csc': { state: { lit: 'class:lit' }, base: { weight: 400, fill: tok('text-3'), opacity: 0.75, halo }, when: [[{ lit: true }, { fill: tok('text-2'), opacity: 1 }]] },
   // the ladder: a step's line, "Stage n", "Patient is here", what the stage means, and the way back
   'path.step': { state: { lit: 'class:lit' }, base: { fill: 'none', stroke: QUIET, width: 3, cap: 'butt', opacity: UNLIT }, when: [[{ lit: true }, { stroke: param('tone'), opacity: 1 }]] },
   'path.sn': { state: { lit: 'class:lit' }, base: { weight: 500, fill: tok('text-3'), opacity: UNLIT, halo }, when: [[{ lit: true }, { opacity: 1 }]] },
-  'path.yo': { base: { weight: 600, fill: mix('srgb', param('tone'), 100, 'transparent'), halo } },
+  'path.yo': { base: { weight: 600, fill: mix('srgb', param('tone', true), 100, 'transparent'), halo } },
   'path.sw': { base: { weight: 600, fill: tok('text'), halo } },
   'path.back': {
     state: { lit: 'class:lit' },
@@ -88,7 +88,7 @@ export const PATH = {
     when: [[{ lit: true }, { stroke: param('tone'), opacity: 1 }]],
   },
   'path.bk': { state: { lit: 'class:lit' }, base: { weight: 400, fill: tok('text-2'), opacity: UNLIT, halo }, when: [[{ lit: true }, { fill: tok('text'), opacity: 1 }]] },
-  'path.bb': { state: { lit: 'class:lit' }, base: { weight: 600, fill: tok('text-2'), opacity: UNLIT, halo }, when: [[{ lit: true }, { fill: param('tone'), opacity: 1 }]] },
+  'path.bb': { state: { lit: 'class:lit' }, base: { weight: 600, fill: tok('text-2'), opacity: UNLIT, halo }, when: [[{ lit: true }, { fill: param('tone', true), opacity: 1 }]] },
   // a hairline between the card's parts
   'path.rule': { base: { fill: 'none', stroke: tok('hairline'), width: 1 } },
 };

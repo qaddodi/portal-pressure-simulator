@@ -278,7 +278,6 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .cmp-table td { font-weight: 600; color: var(--text); }
 
 /* Play/pause: looping sim animations freeze with the simulation (see ui/clock.js). */
-body.sim-paused .mon.bad .mv { animation-play-state: paused; }
 .cmp-table-btn { white-space: nowrap; }
 @media (max-width: 600px) { .cmp-label { display: none; } }
 
@@ -629,7 +628,7 @@ html.pz-covered :is(.pz-shade, .pz-text, .pz-data, .pz-case, .pz-panel, .pz-bar,
 .ab-kv { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; min-width: 0; }
 .ab-kv > span:first-child { color: var(--text-2); white-space: nowrap; }
 .ab-v { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; align-items: baseline; gap: 2px 6px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums; }
-.ab-v b { font-weight: 650; color: var(--text); }
+.ab-v b { font-weight: 600; color: var(--text); }
 .ab-w { color: var(--text-3); transition: none; }
 .ab-w[data-sev="caution"] { color: var(--caution-ink); font-weight: 600; }
 .ab-w[data-sev="danger"] { color: var(--danger-ink); font-weight: 600; }
@@ -642,7 +641,7 @@ html.pz-covered :is(.pz-shade, .pz-text, .pz-data, .pz-case, .pz-panel, .pz-bar,
 .ab-tile { display: grid; gap: 1px; min-width: 0; margin: 0; padding: 6px 10px 7px; border-radius: var(--r-control); background: var(--surface-2); transition: opacity var(--d-small) var(--ease); }
 .ab-tile dt { font-size: var(--fs-12); font-weight: 500; color: var(--text-3); white-space: nowrap; }
 .ab-tile dd { margin: 0; font-size: 17px; line-height: 1.25; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.ab-n { font-weight: 650; color: var(--text); }
+.ab-n { font-weight: 600; color: var(--text); }
 .ab-u { margin-left: 3px; font-size: var(--fs-12); font-weight: 500; color: var(--text-3); }
 .ab-why { position: absolute; inset: 0; display: flex; align-items: center; padding: 0 12px; border-radius: var(--r-control); background: var(--surface-2); color: var(--text-3); font-size: 13px; opacity: 0; visibility: hidden; transition: opacity var(--d-small) var(--ease), visibility var(--d-small); }
 .ab-tiles[data-empty] .ab-tile { opacity: 0; }
@@ -685,7 +684,7 @@ html.pz-covered :is(.pz-shade, .pz-text, .pz-data, .pz-case, .pz-panel, .pz-bar,
 .ab-dp-sb { flex: none; width: 28px; height: 100%; padding: 0; border: 0; background: transparent; color: var(--text); font: 500 19px/1 var(--font-ui); cursor: pointer; touch-action: manipulation; outline-offset: -3px; transition: none; }
 .ab-dp-sb:active:not(:disabled) { background: var(--surface-3); }
 .ab-dp-sb:disabled { color: var(--text-3); opacity: .45; cursor: not-allowed; }
-.ab-dp-l { flex: 1; min-width: 0; text-align: center; font: 650 16px/1 var(--font-ui); color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ab-dp-l { flex: 1; min-width: 0; text-align: center; font: 600 16px/1 var(--font-ui); color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ab-dp-l small { margin-left: 2px; font-size: 12px; font-weight: 500; color: var(--text-3); }
 .ab-dp-alb { display: flex; align-items: center; justify-content: space-between; gap: 4px; min-width: 0; height: 34px; padding: 0 6px 0 8px; border: 0; border-radius: var(--r-control); background: var(--surface-2);
   text-align: left; cursor: pointer; touch-action: manipulation; transition: none; }
@@ -794,7 +793,7 @@ html.pz-covered :is(.pz-shade, .pz-text, .pz-data, .pz-case, .pz-panel, .pz-bar,
 .endo-bar[data-sev="danger"] i { background: var(--danger); }
 .endo-bar[data-sev="critical"] i { background: var(--critical); }
 .endo-tile { padding: 6px 10px; border-radius: var(--r-control); background: var(--surface-2); min-width: 0; }
-.endo-num { font-size: var(--fs-16); font-weight: 650; color: var(--text); white-space: nowrap; }
+.endo-num { font-size: var(--fs-16); font-weight: 600; color: var(--text); white-space: nowrap; }
 .endo-chip { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 8px; min-width: 0; padding: 4px 10px; border-radius: var(--r-control); border: 1px solid var(--hairline); transition: none; }
 .endo-chip dt { white-space: nowrap; }
 .endo-chip-v { margin-left: auto !important; font-size: var(--fs-14); font-weight: 600; color: var(--text); text-align: right; min-width: 0; }
@@ -843,7 +842,7 @@ html.pz-covered :is(.pz-shade, .pz-text, .pz-data, .pz-case, .pz-panel, .pz-bar,
 .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div { position: relative; container-type: inline-size; grid-column: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 0; min-height: 80px; padding: 9px 6px; border: 0; border-radius: 14px; background: var(--surface-2); text-align: center; }
 .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div::after { content: ''; flex: none; height: 14px; }
 .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > .endo-red { grid-column: 1 / -1; }
-.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read dt { margin: 0; font: 600 min(11px, 15cqi)/1.2 var(--font-ui); letter-spacing: .05em; text-transform: uppercase; color: var(--text-2); white-space: nowrap; text-align: center; overflow-wrap: normal; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read dt { margin: 0; font: 600 min(12px, 15cqi)/1.2 var(--font-ui); letter-spacing: .05em; text-transform: uppercase; color: var(--text-2); white-space: nowrap; text-align: center; overflow-wrap: normal; }
 .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-dt-x { display: none; }
 .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read dd { margin: 0; max-width: 100%; text-align: center; }
 .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) :is(.endo-num, .endo-chip-v, .endo-grade b, .endo-grade b:empty + span) { font: 600 min(16px, 22cqi)/1.1 var(--font-ui); letter-spacing: -.02em; white-space: nowrap; }
@@ -899,7 +898,7 @@ html.pz-covered :is(.pz-shade, .pz-text, .pz-data, .pz-case, .pz-panel, .pz-bar,
 }
 .endo-num small { font-size: var(--fs-12); font-weight: 500; color: var(--text-2); }
 .wall-law { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-.wall-formula { font: 650 var(--fs-16) var(--font-ui); letter-spacing: .02em; color: var(--text); }
+.wall-formula { font: 600 var(--fs-16) var(--font-ui); letter-spacing: .02em; color: var(--text); }
 /* (Reduce Motion keeps the endoscopy view's crossfade: a fade is not motion, 15 Nov 2026.) */
 /* A short phone sheet (Safari's toolbar showing): the traces give up some height. */
 @container (max-height: 300px) and (max-width: 649px) {

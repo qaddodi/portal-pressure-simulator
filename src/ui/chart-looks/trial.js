@@ -6,8 +6,8 @@ import { tok, mix, param, em, own } from './dsl.js';
 
 /** look → [weight, size in em of the host's size]: the trial card's words. */
 export const TYPE = {
-  'trial.name': [650, 1.25], 'trial.src': [500, 1], 'trial.v': [500, 1], 'trial.lab': [500, 1], 'trial.pct': [650, 2.5], 'trial.n': [500, 1],
-  'trial.eff': [650, 1.08], 'trial.note': [500, 1], 'trial.warn': [600, 1], 'trialfit.t': [500, 1.08],
+  'trial.name': [600, 1.25], 'trial.src': [500, 1], 'trial.v': [500, 1], 'trial.lab': [500, 1], 'trial.pct': [600, 2.5], 'trial.n': [500, 1],
+  'trial.eff': [600, 1.08], 'trial.note': [500, 1], 'trial.warn': [600, 1], 'trialfit.t': [500, 1.08],
 };
 const word = (look, fill) => ({ base: { weight: TYPE[look][0], size: em(TYPE[look][1]), fill } });
 
@@ -28,7 +28,7 @@ export const TRIAL = {
   // The trial's own effect size, a step heavier; a caveat a learner should keep; the mark of a trial not yet read against its paper
   'trial.eff': word('trial.eff', tok('text')),
   'trial.note': word('trial.note', tok('text-2')),
-  'trial.warn': word('trial.warn', tok('caution')),
+  'trial.warn': word('trial.warn', tok('caution-ink')),
   // The line on whether the slide's patient fits the trial (only on a slide: trial-fit.js): a filled accent disc with a tick when the patient
   // fits, an open ring with a cross or a dash when not or when the model cannot tell, and its words
   'trialfit.ring': { base: { fill: 'none', stroke: tok('text-3'), width: 1.5 } },

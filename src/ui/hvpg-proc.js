@@ -10,7 +10,7 @@
 
 import { h, fmt, icon, toast, swapText, foldHidden, hasBox } from './util.js';
 import { glWords } from './gl-words.js';
-import { hvpgSev, hvBlocked, NOT_SHOWN, NOT_MEASURABLE } from '../engine/pressure-cuts.js';
+import { hvpgSev, HVPG_WORDS, hvBlocked, NOT_SHOWN, NOT_MEASURABLE } from '../engine/pressure-cuts.js';
 import { pressureColor } from './colormap.js';
 import { store, logAction, hiddenNow, updateParams } from './store.js';
 import { shownOr } from './shown.js';
@@ -51,7 +51,7 @@ const sevOf = hvpgSev;
 const SEV = { ok: 'ok', mid: 'caution', hi: 'danger' };
 const readOf = {};   // (the one reading rateOf is handed, {[k]: v}, rewritten in place: rateOf reads only that key and keeps nothing)
 const sevOfRead = (k, v) => { readOf[k] = v; return SEV[rateOf(k, readOf)[0]] || ''; };
-const SEV_WORD = { danger: 'Clinically significant portal hypertension (CSPH)', caution: 'Mild portal hypertension', ok: 'Normal' };
+const SEV_WORD = { danger: HVPG_WORDS.danger[1], caution: HVPG_WORDS.caution[1], ok: HVPG_WORDS.ok[1] };   // (the one set of band words, pressure-cuts.js)
 const sevWord = (v) => SEV_WORD[hvpgSev(v)];
 // (The words a phase says, made once: a frame picks one by the band instead of building it.)
 const ABORT_CAP = `${ABORT_MSG}. The hepatic vein is thrombosed (Budd–Chiari), so the catheter cannot enter it and no free or wedged pressure can be read. HVPG is not measurable.`;

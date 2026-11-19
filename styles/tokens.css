@@ -79,11 +79,6 @@
   --z-figure: 1; --z-hud: 5; --z-panel: 10; --z-popover: 60; --z-dialog: 80; --z-toast: 100; --z-cover: 200; --z-ring: 250; --z-diag: 300;   /* (the boot cover over every layer of the app; the focus ring over every surface it can mark; the measuring panels and a boot error over both. One scale, no 2147483000s; the preview badge is injected at deploy and stays above all) */
   /* ink on filled controls and badges */
   --on-caution: #1B1300;
-  /* Amber as text: --caution itself is 2.95:1 on white (a fill and a stroke, not ink); mixed 30 % toward the text colour it is 4.5:1 or more on every surface, in all three themes (tests/token-contrast.test.js). */
-  --caution-ink: color-mix(in srgb, var(--caution) 70%, var(--text));
-  /* Green and red as text, the same way: --ok is 4.0:1 on the paper-grey surface and --danger 4.2:1 (fills and strokes stay as they are); 12 % toward the text colour is 4.5:1 or more on every surface. */
-  --ok-ink: color-mix(in srgb, var(--ok) 88%, var(--text)); --danger-ink: color-mix(in srgb, var(--danger) 88%, var(--text));
-  --critical-ink: color-mix(in srgb, var(--critical) 88%, var(--text));   /* bright red as text: the dark theme's --critical is 4.3:1 on a raised surface; a step toward the text colour clears 4.5 */
   /* light and shade in the anatomy (sheens, glints, occlusion) */
   --light-ink: #FFFFFF; --shade-ink: #000000; --tube-shade-ink: #0A0612; --lit-lo-ink: #1A0D14;
   /* pathology and devices on the plate */
@@ -208,6 +203,21 @@
   --flow-normal: #16988F;
   --flow-reversed: #EC7424;
   --flow-reversed-ink: color-mix(in srgb, var(--flow-reversed) 62%, var(--text));
+  --caution-ink: color-mix(in srgb, var(--caution) 70%, var(--text));
+  --ok-ink: color-mix(in srgb, var(--ok) 88%, var(--text));
+  --danger-ink: color-mix(in srgb, var(--danger) 88%, var(--text));
+  --critical-ink: color-mix(in srgb, var(--critical) 88%, var(--text));
+  --tr-pv-ink: color-mix(in srgb, var(--tr-pv) 62%, var(--text));
+  --tr-ppg-ink: color-mix(in srgb, var(--tr-ppg) 62%, var(--text));
+  --tr-hvpg-ink: color-mix(in srgb, var(--tr-hvpg) 62%, var(--text));
+  --tr-wedge-ink: color-mix(in srgb, var(--tr-wedge) 62%, var(--text));
+  --tr-sin-ink: color-mix(in srgb, var(--tr-sin) 62%, var(--text));
+  --tr-hv-ink: color-mix(in srgb, var(--tr-hv) 62%, var(--text));
+  --tr-ra-ink: color-mix(in srgb, var(--tr-ra) 62%, var(--text));
+  --tr-ivc-ink: color-mix(in srgb, var(--tr-ivc) 62%, var(--text));
+  --tr-var-ink: color-mix(in srgb, var(--tr-var) 62%, var(--text));
+  --tr-cav-ink: color-mix(in srgb, var(--tr-cav) 62%, var(--text));
+  --tr-scler-ink: color-mix(in srgb, var(--tr-scler) 62%, var(--text));
   --ramp-pressure: #B8D5ED 0, #85B6E9 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30;
   --ramp-flow: #9CC7B5 0, #72BFA4 .25, #3EAA98 .5, #1E6F8C .75, #1B366A 1;
   --ramp-velocity: #C9973F 0, #E2CF9A .2, #5DB4A4 .5, #9A7ED6 .8, #4A2A8C 1;
@@ -290,6 +300,7 @@
   --vel-ink: 45%;
   --shadow-rgb: 46 22 34;
   --shadow-a: .15;
+  --card-shadow-a: .45;
   --vessel-shadow: rgb(var(--shadow-rgb) / var(--shadow-a));
   --tube-shade: .24;
   --tube-sheen: .42;
@@ -474,6 +485,17 @@
     --flow-normal: #2CC5BD;
     --flow-reversed: #FF8C42;
     --flow-reversed-ink: var(--flow-reversed);
+    --tr-pv-ink: var(--tr-pv);
+    --tr-ppg-ink: var(--tr-ppg);
+    --tr-hvpg-ink: color-mix(in srgb, var(--tr-hvpg) 70%, var(--text));
+    --tr-wedge-ink: var(--tr-wedge);
+    --tr-sin-ink: var(--tr-sin);
+    --tr-hv-ink: var(--tr-hv);
+    --tr-ra-ink: var(--tr-ra);
+    --tr-ivc-ink: var(--tr-ivc);
+    --tr-var-ink: var(--tr-var);
+    --tr-cav-ink: var(--tr-cav);
+    --tr-scler-ink: var(--tr-scler);
     --critical-ink: color-mix(in srgb, var(--critical) 75%, var(--text));
     --ramp-pressure: #D7E7F4 0, #9DC9F7 5, #7BA1FC 10, #A074F4 12, #BD2C92 20, #B31553 30;
     --ramp-flow: #9CC7B5 0, #72BFA4 .25, #3EAA98 .5, #1E6F8C .75, #3F5C94 1;
@@ -584,6 +606,7 @@
     --shadow-3: var(--shadow-dialog);
     --shadow-rgb: 0 0 0;
     --shadow-a: .38;
+    --card-shadow-a: .75;
     --vessel-shadow: rgb(var(--shadow-rgb) / var(--shadow-a));
     --tube-shade: .3;
     --tube-sheen: .38;
@@ -722,6 +745,17 @@
   --flow-normal: #2CC5BD;
   --flow-reversed: #FF8C42;
   --flow-reversed-ink: var(--flow-reversed);
+  --tr-pv-ink: var(--tr-pv);
+  --tr-ppg-ink: var(--tr-ppg);
+  --tr-hvpg-ink: color-mix(in srgb, var(--tr-hvpg) 70%, var(--text));
+  --tr-wedge-ink: var(--tr-wedge);
+  --tr-sin-ink: var(--tr-sin);
+  --tr-hv-ink: var(--tr-hv);
+  --tr-ra-ink: var(--tr-ra);
+  --tr-ivc-ink: var(--tr-ivc);
+  --tr-var-ink: var(--tr-var);
+  --tr-cav-ink: var(--tr-cav);
+  --tr-scler-ink: var(--tr-scler);
   --critical-ink: color-mix(in srgb, var(--critical) 75%, var(--text));
   --ramp-pressure: #D7E7F4 0, #9DC9F7 5, #7BA1FC 10, #A074F4 12, #BD2C92 20, #B31553 30;
   --ramp-flow: #9CC7B5 0, #72BFA4 .25, #3EAA98 .5, #1E6F8C .75, #3F5C94 1;
@@ -832,6 +866,7 @@
   --shadow-3: var(--shadow-dialog);
   --shadow-rgb: 0 0 0;
   --shadow-a: .38;
+  --card-shadow-a: .75;
   --vessel-shadow: rgb(var(--shadow-rgb) / var(--shadow-a));
   --tube-shade: .3;
   --tube-sheen: .38;
@@ -933,11 +968,23 @@
 }
 /* Soft light: warm, low-glare paper with frosted cards and softer ink. */
 :root[data-theme="soft"] {
+  --card-shadow-a: .5;
   --ramp-pressure: #8DB8E2 0, #6A9FDE 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30;
   --gut-a: .70;
   --organ-a: .52;
   --bg: #DDD0B9;
   --flow-reversed-ink: color-mix(in srgb, var(--flow-reversed) 50%, var(--text));
+  --tr-pv-ink: color-mix(in srgb, var(--tr-pv) 55%, var(--text));
+  --tr-ppg-ink: color-mix(in srgb, var(--tr-ppg) 55%, var(--text));
+  --tr-hvpg-ink: color-mix(in srgb, var(--tr-hvpg) 55%, var(--text));
+  --tr-wedge-ink: color-mix(in srgb, var(--tr-wedge) 55%, var(--text));
+  --tr-sin-ink: color-mix(in srgb, var(--tr-sin) 55%, var(--text));
+  --tr-hv-ink: color-mix(in srgb, var(--tr-hv) 55%, var(--text));
+  --tr-ra-ink: color-mix(in srgb, var(--tr-ra) 55%, var(--text));
+  --tr-ivc-ink: color-mix(in srgb, var(--tr-ivc) 55%, var(--text));
+  --tr-var-ink: color-mix(in srgb, var(--tr-var) 55%, var(--text));
+  --tr-cav-ink: color-mix(in srgb, var(--tr-cav) 55%, var(--text));
+  --tr-scler-ink: color-mix(in srgb, var(--tr-scler) 55%, var(--text));
   --ok-ink: color-mix(in srgb, var(--ok) 80%, var(--text));
   --danger-ink: color-mix(in srgb, var(--danger) 80%, var(--text));
   --critical-ink: color-mix(in srgb, var(--critical) 80%, var(--text));

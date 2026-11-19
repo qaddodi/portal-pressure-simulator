@@ -36,7 +36,7 @@ test('the flow bands are as strong as .55 and ease their strength; the build-up 
   assert.equal(P('fluid.node.build').width, 1);
   assert.notEqual(P('fluid.node.build').stroke, P('fluid.node.build').fill);
   assert.equal(P('fluid.node.liver').stroke, undefined);
-  assert.equal(P('fluid.flow.t').size, 13); assert.equal(P('fluid.flow.tv').weight, 650);
+  assert.equal(P('fluid.flow.t').size, 13); assert.equal(P('fluid.flow.tv').weight, 600);
 });
 test('a vessel is drawn in its own colour: portal, systemic, artery', () => {
   const fills = ['portal', 'systemic', 'artery'].map((vessel) => P('lumen.open', { vessel }).fill);
@@ -47,7 +47,7 @@ test('a vessel is drawn in its own colour: portal, systemic, artery', () => {
 });
 test('the number is white with a dark outline 1.9 wide; the words are lighter with 1.3, and their size is the builder\'s', () => {
   const n = P('lumen.in'), w = P('lumen.word');
-  assert.equal(n.size, 22); assert.equal(n.weight, 650); assert.equal(n.width, 1.9); assert.equal(n.paintStroke, true);
+  assert.equal(n.size, 22); assert.equal(n.weight, 600); assert.equal(n.width, 1.9); assert.equal(n.paintStroke, true);
   assert.equal(w.size, undefined); assert.equal(w.weight, 600); assert.equal(w.width, 1.3);
   assert.equal(n.fill, w.fill);
 });

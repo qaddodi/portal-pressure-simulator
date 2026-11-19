@@ -190,7 +190,6 @@ const IR_PV_T = (() => {
   return { travel0: 300, travel1, read0, read1, res0, back, end: back + 3000 };
 })();
 const GRAD_U_IVC = 0.4;   // (the IVC stretch's place on the route, u, when the stage has not given the route's stops)
-const GRAD_TARGET = 12;   // (mmHg: AASLD 2024, the gradient under which no beta-blocker is needed after a TIPS)
 const GRAD_PV = { key: 'w', at: 'tip', kicker: 'PORTAL VEIN', text: '', unit: 'mmHg', cls: 'pv' };
 const GRAD_IV = { key: 'f', at: 'tip', kicker: 'IVC', text: '', unit: 'mmHg', cls: 'ivc' };
 const GRAD_RES = { key: 'g', at: 'tip', kicker: 'GRADIENT', text: '', unit: 'mmHg', cls: 'result ok' };
@@ -271,7 +270,7 @@ export const MEASURES = {
       const T = GRAD_T, m = f?.metrics;
       if (t >= T.back) return out;
       if (t >= T.res0 && Number.isFinite(rd.ppg)) {
-        GRAD_RES.text = mmHg(rd.ppg); GRAD_RES.cls = rd.ppg < GRAD_TARGET ? 'result ok' : 'result caution'; out.push(GRAD_RES);
+        GRAD_RES.text = mmHg(rd.ppg); GRAD_RES.cls = IR_RESULT_CLS[ppgSev(rd.ppg)]; out.push(GRAD_RES);
       } else if (t >= T.ivRead0 && t < T.res0) { GRAD_IV.text = mmHg(m ? r1(m.ivc) : NaN); out.push(GRAD_IV); }
       else if (t >= T.pvRead0 && t < T.pull0) { GRAD_PV.text = mmHg(m ? r1(m.pv) : NaN); out.push(GRAD_PV); }
       return out;

@@ -689,10 +689,13 @@ button.finding { cursor: pointer; }
 /* The one glass tint (13 Nov 2026, "Tint and blur of glass should be the same EVERYWHERE"; menu recs C6, "Do all!"): every card, sheet, toast, menu,
    dialog and the palette declares its --gl-tint as this, the surface at --pz-frost (glass-gl.js CARD.tint, the GPU's own). Declared where --surface is
    (the page, and the figure's colour-map wrap, which has its own surface), so each resolves it with the surface it stands on. */
-:root, .stage-wrap.cmap { --glass-tint: color-mix(in srgb, var(--surface) var(--pz-frost, 66%), transparent); --glass-edge: var(--hairline); --glass-shadow: none; }
+:root, .stage-wrap.cmap { --glass-tint: color-mix(in srgb, var(--surface) var(--pz-frost, 66%), transparent); --glass-edge: var(--hairline); --glass-shadow: 0 10px 24px -8px rgb(var(--shadow-rgb) / var(--card-shadow-a)); }
 /* (13 Nov 2026, Mohammad: "Everything should have same glass parameters. Every UI. ... No types. Everything is same glass parameters.") One glass:
-   the tint above, a hairline edge (--glass-edge) and no drop shadow (--glass-shadow; his 2 Nov "no shadow bleeds" round the cards, now every glass's).
-   The GPU draws every glass with these three (glass-gl.js, whatever an element declares) and the page's own border and shadow are taken off
+   the tint above, a hairline edge (--glass-edge) and one soft lift (--glass-shadow). The lift is the one cheap shadow (19 Nov 2026, Mohammad picked B, "Soft lift"
+   from card-shadow-mocks): a single drop, 0 10px 24px -8px, in the shadow ink at --card-shadow-a (tokens.css: .45, Soft .5, the dark looks .75). The GPU draws it with
+   the glass as an analytic falloff in the same draw (glass-gl.js shCover: no blur pass, no texture, outside the card only), and the CSS fallback (Blur off,
+   Battery saver, a card's first frames) writes the same value beside its hairline, so the frame the GPU takes over changes nothing. The callouts keep none
+   (below). It replaced "no drop" (his 2 Nov "no shadow bleeds", 13 Nov "same glass"). The GPU draws every glass with these three (glass-gl.js, whatever an element declares) and the page's own border and shadow are taken off
    while it does ([data-gl="edge"], below). Only the system's Reduce transparency keeps its solid fills (an accessibility setting, kept). */
 @property --gl-tint { syntax: '<color>'; inherits: false; initial-value: transparent; }
 /* A lobule label or zone name fades in where it comes and out where it goes (lobule-zoom.js fadeIn, fadeOut), never pops (P15). */
@@ -723,6 +726,7 @@ button.finding { cursor: pointer; }
   --hw: max(1.25px, calc(2px * var(--label-k, 1)));
   -webkit-text-stroke: calc(var(--hw) * 2) var(--cap-outline); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; }
 :root[data-theme="dark"] .lz-zone b { font-weight: 700; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .lz-zone b { font-weight: 700; } }   /* (the System-dark twin: LOOK-11) */
 .lz-zone span { font-size: calc(var(--t-cap) * var(--label-scale, 1) * var(--zk, 1)); font-weight: 600; letter-spacing: .08em; opacity: .9; }
 .lz-zone.z1 { --zc: var(--zone-1); } .lz-zone.z2 { --zc: var(--zone-2); } .lz-zone.z3 { --zc: var(--zone-3); }
 .stage-view.in-lobule #labels, .stage-view.in-lobule:not(.lz-shared) #veins, .stage-view.in-lobule .res-fade, .stage-view.in-lobule #stageOver, .stage-view.in-lobule #overlay { visibility: hidden; }
@@ -733,11 +737,3 @@ button.finding { cursor: pointer; }
 }
 
 
-/* Bedside monitor */
-.monitor { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--mon-grid); border-radius: var(--r-card); overflow: hidden; border: 1px solid var(--mon-line); box-shadow: inset 0 0 0 1px rgb(var(--white-rgb) / .03); }
-.mon { background: var(--mon-bg); padding: 8px 12px 8px; display: grid; grid-template-rows: auto auto auto; color: var(--mc); min-width: 0; }
-.mon .ml { font: 600 12px var(--font-ui); letter-spacing: .06em; text-transform: uppercase; opacity: .85; display: flex; justify-content: space-between; gap: 4px; }
-.mon .ml i { font-style: normal; font-weight: 500; opacity: .7; text-transform: none; letter-spacing: 0; }
-.mon .mv { font: 600 24px/1.1 var(--font-num); font-variant-numeric: tabular-nums; }
-.mon .mt { width: 100%; height: 22px; display: block; }
-.mon.bad .mv { animation: monAlarm 1.2s var(--ease-move) infinite; }   /* (a soft pulse: it blinked in hard steps, P23) */

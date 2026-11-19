@@ -113,7 +113,9 @@ test('the amber pill\'s text is at least 4.5:1 on its own amber tint, on every s
 // the text, the stylesheet uses --ok-ink and --danger-ink (12 % toward the text colour); the raw colours stay the fills and strokes.
 test('green and red used as text (--ok-ink, --danger-ink) are at least 4.5:1 on the surfaces text sits on, in every theme', () => {
   const css = appCss();
-  assert.match(tokens, /--ok-ink: color-mix\(in srgb, var\(--ok\) 88%, var\(--text\)\); --danger-ink: color-mix\(in srgb, var\(--danger\) 88%, var\(--text\)\);/);
+  // (the ink tokens are in the generated :root block now, printed from theme-tokens.js, where the charts read them too: LOOK-1)
+  assert.match(tokens, /--ok-ink: color-mix\(in srgb, var\(--ok\) 88%, var\(--text\)\);/);
+  assert.match(tokens, /--danger-ink: color-mix\(in srgb, var\(--danger\) 88%, var\(--text\)\);/);
   const fails = [];
   for (const [theme, t] of Object.entries(THEMES)) {
     for (const k of ['--ok', '--danger']) {
@@ -205,4 +207,20 @@ test('no style sheet paints text in raw amber, green or red', async () => {
     for (const m of readFileSync(new URL(f, dir), 'utf8').matchAll(/(?<![-\w])color: var\(--(caution|ok|danger|critical)\)/g)) bad.push(`${f}: ${m[0]}`);
   }
   assert.deepEqual(bad, []);
+});
+
+// LOOK-1 (bible review, 19 Nov 2026): the words that took a trace or status colour through a local variable or a mix, where the grep above cannot see them.
+// The equation's coloured terms, a catheter reading's name and number, the split label's words, the reversed-flow chips and the balance's falling unit now wear
+// the ink forms (printed from theme-tokens.js, measured in tests/chart-text-contrast.test.js for every look).
+test('equation terms, catheter readings and the flow chips name their ink forms, not the raw trace and status colours', () => {
+  const css = appCss();
+  for (const t of ['wedge', 'hv', 'pv', 'ivc', 'var']) assert.match(css, new RegExp(`\\.pz-eq \\.eq-${t} \\{ color: var\\(--tr-${t}-ink\\); \\}`));
+  assert.doesNotMatch(css, /\.cath-label small \{ color: var\(--c\);/);
+  assert.doesNotMatch(css, /\.cath-label b \{[^}]*color: var\(--c\);/);
+  assert.match(css, /\.cath-label\.ok \{ --c: var\(--ok\); --c-ink: var\(--ok-ink\); \}/);
+  assert.match(css, /\.cath-label\.danger \{ --c: var\(--danger\); --c-ink: var\(--danger-ink\); \}/);
+  assert.match(css, /\.pill\.rev \{[^}]*color: var\(--flow-reversed-ink\);/);
+  assert.match(css, /\.hp-chip\.rev \{ color: var\(--flow-reversed-ink\);/);
+  assert.doesNotMatch(css, /\.ab-rate-a \{ color: var\(--vel-normal\); \}/);
+  for (const t of [light, THEMES.soft]) for (const k of ['wedge', 'hv', 'pv', 'ivc', 'var']) assert.ok(t[`--tr-${k}-ink`], `${k} ink`);
 });

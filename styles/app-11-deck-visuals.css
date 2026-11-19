@@ -232,7 +232,7 @@
 .gc-ans { display: flex; justify-content: space-between; align-items: baseline; gap: .6em; margin-top: .35em; white-space: nowrap; }
 .gc-t { color: var(--text); font-size: 1.1em; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .gc-ans > b { font-size: 1.2em; font-weight: 600; }
-.gc-ans[data-dir="up"] .gc-ans > b[data-dir="up"] { color: var(--caution-ink); } .gc-ans > b[data-dir="down"] { color: var(--ok-ink); }
+.gc-ans > b[data-dir="up"] { color: var(--caution-ink); } .gc-ans > b[data-dir="down"] { color: var(--ok-ink); }
 .gc-detail { margin: 0; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gs-forces { display: flex; flex-direction: column; gap: .3em; margin-top: .1em; color: var(--text-3); font: 500 var(--gs-fs)/1.25 var(--font-ui); font-variant-numeric: tabular-nums; }
 .gs-fcap { display: flex; justify-content: space-between; align-items: baseline; gap: .6em; white-space: nowrap; border-top: 1px solid var(--border); padding-top: .3em; flex-wrap: wrap; }
@@ -430,7 +430,7 @@ body { font-optical-sizing: auto; font-kerning: normal; }
   width: calc(100% + var(--glw-w, 0px)); height: calc(100% + var(--glw-h, 0px)); }
 /* No drop shadow round the Present cards (Mohammad, 2 Nov 2026, the teaching card: "the background still has those shadow bleeds"): the
    soft dark spill under and round a frosted card read as smudges on the figure. Their 1 px edge stays. Both the page's box-shadow and the
-   GPU's own (--gl-drop) take --pz-glass-drop from --glass-drop, so it is cleared here once. ?carddrop=1: the shadow as before. */
+   GPU's own (--gl-drop) take their drop from --glass-drop, so it is cleared here once. ?carddrop=1: the shadow as before. */
 :root:root:not([data-carddrop]) :is(.pz, .pz-shade) { --glass-drop: transparent; }
 /* A card zoomed up keeps its frost and the words' card stays up behind it (Mohammad, 2 Nov 2026: the teaching card must not vanish when the data card is
    maximised, and its words and glass must come and go together). Its words are cut away under the zoomed card by card-zoom.js (a clip-path eased with the
@@ -492,7 +492,7 @@ html.thumb-ui .pz.pz.pz .pz-data.pz-data.pz-sheet.pz-sheet[data-gl]::before, htm
 @media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
   .app:not(.thumb):not(.presenting) .vdock:not(.mini) { left: calc(50% - 99px); }
   .app:not(.thumb):not(.presenting) .vdock:not(.mini) > .nb-views { left: calc(100% + 8px); right: auto; bottom: 5px; margin: 0; max-width: none; padding: 4px; }
-  .nb-views #viewSeg button { padding: 0 9px; font-size: var(--fs-13, 13px); }
+  .nb-views #viewSeg button { padding: 0 9px; font-size: 13px; }
   .app:not(.thumb):not(.presenting) .vdock .tl-pin span { display: none; }
   .app:not(.thumb):not(.presenting) .vdock .tl-pin { width: 34px; padding: 0; justify-content: center; gap: 0; }
 }

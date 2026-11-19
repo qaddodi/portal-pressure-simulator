@@ -38,7 +38,7 @@ export const CARD = {
   // 2139 .pz-col text: the names, 600 in the quiet ink, .02em apart
   'card.col.text': { base: { weight: 600, fill: tok('text-3'), letterSpacing: own(0.02) } },
   // 2140 .c-top: the heading over the column, in the wedge colour, in after 1.9 s
-  'card.col.top': COMES({ weight: 600, fill: tok('tr-wedge'), letterSpacing: own(0.02) }, 1900),
+  'card.col.top': COMES({ weight: 600, fill: tok('tr-wedge-ink'), letterSpacing: own(0.02) }, 1900),
   // 2141 .c-pv: the portal vein's lumen
   'card.col.pv': { base: { fill: mix('srgb', tok('tr-pv'), 60, tok('surface')) } },
   // 2142 .c-flow: the moving blood beyond the narrowing
@@ -68,7 +68,7 @@ export const CARD = {
   // 2155 .c-lead: the red leader line
   'card.col.lead': COMES({ fill: 'none', stroke: tok('danger'), width: 1.4, cap: 'round' }, 1800),
   // 2156, 2139 .c-blkt: the red words
-  'card.col.blkt': COMES({ weight: 600, fill: tok('danger'), letterSpacing: own(0.02) }, 1800),
+  'card.col.blkt': COMES({ weight: 600, fill: tok('danger-ink'), letterSpacing: own(0.02) }, 1800),
 
   // ── the SAAG map (2392-2404) ──
   // 2393-2394 .pzq-q rect: a quadrant's tint

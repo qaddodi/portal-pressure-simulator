@@ -3,8 +3,8 @@
 
 /** A theme token, by its CSS name without the dashes: tok('text'). */
 export const tok = (name) => ({ k: 'tok', n: name });
-/** A colour the builder gives one piece (data-p-<name> holds a token name): param('rx'). */
-export const param = (name) => ({ k: 'param', n: name });
+/** A colour the builder gives one piece (data-p-<name> holds a token name): param('rx'). With ink: for a WORD, the token's `-ink` form when the look has one (tr-wedge → tr-wedge-ink: a trace colour is 3:1, a word needs 4.5:1), else the token itself. */
+export const param = (name, ink = false) => ({ k: 'param', n: name, ink });
 /** CSS color-mix(in <space>, a pct%, b [pctB%]): space is 'srgb' or 'oklab'; a and b are colour values (tok, param, mix or a CSS string). */
 export const mix = (space, a, pct, b, pctB) => ({ k: 'mix', space, a, pct, b, pctB });
 /** A length in px. */

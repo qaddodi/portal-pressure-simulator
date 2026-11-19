@@ -392,7 +392,7 @@ html:root :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var(--su
 @keyframes crossfade-out { to { opacity: 0; } }
 .hover-tip { position: absolute; left: 0; top: 0; pointer-events: none; padding: 10px 12px 9px; font-size: var(--fs-12); min-width: 188px; max-width: min(280px, calc(100% - 16px)); z-index: var(--z-hud); border-radius: var(--r-card); background: var(--surface); box-shadow: var(--shadow-menu, var(--shadow-2)), 0 0 0 1px var(--hairline); opacity: 0; visibility: hidden; transform: translateY(4px); transform-origin: top left; transition: opacity var(--d-flip) var(--ease), transform var(--d-flip) var(--ease), visibility 0s linear var(--d-flip); }
 .hover-tip.on { opacity: 1; visibility: visible; transform: none; transition: opacity var(--d-flip) var(--ease), transform var(--d-flip) var(--ease), visibility 0s; }
-.hover-tip .t { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: var(--fs-13, 13px); line-height: 1.3; color: var(--text); padding-bottom: 7px; margin-bottom: 6px; border-bottom: 1px solid var(--hairline); }
+.hover-tip .t { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 13px; line-height: 1.3; color: var(--text); padding-bottom: 7px; margin-bottom: 6px; border-bottom: 1px solid var(--hairline); }
 .hover-tip .r { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; color: var(--text-2); line-height: 1.7; }
 .hover-tip .r b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
 .hover-tip .r .u { margin-left: 3px; font-size: var(--fs-12); font-weight: 500; color: var(--text-3); }

@@ -69,6 +69,12 @@ export const TOKENS = {
     'flow-reversed': '#EC7424',
     // (as text, a label's "⟲" and reversed reading: the orange mixed toward the ink, 4.5:1 on the paper; the vessel and arrowhead orange stays the stroke's. ST-3)
     'flow-reversed-ink': 'color-mix(in srgb, var(--flow-reversed) 62%, var(--text))',
+    // Status colours as TEXT (LOOK-1, 19 Nov 2026): --caution, --ok and --danger are fills and strokes (amber is 3.28:1 on a Light card); a word, a number or a chip's
+    // label takes the ink form, in a style sheet and in a chart (tok('caution-ink')) alike. tests/token-contrast.test.js and chart-text-contrast.test.js measure both.
+    'caution-ink': 'color-mix(in srgb, var(--caution) 70%, var(--text))', 'ok-ink': 'color-mix(in srgb, var(--ok) 88%, var(--text))', 'danger-ink': 'color-mix(in srgb, var(--danger) 88%, var(--text))', 'critical-ink': 'color-mix(in srgb, var(--critical) 88%, var(--text))',
+    // A trace's colour as text (the HVPG equation's terms, a catheter reading's name, a chart line's name and number): the trace itself is a line (3:1), the word is this ink,
+    // the same hue. A chart piece asks for it with param('c', true) (chart-looks/resolve.js).
+    'tr-pv-ink': 'color-mix(in srgb, var(--tr-pv) 62%, var(--text))', 'tr-ppg-ink': 'color-mix(in srgb, var(--tr-ppg) 62%, var(--text))', 'tr-hvpg-ink': 'color-mix(in srgb, var(--tr-hvpg) 62%, var(--text))', 'tr-wedge-ink': 'color-mix(in srgb, var(--tr-wedge) 62%, var(--text))', 'tr-sin-ink': 'color-mix(in srgb, var(--tr-sin) 62%, var(--text))', 'tr-hv-ink': 'color-mix(in srgb, var(--tr-hv) 62%, var(--text))', 'tr-ra-ink': 'color-mix(in srgb, var(--tr-ra) 62%, var(--text))', 'tr-ivc-ink': 'color-mix(in srgb, var(--tr-ivc) 62%, var(--text))', 'tr-var-ink': 'color-mix(in srgb, var(--tr-var) 62%, var(--text))', 'tr-cav-ink': 'color-mix(in srgb, var(--tr-cav) 62%, var(--text))', 'tr-scler-ink': 'color-mix(in srgb, var(--tr-scler) 62%, var(--text))',
     // lens ramps ("#colour position", interpolated in OKLab by colormap.js; pressure positions are mmHg, the others run 0 to 1)
     // (pressure: lightness falls at every stop, so 12 and 20 mmHg differ on a projector or a printout as well as in hue (round 2 review A7,
     // Mohammad 18 Oct). The hue turns where the meaning turns: blue to 8 or so, the violet turn centred on 10 to 12 and a richer violet there,
@@ -130,7 +136,7 @@ export const TOKENS = {
     'vel-ink': '45%',   // a stent point's number: how much of its velocity colour, the rest the text's (4.5:1 at least on the light stage)
 
     // rendering: organ lighting, vessel tubes, background plane, circuit map
-    'shadow-rgb': '46 22 34', 'shadow-a': '.15', 'vessel-shadow': 'rgb(var(--shadow-rgb) / var(--shadow-a))',
+    'shadow-rgb': '46 22 34', 'shadow-a': '.15', 'card-shadow-a': '.45', 'vessel-shadow': 'rgb(var(--shadow-rgb) / var(--shadow-a))',
     'tube-shade': '.24', 'tube-sheen': '.42',
     'vessel-knock-a': '0',   // the paper gap where vessels of one tier cross (veins-gl.js, visual-style V2): PARKED on every look (8 Nov 2026). It cut the lower vessel round the end of one that joins it (hepatic veins into the IVC, branches off a trunk) with a black cap on the dark looks; it needs the joins listed before it comes back
     'vessel-rim-a': '0',   // a dark lumen's light rim (veins-gl.js, visual-style V1): off on the light looks, whose dark casing already edges it
@@ -211,6 +217,7 @@ export const TOKENS = {
   // Soft light: warm, low-glare paper with frosted cards and softer ink; organ colours unchanged.
   soft: {
     from: 'light',
+    'card-shadow-a': '.5',   // (the card lift's strength: Light .45, Soft a little more, the dark looks .75; --glass-shadow in app-03-layouts.css)
     // (pressure keeps its pale end from before Linen's: Oat is darker than #DCEBF7, so that end reads lighter than the ground here, where Linen's #B8D5ED would sit at Oat's own lightness)
     // (COL-1: the two low stops, where a healthy hepatic vein, the cava and the central vein sit (3 to 5 mmHg), were 1.25:1 and 1.22:1 on Oat's ground; as dark against Oat's ground as Linen's are against Linen's: 1.37:1 and 1.81:1, where Linen's are 1.28 and 1.79)
     'ramp-pressure': '#8DB8E2 0, #6A9FDE 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30',
@@ -219,6 +226,7 @@ export const TOKENS = {
     'organ-a': '.52',
     'bg': '#DDD0B9',
     'flow-reversed-ink': 'color-mix(in srgb, var(--flow-reversed) 50%, var(--text))',   // (Oat's ground is darker: 4.7:1 at half. ST-3)
+    'tr-pv-ink': 'color-mix(in srgb, var(--tr-pv) 55%, var(--text))', 'tr-ppg-ink': 'color-mix(in srgb, var(--tr-ppg) 55%, var(--text))', 'tr-hvpg-ink': 'color-mix(in srgb, var(--tr-hvpg) 55%, var(--text))', 'tr-wedge-ink': 'color-mix(in srgb, var(--tr-wedge) 55%, var(--text))', 'tr-sin-ink': 'color-mix(in srgb, var(--tr-sin) 55%, var(--text))', 'tr-hv-ink': 'color-mix(in srgb, var(--tr-hv) 55%, var(--text))', 'tr-ra-ink': 'color-mix(in srgb, var(--tr-ra) 55%, var(--text))', 'tr-ivc-ink': 'color-mix(in srgb, var(--tr-ivc) 55%, var(--text))', 'tr-var-ink': 'color-mix(in srgb, var(--tr-var) 55%, var(--text))', 'tr-cav-ink': 'color-mix(in srgb, var(--tr-cav) 55%, var(--text))', 'tr-scler-ink': 'color-mix(in srgb, var(--tr-scler) 55%, var(--text))',   // (Oat's cards are darker: a step more toward the text)
     // (ST-5: Oat is the weakest look for coloured text. The ink forms take 20 % of the text colour, not 12, so they hold 4.5:1 on its darkest card, surface-3; white on the amber fill, 6.6:1, for the dark ink's 2.8:1; the day counter's amber a step deeper)
     'ok-ink': 'color-mix(in srgb, var(--ok) 80%, var(--text))', 'danger-ink': 'color-mix(in srgb, var(--danger) 80%, var(--text))', 'critical-ink': 'color-mix(in srgb, var(--critical) 80%, var(--text))',
     'on-caution': '#FFFFFF', 'lapse-ink': '#744500',
@@ -303,6 +311,7 @@ export const TOKENS = {
     'ok': '#34C38F', 'caution': '#F0B43C', 'danger': '#F2634D', 'critical': '#FF4747', 'info': '#7C9BFF', 'disease': '#D2A2F2',
     'flow-normal': '#2CC5BD', 'flow-reversed': '#FF8C42',
     'flow-reversed-ink': 'var(--flow-reversed)',   // (6.8:1 on the dark ground already: the same orange)
+    'tr-pv-ink': 'var(--tr-pv)', 'tr-ppg-ink': 'var(--tr-ppg)', 'tr-hvpg-ink': 'color-mix(in srgb, var(--tr-hvpg) 70%, var(--text))', 'tr-wedge-ink': 'var(--tr-wedge)', 'tr-sin-ink': 'var(--tr-sin)', 'tr-hv-ink': 'var(--tr-hv)', 'tr-ra-ink': 'var(--tr-ra)', 'tr-ivc-ink': 'var(--tr-ivc)', 'tr-var-ink': 'var(--tr-var)', 'tr-cav-ink': 'var(--tr-cav)', 'tr-scler-ink': 'var(--tr-scler)',   // (the dark looks' traces are already light enough to read as words)
     'critical-ink': 'color-mix(in srgb, var(--critical) 75%, var(--text))',   // (ST-5: 4.2:1 on Dark's raised card, surface-3, at 12 %; 4.7 at 25)
     // lens ramps for a dark ground (visual-style C1): the light looks' ramps fall to dark ends that sink into the ground (a 30 mmHg vessel was 1.41:1).
     // Pressure keeps its hue path (ice, sky, cornflower, violet, magenta, wine) and keeps lightness falling at every stop (OKLab L .92 to .50); the flow,
@@ -335,7 +344,7 @@ export const TOKENS = {
     'grid': '#2B2926', 'axis': '#4A4641',
     'tr-pv': DARK_TRACE.pv, 'tr-ppg': '#FFD166', 'tr-hvpg': '#8466E8', 'tr-wedge': DARK_TRACE.wedge, 'tr-sin': '#DA7EDD', 'tr-hv': DARK_TRACE.hv, 'tr-ra': '#B7B1A8', 'tr-ivc': DARK_TRACE.ivc, 'tr-var': '#F28A56', 'tr-cav': '#A9CC55', 'tr-sv': 'var(--origin-spleen)', 'tr-smv': 'var(--origin-smv)', 'tr-imv': 'var(--origin-imv)', 'tr-scler': '#B7C2D4',
     'shadow-1': '0 0 0 1px var(--hairline)', 'shadow-2': 'var(--shadow-menu)', 'shadow-3': 'var(--shadow-dialog)',
-    'shadow-rgb': '0 0 0', 'shadow-a': '.38', 'vessel-shadow': 'rgb(var(--shadow-rgb) / var(--shadow-a))', 'tube-shade': '.3', 'tube-sheen': '.38', 'vessel-rim-a': '.3', 'vessel-knock-a': '0', 'organ-cast': 'rgba(0, 0, 0, .42)', 'tex-a': '.13', 'lit-hi': '.2', 'lit-lo': '.18', 'fx-ink': 'rgba(233, 237, 246, .9)', 'stent-metal': '#A0ABBE', 'suture-thread': '#E8742A', 'suture-edge': '#3a1d0a', 'stent-marker': '#BAC2D0', 'stent-alpha': '.5', 'stent-glint': '.24', 'stent-rail-w': '1.15', 'stent-strut-w': '.8',
+    'shadow-rgb': '0 0 0', 'shadow-a': '.38', 'card-shadow-a': '.75', 'vessel-shadow': 'rgb(var(--shadow-rgb) / var(--shadow-a))', 'tube-shade': '.3', 'tube-sheen': '.38', 'vessel-rim-a': '.3', 'vessel-knock-a': '0', 'organ-cast': 'rgba(0, 0, 0, .42)', 'tex-a': '.13', 'lit-hi': '.2', 'lit-lo': '.18', 'fx-ink': 'rgba(233, 237, 246, .9)', 'stent-metal': '#A0ABBE', 'suture-thread': '#E8742A', 'suture-edge': '#3a1d0a', 'stent-marker': '#BAC2D0', 'stent-alpha': '.5', 'stent-glint': '.24', 'stent-rail-w': '1.15', 'stent-strut-w': '.8',
     // ── BEGIN device materials, dark looks (visual-style D1, D6, D9; Navy and Black take these) ──
     'dev-poly': '#F0F0ED', 'dev-poly-edge': '#1C212B', 'dev-scope-edge': '#C9CED6',
     'dev-latex': '#FCE6B3', 'dev-latex-edge': '#B08A59', 'dev-latex-a': '.34', 'dev-nylon': '#E5EDF7',
