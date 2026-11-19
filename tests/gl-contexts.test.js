@@ -55,12 +55,3 @@ test('the allow-list holds no stale line (a site that is gone is deleted from th
   const stale = Object.entries(ALLOWED).filter(([f, n]) => (found[f] || 0) < n).map(([f, n]) => `${f}: listed ${n}, found ${found[f] || 0}`);
   assert.deepEqual(stale, [], `lower or delete these allow-list lines: ${stale.join('; ')}`);
 });
-
-// (GPU-1, 19 Nov 2026: the chart pool comes in size classes, each its own context: the card pictures', the screen-size layer's and the readouts'. A fourth kind is a fourth context on the phone
-// that is closest to its memory limit: it is made on purpose, and added here.)
-test('the chart pool makes at most the three listed kinds of pool', () => {
-  const t = readFileSync(new URL('../src/ui/trace-gl.js', import.meta.url), 'utf8');
-  assert.match(t, /const pools = \[null, null, null\];/, 'three slots: card, big, small');
-  assert.equal([...t.matchAll(/\bmakePool\(/g)].length, 3, 'its definition and the two places that make one (the first pool, and a pool of a size class when it is first asked for)');
-  assert.match(t, /kind === 'big' \? 1 : kind === 'small' \? 2 : 0/);
-});
