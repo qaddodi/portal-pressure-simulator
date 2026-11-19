@@ -27,9 +27,10 @@ import { signalMove } from './num-move.js';
 export const SHUF = Object.freeze({
   strip: 48,      // px of the card behind that show at the foot of the screen: its grab bar and its name (a finger's height, never a piece of a line)
   gapTight: 6,    // px least under the card in front when the slide has no column that fits it with the usual gap
+  colsUsual: 3,   // the first three widths are tried in every room; the two widest only in the last, where the words would otherwise need more height than any room has (fewer lines of the same type)
   edge: 4,        // px least between a card and the screen's top when it is too tall to be centred: it then stands as high as that, its foot still above the strip's top (never over it)
   gap: 14,        // px least between the foot of the card in front and the top of the strip
-  cols: ['min(400px, 62vw)', 'min(460px, 62vw)', 'min(520px, 62vw)'],   // the wallet's card widths (--pz-cw), one for both cards, centred on the screen: 400 first; a slide whose words or instrument need more height takes a wider column (fewer lines), never a smaller type
+  cols: ['min(400px, 62vw)', 'min(460px, 62vw)', 'min(520px, 62vw)', 'min(580px, 72vw)', 'min(640px, 76vw)'],   // the wallet's card widths (--pz-cw), one for both cards, centred on the screen: 400 first; a slide whose words or instrument need more height takes a wider column (fewer lines), never a smaller type
   drag: 190,      // px of finger travel for the whole change
   steps: 20,      // keyframes along the way (the words' handoff ramps begin and end on one)
   w: 14,          // the spring's stiffness: about 0.4 s to settle

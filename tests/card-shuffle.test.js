@@ -109,11 +109,12 @@ test('the layout gives every pair on a phone on its side the wallet, centred, an
 });
 
 test('the column is 400 px first and widens only when a slide needs it; the type never gets smaller for it', () => {
-  assert.deepEqual(SHUF.cols.map((c) => parseInt(/(\d+)px/.exec(c)[1], 10)), [400, 460, 520]);
+  assert.deepEqual(SHUF.cols.map((c) => parseInt(/(\d+)px/.exec(c)[1], 10)), [400, 460, 520, 580, 640]);
+  assert.equal(SHUF.colsUsual, 3, 'the two widest are for the last room only');
   for (const c of SHUF.cols) assert.match(c, /^min\(\d+px, \d+vw\)$/);
   const l = src('src/ui/presenter-ladders.js');
-  assert.match(l, /for \(colIx = 0; colIx < SHUF\.cols\.length; colIx\+\+\) \{/);
-  assert.match(l, /both = fits && dataFits;\n\s*if \(both \|\| colIx === SHUF\.cols\.length - 1\) break;/);
+  assert.match(l, /for \(colIx = 0; colIx < \(room < 2 \? SHUF\.colsUsual : SHUF\.cols\.length\); colIx\+\+\) \{/);
+  assert.match(l, /both = fits && dataFits;\n\s*if \(both \|\| colIx === \(room < 2 \? SHUF\.colsUsual : SHUF\.cols\.length\) - 1\) break;/);
   assert.match(l, /for \(room = 0; room < 3; room\+\+\) \{\n\s*foot = top0 \+ shufMaxH\(H \/ k, room\) \* k;/, 'no column fits at the usual gap: the tight room is tried before the widest column is kept');
 });
 

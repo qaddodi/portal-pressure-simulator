@@ -415,7 +415,7 @@ export function createLadders(st, live) {
           let both = false;
           for (room = 0; room < 3; room++) {
             foot = top0 + shufMaxH(H / k, room) * k;
-          for (colIx = 0; colIx < SHUF.cols.length; colIx++) {
+          for (colIx = 0; colIx < (room < 2 ? SHUF.colsUsual : SHUF.cols.length); colIx++) {
             live.ui.root.style.setProperty('--pz-cw', SHUF.cols[colIx]);
             t = r(live.ui.text); cw = t.right - wr.left + pad - sl;
             dd.classList.remove('pz-lt', 'pz-lt2'); stepDk(1);
@@ -430,7 +430,7 @@ export function createLadders(st, live) {
             if (!fits) for (const n of [1, 2]) { trim = n; fits = steps(); if (fits) break; }
             ch = ch0; gap = gap0;
             both = fits && dataFits;
-            if (both || colIx === SHUF.cols.length - 1) break;
+            if (both || colIx === (room < 2 ? SHUF.colsUsual : SHUF.cols.length) - 1) break;
           }
             if (both) break;
           }
