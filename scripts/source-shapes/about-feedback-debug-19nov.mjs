@@ -35,4 +35,5 @@ export default [
   { file: 'src/ui/presenter*', need: [camBody(/growBox\(r \|\| REGIONS\.route, f\)/, "the slide's outlines and soft glows still grow it, a region the plate lacks is the route"), `${CAM} outlines and glows still grow it`] },
   { file: 'src/ui/presenter*', need: [{ test: (t) => (t.match(/camBox\(/g) || []).length === 3, toString: () => 'camBox is used three times: the one move to a framing, the rise and the definition' }, `${CAM} every place that frames a slide goes through camBox`] },
   { file: 'src/ui/presenter*', forbid: [/Array\.isArray\(cam\) \? cam : REGIONS/, `${CAM} no second reading of a camera that skips the sums`] },
+  { file: 'src/ui/main.js', need: [/projectorOn: \(\) => toggleProjector\(true\), projectorOff: \(\) => toggleProjector\(false\)/, 'The console handle can switch the projector look on and off (kept from tests/talk-state.test.js, 19 Nov 2026)'] },
 ];

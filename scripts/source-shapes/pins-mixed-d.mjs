@@ -47,7 +47,7 @@ export default [
   { file: 'src/ui/presenter*', need: [/if \(k && k\.sig === sig && k\.count\.isConnected\) \{/, 'Getting around the presentations (review U3, U5, U7, U15, U22, U23, U24):'] },
   { file: 'src/ui/presenter*', need: [/if \((?:live\.)?ui\.bar\.dataset\.kind !== pillKind\(\)\) paintChrome\(\);\s*(\/\/[^\n]*\n\s*)?layout\(\);/, 'Getting around the presentations (review U3, U5, U7, U15, U22, U23, U24):'] },
   { file: 'src/ui/main.js', need: [/h\('h3', \{ 'data-sec': 'present' \}, 'While presenting'\)/, 'Getting around the presentations (review U3, U5, U7, U15, U22, U23, U24):'] },
-  { file: 'src/ui/main.js', need: [/if \(e\.key === '\?'\) \{ openHelp\(presenter\.active\(\) \? 'present' : undefined\); return; \}/, 'Getting around the presentations (review U3, U5, U7, U15, U22, U23, U24):'] },
+  { file: 'src/ui/keyboard.js', need: [/if \(e\.key === '\?'\) \{ openHelp\(presenter\.active\(\) \? 'present' : undefined\); return; \}/, 'Getting around the presentations (review U3, U5, U7, U15, U22, U23, U24):'] },
   { file: 'src/ui/presenter.js', need: [/if \(isModalOpen\(\)\) return;/, 'Getting around the presentations (review U3, U5, U7, U15, U22, U23, U24):'] },   // (was a slice of the file)
   { file: 'src/ui/main.js', need: [/menuItem\('History', \{ icon: 'clock'[^\n]*menuPush\('Settings', 'History', timeline\.historyList\(\)\)[^\n]*\n\s*menuItem\('Help', \{ icon: 'help', onClick: \(\) => menuPush\('Settings', 'Help', helpRows\(\)\)/, 'Getting around the presentations (review U3, U5, U7, U15, U22, U23, U24):'] },
   { file: 'src/ui/main.js', forbid: [/menuItem\('Search'/, 'Getting around the presentations (review U3, U5, U7, U15, U22, U23, U24):'] },

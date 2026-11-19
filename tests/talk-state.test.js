@@ -45,15 +45,7 @@ test('projector: asked for what it already is, nothing is flipped; asked twice b
   assert.equal(p.api.state(), false);
 });
 
-test('the explore shortcuts do not reach a talk, except Search and the guide; the figure\'s keyboard zoom stays out too', () => {
-  assert.match(main, /if \(presenter\.active\(\) && e\.key !== '\/' && e\.key !== '\?'\) return;/);
-  const at = main.indexOf("if (presenter.active() && e.key !== '/'");
-  assert.ok(at > main.indexOf("if (isModalOpen() || mainMenu.isOpen()) return;"), 'after the dialog and menu rule');
-  assert.ok(at < main.indexOf("(e.shiftKey ? doRedo : doUndo)()"), 'before undo');
-  assert.ok(at < main.indexOf("if (e.key === '[' || e.key === ']')"), 'before the speed keys');
-  assert.ok(at < main.indexOf("if (e.key === '+' || e.key === '=') { e.preventDefault(); stage.zoomIn(); return; }"), 'the figure\'s plain zoom keys come after the talk rule: a talk never gets them');
-  assert.match(main, /projectorOn: \(\) => toggleProjector\(true\), projectorOff: \(\) => toggleProjector\(false\)/);
-});
+// (The explore shortcuts do not reach a talk, and the figure's keyboard zoom stays out too: tests/keyboard.test.js runs the keys.)
 
 test('a ?script=test- link waits once for the test deck, then says it was not found; a talk\'s link is dropped when it ends', () => {
   assert.match(pres, /async function start\(id, at = 0, opts = null\) \{/);

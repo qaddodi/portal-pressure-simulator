@@ -323,7 +323,7 @@ export default [
   { file: 'src/ui/dock.js', forbid: [/'aria-label': 'Instruments'/, 'Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch):'] },
   { file: 'src/ui/actions.js', need: [/toLocaleString\('en-US'\)\}\/µL/, 'Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch):'] },
   { file: 'src/ui/util.js', need: [/if \(kind !== 'bad' && !actions\?\.length && !present && document\.getElementById\('app'\)\?\.classList\.contains\('presenting'\)\) return NOOP_CLOSE;/, 'Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch):'] },
-  { file: 'src/ui/main.js', need: [/store\.set\(\{ colorMode: next \}\); toast\(`Colored by /, 'Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch):'] },
+  { file: 'src/ui/keyboard.js', need: [/store\.set\(\{ colorMode: next \}\); toast\(`Colored by /, 'Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch):'] },
   // tissue-gl
   { file: 'src/ui/tissue-gl.js', need: [/vec2 uv = \(p - uO\) \/ \(uRd \* vec2\(6\.0, 3\.4641016151377544\)\);/, 'The open lobule\'s tissue on the GPU (tissue-gl.js): (one repeat per 6 rd by 2√3 rd, as fieldFill)'] },
   { file: 'src/ui/tissue-gl.js', forbid: [/texture\(uQ(A|B|O), uv\)\.rgb/, 'The open lobule\'s tissue on the GPU (tissue-gl.js): (no tile read by its rgb alone)'] },   // (was a slice of the file)

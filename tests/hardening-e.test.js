@@ -47,20 +47,11 @@ test('after a click the talk keeps Space even if the browser now reports the con
 });
 
 // ── Third pass: lifecycle and input audits (31 Oct) ──
-test('a slider or switch left focused keeps only its own keys; text fields keep all of theirs; composing text is left alone; held keys act once', () => {
-  const m = read('src/ui/main.js');
-  // The letter rule, run: Latin letters by character, other layouts by the key's place.
-  const letterOf = new Function('return ' + m.slice(m.indexOf('const letterOf = ') + 'const letterOf = '.length, m.indexOf(';', m.indexOf('const letterOf = ')))) ();
-  assert.equal(letterOf({ key: 'A', code: 'KeyA' }), 'a');
-  assert.equal(letterOf({ key: 'ф', code: 'KeyA' }), 'a', 'a Russian layout\'s key in the A place');
-  assert.equal(letterOf({ key: 'ش', code: 'KeyA' }), 'a', 'an Arabic layout\'s');
-  assert.equal(letterOf({ key: '[', code: 'BracketLeft' }), '[');
-  assert.equal(letterOf({ key: 'Enter', code: 'Enter' }), 'enter');
-  // The same imported module as the talk's, or the two would each keep their own "keyboard or mouse" state.
+test('the search card and the menus leave composing text alone (the same imported module as the talk\'s, or each would keep its own state)', () => {
   for (const f of ['src/ui/palette.js', 'src/ui/menu.js']) assert.match(read(f), /if \(e\.isComposing \|\| e\.keyCode === 229\) return;/, f);
 });
 
-
+// (The page's own keys, the letter rule and the AltGr gate are tests/keyboard.test.js, which runs src/ui/keyboard.js.)
 
 test('a page opened after a deploy is not offered a reload: the new worker is asked which files it holds', () => {
   const m = read('src/ui/main.js');
@@ -73,24 +64,6 @@ test('a page opened after a deploy is not offered a reload: the new worker is as
   assert.ok(holds(['assets/app-A.js', 'assets/app-B.css'], ['./', 'assets/app-A.js', 'assets/app-B.css', 'assets/chunk-C.js']), 'same build');
   assert.ok(!holds(['assets/app-A.js', 'assets/app-B.css'], ['./', 'assets/app-Z.js', 'assets/app-B.css']), 'an older page');
   assert.ok(!holds([], ['./']), 'a source page with no hashed files is not taken for current');
-});
-
-test('a held Space stays the figure\'s and does not scroll the page; AltGr brackets reach the speed keys; a Dvorak ; is not Z', () => {
-  const m = read('src/ui/main.js');
-  const letterOf = new Function('return ' + m.slice(m.indexOf('const letterOf = ') + 'const letterOf = '.length, m.indexOf(';\n', m.indexOf('const letterOf = ')))) ();
-  assert.equal(letterOf({ key: ';', code: 'KeyZ' }), ';', 'Dvorak: the key in Z\'s place makes ;');
-  assert.equal(letterOf({ key: 'Dead', code: 'KeyA' }), 'dead');
-  assert.equal(letterOf({ key: 'ф', code: 'KeyA' }), 'a', 'a Russian layout still reaches A');
-  assert.equal(letterOf({ key: 'z', code: 'KeyZ' }), 'z');
-  // The AltGr gate, run on its own: [ and ] pass with Ctrl+Alt reported, a Polish ą (AltGr+A) does not.
-  const gate = (e) => { const altGr = !!e.getModifierState?.('AltGraph'); return !(altGr ? e.key !== '[' && e.key !== ']' : e.ctrlKey || e.metaKey || (e.altKey && e.key !== '[' && e.key !== ']')); };
-  const gr = { getModifierState: (k) => k === 'AltGraph' };
-  assert.ok(gate({ ...gr, ctrlKey: true, altKey: true, key: '[' }), 'German Windows: AltGr+8');
-  assert.ok(gate({ ...gr, ctrlKey: true, altKey: true, key: ']' }));
-  assert.ok(!gate({ ...gr, ctrlKey: true, altKey: true, key: 'ą' }));
-  assert.ok(!gate({ ctrlKey: true, key: 'a' }), 'Ctrl+A is the browser\'s');
-  assert.ok(gate({ altKey: true, key: '[' }), 'Option+[ on a Mac');
-  assert.ok(!gate({ altKey: true, key: 'a' }));
 });
 
 test('the menu sheet has no height floor over the keyboard and the tablet\'s 62 % follows it', () => {
