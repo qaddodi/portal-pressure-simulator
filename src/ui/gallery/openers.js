@@ -6,6 +6,7 @@
 //   sheet  the top-bar button, the menu or the palette that opens it, as a person opens it
 
 import { toast } from '../util.js';
+import { readAnims, readTiming } from '../layout-snap.js';
 
 const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
 const press = (key) => document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
@@ -17,7 +18,7 @@ export async function settle(pps, ms = 6000) {
   await sleep(250);
   while (performance.now() - t0 < ms) {
     const card = pps?.card?.el;
-    const moving = !!card?.getAnimations?.({ subtree: true }).some((a) => a.playState === 'running' && Number.isFinite(a.effect?.getComputedTiming().endTime));
+    const moving = !!readAnims(card, { subtree: true })?.some((a) => a.playState === 'running' && Number.isFinite(readTiming(a.effect)?.endTime));
     if (!moving && !pps?.presenter?.busy?.() && !pps?.stage?.viewChanging?.()) { await sleep(200); return true; }
     await sleep(150);
   }

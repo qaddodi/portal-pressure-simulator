@@ -1648,7 +1648,7 @@ function cardsAway(s) {
   for (const c of CARDS) {
     if (!c.shown()) continue;
     const el = c.el();
-    if (b) { const r = el.getBoundingClientRect(); if (r.right <= b.left || r.left >= b.right || r.bottom <= b.top || r.top >= b.bottom) continue; }
+    if (b) { const r = readBox(el); if (r.right <= b.left || r.left >= b.right || r.bottom <= b.top || r.top >= b.bottom) continue; }
     if (s.anchor && el.contains(s.anchor)) { under = true; continue; }
     // (13 Nov 2026, menu recs C7: a menu no longer costs a card. A card whose glass the GPU draws is on the one glass board with the menus
     // (glass-cover.js, 3575b83), which cuts it, its words too, under the menu's shape: it stays open under the menu and is whole again when the

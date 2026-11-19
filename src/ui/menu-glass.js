@@ -6,6 +6,7 @@
 
 import { dockLine, inSheetLayer } from './sheet-layer.js';
 import { frameFor } from './frame.js';
+import { readAnims, readBox, readStyle } from './layout-snap.js';
 
 const nextFrame = frameFor('menu-glass');
 
@@ -23,7 +24,7 @@ export function initMenuGlass(glass) { api = glass || null; }
 // so the card goes with the words exactly. Only a clip-path (the dock menus' sink) is not followed. (Mohammad, 4 Nov 2026: the card popped while the words slid.)
 const OTHERS = '.um-pv.on:not(.pv-resizing), .modal, .pal';   // (the main menu's preview card, dialogs and the search palette: found by class, they are made by script and come and go)
 const MENUISH = '.menu, .umenu, .why-pop, .um-pv, .modal, .pal';
-const moving = (e) => e.classList.contains('leaving') || e.classList.contains('out') || (e.getAnimations ? e.getAnimations().some((a) => a.playState !== 'finished' && a.playState !== 'idle') : false);
+const moving = (e) => e.classList.contains('leaving') || e.classList.contains('out') || (e.getAnimations ? readAnims(e).some((a) => a.playState !== 'finished' && a.playState !== 'idle') : false);
 let raf = 0;
 const movers = new Set();   // alloc-rare: the menus moving now
 const tick = () => {
@@ -93,11 +94,11 @@ const cut = (e) => {
   // html.thumb-ui .pal-back): its glass is cut there too. Uncut, its frost and shadow rose over the timeline and the tab row: 13 Nov 2026.)
   const line = inSheetLayer(e) || e.classList.contains('pal') ? dockLine() : null;
   let own = null;
-  const c = getComputedStyle(e).clipPath;
+  const c = readStyle(e).clipPath;
   if (c && c !== 'none' && c.startsWith('inset(')) {
     const t = c.slice(6, c.indexOf(')')).split(/\s+/);
     const w = t.length === 1 ? t[0] : t.length === 2 ? t[0] : t[2];
-    const r = e.getBoundingClientRect();
+    const r = readBox(e);
     const bot = w.endsWith('%') ? parseFloat(w) / 100 * r.height : parseFloat(w);
     if (bot > 0) own = r.bottom - bot;
   }

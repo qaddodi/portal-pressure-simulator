@@ -25,7 +25,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // Shader sources, generated art and glyph tables hold no learner text.
 const SKIP = /(?:-glsl|organ-art|glyph-data|stop-tokens|lobule-live|blood-heads)\b[^/]*\.js$/;
 // Developer-only text (the ?perf readout, GPU probe names, colour parsing errors and the CSS colour table) is not learner text.
-const DEV = /(?:perf-readout|stage-vessels|css-color|colormap|chart-looks\/resolve)\.js$/;
+const DEV = /(?:perf-readout|stage-vessels|css-color|colormap|chart-looks\/resolve)\.js$|\/ui\/(?:gallery|selfcheck|screen)\//;   // (the debug tools' own findings, rule messages and bench labels: preview-only developer text, never a card or a slide)
 // Words: two or more, with a space between (a class list or an id can hold none of the phrases the rules look for).
 // (A shader or a style sheet in a template literal: its pieces between ${…} are code on several lines.)
 const isCode = (s) => /\b(?:[iu]?vec[234]|uniform|precision|gl_\w+|void main|sampler2D|texelFetch|#version)\b/.test(s) || (/\n/.test(s) && /[;{}]|\/\//.test(s));

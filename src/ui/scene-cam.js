@@ -2,6 +2,7 @@
 // (vt, V), every label's place and every card's box stay as they rest; ONE camera C moves the picture: a scale s about the screen point
 // (ox, oy), then a move (dx, dy), all in client px. card-zoom.js's frame callback is the only writer (set / off); the figure's canvas,
 // the labels and the page's scene layers read C in the same frame. Nothing here runs by itself.
+import { readBox } from './layout-snap.js';
 export const sceneCam = {
   aim: null,   // (where the zoom will land, set by card-zoom.js before it opens: { s, ox, oy, dx, dy, box: the card as it will be drawn })
   on: false, s: 1, ox: 0, oy: 0, dx: 0, dy: 0,
@@ -42,7 +43,7 @@ export const zoomRide = {
   /** Whether anything rides a zoom now. */
   riding() { return rides.size > 0; },
   /** Where el is drawn: its box through the zoom. */
-  box(el) { const r = rides.get(el); return r?.real ? r.real() : el.getBoundingClientRect(); },
+  box(el) { const r = rides.get(el); return r?.real ? r.real() : readBox(el); },
   /** How many times larger el is drawn than it rests (its corners grow with it). */
   scale(el) { return rides.get(el)?.aff.s ?? 1; },
 };
