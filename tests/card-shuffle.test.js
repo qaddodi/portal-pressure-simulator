@@ -30,8 +30,9 @@ test('the card in front is centred with room for the strip below it and the same
   assert.equal(shufMaxH(393), 393 - 2 * (SHUF.strip + SHUF.gap));
   assert.ok(shufMaxH(393) >= 266 && shufMaxH(393) <= 270, 'about 268 px on an iPhone on its side');
   assert.equal(shufMaxH(100), 0);
-  assert.ok(shufMaxH(393, true) >= 282 && shufMaxH(393, true) > shufMaxH(393), 'the tight room (a slide no column fits at the usual gap) holds the 282 px cards of the gallery');
-  assert.equal(shufMaxH(393, true), 393 - 2 * (SHUF.strip + SHUF.gapTight));
+  assert.ok(shufMaxH(393, 1) >= 282 && shufMaxH(393, 1) > shufMaxH(393), 'the tight room (a slide no column fits at the usual gap) holds the 282 px cards of the gallery');
+  assert.equal(shufMaxH(393, 1), 393 - 2 * (SHUF.strip + SHUF.gapTight));
+  assert.equal(shufMaxH(393, 2), 393 - 2 * SHUF.edge, 'the last room: the whole screen less an edge each way, so a card needing 350 px never has its words shrunk');
   // (the tallest card stands with its foot a gap above the strip: top + h + gap = H - strip)
   const h = shufMaxH(393), top = (393 - h) / 2;
   assert.equal(top + h + SHUF.gap, 393 - SHUF.strip);
@@ -100,7 +101,7 @@ test('the layout gives every pair on a phone on its side the wallet, centred, an
   assert.match(s, /shift = shuf \? Math\.max\(4 \* k - top0, \(H - \(t\.height \+ 2 \* pad\)\) \/ 2 - top0\)/, 'the words\' glass is centred by its own height');
   assert.match(s, /ddTop = Math\.max\(4 \* k, \(H - hd\) \/ 2\)/, 'and the instrument by its own');
   assert.match(s, /!shuf && !wideSheet\(dd\)\) rise = pairRise/, 'a wallet does not rise');
-  assert.match(s, /textLock = \{ key: lockKey, below, shuf, tight, col: colIx,/, 'the wallet and its column are part of what a slide keeps');
+  assert.match(s, /textLock = \{ key: lockKey, below, shuf, room, col: colIx,/, 'the wallet and its column are part of what a slide keeps');
   assert.match(s, /'--pz-sx'/, 'the pair is shifted to the middle by the one left margin');
   const css = src('styles/app-04-presenter.css');
   assert.match(css, /left: calc\(var\(--pz-cm\) \+ var\(--pz-sx, 0px\)\)/);
@@ -112,8 +113,8 @@ test('the column is 400 px first and widens only when a slide needs it; the type
   for (const c of SHUF.cols) assert.match(c, /^min\(\d+px, \d+vw\)$/);
   const l = src('src/ui/presenter-ladders.js');
   assert.match(l, /for \(colIx = 0; colIx < SHUF\.cols\.length; colIx\+\+\) \{/);
-  assert.match(l, /both = fits && dataFits; wordsFit = fits;\n\s*if \(both \|\| colIx === SHUF\.cols\.length - 1\) break;/);
-  assert.match(l, /for \(tight of \[false, true\]\) \{\n\s*foot = top0 \+ shufMaxH\(H \/ k, tight\) \* k;/, 'no column fits at the usual gap: the tight room is tried before the widest column is kept');
+  assert.match(l, /both = fits && dataFits;\n\s*if \(both \|\| colIx === SHUF\.cols\.length - 1\) break;/);
+  assert.match(l, /for \(room = 0; room < 3; room\+\+\) \{\n\s*foot = top0 \+ shufMaxH\(H \/ k, room\) \* k;/, 'no column fits at the usual gap: the tight room is tried before the widest column is kept');
 });
 
 test('the data card goes back to the 12 px floor on a short sideways phone: the Shuffle\'s 10 px allowance is gone', () => {
@@ -162,7 +163,8 @@ test('the card coming forward is above the other for the whole change, so no lay
 test('the words of a wallet card are fitted alone: Regular, then the title a step down, then the CAUSES line gone (play-test: words clipped by 16 to 37 px)', () => {
   const s = src('src/ui/presenter-ladders.js');
   assert.match(s, /const ch0 = ch, gap0 = gap; ch = 0; gap = 0;\s*\n\s*trim = 0;\s*\n\s*let fits = steps\(\);\s*\n\s*if \(!fits\) for \(const n of \[1, 2\]\) \{ trim = n; fits = steps\(\); if \(fits\) break; \}/);
-  assert.match(s, /if \(!fits\) for \(const n of \[0, 1, 2\]\) \{ trim = n; if \(step\(\)\) \{ fits = true; break; \} \}\s*\n\s*ch = ch0; gap = gap0;/, 'then Compact, as a phone on its side always did');
+  assert.doesNotMatch(s, /if \(!fits\) for \(const n of \[0, 1, 2\]\) \{ trim = n; if \(step\(\)\)/, 'never Compact: the teaching card\'s body text does not shrink to fit (2a8217e3); the card takes more room instead');
+  assert.match(s, /fits = steps\(\); if \(fits\) break; \}\s*\n\s*ch = ch0; gap = gap0;/);
   assert.match(src('src/ui/gallery/fit-rules.js'), /content runs \$\{Math\.round\(low\)\} px past its box/);
 });
 
@@ -259,10 +261,7 @@ test('the words hand over at the middle of the change with no blank gap: one car
   assert.ok(inkAt(kw, 0.3) > 0.99 && inkAt(kd, 0.7) > 0.99, 'the card leaving keeps its words to p 0.3, the card arriving has them whole from p 0.7');
 });
 
-test('the wallet\'s words that no column step fits take the steps below Compact, the data card out of the sum, so the card wraps its words (HVPG 8: 350 px in a 345 px box)', () => {
-  const s = src('src/ui/presenter-ladders.js');
-  assert.match(s, /let trim = 0, wordsFit = true;/);
-  assert.match(s, /both = fits && dataFits; wordsFit = fits;/);
-  assert.match(s, /if \(\(!below \|\| \(shuf && !wordsFit\)\) && H <= SIDEWAYS_MAX_H \* k\) \{\n\s*const ch1 = ch, gap1 = gap; if \(shuf\) \{ ch = 0; gap = 0; \}/);
-  assert.match(s, /fitCards\(live\.ui\.text\); t = r\(live\.ui\.text\);\n\s*ch = ch1; gap = gap1;/, 'the data card\'s height is put back after');
+test('a card in front that stands over the strip is touched as itself: the strip answers only below the front card\'s foot', () => {
+  const s = src('src/ui/card-shuffle.js');
+  assert.match(s, /const f = anims\.find\(\(x\) => x\.card !== behind && x\.glass\);\n\s*if \(f && y < f\.top \+ shufFall\(f\.layer, f\.h\) \* shufBehind\(f\.layer, p\) \+ f\.h\) return false;/);
 });
