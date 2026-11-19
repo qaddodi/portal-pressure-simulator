@@ -17,14 +17,15 @@ import { openEntry } from './openers.js';
 import './plugins.js';
 import { fadeShown, toast as appToast } from '../util.js';
 import { currentLook } from '../looks.js';
-import { readBox, readRects, readStyle, readMetric, readCTM, readAnims } from '../layout-snap.js';
+import { readBox, readRects, readLines, readStyle, readMetric, readCTM, readAnims } from '../layout-snap.js';
 import { createGalleryApi, probeBusy } from './api.js';
 import { readWords, readBoxes } from './readers.js';
+import { readEdges } from './edge-rules.js';
 import { runCheck } from './fit-check.js';
 
 /** The id the presenter gives the gallery deck: the Testing decks are listed as 'test-' + their own id (presenter.js testingLoad). */
 export const DECK_ID = 'test-gallery';
-const IO = { box: readBox, rects: readRects, style: readStyle, metric: readMetric, ctm: readCTM };
+const IO = { box: readBox, rects: readRects, lines: readLines, style: readStyle, metric: readMetric, ctm: readCTM };
 const LOOK_NAMES = { light: 'Light', soft: 'Soft', dark: 'Dark', navy: 'Navy', black: 'Black' };
 
 const CSS = `
@@ -113,7 +114,7 @@ export async function startGallery({ pps = window.pps, root = document } = {}) {
     entries, byId, pps, go: (id) => go(id, { quiet: true, mark: false }), setLook: (id) => setLook(id), look: () => look, id: () => open?.id ?? null,
     busy: () => probeBusy(pps, document, readAnims),
     check: () => runCheck({ io: IO, pps }),
-    words: () => readWords(IO), boxes: () => readBoxes(IO),
+    words: () => readWords(IO), boxes: () => readBoxes(IO), edges: () => readEdges(IO),
     size: () => ({ w: readMetric(window, 'innerWidth'), h: readMetric(window, 'innerHeight') }),
     affected: async () => { const r = await fetch(new URL('gallery-affected.json', location.href)); if (!r.ok) throw new Error('no gallery-affected.json beside the page: sweep=affected needs the build to write it'); return r.json(); },
   });

@@ -8,7 +8,7 @@ try {
   const q = new URLSearchParams(location.search);
   if (q.has('testclock')) {
     const asked = Number(q.get('testclock'));
-    const clock = createTestClock(window, { rate: 1 });
+    const clock = createTestClock(window, { rate: 1, frame: Number(q.get('testframe')) || 0 });
     clock.wanted = asked >= 1 ? asked : 0;   // (0: test-mode.js's default)
     clock.install(); clock.start();
     window.ppsTestClock = clock;

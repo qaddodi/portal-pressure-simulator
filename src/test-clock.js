@@ -38,6 +38,7 @@ export function createTestClock(g = globalThis, opts = {}) {
     now: bind(perf.now.bind(perf)), setTimeout: bind(g.setTimeout), clearTimeout: bind(g.clearTimeout), setInterval: bind(g.setInterval), clearInterval: bind(g.clearInterval),
     raf: bind(g.requestAnimationFrame), caf: bind(g.cancelAnimationFrame), ric: bind(g.requestIdleCallback), cic: bind(g.cancelIdleCallback), dateNow: g.Date.now.bind(g.Date),
   };
+  const FRAME = Math.max(STEP, Number(opts.frame) || STEP);   // (one frame of app time: 16.7 ms, or longer for a layout-only run that needs fewer frames, ?testframe=)
   const realNow = opts.realNow || nat.now;
   const doc = opts.page === false ? null : g.document || null;
   const hooks = { gate: null };   // gate(): false holds the loop for a moment (the engine's worker is behind: test-mode.js)
@@ -63,7 +64,7 @@ export function createTestClock(g = globalThis, opts = {}) {
     return best;
   }
   const dueOf = (external) => nextTimer(external)?.due ?? Infinity;
-  const frameDue = () => (rafs.size ? frameAt + STEP : Infinity);
+  const frameDue = () => (rafs.size ? frameAt + FRAME : Infinity);
   // (A callback that throws is raised again from a real timer of its own, so one never stops the others and the page's error handlers see it.)
   const call = (fn, args) => { try { fn(...args); } catch (e) { nat.setTimeout(() => { throw e; }); } };
   function runTimers(limit) {
@@ -183,7 +184,7 @@ export function createTestClock(g = globalThis, opts = {}) {
       g.requestIdleCallback = (cb, o) => addTimer(() => cb({ didTimeout: false, timeRemaining: () => 8 }), Math.min(Number(o?.timeout) || 4, 4), [], false);
       g.cancelIdleCallback = (id) => { if (id >= BASE) timers.delete(id); else nat.cic?.(id); };
     }
-    if (doc) { installPage(); addTimer(syncAnimations, STEP, [], true, true); }
+    if (doc) { installPage(); addTimer(syncAnimations, FRAME, [], true, true); }
   }
 
   function start() {
@@ -231,7 +232,7 @@ export function createTestClock(g = globalThis, opts = {}) {
       return speed;
     },
     /** Runs n frames of app time at once (60 a second), for frame stepping while held: every timer and frame due on the way runs. */
-    stepFrames(n = 1) { advanceTo(now() + STEP * Math.max(1, Math.floor(n))); },
+    stepFrames(n = 1) { advanceTo(now() + FRAME * Math.max(1, Math.floor(n))); },
     get on() { return on; }, get running() { return driving; }, get offset() { return offset; },
     stats: () => ({ now: now(), offset, timers: timers.size, frames: rafs.size, framesRun: frames, rate, speed, running: driving }),
     syncAnimations,
