@@ -530,6 +530,7 @@ export function createLadders(st, live) {
     if (below !== isCol) { void readMetric(dd, 'offsetWidth'); dd.style.transition = ''; }
     chipRoom(dd);
     const beside = low && tabBeside();
+    live.shuffle?.mark(shuf);   // (CRD-1: the Shuffle's flag is on the cards before they are fitted, not after: the path card reads it for its 10 px allowance, and a fit recorded without it was never the fit the card rests with)
     fitCards(live.ui.data, live.ui.panel);
     if (beside && !tabBeside()) { fitDone.delete(live.ui.panel); fitCards(live.ui.panel); }
     // (No step takes the words down for a data card its own fit cannot make whole, 17 Nov 2026: at a text size above 100 % a Mac or an iPad on its side used to

@@ -244,11 +244,13 @@ export function createShuffle(live) {
     active: () => on,
     front: () => (p > 0.5 ? 'data' : 'words'),
     position: () => p,
+    /** Puts the Shuffle's flag on the page and the cards (what sync does first) without building anything: for the layout to do before it fits the cards, so the fit sees the flag it will rest with. */
+    mark(next) { const r = root(); if (r) { r.classList.toggle('pz-shuf', !!next); live.ui.shade?.classList.toggle('pz-shuf', !!next); live.ui.data?.classList.toggle('pz-shuf', !!next); } },
     sync(next, k) {
       const r = root();
       const was = on;
       on = !!next;
-      if (r) { r.classList.toggle('pz-shuf', on); live.ui.shade?.classList.toggle('pz-shuf', on); live.ui.data?.classList.toggle('pz-shuf', on); }
+      api.mark(on);
       if (!on) { dropAnims(); if (r) r.classList.remove('pz-shuf-data'); p = 0; v = 0; target = 0; key = ''; return; }
       // (A new slide or size: the words come back in front, by the spring, never by a jump: the cards are still leaving or just arriving.)
       if (k !== key) { key = k; if (was && p !== 0) { target = 0; v = 0; } else { p = 0; target = 0; v = 0; } }

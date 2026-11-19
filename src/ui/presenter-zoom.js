@@ -510,7 +510,7 @@ export function createZoom(st, live) {
   // (A card holding the quick check grows as its answers ease open and shut; it was fitted with every answer open, so its own
   // height is left out (the window's stands in): refitting mid-ease cut the easing short and jolted the words' size.)
   // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-  const fitSig = (el) => `f${fontGen()}|${readMetric(el, 'clientWidth')}x${el.querySelector('.pz-check') ? `q${innerWidth}x${innerHeight}` : readMetric(el, 'clientHeight')}|${el.className.replace(/ ?\b(?:tool-open|pz-sliding)\b/g, '')}|${el.style.maxHeight}|${document.documentElement.style.cssText}|${el.style.getPropertyValue('--pz-reach')},${el.style.getPropertyValue('--pz-fkrow')}|${[...el.children].map((c) => (c.hidden ? 0 : c.className + (c.classList.contains('pz-tool') || readStyle(c).maxHeight !== 'none' ? ':' + readMetric(c, 'offsetHeight') : ''))).join()}|${el === live.ui?.data ? `s${live.want}` : (el.querySelector('.pzv') ? wordsOf(el) : el.textContent).replace(/\d/g, '0')}`;
+  const fitSig = (el) => `f${fontGen()}|${readMetric(el, 'clientWidth')}x${el.querySelector('.pz-check') ? `q${innerWidth}x${innerHeight}` : readMetric(el, 'clientHeight')}|${el.className.replace(/ ?\b(?:tool-open|pz-sliding|pz-zoomable)\b/g, '')}|${el.style.maxHeight}|${document.documentElement.style.cssText}|${el.style.getPropertyValue('--pz-reach')},${el.style.getPropertyValue('--pz-fkrow')}|${[...el.children].map((c) => (c.hidden ? 0 : c.className + (c.classList.contains('pz-tool') || readStyle(c).maxHeight !== 'none' ? ':' + readMetric(c, 'offsetHeight') : ''))).join()}|${el === live.ui?.data ? `s${live.want}` : (el.querySelector('.pzv') ? wordsOf(el) : el.textContent).replace(/\d/g, '0')}`;
   const fitDone = new WeakMap(), smOf = new WeakMap();
   // A card that ends its fit with words still cut off is recorded by slide and card (degrade 'card-clipped:<slide>:<card>', the ?perf paste),
   // once per fit, never while the cards move (a part mid-slide is not where it rests). The fit's own floor and the capped parts it ignores
@@ -744,8 +744,6 @@ export function createZoom(st, live) {
       if (fitDone.get(el) === sig) { clipSoon(el); continue; }
       const was = parseFloat(el.style.getPropertyValue('--pz-fit')) || 1;
       el.style.removeProperty('--pz-fit'); el.style.removeProperty('--pz-z');
-      fitFlowTime(el);
-      toolRoom(el);
       // (The stacked card is fitted with its readings' card tucked, against the tucked cap, whatever state it is in: the instrument holds
       // one size open or tucked, and nothing the fit reads comes from the fit before it. Its readings' travel (--pz-d) is measured at each trial
       // fit, so the tucked card nets its readings out exactly, and once more at the fit it ends with.)
@@ -809,6 +807,10 @@ export function createZoom(st, live) {
         row.classList.toggle('pzb-nonum', !rb.some((b) => b.ls.some((l, i) => !l.classList.contains('off') && b.rs[i].width)));
       }
       fitHeads(el);
+      // (CRD-1, bible review 19 Nov 2026: the instrument's room is taken here, after the tile names' short and wrapped forms, the bars' numbers and the head rows have been decided: it used to be taken
+      // first, so a name that wrapped afterwards made the header a line taller than the room assumed and the instrument ran that line past its card.)
+      fitFlowTime(el);
+      toolRoom(el);
       // (A quick check is fitted with every answer open: its words keep one size however many are revealed.)
       const all = el.querySelector('.pz-check'); all?.classList.add('pzc-all', 'pzc-still');
       // (A phone's words never fit below 12 px: the card's height cap leaves them that room, phoneTextCap.)
