@@ -54,11 +54,4 @@ test('a ?script=test- link waits once for the test deck, then says it was not fo
   assert.match(stop, /if \(restore\) \{ try \{ const u = new URL\(location\.href\); if \(u\.searchParams\.has\('script'\)\) \{ u\.searchParams\.delete\('script'\); u\.searchParams\.delete\('slide'\); history\.replaceState\(null, '', u\.pathname \+ u\.search \+ u\.hash\); \}/);
 });
 
-test('a shared link with a value out of range still applies its view, selection and camera; the copy fallback keeps the page\'s path', () => {
-  const fn = main.slice(main.indexOf('async function loadShared('), main.indexOf('// The orange PREVIEW pill'));
-  assert.doesNotMatch(fn, /return;\s*\}\s*\n\s*\}/, 'no early return in the clamp branch');
-  assert.match(fn, /clamped = true; \}/);
-  assert.ok(fn.indexOf('clamped = true') < fn.indexOf('if (s.view && s.view !== store.get().view) setViewKey('));
-  assert.match(fn, /if \(clamped\) toast\(missing \|\| `This link had values the model does not accept/);
-  assert.match(main, /(?:catch \{|\n\s+)history\.replaceState\(null, '', location\.pathname \+ searchNow\(\) \+ `#s=\$\{encodeShare\(\)\}`\);/);
-});
+// (A shared link with a value out of range, and the copy fallback's path: tests/share-flow.test.js runs them.)

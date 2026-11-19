@@ -85,9 +85,7 @@ const ZOOM_TITLES = [['#zoomOut', 'Zoom out', 'Back out to the lobule'], ['#zoom
 import { initDebug } from './debug.js';
 import { initTopbarMotion } from './topbar-motion.js';
 import { FIRSTPASS, ORIGINS } from './blood.js';
-import { parseShare, cleanShare, encodeShare as encodeShareCode } from './share-link.js';
 import { focusBack } from './focus-flow.js';
-import { deepMerge, sanitizeParamsReport } from '../engine/scenario.js';
 import { createPaintGate } from './paint-gate.js';
 import { createSampleOwing } from './frame-samples.js';
 import { FIG_STEPS, figDetailWords } from './fig-detail-words.js';
@@ -101,6 +99,7 @@ import { feedbackDiagnostics } from './feedback-diag.js';
 import { fitMailto } from './packet/short.js';
 import { startReport, reportLines, note as noteEvent } from './report.js';
 import { extendHandle } from './pps-handle.js';
+import { createShare } from './share-flow.js';
 import { createKeyboard } from './keyboard.js';
 import { noteJump } from './display-state.js';
 import { createIdleRest, REST_AFTER_MS } from './idle-rest.js';
@@ -769,61 +768,11 @@ async function loadPreset(id, opts = {}) {
   return true;   // (B1: true only when this load's answer was the one applied; a replaced or failed load answers false)
 }
 
-function encodeShare(extra) {
-  const st = store.get();
-  const payload = { v: 1, preset: st.presetId, params: st.params, view: st.view, ...extra };
-  return encodeShareCode(payload);
-}
-// (Read through share-link.js: prototype keys dropped, and only a known patient, view, selection and a finite camera kept.)
-function readShare() {
-  const m = location.hash.match(/#s=([\w-]+)/);
-  return m ? cleanShare(parseShare(m[1]), store.get().presetList?.map((p) => p.id)) : null;
-}
-async function loadShared(s, { quiet = false } = {}) {
-  // B1: a load that was replaced (another patient tapped meanwhile) or failed must not take this link's settings.
-  if (!(await loadPreset(s.preset))) return false;
-  let clamped = false, repaired = '';
-  const missing = s.missing && `This link names a patient the app does not have (“${s.missing}”), so its settings opened on the healthy patient.`;
-  // (A patient made from readings, "Yours", is saved on its owner's device only: a link made from one carries the settings, and says so.)
-  if (s.fromYours) toast('This link comes from a patient made from readings, which is saved on the sender’s device only, so its settings opened on the healthy patient.', 'bad');
-  if (s.params) {
-    const merged = deepMerge(store.get().params, s.params), { params: clean, repairs } = sanitizeParamsReport(merged);
-    updateParams(() => clean, { settle: true, history: false });
-    // (R07: a value that is not what its field takes is replaced and named, never read as "on": the first few field paths are in the toast.)
-    if (repairs.length) repaired = repairs.slice(0, 3).map((r) => r.path || 'the settings').join(', ') + (repairs.length > 3 ? ` and ${repairs.length - 3} more` : '');
-    if (JSON.stringify(clean) !== JSON.stringify(merged)) { timeline.flush(); clamped = true; }   // (the view, selection and camera of the link still apply)
-  }
-  if (s.view && s.view !== store.get().view) setViewKey(s.view === 'circuit' ? 'circuit' : 'anatomy');   // (the link's view, through the one writer: a link made inside the lobule or sinusoid carries the anatomy's)
-  if (s.sel) store.set({ selection: s.sel });
-  if (s.cam && !store.get().lobule) stage.setCamera(s.cam, 0);
-  timeline.flush();
-  if (clamped) toast(missing || `This link had values the model does not accept${repaired ? ` (${repaired})` : ''}; they were set to the nearest allowed value or the default.`, missing ? 'bad' : undefined);
-  else if (missing) toast(missing, 'bad');
-  else if (!quiet) toast('Loaded the shared scenario.');
-  return true;
-}
-// The orange PREVIEW pill reloads onto the newest build and calls this first: a URL for the same place. In Present, the same
-// presentation and slide (?script=&slide=); in Patients, the same patient, settings, view, camera and selection (#s=).
-// "back" tells the next load to land there quietly: no case card, no "shared scenario" toast.
-function resumeUrl() {
-  const u = new URL(location.href), pos = presenter.position();
-  for (const k of ['script', 'slide', 'preset', 'home']) u.searchParams.delete(k);
-  u.searchParams.set('back', '1');
-  if (pos) { u.searchParams.set('script', pos.id); u.searchParams.set('slide', String(pos.at + 1)); u.hash = ''; }
-  else { const st = store.get(); u.hash = `#s=${encodeShare({ sel: st.selection || undefined, cam: st.lobule ? undefined : stage.cameraState() })}`; }
-  return u.href;
-}
-async function share() {
-  // On the hosted site a built-in patient's link goes through its share page (c/<id>.html, written at deploy
-  // by scripts/share-pages.mjs), so iMessage or Slack previews show the patient's name.
-  const id = store.get().presetId, page = location.hostname.endsWith('github.io') && store.get().presetList?.some((p) => p.id === id);
-  const url = `${page ? new URL(`c/${id}.html`, location.href).href : location.origin + location.pathname}#s=${encodeShare()}`;
-  try { await navigator.clipboard.writeText(url); toast('Link to this exact scenario copied.'); } catch {
-    // (An embedded copy has no address bar of its own to put the link in: the link opens the full app in a tab, where it is in the address bar to copy, SHL-5.)
-    if (EMBED) { window.open(url, '_blank', 'noopener'); toast('Link opened in a new tab: copy it from the address bar.'); return; }
-    history.replaceState(null, '', location.pathname + searchNow() + `#s=${encodeShare()}`); toast('Link placed in the address bar.');
-  }   // (the page's own path: a share page's /c/ path would make every later link /c/c/…)
-}
+// ── Scenarios & share (the links themselves: src/ui/share-flow.js) ─
+const { encodeShare, readShare, loadShared, resumeUrl, share } = createShare({
+  store, toast, setViewKey, loadPreset, updateParams, get presenter() { return presenter; }, get stage() { return stage; }, get timeline() { return timeline; },
+  env: { get location() { return location; }, get history() { return history; }, get clipboard() { return navigator.clipboard; }, open: (...a) => window.open(...a), embed: EMBED, search: () => searchNow() },
+});
 
 // ── Restart & reset ─────────────────────────────────
 // Restart: the current patient from its first moment .

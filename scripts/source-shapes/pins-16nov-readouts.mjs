@@ -1,7 +1,7 @@
 // Pins from the readout and deck-exit thread (16 Nov 2026), moved out of source-regex tests (PR-02). Pattern gone = the code it guarded changed: look before editing the rule.
 const CLIP = /clipboard\??\.write(Text)?\(|execCommand\(\s*['"](copy|cut)['"]/g;
 // file -> [how many writes, the control the user taps that runs each]
-const COPY_ALLOWED = { 'src/ui/frame-hud.js': 1, 'src/ui/presenter-library.js': 1, 'src/ui/main.js': 2, 'src/ui/perf-readout.js': 2, 'src/ui/lap.js': 2 };
+const COPY_ALLOWED = { 'src/ui/frame-hud.js': 1, 'src/ui/presenter-library.js': 1, 'src/ui/main.js': 1, 'src/ui/share-flow.js': 1, 'src/ui/perf-readout.js': 2, 'src/ui/lap.js': 2 };
 const code = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 export default [
   // slide counter: one source for the bar's count and the reader's line
@@ -14,7 +14,8 @@ export default [
   { file: 'src/ui/presenter-start.js', need: [/if \(b\.history\) patientHistory\?\.load\(b\.history\)/, 'and puts them back on the way out, with the patient'] },
   { file: 'src/ui/timeline.js', need: [/tlGen\+\+/, 'timeline.load drops the timers of the history it replaces (a snapshot asked for later, an edit still being typed)'] },
   // clipboard: written only behind a control the user taps
-  { file: 'src/ui/main.js', scan: (t) => { const n = (code(t).match(CLIP) || []).length; return n === COPY_ALLOWED['src/ui/main.js'] ? [] : [`${n} clipboard writes, ${COPY_ALLOWED['src/ui/main.js']} allowed (share(): the menu's "Copy link to this view" and the search card's "Copy share link"; sendFeedback(): the "Copy the full report" button). Nothing copies by itself (a patient pick wrote the clipboard in a play-test, 16 Nov 2026)`]; } },
+  { file: 'src/ui/main.js', scan: (t) => { const n = (code(t).match(CLIP) || []).length; return n === COPY_ALLOWED['src/ui/main.js'] ? [] : [`${n} clipboard writes, ${COPY_ALLOWED['src/ui/main.js']} allowed (sendFeedback(): the "Copy the full report" button; Copy link is share-flow.js). Nothing copies by itself (a patient pick wrote the clipboard in a play-test, 16 Nov 2026)`]; } },
+  { file: 'src/ui/share-flow.js', scan: (t) => ((code(t).match(CLIP) || []).length === 1 ? [] : ["share(): the menu's \"Copy link to this view\" and the search card's \"Copy share link\" are its one clipboard write"]) },
   { file: 'src/ui/frame-hud.js', scan: (t) => ((code(t).match(CLIP) || []).length === 1 ? [] : ['the HUD\'s Copy button is its one clipboard write']) },
   { file: 'src/ui/presenter-library.js', scan: (t) => ((code(t).match(CLIP) || []).length === 1 ? [] : ['a deck row\'s Copy link is its one clipboard write']) },
   { file: 'src/ui/perf-readout.js', scan: (t) => ((code(t).match(CLIP) || []).length === 2 ? [] : ['?perf Copy is its only clipboard write (writeText and its fallback)']) },
