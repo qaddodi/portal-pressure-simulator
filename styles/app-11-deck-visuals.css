@@ -19,6 +19,7 @@
    Each box is 1.6 em shorter than it was: the chart no longer keeps a key row over its plot (tool-profile.js profileGeo), so the plot is as tall as
    before and the card is that much shorter: "less wasted space on top", Mohammad, 21 Oct.) */
 .pz-prof { height: var(--prof-h, 250px); min-height: 11em; }
+.pz:not(.stack) .pz-tool[data-kind="profile"] .pz-prof { max-height: var(--pz-room, none); }   /* (never taller than the card's room, --pz-room, presenter-zoom.js toolRoom; never under its 11 em least) */
 .pz:not(.stack) .pz-tool[data-kind="profile"] .pz-prof { --prof-h: calc(min(max(62cqi, calc(28 * var(--pzh))), calc(40 * var(--pzh))) * var(--pz-dk, 1) - 1.6em); }   /* (stacked under the words, one of the fixed steps of the card's blocks, presenter.js DK: the chart's height steps with them, never with the fit. A chart beside its tiles is narrow, so 62 % of its width alone left it at its minimum, a plot 29 to 36 px tall on a card with room under it: it takes at least 28 % of the window's height.) */
 .pz.stack .pz-prof { --prof-h: calc(min(74cqi, 270px) - 1.6em); }
 .pz.low .pz-data.has-tool .pz-prof { --prof-h: calc(min(62cqi, max(170px, calc(48 * var(--pzh)))) - 1.6em); }   /* (a short window, a phone on its side too: the card has the window's height to itself beside the words, so the ladder takes what it needs of it, not a flat 44 % of its width or 170 px, whose plot was 29 to 39 px tall on a card with half its room empty; one size per window) */
@@ -102,10 +103,10 @@
 .pz.stack .pze-planewrap.pze-nokey > .pze-key { display: block; }   /* (an iPhone's plot is too narrow for every zone's words: the key stays under it) */
 .pze-plot { position: relative; width: 100%; height: calc(44 * var(--pzh)); min-height: 240px; font-size: var(--s-cap); }   /* (a summary's plot is an illustration: lower than the 52 it was, so its card stands smaller on every side, Mohammad 29 Oct) */
 .pz.stack .pze-plot { height: auto; aspect-ratio: 1.15; min-height: 0; }
-.pze-plot.pze-incard { height: clamp(200px, calc(30 * var(--pzh)), 360px); min-height: 0; font-size: var(--ch-cap, var(--s-cap)); }
+.pze-plot.pze-incard { height: min(clamp(200px, calc(30 * var(--pzh)), 360px), max(120px, calc(var(--pz-room, 9999px) - 5.5em))); min-height: 0; font-size: var(--ch-cap, var(--s-cap)); }   /* (never taller than the card's room less the key and the reading under it, --pz-room, presenter-zoom.js toolRoom) */
 .pz.stack .pze-plot.pze-incard { height: min(calc(clamp(210px, 66cqi, 300px) * var(--pz-fit, 1)), max(150px, var(--pz-ph, 9999px))); aspect-ratio: auto; }
 .pz.low .pze-plot.pze-incard { height: 132px; }
-.pze-plot.pze-incard.pze-ownwords { height: calc(clamp(200px, calc(30 * var(--pzh)), 360px) + 1.3em + 6px); }   /* (a plane whose zones name themselves has no key under it in the card: the plot takes the key's room) */
+.pze-plot.pze-incard.pze-ownwords { height: calc(min(clamp(200px, calc(30 * var(--pzh)), 360px), max(120px, calc(var(--pz-room, 9999px) - 5.5em))) + 1.3em + 6px); }   /* (a plane whose zones name themselves has no key under it in the card: the plot takes the key's room) */
 .pz.stack .pze-plot.pze-incard.pze-ownwords { height: calc(min(clamp(210px, 66cqi, 300px) * var(--pz-fit, 1), max(150px, var(--pz-ph, 9999px))) + 1.3em + 6px); }
 .pz.low .pze-plot.pze-incard.pze-ownwords { height: calc(132px + 1.3em + 6px); }
 /* (17 Nov 2026, Mohammad: the HVPG against PPG chart "doesn't need to be that tall". compact: wide and low, the plot about twice as wide as high: a summary's lower than the zones' 44 and an iPhone's 1.2 wide to 1 high, where six or seven names must still find room; the card's about 60 % of the height it had.) */
@@ -186,7 +187,7 @@
 /* (A talk's data card holding the stent card stacked under the words: its pictures are as wide as the card's fit lets them, so the fit can shorten them. The fit zooms the card's words
    and parts, which it keeps at their size here (--pz-z), and shortens only the pictures, as it does the FibroScan's, the vitals' and the catheter's: it found 0.5 and the pictures stayed
    as tall as before, so the Velocity | Pressure switch and the staircase under the side view ran out of the card (the tester, 17 Nov 2026, TIPS deck 20 at 1440 x 900 and 780).) */
-.pz-data.col .sc > .sc-stage { width: max(min(100%, 240px), calc(min(100%, 520px) * var(--pz-fit, 1))); }   /* (never narrower than 240 px: the pictures' words are 16 units of a 320 wide picture at most, 12 px on the screen at 240, so the fit shortens them without taking their lettering under 12 px; the tester, 17 Nov 2026: 10.3 px) */
+.pz-data.col .sc > .sc-stage { width: max(min(100%, 170px), min(max(min(100%, 240px), calc(min(100%, 520px) * var(--pz-fit, 1))), calc((var(--pz-room, 9999px) - 50px) / .995))); }   /* (the two pictures stand 0.995 of their width tall between them, the Velocity | Pressure switch and the gaps 50 px: never taller than the card's room, --pz-room, presenter-zoom.js toolRoom. The words in them keep 12 px by --svk, tool-path's neighbour svk() in presenter-tools.js, so a narrow picture grows its letters, up to twice) */   /* (never narrower than 240 px: the pictures' words are 16 units of a 320 wide picture at most, 12 px on the screen at 240, so the fit shortens them without taking their lettering under 12 px; the tester, 17 Nov 2026: 10.3 px) */
 .sc > .sc-color, .sc > .sc-tracesw, .sc > .sc-lens { display: flex; gap: 2px; flex: none; align-self: center; padding: 2px; border-radius: 9px; background: var(--surface-2); }   /* (the stent card's Velocity | Pressure and Pressure | Energy | Velocity switches, in the Tests dock's switch look; the TIPS view moves the colour one into its header) */
 .sc > .sc-tracesw[hidden], .sc > .sc-lens[hidden] { display: none; }
 

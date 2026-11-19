@@ -941,7 +941,11 @@ export function planePlot(plane, { card = false } = {}) {
     let W = el.clientWidth, H = el.clientHeight;
     if (!W || !H) [W, H] = lastSize;
     // (A plane that shares the guideline card's graph is drawn at that graph's proportions, whatever the card gives it: one size for every case.)
-    if (card && W && pl.look === 'guide') { const ph = plotHeight(W); if (H !== ph) { el.style.height = `${ph}px`; H = ph; } }
+    if (card && W && pl.look === 'guide') {
+      // (Never taller than the card's room less the key and the reading under it, --pz-room, presenter-zoom.js toolRoom: one size for every case on a slide, as the room is the slide's.)
+      const room = parseFloat(el.closest?.('.pz-data')?.style.getPropertyValue('--pz-room')), ph = room > 0 ? Math.min(plotHeight(W), Math.max(110, Math.floor(room - 66))) : plotHeight(W);
+      if (H !== ph) { el.style.height = `${ph}px`; H = ph; }
+    }
     if (!W || !H) return;
     lastSize = [W, H];
     size = `${W}x${H}`;
