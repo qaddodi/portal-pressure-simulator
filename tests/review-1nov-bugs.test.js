@@ -43,7 +43,7 @@ test('V1: the words\' floor keeps their smallest lettering at 12 px on the scree
 test('V2: the first-use hint leaves when a talk begins, and is not counted as read', () => {
   const hint = body(MAIN, 'function showFirstHint()');
   assert.match(hint, /offTalk = store\.on\('presenting', \(on\) => \{ if \(on\) close\('talk'\); \}\);/);
-  assert.match(hint, /const done = \(why\) => \{ off\?\.\(\); off = null; offTalk\?\.\(\); offTalk = null; if \(why === 'talk'\) return; try \{ localStorage\.setItem\(HINT_KEY, '1'\)/);
+  assert.match(hint, /const done = \(why\) => \{ off\?\.\(\); off = null; offTalk\?\.\(\); offTalk = null; if \(why === 'talk'\) return; try \{ prefs\.setItem\(HINT_KEY, '1'\)/);
   assert.match(hint, /sticky: true, onClose: done/, 'still one sticky card until a pick, as before');
 });
 

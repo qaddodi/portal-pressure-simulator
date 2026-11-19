@@ -2,6 +2,7 @@
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
 import './test-boot.js';   // (very first: ?testclock puts the page's clocks on the test clock before any other module reads the time)
+import { prefs, clearAll } from './prefs.js';
 import { lcFirst } from '../engine/lc-first.js';
 import { shortName, COMPACT } from './scenario-names.js';
 import { motionBudget } from './motion-budget.js';   // (first: counts from the start when ?perf or ?budget=1 asks)
@@ -186,9 +187,9 @@ async function main() {
   applyTheme(knownLook(savedTheme));   // an unknown saved theme falls back to the device's
   glassAtLoad(document.documentElement, { stored: storedGlassMode(readLS) });   // (Settings › Blur effect as stored; on where none was chosen, every device, 12 Nov 2026)
   // The Student role was removed (to come back later): an old saved role is dropped, everyone gets the full app.
-  try { localStorage.removeItem('pps.role'); } catch (e) { caught('main:122', e); /* storage unavailable */ }
+  try { prefs.removeItem('pps.role'); } catch (e) { caught('main:122', e); /* storage unavailable */ }
   // Language selection was removed too (English only, to come back later): drop an old saved choice.
-  try { localStorage.removeItem('pps.lang'); } catch (e) { caught('main:124', e); /* storage unavailable */ }
+  try { prefs.removeItem('pps.lang'); } catch (e) { caught('main:124', e); /* storage unavailable */ }
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
@@ -545,6 +546,8 @@ async function main() {
     const built = !document.querySelector('script[type=module][src^="src/"]');
     if (built) { if (window.ppsFigureReady) reg(); else addEventListener('pps:figure-ready', reg, { once: true }); }
   }
+  // (The stale-page recovery reloads with ?r=<time> to get a fresh page; once booted it has done its job, so it leaves the address, and the links the page makes (Copy link, Send feedback, resume) never carry it. SHL-10.)
+  try { const u = new URL(location.href); if (u.searchParams.has('r')) { u.searchParams.delete('r'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); } } catch (e) { caught('main:r-stamp', e); /* a link is only tidier without it */ }
   performance.mark?.('pps:booted');   // (P3: the first figure frame and the first input accepted are read from these marks and the browser's own first-input entry)
   // The surfaces most sessions never open are fetched and read in once the page is idle, one at a time, each only after the page has been
   // left alone for a moment (quiet.js): a module's read-in is tens of ms of script on a phone, and a timer alone put it in a pan or pinch.
@@ -846,7 +849,7 @@ function resetEverything() {
     h('p', {}, 'This clears the timeline, comparisons and every change, and reloads the simulator with a healthy patient. Your preferences are kept.'),
     h('div', { class: 'btn-row end' },
       h('button', { class: 'btn', onclick: () => closeModal() }, 'Cancel'),
-      h('button', { class: 'btn danger-fill', onclick: () => { try { sessionStorage.clear(); } catch (e) { caught('main:618', e); /* storage unavailable */ } location.replace(location.pathname); } }, 'Reset and reload'))), { sub: null, compact: true });
+      h('button', { class: 'btn danger-fill', onclick: () => { try { sessionStorage.clear(); } catch (e) { caught('main:618', e); /* storage unavailable */ } location.replace(location.pathname + (EMBED ? '?embed' : '')); } }, 'Reset and reload'))), { sub: null, compact: true });
 }
 
 // ── Actions ─────────────────────────────────────────
@@ -925,10 +928,10 @@ function zoomLobule() { stage.askSinusoid(false); stage.diveToLobule(); }   // (
 let tipEl, stageClock;
 function buildHud() {
   // Moving blood: the chevrons are remembered per device (blood-pref.js: it also drops what the removed Streaks option saved).
-  const blood = loadBloodPref(localStorage);
+  const blood = loadBloodPref(prefs);
   store.set({ blood });
   store.on('blood', (v) => {
-    try { localStorage.setItem('pps.blood2', JSON.stringify(v)); } catch (e) { caught('main:690', e); /* storage unavailable */ }   // alloc-rare: the saved choice is written when the Blood menu changes it, never per frame
+    try { prefs.setItem('pps.blood2', JSON.stringify(v)); } catch (e) { caught('main:690', e); /* storage unavailable */ }   // alloc-rare: the saved choice is written when the Blood menu changes it, never per frame
     sendBeat(); syncBloodBtn();
     redraw();
   });
@@ -1168,7 +1171,7 @@ function labelLevelSeg() {
     const b = h('button', { 'aria-pressed': String(cur === v), 'data-labels': v, title: { key: 'Portal vein, the HVPG pair and what is abnormal; every station once zoomed in', all: 'Every station at every zoom', none: 'No station labels' }[v] }, l);
     b.addEventListener('click', () => {
       store.set({ labelLevel: v });
-      try { localStorage.setItem('pps.labels', v); } catch (e) { caught('main:857', e); /* storage unavailable */ }
+      try { prefs.setItem('pps.labels', v); } catch (e) { caught('main:857', e); /* storage unavailable */ }
       b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
     });
     return b;
@@ -1373,7 +1376,7 @@ function wireTopbar() {
   // (And the frame-time overlay beside it, frame-hud.js: fps, 1% low, interval and script percentiles, surfaces, throttle.)
   if (new URLSearchParams(location.search).has('perf')) import('./frame-hud.js').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
   // High Refresh (high-refresh.js): on a touch screen the first tap goes full screen, past the browser's 60 Hz hold for pages.
-  import('./high-refresh.js').then(({ startHighRefresh }) => startHighRefresh()).catch(() => { /* full screen is a bonus */ });
+  if (!EMBED) import('./high-refresh.js').then(({ startHighRefresh }) => startHighRefresh()).catch(() => { /* full screen is a bonus */ });   // (an embed in someone else's page never takes the screen on a tap: SHL-5)
   if (/[?&]lap\b/.test(location.search)) import('./lap.js').then(({ startLap }) => startLap()).catch(() => { /* a measuring aid only */ });
   if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
   // ?offgpu=1 in the address: the live count of work off the GPU, flashing red when it happens during motion (offgpu-overlay.js). Without it, never loaded.
@@ -1401,7 +1404,7 @@ function setFrameBreakdown(on) {
   hudBusy = true;
   import('./frame-hud.js').then(({ startFrameHud }) => { hudEl = startFrameHud(); }).catch(() => { /* a measuring aid only */ }).finally(() => { hudBusy = false; });
 }
-const fpsOn = () => { try { return localStorage.getItem('pps.fps') === '1'; } catch { return false; } };
+const fpsOn = () => { try { return prefs.getItem('pps.fps') === '1'; } catch { return false; } };
 setFpsCounter(fpsOn());
 function openSettings(anchor, withSearch = false) {
   const cur = currentLook() || 'system';
@@ -1409,7 +1412,7 @@ function openSettings(anchor, withSearch = false) {
   const talk = presenter.active();
   // Settings is sorted by what a row does, one titled group each (the revamp, 4 Nov 2026): the one-shot actions first, then how it looks, the
   // display switches, the model, the measuring aids, and Reset last. ("Accessibility" had held Blur effect and the two measuring aids.)
-  const toggleStored = (key, caught_) => (on) => { try { localStorage.setItem(key, on ? '1' : '0'); } catch (e) { caught(caught_, e); /* storage unavailable */ } };
+  const toggleStored = (key, caught_) => (on) => { try { prefs.setItem(key, on ? '1' : '0'); } catch (e) { caught(caught_, e); /* storage unavailable */ } };
   popover(anchor, [
     // (Send feedback heads the sheet in every mode and on every device, above the dock's Search and Help, talks included, so a tester reaches it in one tap from any Settings button.)
     // (From the thumb dock's Settings tab, History (Search is a tab of its own there) and Help follow it: the dock has no More menu, and a touch keyboard has no ?. Enter full screen acts once, so it sits with them.)
@@ -1430,7 +1433,7 @@ function openSettings(anchor, withSearch = false) {
     menuSection('Display',
       menuToggle(!document.documentElement.hasAttribute('data-noglass'), 'layers', 'Blur effect', 'Frosted glass on cards and labels. Off runs cooler', (on) => {
         const root = document.documentElement;
-        try { storeGlassMode((k, x) => localStorage.setItem(k, x), on ? 'field' : 'off'); } catch (e) { caught('main:1038', e); /* storage unavailable */ }
+        try { storeGlassMode((k, x) => prefs.setItem(k, x), on ? 'field' : 'off'); } catch (e) { caught('main:1038', e); /* storage unavailable */ }
         const flip = setGlassMode(root, on ? 'field' : 'off');
         root.removeAttribute('data-noglass-auto');   // (chosen now: no longer the software renderer's own choice, blur-guard.js)
         if (flip) themeChanged();   // (the labels drawn on the GPU take the glass's look: label-theme.js)
@@ -1523,7 +1526,7 @@ function helpRows(titled = false) {
 // (the build from the preview pill, the device, the screen and a link back to this exact view). The app itself sends
 // nothing, so the Privacy page stays true.
 function sendFeedback() {
-  try { localStorage.setItem(ASK_KEY, 'done'); } catch (e) { caught('main:1120', e); /* storage unavailable */ }   // (sent once: the timed ask never comes)
+  try { prefs.setItem(ASK_KEY, 'done'); } catch (e) { caught('main:1120', e); /* storage unavailable */ }   // (sent once: the timed ask never comes)
   const pill = document.getElementById('preview-badge')?.textContent.trim();
   const build = `${pill || 'Live site'} · ${RELEASE}`;   // (the release too: the tag and commit this page was built from, so a report from the live site names its build, SHL-3)
   const theme = currentLook() || (darkMQ.matches ? 'dark' : 'light');
@@ -1608,7 +1611,7 @@ addEventListener('pointerdown', (e) => {
 }, true);
 function applyTheme(t, clear) {
   applyLookAttrs(document.documentElement, t);   // (data-theme, and data-palette for Navy and Black: looks.js)
-  try { if (t) localStorage.setItem('pps.theme', t); else if (clear) localStorage.removeItem('pps.theme'); } catch (e) { caught('main:1168', e); /* storage unavailable */ }
+  try { if (t) prefs.setItem('pps.theme', t); else if (clear) prefs.removeItem('pps.theme'); } catch (e) { caught('main:1168', e); /* storage unavailable */ }
   // (The figure and the instruments take the look in the theme frame, below (onTheme), with the colour tokens and the stage's styles read
   // again: drawn here, in the task of the attribute write, they read the look before.) A hidden page runs no frame: drawn at once.
   if (document.hidden) { const f = store.get().frame; if (f) { stage?.update(viewFrame(f)); dock?.update(f); } }
@@ -1641,7 +1644,7 @@ darkMQ.addEventListener('change', () => {
 // alone, so a card, a sheet or a presenting change on the app no longer costs a style pass, nor a second one 600 ms later.)
 onTheme(syncStatusBar);
 syncStatusBar();
-function readLS(k) { try { return localStorage.getItem(k); } catch { return null; } }
+function readLS(k) { try { return prefs.getItem(k); } catch { return null; } }
 // ── Patient chart, Treat card and instrument workspace ─
 // The chart is a card floating over the right of the figure (a bottom sheet on a phone), opened
 // from Findings or by a vessel's Details. It starts closed: the figure
@@ -2320,10 +2323,7 @@ function wireKeyboard() {
     if (e.isComposing || e.keyCode === 229) return;   // (an input method is composing: its Enter and Esc are its own)
     const tag = (e.target.tagName || '').toLowerCase();
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); palette.isOpen() ? palette.close() : palette.open(); return; }
-    if ((e.ctrlKey || e.metaKey) && !e.altKey && tag !== 'input' && tag !== 'textarea' && tag !== 'select' && !presenter.active() && !isModalOpen() && !mainMenu.isOpen()) {   // (in a dialog the browser's own zoom is the text's)
-      const z = e.key === '=' || e.key === '+' ? 'in' : e.key === '-' || e.key === '_' ? 'out' : e.key === '0' ? 'fit' : null;
-      if (z) { e.preventDefault(); if (z === 'in') stage.zoomIn(); else if (z === 'out') stage.zoomOut(); else stage.fit(); return; }
-    }
+    // (Ctrl or Cmd with + − 0 is the browser's page zoom, which a low-vision user needs: WCAG 1.4.4, SHL-5. The figure's zoom is the plain + − 0 below.)
     const inputType = tag === 'input' ? (e.target.type || 'text') : '';
     if (tag === 'select' || tag === 'textarea' || e.target.isContentEditable || (tag === 'input' && !NON_TEXT_INPUT.has(inputType))) {
       // (A dialog's one-line field, a name or a link, cancels its dialog with Esc as the old prompt did; a longer text box blurs first.)
@@ -2371,6 +2371,10 @@ function wireKeyboard() {
     // With a card open, the number keys run its verbs in order.
     if (/^[1-9]$/.test(e.key) && card.isOpen()) { if (card.trigger(+e.key)) e.preventDefault(); return; }
     if (e.key === '.') { host.send(RUN_ON); setTimeout(runOff, 60); return; }
+    // The figure's zoom on the plain keys (Ctrl or Cmd with them stays the browser's page zoom).
+    if (e.key === '+' || e.key === '=') { e.preventDefault(); stage.zoomIn(); return; }
+    if (e.key === '-' || e.key === '_') { e.preventDefault(); stage.zoomOut(); return; }
+    if (e.key === '0') { e.preventDefault(); stage.fit(); return; }
     if (e.key === '[' || e.key === ']') {
       // One ladder: real-time speeds, then the time-lapse rates.
       const ladder = [...SPEEDS.map((v) => [v, false]), ...LAPSES.map(([d]) => [d, true])];
@@ -2462,7 +2466,7 @@ function openHelp(section) {
     ['Run the model', [['Space', 'Play / pause'], ['[ ]', 'Slower / faster'], ['.', 'Step'], ['Z', 'Settle to equilibrium'], [keyLabel('Ctrl/⌘ Z'), 'Back one change on the timeline (Shift: forward)'],
       ['P', 'Compare from here / stop comparing'], ['J', 'Inject dye (hold for longer)']]],
     ['Change the view', [['A', 'Anatomy ⇄ circuit'], ['L', 'Next vessel coloring (Shift: previous)'], ['I', 'Open / close Tests'], ['T', 'Open / close Treat'],
-      [keyLabel('Ctrl/⌘ + / − / 0'), 'Zoom in / out / fit the figure'], [keyLabel('Ctrl/⌘ K or /'), 'Search'], ['?', 'This guide']]],
+      ['+ / − / 0', 'Zoom in / out / fit the figure'], [keyLabel('Ctrl/⌘ K or /'), 'Search'], ['?', 'This guide']]],
     ['Reach and act', [['Click', 'Open the actions for a vessel or organ'], ['1 – 9', 'Run an action on the open card'], ['Tab · Enter', 'Reach a vessel, open its actions'],
       ['← → ↑ ↓', 'Step through the stations, mesenteric veins to heart'], ['Shift ← →', 'Follow the vessel in focus along the flow'], ['Esc', 'Cancel · close the card · close']]],
   ];
@@ -2514,13 +2518,16 @@ function openAbout(section) {
       h('tbody', {}, CUTOFFS.map((r) => h('tr', {}, r.map((c, i) => h('td', i ? { 'data-label': CUT_HEADS[i], 'data-sev': CUT_SEV[i], class: c === '—' ? 'none' : '' } : {}, c)))))))),
     h('p', { class: 'sub' }, 'Thresholds belong to gradients, not to the color of a vessel. HVPG ≥10 mmHg is clinically significant portal hypertension (CSPH) in cirrhosis. HVPG ≥20 mmHg is prognostic when measured during acute variceal bleeding. An HVPG of 12 mmHg is not a bleeding threshold: varices can bleed below it. After a TIPS for variceal bleeding, 12 mmHg is the reference for the directly measured portosystemic gradient (AASLD 2024).'),
     h('h3', {}, 'Reference review'),
-    h('p', {}, 'The presentations follow Baveno VIII (J Hepatol, August 2026), with AASLD guidance where US practice differs (octreotide). Baveno VIII changed the recompensation criteria (>6 months, Child–Pugh A), the indeterminate zone for stiffness (ANTICIPATE probability ≥75%, or spleen stiffness >55 kPa on the 100 Hz probe), the window for preemptive TIPS and anticoagulation for portal vein thrombosis. Baveno VIII statements were taken from published summaries; a line-by-line check against the full text is still pending.'),
+    h('p', {}, 'The presentations follow Baveno VIII (J Hepatol, August 2026), with AASLD guidance where US practice differs (octreotide). Baveno VIII changed the recompensation criteria (>6 months, Child–Pugh A), the indeterminate zone for stiffness (ANTICIPATE probability ≥75%, or spleen stiffness >55 kPa on the 100 Hz probe), the window for preemptive TIPS and anticoagulation for portal vein thrombosis.'),
     h('h3', {}, 'Clinical review'),
     h('p', {}, 'Presentation and patient content follows the guidance below. An external clinical advisory review with named reviewers is pending; their sign-off will be listed here.'),
     h('h3', { 'data-sec': 'refs' }, 'References'),
     h('ol', { class: 'refs' },
       h('li', {}, 'Baveno VIII: advancing consensus in portal hypertension. J Hepatol, August 2026. ', pmid(42624290)),
       h('li', {}, 'Kaplan DE, et al. AASLD Practice Guidance on risk stratification and management of portal hypertension and varices in cirrhosis. Hepatology 2024;79:1180–1211.'),
+      h('li', {}, 'EASL Clinical Practice Guidelines on vascular diseases of the liver. J Hepatol 2026;84:399–456.'),
+      h('li', {}, 'Biggins SW, et al. Diagnosis, evaluation, and management of ascites, spontaneous bacterial peritonitis and hepatorenal syndrome: 2021 practice guidance by the AASLD. Hepatology 2021;74:1014–1048.'),
+      h('li', {}, 'Northup PG, et al. Vascular liver disorders, portal vein thrombosis, and procedural bleeding in patients with liver disease: 2020 practice guidance by the AASLD. Hepatology 2021;73:366–413.'),
       h('li', {}, 'Bosch J, Groszmann RJ, et al. Measurement of portal pressure (HVPG). Hepatology / Semin Liver Dis.'),
       h('li', {}, 'Prognostic role of endoscopic ultrasound-guided direct portal pressure gradient measurement in porto-sinusoidal vascular disorder. Liver Int 2025. Mean direct gradient 16.7 and mean HVPG 5.5 mmHg. ', pmid(40251984)),
       h('li', {}, 'Directly measured portal pressure gradient and variceal hemorrhage in patients undergoing TIPS: bleeding occurred at <12 mmHg. ', pmid(7485008)),
@@ -2533,22 +2540,22 @@ function openAbout(section) {
   scrollToSection(section);
 }
 function openPrivacy() {
-  const keys = (() => { try { return Object.keys(localStorage).filter((k) => k.startsWith('pps.')); } catch { return []; } })();
+  const keys = (() => { try { return prefs.keys(); } catch { return []; } })();
   openModal('Privacy', h('div', {},
     h('p', {}, 'The simulator runs entirely in your browser. It makes no requests to any other site: no analytics, no trackers, no advertising, no third-party fonts or scripts. There is no account and no server that stores anything about you.'),
     h('p', {}, 'What stays on this device, in your browser’s storage: your preferences (theme) and presenter scripts you create. It leaves the device only when you share it (a link or a script file).'),
     FEEDBACK_EMAIL ? h('p', {}, 'Send feedback (in Settings) opens a draft in your own email app with your device, screen size, how fast the page is running, which blurs the browser is drawing, a short list of recent errors and page reloads, and a link to the view you were on. Nothing is sent unless you send that email yourself.') : null,
     h('p', {}, 'For institutions: no personal data is processed by the publisher, which supports FERPA and GDPR compliance.'),
     h('p', { class: 'sub' }, keys.length ? `Stored now: ${keys.join(', ')}.` : 'Nothing is stored on this device yet.'),
-    clearRow(keys)));
+    clearRow()));
 }
 // "Clear my data on this device" asks in place, in the dialog's own words, not with the browser's box: the button gives way to the
 // question and its two answers, and Cancel brings it back.
-function clearRow(keys) {
+function clearRow() {
   const row = h('div', { class: 'btn-row' });
   const ask = () => {
     const msg = h('p', { class: 'clear-q', role: 'alert' }, 'Delete everything this simulator has stored on this device?');
-    const go = h('button', { class: 'btn danger-fill', onclick: () => { for (const k of keys) { try { localStorage.removeItem(k); } catch (e) { caught('main:2167', e); /* storage unavailable */ } } closeModal(); toast('Your data on this device has been cleared.'); } }, 'Delete it');
+    const go = h('button', { class: 'btn danger-fill', onclick: () => { clearAll().then(() => { closeModal(); toast('Your data on this device has been cleared.'); }); } }, 'Delete it');   // (this copy's keys, the session data and its offline cache; never the other copy's: prefs.js)
     const no = h('button', { class: 'btn', onclick: () => { row.replaceChildren(start); start.focus({ preventScroll: true }); } }, 'Keep it');
     row.replaceChildren(msg, h('div', { class: 'btn-row' }, no, go));
     no.focus({ preventScroll: true });
@@ -2572,13 +2579,13 @@ function showFirstHint() {
   if (EMBED) return;   // (?embed: an iframe on someone else's page shows no hint)
   if (navigator.webdriver) return;
   let seen = true;
-  try { seen = !!localStorage.getItem(HINT_KEY); } catch (e) { caught('main:2188', e); /* storage unavailable: no hint */ }
+  try { seen = !!prefs.getItem(HINT_KEY); } catch (e) { caught('main:2188', e); /* storage unavailable: no hint */ }
   if (seen) return;
   const show = () => {
     if (store.get().selection || presenter.active() || sheetOverFigure()) return;
     const verb = matchMedia('(hover: hover) and (pointer: fine)').matches ? 'Click' : 'Tap';
     let off = null, offTalk = null;
-    const done = (why) => { off?.(); off = null; offTalk?.(); offTalk = null; if (why === 'talk') return; try { localStorage.setItem(HINT_KEY, '1'); } catch (e) { caught('main:2194', e); /* storage unavailable */ } };
+    const done = (why) => { off?.(); off = null; offTalk?.(); offTalk = null; if (why === 'talk') return; try { prefs.setItem(HINT_KEY, '1'); } catch (e) { caught('main:2194', e); /* storage unavailable */ } };
     const close = toast(`${verb} a vessel or the liver to change it.`, '', { sticky: true, onClose: done });
     off = store.on('selection', (sel) => { if (sel) close(); });
     // A sheet over the figure (Tests, the chart, Treat or History on a phone) takes the hint away: it sat over the strip of figure the sheet left.
@@ -2605,7 +2612,7 @@ function armFeedbackAsk() {
   if (EMBED) return;   // (and none asks for feedback)
   if (!FEEDBACK_EMAIL || navigator.webdriver) return;
   let was = null;
-  try { was = localStorage.getItem(ASK_KEY); } catch { return; }   // (no storage: it could not remember, so it never asks)
+  try { was = prefs.getItem(ASK_KEY); } catch { return; }   // (no storage: it could not remember, so it never asks)
   if (was === 'done') return;
   const TICK = 5000, IDLE = 60000;
   let active = 0, lastInput = 0, last = performance.now(), down = 0, timer = 0;
@@ -2624,13 +2631,13 @@ function armFeedbackAsk() {
     toast('Anything look wrong or confusing so far? A short email helps the author fix it.', '', askToast);
   };
   // (The card's answers and options are made once, with the timer, not each time it asks.)
-  const answer = (v) => { try { localStorage.setItem(ASK_KEY, v); } catch (e) { caught('main:2230', e); /* storage unavailable */ } };
+  const answer = (v) => { try { prefs.setItem(ASK_KEY, v); } catch (e) { caught('main:2230', e); /* storage unavailable */ } };
   const askToast = {
     sticky: true, holdInTalk: true,   // (held while a talk plays: it stood over a slide's tag chip and the preview badge, 16 Nov 2026; asked again, with the minutes counted anew, once the talk is over)
     actions: [['Send feedback', () => sendFeedback()], ['Not now', () => {}]],
     onClose: (why) => {
       if (why === 'pushed' || why === 'held') { active = 0; last = performance.now(); timer = setInterval(tick, TICK); return; }   // (not an answer)
-      try { if (localStorage.getItem(ASK_KEY) !== 'done') answer(was === 'later' ? 'done' : 'later'); } catch (e) { caught('main:2235', e); /* storage unavailable */ }
+      try { if (prefs.getItem(ASK_KEY) !== 'done') answer(was === 'later' ? 'done' : 'later'); } catch (e) { caught('main:2235', e); /* storage unavailable */ }
     },
   };
   timer = setInterval(tick, TICK);

@@ -51,7 +51,7 @@ test('the explore shortcuts do not reach a talk, except Search and the guide; th
   assert.ok(at > main.indexOf("if (isModalOpen() || mainMenu.isOpen()) return;"), 'after the dialog and menu rule');
   assert.ok(at < main.indexOf("(e.shiftKey ? doRedo : doUndo)()"), 'before undo');
   assert.ok(at < main.indexOf("if (e.key === '[' || e.key === ']')"), 'before the speed keys');
-  assert.match(main, /tag !== 'select' && !presenter\.active\(\) && !isModalOpen\(\) && !mainMenu\.isOpen\(\)\) \{[^\n]*\n\s+const z =/);
+  assert.ok(at < main.indexOf("if (e.key === '+' || e.key === '=') { e.preventDefault(); stage.zoomIn(); return; }"), 'the figure\'s plain zoom keys come after the talk rule: a talk never gets them');
   assert.match(main, /projectorOn: \(\) => toggleProjector\(true\), projectorOff: \(\) => toggleProjector\(false\)/);
 });
 

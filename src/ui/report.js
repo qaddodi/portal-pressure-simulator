@@ -7,6 +7,7 @@
 //   ring     error, unhandledrejection, context lost / restored, over-budget, with time, view and GPU memory at the time.
 //   alive    sessionStorage 'pps.alive' is set at boot and cleared on pagehide. A boot that finds it still set means the last page of this tab
 //            ended without unloading, which on iOS is the memory kill: 'pps.reloads' (localStorage) goes up and the ring says so.
+import { prefs } from './prefs.js';
 import { caught } from './caught.js';
 import { overBudget, contextCount, deviceClass, memoryMB, peakMB, ENVELOPES } from './gpu-budget.js';
 import { onFrameEnd } from './frame.js';
@@ -14,7 +15,7 @@ import { onFrameEnd } from './frame.js';
 const RING_KEY = 'pps.ring', ALIVE_KEY = 'pps.alive', RELOADS_KEY = 'pps.reloads', LAST_KEY = 'pps.last', MAX = 20;
 let ring = [], where = () => '', t0 = 0, lost = 0, errors = 0, wasKilled = false;
 
-const store = (kind) => { try { return kind === 'local' ? localStorage : sessionStorage; } catch { return null; } };   // (blocked storage: the report is then in memory only)
+const store = (kind) => { try { return kind === 'local' ? prefs : sessionStorage; } catch { return null; } };   // (blocked storage: the report is then in memory only)
 const read = (kind, k) => { try { return store(kind)?.getItem(k) ?? null; } catch { return null; } };
 const write = (kind, k, v) => { try { store(kind)?.setItem(k, v); } catch (e) { caught('report:write', e); /* storage full or blocked */ } };
 const flush = () => write('session', RING_KEY, JSON.stringify(ring));

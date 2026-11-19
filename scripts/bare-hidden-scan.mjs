@@ -16,9 +16,11 @@ export function countIn(src) {
   }
   return n;
 }
+// (src/ui/gallery/ is the preview-only debug catalog (?gallery, ?check, Sweep): developer panels the owner opens to test, never a teaching surface, so a panel showing at once there is not
+// a pop in front of an audience. It is the one directory left out, 19 Nov 2026; the teaching app's own files are all counted.)
 export function scan(root = 'src/ui') {
   const out = {};
-  const walk = (dir) => { for (const e of readdirSync(dir, { withFileTypes: true })) { const p = join(dir, e.name); if (e.isDirectory()) walk(p); else if (p.endsWith('.js')) { const n = countIn(readFileSync(p, 'utf8')); if (n) out[p] = n; } } };
+  const walk = (dir) => { for (const e of readdirSync(dir, { withFileTypes: true })) { const p = join(dir, e.name); if (e.isDirectory()) { if (e.name !== 'gallery') walk(p); } else if (p.endsWith('.js')) { const n = countIn(readFileSync(p, 'utf8')); if (n) out[p] = n; } } };
   walk(root);
   return Object.fromEntries(Object.entries(out).sort());
 }

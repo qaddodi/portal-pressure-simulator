@@ -1,6 +1,7 @@
 // Anatomical stage (blueprint §6): the figure drawn on the GPU (plate, vessels, moving blood),
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
+import { prefs } from './prefs.js';
 import { breath } from './slide-read.js';
 import { qP } from './colour-bin.js';
 import { stageCovered } from './seen.js';
@@ -1251,7 +1252,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // keep working in the frame they already use.
   // With no saved choice, a phone or tablet held upright opens the circuit upright (the wide map would be a strip).
   const portraitPhone = () => matchMedia(UPRIGHT_MQ).matches;   // (the style sheet's upright clause, util.js)
-  let rotTarget = (() => { try { const v = localStorage.getItem('pps.circuitRot'); return v == null ? (portraitPhone() ? 1 : 0) : v === '1' ? 1 : 0; } catch { return portraitPhone() ? 1 : 0; } })();
+  let rotTarget = (() => { try { const v = prefs.getItem('pps.circuitRot'); return v == null ? (portraitPhone() ? 1 : 0) : v === '1' ? 1 : 0; } catch { return portraitPhone() ? 1 : 0; } })();
   let rotU = rotTarget;
   const turnClock = createReversible({ ms: TURN_MS, stall: VIEW_STALL_MAX, x: rotU });   // (the quarter turn's clock: reversible like the change's)
   const rotEase = easeMove;   // (the turn travels: the one move curve)
@@ -1615,7 +1616,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   recs.show(0, 0, true);
   let recAsk = 0, recVer = 0;
   const recOut = { changed: false, moving: false };
-  try { localStorage.removeItem('pps.quality'); localStorage.removeItem('pps.q'); } catch (e) { caught('stage:2826', e); /* storage unavailable */ }
+  try { prefs.removeItem('pps.quality'); prefs.removeItem('pps.q'); } catch (e) { caught('stage:2826', e); /* storage unavailable */ }
   let quality = SOFTWARE ? Q_SOFTWARE : 0, saverOn = false;   // (saverOn: Settings › Battery saver, for the step a changed renderer returns to)
   // A context handed back by a restore is read again for what the start-up one decided: whether the renderer is software (the browser can
   // lose its GPU and hand back a software one, which then needs the lower step, the yield between frames and the SVG overlays, as a
@@ -1671,7 +1672,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (Glass is glass (Mohammad, 2 Nov 2026: "glass is glass and it doesn't suddenly become solid when there is movement"; his Mac's ?perf
   // showed every card "solid, no blur"): the cards' frost is drawn by the GPU in the figure's own frame, so Battery saver no longer turns it
   // solid, nor does a stored Blur effect off (index.html: only ?noglass=1 does).)
-  const blurGuard = () => { let asked = null; try { asked = localStorage.getItem('pps.noGlass'); } catch (e) { caught('stage:2879', e); /* storage unavailable */ } guardBlur(document.documentElement, { low: SOFTWARE, asked: asked === '1' ? null : asked }); };
+  const blurGuard = () => { let asked = null; try { asked = prefs.getItem('pps.noGlass'); } catch (e) { caught('stage:2879', e); /* storage unavailable */ } guardBlur(document.documentElement, { low: SOFTWARE, asked: asked === '1' ? null : asked }); };
   blurGuard();
   // Figure resolution › Auto: zoomed in past the home framing the canvas is drawn at 1/zoom of its pixels (each part of the figure
   // keeps about the pixels it had at home), in steps down to 10%. It is changed only once the view has settled and been let go,
@@ -2270,7 +2271,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The figure's text is at its one size (Mohammad, 11 Nov 2026: the "Text size on the figure" setting removed everywhere): 100 %, with a
   // desktop's baseline (deskK). A size an older build saved is dropped, so it can never apply again.
   const labelScale = 1;
-  try { localStorage.removeItem('pps.labelScale'); localStorage.removeItem('pps.labelScaleV'); } catch (e) { caught('stage:labelScale', e); /* storage unavailable */ }
+  try { prefs.removeItem('pps.labelScale'); prefs.removeItem('pps.labelScaleV'); } catch (e) { caught('stage:labelScale', e); /* storage unavailable */ }
   // Every label on a figure (the lobule's too) reads the same scale.
   document.documentElement.style.setProperty('--label-k', String(labelScale * deskK())); document.documentElement.style.setProperty('--label-scale', String(labelScale)); document.documentElement.style.setProperty('--ts', String(labelScale));
   let labelK = labelScale * deskK();

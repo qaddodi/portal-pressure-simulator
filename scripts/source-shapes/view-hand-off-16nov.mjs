@@ -12,7 +12,7 @@ export default [
   // Sinusoid to anatomy is one glide: the zoom out eases in only and the rise begins in the frame it lands.
   { file: 'src/ui/lobule-zoom.js', need: [/sinCarry && sinTo === 0 \? 1 - easeIn\(1 - u\) : easeIO\(u\)/, 'the way out of the sinusoid that carries on eases in only'] },
   { file: 'src/ui/lobule-zoom.js', need: [/const go = sinCarry; sinCarry = null; if \(go\) go\(\);/, 'the rise begins in the frame the sinusoid zoom lands'] },
-  { file: 'src/ui/presenter.js', need: [/stage\.exitSinusoid\(\);/, 'a slide leaving the sinusoid for the anatomy is one glide (stage.exitSinusoid)'] },
+  { file: 'src/ui/presenter.js', need: [/stage\.exitSinusoid\((?:to)?\);/, 'a slide leaving the sinusoid for the anatomy is one glide (stage.exitSinusoid)'] },
   { file: 'src/ui/presenter.js', forbid: [/\{ setViewKey\('lobule'\); await waitCut\(60, cut\); await until\(\(\) => cut\(\) \|\| \(!stage\.sinBusy\(\) && !stage\.sinusoidOpen\(\)\), 4000\)/, 'no stop at the lobule between the sinusoid and the anatomy'] },
   // A late solve's landing (a deck closed onto the free view) crossfades the held ghosts with the new labels on a timed ramp: no one-frame swap.
   { file: 'src/ui/stage-view.js', need: [/function xfRelStep\(\) \{[\s\S]*?viewXfMix\(u < 0 \? 0 : u, 0, XF_MIX, true\)[\s\S]*?relId = relFrame\(xfRelStep\);/, 'the ghosts give way to the late-landing labels over a timed crossfade'] },

@@ -13,6 +13,7 @@
 // Enter jumps, G the slide list, Home End, B or . black screen, F full screen, ? the Guide, Esc. (The Guide lists them: PRESENT_KEYS in
 // main.js.) On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
+import { prefs } from './prefs.js';
 import { store, replaceParams, setViewKey } from './store.js';
 import { freshPatient } from './slide-motion.js';
 import { controlOwnsKey } from './key-owner.js';
@@ -1678,7 +1679,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   }
   function setContrast(on = !hiCon) {
     hiCon = !!on;
-    try { localStorage.setItem(PROJ, hiCon ? '1' : '0'); } catch (e) { caught('presenter:4957', e); /* storage unavailable */ }
+    try { prefs.setItem(PROJ, hiCon ? '1' : '0'); } catch (e) { caught('presenter:4957', e); /* storage unavailable */ }
     app.classList.toggle('pz-hi', hiCon);
     paintChrome();
   }
@@ -1691,7 +1692,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   function setPanelWidth(w) {
     if (!PW_K[w] || w === pzWidth) return;
     pzWidth = w;
-    try { localStorage.setItem(PW, w); } catch (e) { caught('presenter:4970', e); /* storage unavailable */ }
+    try { prefs.setItem(PW, w); } catch (e) { caught('presenter:4970', e); /* storage unavailable */ }
     if (!ui) { app.style.setProperty('--pz-wk', String(PW_K[w])); return; }
     // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const apply = () => { app.style.setProperty('--pz-wk', String(PW_K[pzWidth])); layout(); setLabels(); };

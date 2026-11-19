@@ -40,9 +40,10 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // (lumen, lumenscale: the lumen layer's device A/B, brief PL 10 Nov 2026: ?lumen=off draws no lumen pass and no blood, ?lumenscale=<0.25..1> sets the lumen layer's share of the vessel layer's size.)
 // (rest: rest pacing on touch devices, brief H1 10 Nov 2026: ?rest=off turns the slow-down at rest off, to compare on a device.)
 // (gallery: the preview-only card gallery page and its device frames, ?gallery and ?gallery=frame, src/ui/gallery/, docs/card-gallery.md: loaded only on the preview copy.)
+// (r: ?r=<time> is the stale-page recovery's reload stamp (index.html ppsStale), not a switch; main.js takes it out of the address once booted, SHL-10.)
 // (sweep: ?sweep on the preview-only gallery page starts the card sweep instead of opening the rail, src/ui/gallery/page.js; the live site never loads that page, 19 Nov 2026.)
 // (embed: a deep link like script and preset, not a switch: ?embed is the app for an iframe on someone else's page, O1, 13 Nov 2026; src/ui/embed.js.)
-const KEEP = new Set(['perf', 'offgpu', 'fps', 'budget', 'inputs', 'lap', 'script', 'slide', 'preset', 'home', 'embed', 'back', 'presenter-view', 'v', 'lumen', 'lumenscale', 'rest', 'gallery', 'watch', 'sweep']);   // (watch: the motion recorder's red dot, a preview-only measuring aid like perf and offgpu; src/ui/watch)
+const KEEP = new Set(['perf', 'offgpu', 'fps', 'budget', 'inputs', 'lap', 'script', 'slide', 'preset', 'home', 'embed', 'back', 'presenter-view', 'v', 'lumen', 'lumenscale', 'rest', 'gallery', 'watch', 'sweep', 'r']);   // (watch: the motion recorder's red dot, a preview-only measuring aid like perf and offgpu; src/ui/watch)
 const walk = (p) => (statSync(p).isDirectory() ? readdirSync(p).flatMap((f) => walk(join(p, f))) : [p]);
 const files = [...walk(join(ROOT, 'src')).filter((f) => f.endsWith('.js')), join(ROOT, 'index.html'), join(ROOT, 'sw.js')];
 
@@ -247,7 +248,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     const vg = text('src/ui/veins-gl.js');
     const slice = (t, from, to) => t.slice(t.indexOf(from), t.indexOf(to, t.indexOf(from)));
     const lf = slice(vg, 'function lumenFrame(', '\n  }\n');
-    if (!/lumK = LK; \}/.test(lf) || !/eachPiece\(la\[0\], la\[1\], fboW, fboH\);\n\s+pMode = 0; lumK = null;/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: lumK is set only around the lumen pass\'s eachPiece and cleared straight after it');
+    if (!/lumK = LK; \}/.test(lf) || !/eachPiece\(la\[0\], la\[1\], fboW, fboH\)\)?;\n\s+pMode = 0; lumK = null;/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: lumK is set only around the lumen pass\'s eachPiece and cleared straight after it');
     if (!/pM = scaled \? lumenView\(m, LK\.sx, LK\.sy, LK\.ms\) : m;/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: the lumen pass is given the view in the target\'s pixels (lumenView) when the target is smaller than the layer');
     if (!/lumenDepth\.needs\(m, wo, la, lw0, lh0, bx\)/.test(lf) || !/lumenDepth\.drawn\(m, wo, la, lw0, lh0, bx\)/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: the depth stamp is told the target\'s size');
     if (!/const SW = size \? size\[0\] : lumK \? lumK\.w : fboW/.test(vg)) errors.push('src/ui/veins-gl.js vesselSet: the layer\'s size uniforms are the target\'s while lumK is set');
@@ -289,12 +290,13 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     const slice = (t, from, to) => t.slice(t.indexOf(from), t.indexOf(to, t.indexOf(from)));
     const mk = slice(vg, '    makeMorphSet(bins) {', '    prepareMorphSet(S) {');
     if (!/const keptVer = figVer, keptOK = fboOK, keptAll = movedAll;\n\s+useMorphSet\(null\);/.test(mk) || !/useMorphSet\(was\);\n\s+figVer = keptVer; fboOK = keptOK; movedAll = keptAll;\n\s+return S;/.test(mk) || /prepareSet\(/.test(mk)) errors.push('src/ui/veins-gl.js makeMorphSet: puts figVer, fboOK and movedAll back after the swap back (making a set never causes a whole redraw) and does not prepare the set (api.prepareMorphSet, a slice of its own)');
-    if (!/prepareMorphSet\(S\) \{ if \(S && S\.owner === api && morphSets\.has\(S\)\) prepareSet\(S\); \},/.test(vg) || !/if \(S && S\.prepKey === undefined\) prepareSet\(S\);\n\s+useMorphSet\(S\);/.test(vg)) errors.push('src/ui/veins-gl.js: api.prepareMorphSet(S) prepares a set of this renderer, and api.useMorphSet prepares a set never prepared at once, before the swap');
+    if (!/prepareMorphSet\(S\) \{ if \(S && S\.owner === api && morphSets\.has\(S\)\) prepareSet\(S\); \},/.test(vg) || !/if \(S && S\.prepared !== prepKey\(\)\) prepareSet\(S\);\n\s+useMorphSet\(S\);/.test(vg)) errors.push('src/ui/veins-gl.js: api.prepareMorphSet(S) prepares a set of this renderer, and api.useMorphSet prepares a set never prepared at once, before the swap');
     const meshGeoBody = slice(vg, '  function meshGeo() {', '  // A morph set\'s bundle, made');
     if (/pointsFromEntries\(|joinEntryList\(|patchGroups\(|stage2Prepare\(/.test(meshGeoBody) || !/deriveBundle\(B, entCPU/.test(meshGeoBody)) errors.push('src/ui/veins-gl.js meshGeo: derives through deriveBundle / deriveJoinPatches only, for the bundle in use');
     if ((vg.match(/patchGroups\(/g) || []).length !== 1 || (vg.match(/deriveJoinPatches\(B\)/g) || []).length !== 2) errors.push('src/ui/veins-gl.js: patchGroups is called once, in deriveJoinPatches (plus its import), and deriveJoinPatches is defined once and called from meshGeo and prepareSet only');
     if (!/if \(!B\.patchOk && patchesWanted\(\)\) deriveJoinPatches\(B\);/.test(meshGeoBody) || !/if \(patchesWanted\(\) && !B\.patchOk\) deriveJoinPatches\(B\);/.test(slice(vg, '  function prepareSetStep(S, step) {', '  // The sets made under another mode'))) errors.push('src/ui/veins-gl.js: the joins\' patches are built only where patchesWanted() (not for the Tube\'s web joins)');
-    if (!/if \(webJoins\(\)\) stage2Prepare\(B, tubeNow, nTubes, S\.morph\.joinBase\);/.test(vg) || (vg.match(/stage2Prepare\(/g) || []).length !== 1) errors.push('src/ui/veins-gl.js: the Tube\'s stage 2 record of a morph set is made by prepareSet, for web joins only (stage2Prepare is called there alone)');
+    const prepStep = slice(vg, '  function prepareSetStep(S, step) {', '  function prepareSet(S)');
+    if (!/if \(!webJoins\(\)\) \{ S\.prepared = S\.prepKey; return false; \}[\s\S]*stage2Prepare\(B, tubeNow, nTubes, S\.morph\.joinBase/.test(prepStep) || (vg.match(/stage2Prepare\(/g) || []).length !== (prepStep.match(/stage2Prepare\(/g) || []).length) errors.push('src/ui/veins-gl.js: the Tube\'s stage 2 record of a morph set is made by prepareSet, for web joins only (stage2Prepare is called there alone)');
     if (!/if \(!st \|\| st\.gen !== B\.gen \|\| !st\.R\.rows\) \{ st = stage2Prepare\(/.test(ts)) errors.push('src/ui/tube-stage2.js frame: bins only through stage2Prepare, and only for a bundle with no current record');
   }
   // The Tube's stage 3 (brief S3-D, 10 Nov 2026): the lumen layer. In stage 3 the compositor program is a Tube build and the lumen pass runs before it on every blood frame;
@@ -310,12 +312,13 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     if (!/const stage3 = !!tube3 && meshUse\(\) && tubePass\.stage\(\) === 3;/.test(vg)) errors.push('src/ui/veins-gl.js composite: stage 3 is the Tube chosen and drawing, tube3 ready and the pass at stage 3 (const stage3 = ...)');
     const prgLine = (vg.match(/\n[^\n]*const prg = [^\n]*/) || [''])[0];
     if (!/stage3 \? tube3\.compCell : compCell/.test(prgLine) || !/stage3 \? tube3\.plainCell : plainCell/.test(prgLine) || !/const cPlain = stage3 \? tube3\.plain : plain, cFull = stage3 \? tube3\.comp : comp;/.test(vg)) errors.push('src/ui/veins-gl.js composite: in stage 3 the compositor program is a Tube build (tube3.comp, compCell, plain, plainCell), and the old builds in stages 1 and 2');
-    const nUse = (vg.match(/tube3\.(comp|compCell|plain|plainCell)\b/g) || []).length, nGuard = (vg.match(/stage3 \? tube3\.(comp|compCell|plain|plainCell)\b/g) || []).length;
+    const vgDraw = vg.replace(/tube3 \? \[\[tube3\.plain[^\n]*/, '');   // (the compile warm-up lists the four builds to compile them: it draws nothing)
+    const nUse = (vgDraw.match(/tube3\.(comp|compCell|plain|plainCell)\b/g) || []).length, nGuard = (vgDraw.match(/stage3 \? tube3\.(comp|compCell|plain|plainCell)\b/g) || []).length;
     if (nUse !== nGuard) errors.push('src/ui/veins-gl.js: a Tube compositor build (tube3.comp, compCell, plain, plainCell) is named only after stage3 ?, so stages 1 and 2 never use one');
-    const lumIf = vg.indexOf("if (stage3 && (blood.on || (dyeAny && blood.dye !== false) || blood.origin)) {\n        fencePart('before lumen pass');   // (?perf: what was queued ahead of the lumen pass is a step of its own, so the next one is the pass alone)\n        gpuProbe.time(gl, 'lumen layer', lumenFrame, m, look, blood);");
+    const lumIf = vg.indexOf("if (stage3 && (blood.on || (dyeAny && blood.dye !== false) || blood.origin)) {\n        fencePart('before lumen pass');");
     const firstBind = vg.indexOf('compBind(U, layer, glow, warm, useStack);', lumIf);
     if (lumIf < 0 || firstBind < 0 || lumIf > firstBind) errors.push('src/ui/veins-gl.js composite: in stage 3 the lumen pass runs on every blood frame (blood, dye or origin), before the compositor binds its textures and draws (if (stage3 && (blood.on || ...)) { gpuProbe.time(gl, \'lumen layer\', lumenFrame, ...))');
-    if ((vg.match(/function lumenFrame\(/g) || []).length !== 1 || (vg.match(/lumenFrame, m, look/g) || []).length !== 1) errors.push('src/ui/veins-gl.js: lumenFrame is defined once and called once, in the composite, in stage 3');
+    if ((vg.match(/function lumenFrame\(/g) || []).length !== 1 || (vg.match(/=> lumenFrame\(m, look, blood\)/g) || []).length !== 1) errors.push('src/ui/veins-gl.js: lumenFrame is defined once and called once, in the composite, in stage 3');
     if (!/if \(pMode === 5\) \{ tubePass\.lumen\(pM, pLook, pRedo\); return; \}/.test(vg)) errors.push('src/ui/veins-gl.js pieceFn: the lumen layer\'s piece is the Tube pass\'s lumen pass alone (pMode 5)');
     if (!/if \(stageNow\(\)\.stage !== 3\) return false;/.test(slice(tp, 'function tubeLumenPass(', 'const D = FR.D'))) errors.push('src/ui/tube-pass.js tubeLumenPass: draws nothing outside stage 3');
     if (!/AT = choice\.stage === 3 \? A3 : ATTACH;/.test(tp)) errors.push('src/ui/tube-pass.js tubePass: the layer pass writes no second flow target in stage 3 only (AT = choice.stage === 3 ? A3 : ATTACH)');
@@ -521,7 +524,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     [/stage\.lobuleFocus\(part, \{ zoom, ms \}\)\) await waitCut\(ms \+ 300, \(\) => cut\(\) \|\| !stage\.lobuleGlide\?\.\(\)\);/, "the wait after a lobule focus is the lobule glide's landing (the focus times itself by reach), ms only its ceiling"],
     [/setViewKey\('sinusoid'\); if \(ms\) await waitCut\(1250 \+ 400, \(\) => cut\(\) \|\| !stage\.sinBusy\(\)\)/, 'into the sinusoid: until its zoom has landed'],
     [/setViewKey\('lobule'\); if \(ms\) await waitCut\(1000 \+ 400, \(\) => cut\(\) \|\| !stage\.sinBusy\(\)\)/, 'out of the sinusoid: until its zoom has landed'],
-    [/const switching = store\.get\(\)\.view !== v;\s*if \(switching\) setViewKey\(v === 'circuit' \? 'circuit' : 'anatomy'\);/, "a slide's switch of view sets off and its framing is asked of the running change at once (camera travels once)"],
+    [/const switching = viaRise \|\| store\.get\(\)\.view !== v;\s*if \(store\.get\(\)\.view !== v\) setViewKey\(v === 'circuit' \? 'circuit' : 'anatomy'\);/, "a slide's switch of view sets off and its framing is asked of the running change at once (camera travels once)"],
     [/\{ setViewKey\('anatomy'\); await viewSettled\(cut, stage\); if \(cut\(\)\) return; \}/, 'the dive after a switch to Anatomy waits for the change to land, not 700 ms'],
     [/if \(threw\) \{ thrownNow = true; return 0; \}/, 'every card that leaves is thrown: wordsOut asks for no fixed floor, throwsOut() ends when they are out of sight (about 170 ms, not 260)'],
     [/if \(outMs\) await waitCut\(Math\.max\(0, outMs - \(performance\.now\(\) - outAt\)\), cut\);\s*\n\s*if \(throwDir\) await throwsOut\(\);/, 'the old cards are waited for by their own end of sight'],
@@ -531,7 +534,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   {
     const pz = text('src/ui/presenter*'), c0 = pz.indexOf('  async function camera('), cam = pz.slice(c0, c0 + 1 + pz.slice(c0 + 1).search(/\n {2}(?:async )?function |\n {2}\/\/ \(left: only the entrances/));   // (the next function after it, or the note that used to follow it)
     if (/\bwait\(/.test(cam)) errors.push('src/ui/presenter.js camera(): a wait here is waitCut or until, so a newer press cuts it');
-    const at = cam.indexOf('const switching = store.get().view !== v;');
+    const at = cam.indexOf('const switching = ');
     if (!(at > 0 && cam.indexOf('frameTo(cam, s, gl, SLIDE_OPT);', at) > at && cam.indexOf('viewSettled(cut, stage)', at) > cam.indexOf('frameTo(cam, s, gl, SLIDE_OPT);', at))) errors.push('src/ui/presenter.js camera(): the framing is asked of the change before any wait for it to land');
   }
   {
@@ -628,7 +631,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     [/creditOff\(\); changeOff\(\);/, 'and ends it whatever ended the move'],
     [/shown = \{ i: to, gen: g \}; lastAt = to; shownBeat = b0; endChange\?\.\(\);/, "the hold is given back as the slide lands, before a time-lapse of minutes plays"],
   ]);
-  need('src/ui/stage-tubes.js', [[/sinceInput\(\) < 700 \|\| settling\(\)\) stageScope\.timer\(prepIdleGo/, "the lobule's pictures made ahead wait out a slide change (100 to 250 ms a piece, in the waits ahead of the camera)"]]);
+  need('src/ui/stage-tubes.js', [[/sinceInput\(\) < prepQuiet\(\) \|\| settling\(\)[^\n]*\) stageScope\.timer\(prepIdleGo/, "the lobule's pictures made ahead wait out a slide change (100 to 250 ms a piece, in the waits ahead of the camera)"]]);
   need('src/ui/stage-vessels.js', [
     [/if \(settling\(\) \|\| live\.coilEasing\) \{ envSoon\(\)/, "the vessels' envelope waits out a slide change"],
     [/\(settling\(\) \|\| sinceInput\(\) < 700\) && snaps\.length/, "the envelope's stretches wait out a slide change"],

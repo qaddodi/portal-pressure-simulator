@@ -190,7 +190,7 @@ export default [
   { file: 'src/ui/stage*', need: [/if \(glLines\) \{ if \(el\.hasAttribute\('opacity'\)\) el\.removeAttribute\('opacity'\); return; \}/, 'The treatment marks on the figure (a stent\'s mesh, sutures, the tie on a divided vein, the cross on a closed s'] },
   { file: 'src/ui/stage*', need: [/sd\.live = e\.code === 'C1' \? clamp\(i \+ 1 - \(bandsShown \?\? \(f\.bands \|\| 0\)\), 0, 1\)/, 'The treatment marks on the figure (a stent\'s mesh, sutures, the tie on a divided vein, the cross on a closed s'] },
   { file: 'src/ui/stage*', need: [/(?:live\.)?catchUp \|\| bandsMoving\(\) \|\| lesionsMoving\(\)\) return false;/, 'The treatment marks on the figure (a stent\'s mesh, sutures, the tie on a divided vein, the cross on a closed s'] },
-  { file: 'src/ui/stage*', need: [/if \(stepBands\(f, dtW\)\) (?:live\.)?(?:live\.)?widthEasing = true;/, 'The treatment marks on the figure (a stent\'s mesh, sutures, the tie on a divided vein, the cross on a closed s'] },
+  { file: 'src/ui/stage*', need: [/if \(stepBands\(f, dtW\)\) \{ (?:live\.)?widthEasing = true;/, 'The treatment marks on the figure (a stent\'s mesh, sutures, the tie on a divided vein, the cross on a closed s'] },
   // morph-sweep
   { file: 'src/ui/veins-gl.js', need: [/if \(morphOn == 2\) \{ vec2 hc = PT\(id, int\(B\.z \+ 0\.5\)\); hd = max\(hd, /, 'The change between the Anatomy and the Circuit drawn on the GPU (2 Nov 2026, "Anatomy to circuit is so laggy"):'] },
   { file: 'src/ui/veins-gl.js', need: [/if \(morphOn == 2\) \{ vec2 rc = PT\(id, int\(A\.w \+ 0\.5\)\); lo = max\(lo, /, 'The change between the Anatomy and the Circuit drawn on the GPU (2 Nov 2026, "Anatomy to circuit is so laggy"):'] },
@@ -335,7 +335,7 @@ export default [
   { file: 'src/ui/stage*', need: [/if \(id === 'TIPS'\) return;/, 'A vein a slide shows stented (slide field `stented`): (the TIPS is the covered stent, unrolled with the veins\' (D4))'] },
   { file: 'src/ui/stage*', need: [/venousSync\(p, t < 0\.5, key !== (?:live\.)?overlayKey\)/, 'A vein a slide shows stented (slide field `stented`): (followed on every overlay update)'] },
   { file: 'src/ui/stage*', need: [/(?:live\.)?easeInOut\(v\.k\)/, 'A vein a slide shows stented (slide field `stented`): (it eases, never snaps)'] },
-  { file: 'src/ui/stage*', need: [/const step = fadeStep\(dt, goal \? VST_MS : VST_MS \* 0\.6\)/, 'A vein a slide shows stented (slide field `stented`): (reduced motion fades it over a short step, never in one (15 Nov 2026))'] },
+  { file: 'src/ui/stage*', need: [/const step = fadeStep\(dt, goal \? VST_MS : VST_MS \* \(morphing\(\) \? 0\.2 : 0\.6\)\)/, 'A vein a slide shows stented (slide field `stented`): (reduced motion fades it over a short step, never in one (15 Nov 2026))'] },
   { file: 'src/ui/presenter*', need: [/stented: stentedOf\(s\)/, 'A vein a slide shows stented (slide field `stented`): (a landing slide sets its veins)'] },
   { file: 'src/ui/presenter*', need: [/stented: stentedKept\(s\)/, 'A vein a slide shows stented (slide field `stented`): (leaving a slide keeps only the veins the next one stents too)'] },
   { file: 'src/ui/presenter*', need: [/stented: \[\]/, 'A vein a slide shows stented (slide field `stented`): (ending the presentation clears them)'] },

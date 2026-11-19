@@ -17,7 +17,7 @@ test('no code reads a language choice or string table', () => {
 
 test('an old saved language is cleared on load and never read', () => {
   const main = read('../src/ui/main.js');
-  assert.match(main, /localStorage\.removeItem\('pps\.lang'\)/);
+  assert.match(main, /prefs\.removeItem\('pps\.lang'\)/);
   assert.doesNotMatch(main, /readLS\('pps\.lang'\)|getItem\('pps\.lang'\)|setItem\('pps\.lang'/);
 });
 

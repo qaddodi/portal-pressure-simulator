@@ -1,5 +1,6 @@
 // The framing: card and pill insets, the clear-of-pill view, the fit and default view for each view, refit, close view, the circuit rotation and reveal.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
+import { prefs } from './prefs.js';
 import { VB_ANAT, VB_CIRC } from './anatomy.js';
 import { viewBoxAt, viewXfCameraInto, viewXfDetach } from './view-xf.js';
 import { caught } from './caught.js';
@@ -464,7 +465,7 @@ export function createFit(st, live) {
     live.camLock?.release('turn');   // (the person's own move: a slide's move lets go of the camera, slide-cam.js)
     on = on ? 1 : 0;
     snapFresh();   // (the bars' boxes as they stand now: the turned map is fitted into the room they leave, and a stale snapshot left its bottom third under the play bar)
-    try { localStorage.setItem('pps.circuitRot', String(on)); } catch (e) { caught('stage:2120', e); /* storage unavailable */ }
+    try { prefs.setItem('pps.circuitRot', String(on)); } catch (e) { caught('stage:2120', e); /* storage unavailable */ }
     if (on === live.rotTarget) return;
     // Mid-glide (Fit, a zoom button), the turn starts from where the view is, never from where the glide was going (that snapped the view to
     // the glide's end, then turned): the glide is let go where it stands. Whether the turn lands on the whole map is judged by where the

@@ -1,6 +1,7 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
+import { prefs } from './prefs.js';
 import { lymphDay, lymphText, LYMPH_UNIT } from './lymph-day.js';
 import { fmtG } from './num.js';
 import { store, hiddenNow } from './store.js';
@@ -201,7 +202,7 @@ function stripUnseen() {
 }
 
 /** What this device last had open in the Instruments card (and its size): { open, h, w }, or {} when nothing is saved. */
-export const savedInstruments = () => { try { return JSON.parse(localStorage.getItem('pps.instruments') || 'null') || {}; } catch { return {}; } };
+export const savedInstruments = () => { try { return JSON.parse(prefs.getItem('pps.instruments') || 'null') || {}; } catch { return {}; } };
 
 // What the Doppler's trace reads of a frame it is only keeping for later (the Doppler loads after the first paint, lazy-pane.js).
 const dopplerSlim = (f) => ({ probe: f.probe, clock: f.clock, resp: f.resp, running: f.running, settling: f.settling, samples: f.samples });
@@ -566,7 +567,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   let frame = null, state = 'open', resizeFrame = 0, picking = false, wanted = null;
   for (const id of open) byId[id].need?.();   // (an instrument left open comes in at once; the others when the app is idle, or when their tab is first shown)
   let heightRatio = typeof saved.h === 'number' ? saved.h : null, widthPx = typeof saved.w === 'number' ? saved.w : null;
-  const remember = () => { try { localStorage.setItem('pps.instruments', JSON.stringify({ open, h: heightRatio, w: widthPx })); } catch (e) { caught('dock:434', e); /* storage unavailable */ } };
+  const remember = () => { try { prefs.setItem('pps.instruments', JSON.stringify({ open, h: heightRatio, w: widthPx })); } catch (e) { caught('dock:434', e); /* storage unavailable */ } };
   // A phone held sideways (667x375 and up) docks on the right too, like a narrow iPad: the figure keeps the full height.
   const sideMQ = matchMedia(`(min-width: 700px) and (orientation: landscape), ${SIDEWAYS_MQ}`);
   const sidewaysMQ = matchMedia(SIDEWAYS_MQ);

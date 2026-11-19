@@ -14,7 +14,8 @@ export function wantsFullscreen(nav = globalThis.navigator, doc = globalThis.doc
   return (nav?.maxTouchPoints || 0) > 1 && !/iPhone|iPod/.test(nav?.userAgent || '');
 }
 
-export function startHighRefresh() {
+export function startHighRefresh(doc = globalThis.document) {
+  if (doc?.documentElement?.hasAttribute?.('data-embed')) return;   // (?embed: a page inside someone else's page never takes the screen on a tap, SHL-5)
   if (!wantsFullscreen()) return;
   let asked = false;
   try { asked = sessionStorage.getItem('pps.hiRefresh') === '1'; } catch (e) { caught('high-refresh:19', e); /* storage unavailable */ }
