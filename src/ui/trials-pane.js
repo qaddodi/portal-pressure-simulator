@@ -28,6 +28,7 @@ import { prefs } from './prefs.js';
 import { store, hiddenNow } from './store.js';
 import { h, fmt, reconcile, swapFade, swapText, foldHidden, countTo } from './util.js';
 import { host } from './host.js';
+import { sharedCalc } from './calc-client.js';
 import { restPass } from './rest-pass.js';
 import { glWords } from './gl-words.js';
 import { readMetric } from './layout-snap.js';
@@ -498,7 +499,8 @@ export function createTrialsPane() {
     if (q && 'r' in q) { show(q.r); return; }
     say('Settling the model…', '');
     if (!q) {
-      q = { p: host.request('whatIf', { patch: rx.patch }).then((msg) => msg.result, (e) => { caught('trials:whatIf', e); return null; }) };
+      // (The two settles run on the second engine, from the live patient's snapshot, so the live clock, the Doppler and the traces keep going while the card computes: bible ENG-7.)
+      q = { p: host.request('snapshot').then((m) => sharedCalc().request('whatIfOf', { snap: m.snap, patch: rx.patch })).then((msg) => (msg.type === 'error' ? null : msg.result), (e) => { caught('trials:whatIf', e); return null; }) };
       q.p.then((r) => { q.r = r; });
       models.set(key, q);
     }
