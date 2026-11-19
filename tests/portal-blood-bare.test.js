@@ -43,9 +43,9 @@ test('nothing in the stylesheets can paint a backing under the bare callout or i
   assert.match(css, /\.cl-leader \{[^}]*background: none;/);
 });
 
-test('it is small: the number is one and a half times a 11.5 px line, never the card-sized 25 px', () => {
+test('it is small: the number is one and a half times a 12 px line (the 12 px floor, LOOK-4), never the card-sized 25 px', () => {
   assert.match(css, /\.sp-n, \.cath-label\.site\.split \.sp-pc \{ font-size: 1\.5em;/);
-  assert.match(css, /\.cath-label\.site\.split b[^{]*\{[^}]*font-size: calc\(11\.5px \* min\(var\(--label-scale, 1\), 1\.7\)\)/);
+  assert.match(css, /\.cath-label\.site\.split b[^{]*\{[^}]*font-size: calc\(12px \* min\(var\(--label-scale, 1\), 1\.7\)\)/);
   assert.match(css, /\.sp-bar \{[^}]*height: 2px;[^}]*width: 6\.4em;/);
 });
 

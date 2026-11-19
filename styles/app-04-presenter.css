@@ -247,7 +247,7 @@
    never under 12 px. Its baseline is its numeral's (the grid's first item), so the numeral stands on the words' baseline and the circle
    centres on their x-height; the negative block margin keeps the circle inside the line's own 1.4 spacing, so a line holding one is
    spaced like any other. No gap before it (the space ahead of it is its gap). */
-.pz-step { display: inline-grid; place-items: center; box-sizing: border-box; min-width: 1.5em; height: 1.5em; padding: 0 .3em; margin-block: -.3em; border-radius: var(--r-pill); background: var(--text); color: var(--stage-bg); font-family: var(--font-ui); font-size: max(12px, .68em); font-weight: 750; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pz-step { display: inline-grid; place-items: center; box-sizing: border-box; min-width: 1.5em; height: 1.5em; padding: 0 .3em; margin-block: -.3em; border-radius: var(--r-pill); background: var(--text); color: var(--stage-bg); font-family: var(--font-ui); font-size: max(12px, .68em); font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pz-stop > .pz-step { margin-inline-end: .1em; }
 .app.pz-hi .pz-val { background: color-mix(in srgb, var(--text) 12%, transparent); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 55%, transparent); }
 /* A pill in a station's colour (--tone): a live value ({pv}) or a term that points at the figure ([portal vein](pv)). */
@@ -257,7 +257,7 @@
    reads on both themes. */
 .pz-val.tone[data-rate] { color: color-mix(in srgb, var(--tone) 82%, var(--text)); }
 .pz-val.tone[data-rate="ok"] { color: var(--ok-ink); } .pz-val.tone[data-rate="mid"] { color: var(--caution-ink); } .pz-val.tone[data-rate="hi"] { color: var(--danger-ink); }   /* (a rated pill's number is its status ink, the one red, amber and green every tile, label and chart takes) */
-.pz-term { border-radius: var(--r-pill); font-weight: 650; white-space: nowrap; }
+.pz-term { border-radius: var(--r-pill); font-weight: 600; white-space: nowrap; }
 /* A word that points at the figure ([portal vein](pv)) is not a pill: coloured text in its station's colour, no underline
    (Mohammad, 17 Oct: "Underline terms", then "Remove the underlining please"). Pills stay for numbers and view names; disease
    names keep their violet. */

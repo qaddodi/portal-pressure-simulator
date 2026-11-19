@@ -6,8 +6,8 @@ import { tok, mix, param, em, own } from './dsl.js';
 
 /** look → [weight, size in em of the host's size]: the trial card's words. */
 export const TYPE = {
-  'trial.name': [650, 1.25], 'trial.src': [500, 1], 'trial.v': [500, 1], 'trial.lab': [500, 1], 'trial.pct': [650, 2.5], 'trial.n': [500, 1],
-  'trial.eff': [650, 1.08], 'trial.note': [500, 1], 'trial.warn': [600, 1], 'trialfit.t': [500, 1.08],
+  'trial.name': [600, 1.25], 'trial.src': [500, 1], 'trial.v': [500, 1], 'trial.lab': [500, 1], 'trial.pct': [600, 2.5], 'trial.n': [500, 1],
+  'trial.eff': [600, 1.08], 'trial.note': [500, 1], 'trial.warn': [600, 1], 'trialfit.t': [500, 1.08],
 };
 const word = (look, fill) => ({ base: { weight: TYPE[look][0], size: em(TYPE[look][1]), fill } });
 

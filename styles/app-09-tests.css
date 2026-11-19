@@ -44,7 +44,7 @@
 /* Import a presentation (presenter.js importFile): a file button and a paste box. */
 .imp { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
 .imp > .btn-row { align-self: stretch; }
-.imp-src { width: 100%; min-height: 180px; resize: vertical; font: var(--fs-13, 13px)/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-card); background: var(--surface-2); color: var(--text); }
+.imp-src { width: 100%; min-height: 180px; resize: vertical; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-card); background: var(--surface-2); color: var(--text); }
 .imp-src:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 @media (pointer: coarse) { .imp-src { font-size: 16px; } }   /* (an iPhone zooms the page when a field under 16 px takes focus, as .select and the Search field) */
 .modal .imp-err { color: var(--danger-ink); margin: 0; font-size: var(--fs-14); }

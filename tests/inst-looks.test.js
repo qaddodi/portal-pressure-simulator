@@ -31,7 +31,7 @@ test('the ratings colour the ring, the knob and the word as app.css had them', (
   assert.equal(P('inst.dial.knob.dot', { sev: 'caution' }).stroke, T.caution);
   assert.equal(P('inst.dial.w').fill, withVarsResolved(T)['ok-ink'], 'the word wears the status ink (LOOK-1)');
   assert.equal(P('inst.dial.w', { sev: 'danger' }).fill, withVarsResolved(T)['danger-ink']);
-  assert.deepEqual([P('inst.dial.n').size, P('inst.dial.n').weight, P('inst.dial.n').letterSpacing], [25, 650, '-0.02em']);
+  assert.deepEqual([P('inst.dial.n').size, P('inst.dial.n').weight, P('inst.dial.n').letterSpacing], [25, 600, '-0.02em']);
   assert.equal(P('inst.dial.k').letterSpacing, '0.12em');
   for (const k of ['inst.dial.tl', 'inst.dial.k', 'inst.dial.n', 'inst.dial.u', 'inst.dial.w']) assert.equal(P(k).anchor, 'middle', k);
   for (const k of ['inst.dial.tl', 'inst.dial.k', 'inst.dial.u', 'inst.dial.w']) assert.equal(P(k).size, undefined, `${k}: its size is the font-size attribute fit() writes`);
