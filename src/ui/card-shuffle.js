@@ -112,6 +112,7 @@ export function shufDrag(p0, dy) {
 /**
  * The shuffle of the presenter's two cards. live.ui: { root, text, shade, data }. All methods are safe to call when it is off.
  *   sync(on, key)   after a layout: on = the slide's pair is shuffled; key = the slide and size it was laid out for (a new key brings the words back in front)
+ *   mark(on)        the classes alone, before the cards are fitted (the instruments read them), where sync comes after
  *   park() / resume()   take the animations off for a layout read, put them back
  *   active()        the shuffle is on
  *   touch(type, y, onBehind)  a finger: 'start' (onBehind: it came down on the card behind, so a tap there brings that card forward), 'move', 'end'
@@ -126,6 +127,7 @@ export function createShuffle(live) {
   const root = () => live.ui?.root;
   function dropAnims() { for (const a of anims) for (const k of [a.tf, a.clip, a.dim, a.tab, ...(a.inks || [])]) { try { k?.cancel(); } catch { /* (an animation already gone) */ } } anims = []; }
   function scrub() { const t = p * 1000; for (const a of anims) { a.tf.currentTime = t; a.clip.currentTime = t; a.dim.currentTime = t; if (a.tab) a.tab.currentTime = t; for (const k of a.inks) k.currentTime = t; } }
+  function marks(onNow) { const r = root(); if (r) { r.classList.toggle('pz-shuf', onNow); live.ui.shade?.classList.toggle('pz-shuf', onNow); live.ui.data?.classList.toggle('pz-shuf', onNow); } }
   function front() { const r = root(); if (r) r.classList.toggle('pz-shuf-data', p > 0.5); }
 
   function build() {
@@ -205,11 +207,13 @@ export function createShuffle(live) {
     active: () => on,
     front: () => (p > 0.5 ? 'data' : 'words'),
     position: () => p,
+    /** The classes only (no build, no motion): the layout writes the slide's decision before the cards are fitted, so the instruments draw against it, never against the last slide's (CRD-1). */
+    mark(next) { marks(!!next); },
     sync(next, k) {
       const r = root();
       const was = on;
       on = !!next;
-      if (r) { r.classList.toggle('pz-shuf', on); live.ui.shade?.classList.toggle('pz-shuf', on); live.ui.data?.classList.toggle('pz-shuf', on); }
+      marks(on);
       if (!on) { dropAnims(); if (r) r.classList.remove('pz-shuf-data'); p = 0; v = 0; target = 0; key = ''; return; }
       // (A new slide or size: the words come back in front, by the spring, never by a jump: the cards are still leaving or just arriving.)
       if (k !== key) { key = k; if (was && p !== 0) { target = 0; v = 0; } else { p = 0; target = 0; v = 0; } }
