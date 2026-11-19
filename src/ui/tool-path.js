@@ -34,7 +34,6 @@ import { CARD_WIDE_MIN, cardCompact, isCardKind, layout as cardLayout, model as 
 export const FIG_TEXT_MIN = 10, ROLE_MIN = 11, ROLE_SMALL = ['ctc', 'csc'], FIT_MIN = FIG_TEXT_MIN / ROLE_MIN;   // (ROLE_SMALL: the small layout's (a phone's) grid answers and their second line, 11 px, drawn whole on a phone, never fitted down)
 export const COL_MIN = 104, NODE_MAX = 140, NODE_MAX_E3 = 176, E3_LEAVES = 3, ROOT_MAX = 330, GAP_Y = 20, MAP_UNIT = 66, GAP = 10;
 const PILL_H = 22, PILL_PAD = 10, FIT_SHARE = 0.55;   // (the data card keeps under half the window's height for the picture, which with the card's own rows is all it has; never drawn below 60%: 72% left the Rule of five 513 px tall in a 482 px card on a 900 px Mac, 62% still 11 px over in one 481 px high)
-const FIT_TIGHT = 0.88;
 export const TOKEN = { n: 'text', ok: 'ok', warn: 'caution', bad: 'danger', acc: 'accent' };
 const svg = svgModel;
 /** The type of each kind of words: weight, size and line height in px (the look that draws it is path.<role>). */
@@ -110,9 +109,9 @@ export function treePlace(tree, boxes, heights, oy = 0) {
   return { tops, paths, H: Math.max(0, y - GAP_Y) };
 }
 /** The small map at a width (k: the words' size over 12): each node's centre, the connectors' paths and the height. A node's words stand under its dot. */
-export function mapPlace(tree, W, k = 1, oy = 0, wordsOf = () => null) {
+export function mapPlace(tree, W, k = 1, oy = 0, wordsOf = () => null, tight = false) {
   const { at, n, maxd } = slots(tree), pad = W < 330 ? 34 : 38, nodes = new Map(), paths = new Map();
-  const unit = maxd >= 3 && k === 1 ? 56 : MAP_UNIT;   // (a map four levels deep, at 12 px words, is a little tighter: the first-visit path stood 254 px tall on a phone)
+  const unit = tight && k === 1 ? 50 : maxd >= 3 && k === 1 ? 56 : MAP_UNIT;   // (tight: a card whose real room asks for it, 50: two lines of 12 px words, the elbow's 12 and a few px to spare)   // (a map four levels deep, at 12 px words, is a little tighter: the first-visit path stood 254 px tall on a phone)
   const X = (id) => (n > 1 ? pad + ((at.get(id).x - 0.5) / (n - 1)) * (W - 2 * pad) : W / 2), Y = (id) => oy + 12 + at.get(id).d * unit;
   for (const { n: node } of flat(tree)) nodes.set(node.id, { x: X(node.id), y: Y(node.id), words: wordsOf(node.id) });
   for (const e of edgesOf(tree)) {
@@ -169,8 +168,8 @@ export const CARD_HELPERS = { flow, ROLE, svg, textWidth, readParas, TOKEN };
  * The small map's body (a phone, an iPad upright) at a width: the map and the room for the reading under it. A patient the slide fixes has one
  * reading, so the card is as tall as it; one the live model moves keeps room for the tallest reading of every outcome. → { k, map, readH, H }
  */
-export function mapBodyOf(of, spec, patient, Wv, W = Wv, oy = 0) {
-  const k = mapType(W) / 12, worst = WORST[of], map = mapPlace(spec.tree, Wv, k, oy, (id) => mapWordsOf(of, id));
+export function mapBodyOf(of, spec, patient, Wv, W = Wv, oy = 0, tight = false) {
+  const k = mapType(W) / 12, worst = WORST[of], map = mapPlace(spec.tree, Wv, k, oy, (id) => mapWordsOf(of, id), tight);
   const own = isLive(of) ? null : outcomeOf(of, litOf(of, patient));
   const rd = (key, p) => flow(readParas(readingFor(of, key, p)), Wv, { gap: 4 }).h;
   const readH = own ? rd(own, patient) : Math.max(...OUTCOMES[of].flatMap((key) => [patient, worst].map((p) => rd(key, p))));
@@ -211,7 +210,7 @@ export function createPath() {
       L.card = cardLayout(spec.algo, Wv, compact, base, CARD_HELPERS, true);
       y += L.card.H + G;
     } else if (compact) {
-      const B = mapBodyOf(of, spec, base, Wv, W, y);
+      const B = mapBodyOf(of, spec, base, Wv, W, y, tight);
       L.k = B.k; L.map = B.map;
       y += L.map.H + G;
       L.y.rule1 = y; y += R1;
@@ -243,12 +242,13 @@ export function createPath() {
     if (sc === 1 && (!compact || !phone) && L.H > room) {
       // (B13, 16 Nov 2026: fitted down to 60% the Baveno bleeding chart's words came out at 5 to 6 px. A figure that needs less than FIT_MIN of its size to fit
       // is not shrunk past it: the whole chart gives way to the small map (12 px words and up), whose own height is fitted the same way.)
-      // (Where the data card's real room says it, the rows stand closer first (6 px, not 10), then the picture is drawn smaller, to FIT_TIGHT of its size at the least: its smallest word is then 10.5 px,
-      // above the 10 px floor of every figure, FIG_TEXT_MIN. Stiffness 8 on a 780 px Mac stood 24 px past its card at FIT_MIN.)
+      // (Where the data card's real room says it, the rows stand closer first (6 px, not 10). A card that has a real room never draws its words under 12 px (the data card's floor, Mohammad's rule):
+      // the picture is then drawn at full size, tight, and what the room cannot hold is the layout's to give (the sweep names it). A phone's sheet, with no room given, keeps its figure floor, FIT_MIN.)
       if (!tight && given > 0) return layout(1, small, true);
-      const need = room / L.H, floor = tight ? FIT_TIGHT : FIT_MIN;
+      const need = room / L.H, floor = given > 0 && !pic.closest?.('.pz-shuf') ? 1 : FIT_MIN;   // (the one allowance: a tall instrument card in the Shuffle on a short sideways phone may go down to 10 px, Mohammad 18 Nov)
       if (need >= floor) return layout(need, small, tight);
-      return compact ? layout(floor, small, tight) : layout(1, true, tight);
+      if (!compact) return layout(1, true, tight);
+      if (floor < 1) return layout(floor, small, tight);
     }
     L.Hr = Math.ceil(L.H * sc);
     lay = L;
