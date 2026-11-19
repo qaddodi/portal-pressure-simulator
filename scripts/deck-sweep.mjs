@@ -11,10 +11,10 @@
 //   - on a screen where the two cards share one place (the Shuffle, an iPhone on its side) BOTH states: the words in front, then the instrument in front;
 //   - a case or question card that holds the slide, read as it stands and again once it is tapped away.
 // It says "the numbers fit", never "it looks right". Output: the failures as they come, a report (--out, JSON) and a text summary beside it.
-// --fast: the figure is not drawn at all (window.ppsLayoutOnly, seen.js) and frames come every 100 ms of app time; about a third quicker, and `--verify`
-// compares it with a plain run on a few decks so the shortcut is never trusted on its own word.
-// --shard i/n takes one share of n of the whole job (every deck at every size is a piece, balanced by slide count): the CI workflow (deck-sweep.yml) runs
-// the shares side by side on runners of their own and scripts/deck-sweep-merge.mjs joins the reports, which is how the whole check takes minutes.
+// --fast: the figure is not drawn at all (window.ppsLayoutOnly, seen.js) and frames come every 100 ms of app time; about a third quicker. On the HVPG deck it agreed with a
+// plain run except for strip lines 1 px apart; compare a few decks with a plain run before trusting it for a new rule.
+// --shard i/n takes one share of n of the whole job (every deck at every size is a piece, balanced by slide count): for splitting the job over several
+// local processes or machines; scripts/deck-sweep-merge.mjs joins the reports. NEVER run on GitHub Actions (owner, 19 Nov 2026: no Actions minutes for this).
 // Runs go side by side (--jobs): a chunk is one device and one part of the decks, one browser page each (touch devices get touch, so `(pointer: coarse)` rules apply).
 
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
