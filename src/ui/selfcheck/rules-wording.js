@@ -1,5 +1,5 @@
 // The wording rules, registered (19 Nov 2026, DBG-1 and gap 9 of the bible review): the words on the screen in hand. The lint (scripts/clinical-wording.mjs) judges the app's source strings,
-// the Words dump the decks' authored strings and the specimen test the opened slides; none of them could say that "Baveno VII" or "PPG (PV-IVC)" is on THIS screen, so a packet or the Phone
+// the Words dump the decks' authored strings and the specimen test the opened slides; none of them could say that a retired Baveno edition or "PPG (PV-IVC)" is on THIS screen, so a packet or the Phone
 // check never flagged it. One rule per rule name of src/ui/wording.js (the one list), run over the lines of every card of the cards part of the report (teaching, data, top and structure
 // cards, the Tests dock, the case card, a toast). Learner text for US physicians: Baveno VIII only, minus not "less", American spelling, no lay words.
 import { registerRule } from './rules.js';
