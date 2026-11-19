@@ -176,8 +176,8 @@ export function createStart(st, live) {
       scale: (el) => (el && el !== data && readMetric(el, 'offsetWidth') ? readBox(el).width / readMetric(el, 'offsetWidth') : readBox(wrap).width / (readMetric(wrap, 'clientWidth') || 1)) || 1,
       reduce: () => reduce.matches, boost: setCanvasBoost, hold: zoomCredit, settled: zoomSettled,
       // (The words' card stays up while the card is zoomed; its words, and its deck tab on the card's edge (the shade holds the tab), are cut away under the card, card-zoom.js, and it rests at slip.base's rise meanwhile.)
-      camera: { open: () => !!stage.zoomOpen?.(), at: (s, x, y, dx, dy) => stage.zoomAt?.(s, x, y, dx, dy), end: () => stage.zoomEnd?.(), sharp: (on) => stage.zoomSharp?.(on) }, scene: () => [text, shade], behind: zoomBehind });
-    tapTracker(data, { ok: () => zoomReady() || zoom.up, onTap: () => zoomToggle() });
+      camera: { open: () => !!stage.zoomOpen?.(), at: (s, x, y, dx, dy) => stage.zoomAt?.(s, x, y, dx, dy), end: () => stage.zoomEnd?.(), sharp: (on) => stage.zoomSharp?.(on) }, scene: () => (live.shuffle?.active() ? [] : [text, shade]), behind: zoomBehind });   // (a shuffled pair: only the card in front is zoomed, the one behind is never enlarged)
+    tapTracker(data, { ok: () => (zoomReady() && !(live.shuffle?.active() && live.shuffle.front() !== 'data')) || zoom.up, onTap: () => zoomToggle() });   // (a shuffled pair, the instrument behind: a tap on its strip brings it forward, card-shuffle.js; the zoom is for the card in front)
     tapTracker(text, { ok: () => zoomReady() || zoom.up, onTap: () => zoomToggle('text') });   // (a tap on the teaching card is the same zoom as on the data card: both come into view together, 5 Nov 2026)
     tapTracker(panel, { ok: () => cellReady() || zoom.up, onTap: cellTap });
     const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, zscrim, data, lip, panel, vcase, prog, scl, bar, jump, blackEl, say);
@@ -204,7 +204,7 @@ export function createStart(st, live) {
     // (app.css: where the figure's canvas cannot take it, the shade turns solid; no backdrop-filter is declared anywhere) and the shade keeps one
     // layer of its own throughout, so the swap that lost its picture on an iPhone no longer happens.)
     // alloc-rare: a card is built or tapped open: once per tap, not per frame
-    const glass = stage.glass?.add(() => [shade, data, vcase, bar, scl, fk], { card: true, watch: [root, shade], before: shade, low: (e) => e === shade, read: (g) => (g === data || g.dataset?.ghost === 'data' ? sheetPanes(g) : undefined), with: (g) => (g === shade ? [text] : null), bare: () => [panel], shift: riseShift }) || null;
+    const glass = stage.glass?.add(() => [shade, data, vcase, bar, scl, fk], { card: true, watch: [root, shade], before: shade, low: (e) => e === shade, read: (g) => (g === data || g.dataset?.ghost === 'data' ? sheetPanes(g) : undefined), with: (g) => (g === shade ? [text] : null), bare: () => [panel], shift: riseShift, cut: (g) => live.shuffle?.cutOf(g) || null })   // (cut: a shuffled pair's card behind is drawn down to its strip only: card-shuffle.js) || null;
     return { root, shade, safe, load, text, data, lip, lipRO, lipMO, shadeMO, cardTouch, setFold, zoom, zbtn, pscrim, zscrim, fscrim, partOf, vcase, fk, figKey, glass, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say, scope };
   }
   function coverUp(what = '') {

@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { SHUF, shufPose, shufKeyframes, shufDim, spring, shufEnd, shufDrag } from '../src/ui/card-shuffle.js';
+import { SHUF, shufPose, shufKeyframes, shufDim, spring, shufEnd, shufDrag, shufDir, createShuffle } from '../src/ui/card-shuffle.js';
 import { WORDS_MIN_PX } from '../src/ui/card-type.js';
 
 const src = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
@@ -27,7 +27,9 @@ test('a card behind shows only a strip no taller than the lift above the card in
 
 test('the words slip out to the side at the middle and are back at the ends; the instrument never moves sideways', () => {
   assert.equal(shufPose('words', 0, 300).x, 0); assert.ok(Math.abs(shufPose('words', 1, 300).x) < 1e-9);
-  assert.ok(Math.abs(shufPose('words', 0.5, 300).x - SHUF.side) < 1e-9);
+  // (6, play-test: the layers swapped in one frame while the words were still 130 px over the instrument. The words leave by their own width, so at the middle the two do not overlap.)
+  assert.ok(Math.abs(shufPose('words', 0.5, 300, 32, 340).x - (340 + SHUF.gapX)) < 1e-9);
+  assert.equal(SHUF.tilt, 0, 'no turn: the glass follows a translation and a scale, never a turn');
   for (let i = 0; i <= 20; i++) assert.equal(shufPose('data', i / 20, 340).x, 0);
 });
 
@@ -71,7 +73,7 @@ test('the spring settles on its end without passing it, and a release goes the w
 
 test('layout shuffles only a screen too short for the pair, and a card with readings to tuck is not shuffled', () => {
   const s = src('src/ui/presenter-ladders.js');
-  assert.match(s, /if \(!below && sw && !wideSheet\(dd\)\) \{ shuf = true; below = true;/);
+  assert.match(s, /if \(!below && sw && !wideSheet\(dd\)\) \{\s*shuf = true; below = true; stepDk\(1\);/);
   assert.match(s, /live\.shuffle\?\.park\(\);\s*\n\s*try \{ layoutNow\(\); \} finally \{ live\.shuffle\?\.resume\(\); \}/);
   assert.match(s, /live\.shuffle\?\.sync\(shuf, lockKey \|\| ''\)/);
   assert.match(s, /let y = shuf \? top0 :/);
@@ -107,4 +109,56 @@ test('the shuffle moves cards only by animations (a transform added to its own, 
   const css = src('styles/app-05-presenter-cards.css');
   assert.match(css, /\.pz-shade\.pz-shuf::after/);
   assert.match(css, /\.pz\.pz-shuf\.pz-shuf-data \.pz-data \{ z-index: 3; \}/);
+});
+
+test('the words of a shuffled card are fitted alone: Regular, then the title a step down, then the CAUSES line gone (7, play-test: words clipped by 16 to 37 px)', () => {
+  const s = src('src/ui/presenter-ladders.js');
+  assert.match(s, /const ch0 = ch, gap0 = gap; ch = 0; gap = 0;\s*trim = 0;\s*let fits = steps\(\);\s*if \(!fits\) for \(const n of \[1, 2\]\) \{ trim = n; fits = steps\(\); if \(fits\) break; \}/);
+  assert.match(s, /if \(!fits\) for \(const n of \[0, 1, 2\]\) \{ trim = n; if \(step\(\)\) break; \}\s*\n\s*ch = ch0; gap = gap0;/, 'then Compact, as a phone on its side always did');
+  // (and the sweep's own rule, fit-rules.js, names a words card whose content runs past its box.)
+  assert.match(src('src/ui/gallery/fit-rules.js'), /content runs \$\{Math\.round\(low\)\} px past its box/);
+});
+
+test('a swipe up brings the instrument forward and a swipe down the words, mid-glide too: six alternating swipes are six moves (3, play-test)', () => {
+  assert.equal(shufDir(0.3, 0, 40), 1); assert.equal(shufDir(0.7, 0, -40), 0);
+  assert.equal(shufDir(0.5, 0, 18), 1); assert.equal(shufDir(0.5, 0, -18), 0);
+  assert.equal(shufDir(0.2, 1.2, 5), 1, 'a quick flick counts, however short'); assert.equal(shufDir(0.8, -1.2, -5), 0);
+  assert.equal(shufDir(0.7, 0, 4), 1, 'a nudge goes to the nearer end'); assert.equal(shufDir(0.3, 0, -4), 0);
+  const sh = createShuffle({ ui: null }); assert.equal(sh.active(), false);
+  let p = 0; for (let i = 0; i < 6; i++) p = shufDir(p, 0, i % 2 ? -40 : 40);
+  assert.equal(p, 0, 'up, down, up, down, up, down ends with the words in front');
+});
+
+test('the strip of the card behind is a place on the screen: the touch glue asks the shuffle, not the elements (3, play-test)', () => {
+  const p = src('src/ui/presenter.js');
+  assert.match(p, /behind: sh\.stripHit\(t\.clientX, t\.clientY\)/);
+  assert.doesNotMatch(p, /behind\.contains\(e\.target\)/);
+  const m = src('src/ui/card-shuffle.js');
+  assert.match(m, /function stripHit\(x, y\)/);
+  assert.match(src('src/ui/presenter-start.js'), /tapTracker\(data, \{ ok: \(\) => \(zoomReady\(\) && !\(live\.shuffle\?\.active\(\) && live\.shuffle\.front\(\) !== 'data'\)\) \|\| zoom\.up/);
+});
+
+test('the glass of the card behind is cut to its strip (the GPU draws it where a page clip-path cannot reach) (2, play-test)', () => {
+  const m = src('src/ui/card-shuffle.js');
+  assert.match(m, /const cutOf = \(el\) =>/);
+  assert.match(m, /get bottom\(\) \{ return footOf\(el\); \}/);
+  assert.match(src('src/ui/presenter-start.js'), /cut: \(g\) => live\.shuffle\?\.cutOf\(g\) \|\| null/);
+  assert.match(m, /\[ui\.text, 'words', 2, 0, false\]/, 'the words show no strip of their own: only the glass and the kicker do');
+});
+
+test('a card zoomed from a shuffled pair comes forward first and the other is never enlarged (4, play-test)', () => {
+  const l = src('src/ui/presenter-ladders.js');
+  assert.match(l, /sh\.hold\('data'\);\s*await until\(\(\) => !live\.ui \|\| sh\.settled\(\), 900\);/);
+  assert.match(l, /if \(focus === 'text'\) return;/);
+  assert.match(src('src/ui/presenter-start.js'), /scene: \(\) => \(live\.shuffle\?\.active\(\) \? \[\] : \[text, shade\]\)/);
+  assert.match(src('src/ui/card-shuffle.js'), /if \(live\.ui\?\.zoom\?\.on\) return;/, 'the pair holds still while a card is zoomed');
+});
+
+test('a screen too short for the pair first gives the cards a wider column, and only then shuffles them (the same words in fewer lines)', () => {
+  const l = src('src/ui/presenter-ladders.js');
+  assert.match(l, /if \(lock\?\.wide\) live\.ui\.root\.style\.setProperty\('--pz-cw', SHUF\.wide\); else live\.ui\.root\.style\.removeProperty\('--pz-cw'\);/);
+  assert.match(l, /setProperty\('--pz-cw', SHUF\.wide\);\s*\n\s*wider = true;/);
+  assert.match(l, /live\.textLock = \{ key: lockKey, below, shuf, wide: wider,/, 'a slide keeps its width with the rest of what its words lock');
+  assert.ok(l.indexOf("wider = true;") < l.indexOf("shuf = true; below = true; stepDk(1);"), 'wider first, shuffle last');
+  assert.match(SHUF.wide, /^min\(\d+px, \d+vw\)$/);
 });

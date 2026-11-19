@@ -1980,8 +1980,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   wrap.addEventListener('touchstart', (e) => {
     const sh = live.shuffle;
     if (!sh?.active() || !ui || e.touches.length !== 1 || caseOn(e) || ownsTouch(e.target.closest?.('canvas')?.parentElement ?? e.target, { stop: wrap })) { shufT = null; return; }   // (a picture drawn on a canvas is not a control here: the card's own drags are sideways)
-    const t = e.touches[0], behind = sh.front() === 'words' ? ui.data : ui.text;
-    shufT = { x: t.clientX, y: t.clientY, on: false, behind: behind.contains(e.target) || (behind === ui.text && ui.shade.contains(e.target)) };
+    const t = e.touches[0];
+    // (The strip of the card behind is a place on the screen, not an element: the words' strip is the glass's, which takes no touch, and the instrument's strip stands above its own box.)
+    shufT = { x: t.clientX, y: t.clientY, on: false, behind: sh.stripHit(t.clientX, t.clientY) };
   }, { passive: true, capture: true });
   wrap.addEventListener('touchmove', (e) => {
     if (!shufT) return;
