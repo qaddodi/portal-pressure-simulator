@@ -3,7 +3,7 @@
 
 import { Engine } from './engine/engine.js';
 import { stentMix } from './engine/stent-ease.js';
-import { easeMove } from './ui/ease.js';
+import { easeMove } from './engine/ease-move.js';
 import { computeMetrics } from './engine/metrics.js';
 import { fingerprintOf } from './engine/fingerprint.js';
 import { detectEvents } from './engine/events.js';
