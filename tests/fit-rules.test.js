@@ -76,6 +76,20 @@ test('scroll, clipped, off and enlarged are read and judged as card-fit.mjs did'
   assert.deepEqual(judgeCards(p.run(readCards, {})).filter((x) => x.kind === 'enlarged').map((x) => x.text), ['the data card is zoomed on entry']);
 });
 
+test('a data card that scrolls up and down for its last resort is its own kind, never words cut off', () => {
+  const box = (ovf, extra = '') => page(`<div class="pz"><section class="pz-data" style="${ovf}" data-box="10,100,350,380" data-scroll-height="533" data-client-height="279" ${extra}><div class="in" data-box="25,137,335,635">Runs past the box</div></section></div>`);
+  const clipped = judgeCards(box('overflow:clip').run(readCards, {}));
+  assert.deepEqual(clipped.map((x) => x.kind), ['scroll'], 'a card that clips: its foot is cut off');
+  const sc = box('overflow-y:auto').run(readCards, {});
+  assert.equal(sc.scroll.length, 0);
+  const j = judgeCards(sc);
+  assert.deepEqual(j.map((x) => x.kind), ['scrolls'], 'a card that scrolls: reachable, reported as the last resort');
+  assert.match(j.find((x) => x.kind === 'scrolls').text, /scrolls up and down, content runs 255 px past its box/);
+  // (It must really scroll: an overflow of auto with nothing to scroll to is the cut-off case.)
+  const none = page(`<div class="pz"><section class="pz-data" style="overflow-y:auto" data-box="10,100,350,380" data-scroll-height="279" data-client-height="279"><div class="in" data-box="25,137,335,635">Runs past</div></section></div>`).run(readCards, {});
+  assert.equal(none.scroll.length, 1);
+});
+
 test('text under 12 px on the screen is found, with a parent zoom counted', () => {
   const p = page(`<div class="pz"><section class="pz-data" data-box="900,60,1400,500">
     <span class="tiny" style="font-size:10.3px" data-box="910,70,1000,90">Too small</span>
