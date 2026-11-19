@@ -312,3 +312,17 @@ test('the glass reads a wallet card\'s move from the number the wallet holds, ne
   assert.match(c, /if \(glass\) \{ const a = anims\[anims\.length - 1\]; driveBy\(el, a\.tf\); if \(a\.name\) driveBy\(el, a\.name\);/, 'both animations of a glass card are the glass\'s to leave alone');
   assert.match(c, /if \(a\.glass\) driveOff\(a\.el\);/);
 });
+
+test('a move by number is told for 250 ms (the figure lays every present whole while cards move)', async () => {
+  const { signalMove, movedWithin } = await import('../src/ui/num-move.js');
+  const real = performance.now;
+  let t = 5000;
+  performance.now = () => t;
+  try {
+    signalMove();
+    assert.ok(movedWithin(250));
+    t += 249; assert.ok(movedWithin(250));
+    t += 2; assert.ok(!movedWithin(250));
+    signalMove(); assert.ok(movedWithin(250), 'each move tells again');
+  } finally { performance.now = real; }
+});

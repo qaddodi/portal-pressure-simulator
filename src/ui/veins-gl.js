@@ -70,6 +70,7 @@ import { flagValue } from './flags.js';
 import { caught } from './caught.js';
 import { counts, tally } from './frame-counts.js';
 import { morphLowK, morphLowSize } from './morph-low.js';
+import { movedWithin } from './num-move.js';
 const ORGAN_MESH = { tri: null, seg: null, nTri: 0, nSeg: 0 };   // alloc-rare: made once (the organ texture's shapes are meshed into it one at a time, each released after its draw)
 
 export { binVeins };
@@ -3312,7 +3313,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // The glass takes its blur from the screen, which a clip leaves holding last frame's glass outside the box: so it never blurs inside a clip (top.clipped
   // in glass-gl.js runShare), and a whole present comes at least every PART_FULL_MS, which is when it blurs (its blood is refreshed 4 times a second anyway,
   // BLOOD_BLUR_MS). ?partial=off keeps every present whole, ?partial=check lays each partial present again whole and compares the two (restCheck).
-  const PART_FULL_MS = 200, PART_MAX_SHARE = 0.75, PART_FLAG = flagValue('partial'), PART_ON = PART_FLAG !== 'off';
+  const PART_MOVE_MS = 250, PART_FULL_MS = 200, PART_MAX_SHARE = 0.75, PART_FLAG = flagValue('partial'), PART_ON = PART_FLAG !== 'off';
   const restSt = { ok: false, writes: -1, pic: -1, blood: -1, tv: -1, ovr: -1, ovS: false, w: 0, h: 0, ow: 0, oh: 0, tex: null, fullAt: -1e9, run: 0, check: PART_FLAG === 'check', checked: 0, bad: 0, laid: 0, share: 0, why: '', who: '', refused: {} };
   const PR = [], PPOOL = [], PBOX = [0, 0, 0, 0];
   if (screenKeep) { const P = (globalThis.pps ||= {}); P.partial = restSt; }   // (pps.partial: how many rest presents were laid in part, why the others were whole)
@@ -3350,6 +3351,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   function restBox() {
     const P = restSt, no = (why) => { P.why = why; P.refused[why] = (P.refused[why] || 0) + 1; return null; };   // (why: the last reason a present was laid whole, counted: pps.partial)
     if (!PART_ON || !screenKeep || lost) return no('off');
+    if (movedWithin(PART_MOVE_MS)) return no('a card is moving by number');
     if (!P.ok) return no('the last present was not a plain whole one');
     if (screenKeep.writes !== P.writes) return no('something else wrote on the screen');
     if (P.pic !== pictureSeq) return no('a picture other than the blood\'s');
