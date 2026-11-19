@@ -4,6 +4,7 @@
 // are HTML and keep their rules. A word's size is its font-size attribute (presenter's fsOf), so no entry sets one. Pieces with no look of
 // their own (the root, groups, clip paths) are named here too, empty, so the picture asks the page nothing about them.
 import { tok, mix, own, ease } from './dsl.js';
+import { AXIS } from './common.js';
 
 const NONE = { base: {} };
 const REDUCE = [{ motion: 'reduce' }, { ease: { opacity: null, transform: null } }];   // 2159 .pz-col * { transition: none !important }
@@ -78,7 +79,7 @@ export const CARD = {
   // 2396 .pzq-cut: the two cut-offs
   'card.quad.cut': { base: { stroke: tok('text-2'), width: 3, dash: [10, 8] } },
   // 2397 .pzq-axis
-  'card.quad.axis': { base: { stroke: tok('border-strong'), width: 2 } },
+  'card.quad.axis': { base: { ...AXIS } },
   // 2398-2399 .pzq-t, .pzq-t.on: a tick's number; the cut-off's is bolder and darker
   'card.quad.t': { state: { on: 'class:on' }, base: { weight: 500, fill: tok('text-3') }, when: [[{ on: true }, { weight: 700, fill: tok('text') }]] },
   // 2400 .pzq-ax: an axis name

@@ -27,7 +27,7 @@ test('a part of the ladder in a wide screen\'s cell: lines grow with the type, n
   assert.deepEqual(P('prof.bf', {}, cell).dash, [2, 6], 'max(1.5px, .125em) max(4.5px, .375em)');
   assert.equal(P('prof.br.path', {}, cell).width, 1.76);
   assert.equal(P('prof.brace.path', {}, cell).width, 1.76);
-  assert.equal(P('prof.axis', {}, cell).width, 1.2);
+  assert.equal(P('prof.axis', {}, cell).width, 1.25);
   assert.equal(P('plot.grid.line', {}, withCtx(cell, { host: 'prof' })).width, 1.2);
   assert.equal(P('prof.line', {}, ctx({ layout: 'stack', in: 'cell' })).width, 3, 'a stacked card keeps the plain one');
   assert.equal(P('prof.hl').dash.join(), '4,5');

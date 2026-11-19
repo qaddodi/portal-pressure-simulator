@@ -2,6 +2,7 @@
 // New entries, so no stylesheet rule is behind them: the colours are the app's own tokens (the stent's metal, the veins' colours, the
 // flow and ramp colours the figure uses), the words' size is the builder's font-size attribute (12 px on screen, as the cross-section's).
 import { tok, mix } from './dsl.js';
+import { AXIS } from './common.js';
 
 const halo = { stroke: tok('surface'), width: 3, join: 'round' };
 const stroke = (t) => ({ base: { fill: 'none', stroke: t === 'text-3' ? mix('srgb', tok(t), 70, 'transparent') : tok(t), width: 4.5, cap: 'butt', join: 'round' } });
@@ -64,7 +65,7 @@ export const STENT = {
   // the lumen with its veins, the five sites' dashed lines, a numbered badge on each, a panel's baseline, its area, its line and a dot where each site reads
   'stent.tr.site': { base: { fill: 'none', stroke: mix('srgb', tok('text-3'), 55, 'transparent'), width: 1, dash: [2.4, 2.8], cap: 'butt' } },
   'stent.tr.siteNum': { base: { fill: tok('text-2'), weight: 700, halo, baseline: 'central' } },
-  'stent.tr.axis': { base: { fill: 'none', stroke: mix('srgb', tok('text-3'), 28, 'transparent'), width: 1 } },
+  'stent.tr.axis': { base: { ...AXIS } },
   'stent.tr.zero': { base: { fill: 'none', stroke: mix('srgb', tok('text-3'), 70, 'transparent'), width: 1.2 } },
   'stent.tr.title': { base: { fill: tok('text-2'), weight: 600, halo, baseline: 'central' } },
   'stent.tr.area.pressure': area('accent'), 'stent.tr.area.energy': area('flow-reversed'), 'stent.tr.area.velocity': area('ramp-violet'),

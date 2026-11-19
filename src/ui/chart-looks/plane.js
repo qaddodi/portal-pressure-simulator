@@ -7,6 +7,7 @@
 // inside it every halo and fill that read the card's colour read the plot's own tone) is data-axes on the model's root; `cw` (a card's zone
 // words, 7365) is the .pze-cwords group they sit in.
 import { tok, mix, ease } from './dsl.js';
+import { AXIS } from './common.js';
 import { CRIT } from './crit.js';
 
 // Colours that never change with the look, all tokens (theme-tokens.js): the pressure ramp's violet and wine stops, and pure black.
@@ -87,7 +88,7 @@ export const PLANE = {
   'plane.isot': { state: { axes: 'data-axes' }, base: { weight: 600, fill: tok('text-3') }, when: [[{ axes: true }, { halo: { stroke: tok('surface-2'), width: 4, join: 'round' } }]] },
   // 7344 .pze-grid, 7345 .pze-axis: a scatter's hairlines and its two axis lines
   'plane.grid': { base: { stroke: mix('srgb', tok('border-strong'), 70, 'transparent'), width: 1 } },
-  'plane.axis': { base: { stroke: tok('text-3'), width: 1.5 } },
+  'plane.axis': { base: { ...AXIS } },
   // 7347, 7349 .pze-dt: the diagonal's name (in a scatter the grid breaks behind it)
   'plane.dt': { state: { axes: 'data-axes' }, base: { weight: 600, fill: tok('text-2') }, when: [[{ axes: true }, { halo: { stroke: tok('surface-2'), width: 4, join: 'round' } }]] },
   // 7350 .pze-ln: a cut-off line's own name

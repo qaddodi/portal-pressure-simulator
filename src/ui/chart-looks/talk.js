@@ -3,6 +3,7 @@
 // (grid, axis, unit, series line, panel) are plot.js.
 // (Inside the talk host app.css 7626 sets --surface to the panel's own tone, --surface-2, so the halos and the points' fill read it: surface-2 here.)
 import { tok, param, mix, px, em, svk } from './dsl.js';
+import { AXIS } from './common.js';
 
 export const TALK = {
   // 7180, 7190-7194 .ptk-band rect: the treatment's colour (data-p-rx), twice as strong in a dark look
@@ -96,7 +97,7 @@ export const TALK = {
   'talk.rx.dot': { base: { fill: tok('text-2'), stroke: 'none' } },
   'talk.rx.name': { base: { font: [500, em(1)], fill: tok('text-2') } },
   // the time row: a visit's bracket and the breaks between visits, its day, the time between visits
-  'talk.axis.mark': { base: { fill: 'none', stroke: tok('text-3'), width: 1.25, cap: 'round', join: 'round' } },
+  'talk.axis.mark': { base: { ...AXIS, cap: 'round', join: 'round' } },
   'talk.when': {
     state: { now: 'class:now' },
     base: { font: [500, em(1)], fill: tok('text-2') },

@@ -7,6 +7,7 @@
 // A colour a builder gives a piece is its token name in data-p-c (a line's colour, a key's), or data-p-rx (a treatment's).
 // (Inside both hosts app.css 7606 sets --surface to the panel's own tone, --surface-2, so every halo and ring fill reads surface-2 here.)
 import { tok, param, mix, em, ease } from './dsl.js';
+import { AXIS } from './common.js';
 
 const halo = (w) => ({ stroke: tok('surface-2'), width: w, join: 'round' });
 const warn = (pct) => mix('oklab', tok('caution'), pct, tok('text'));
@@ -27,7 +28,7 @@ export const TIME = {
   // (a tspan that only carries its text's look)
   'time.span': { base: {} },
   // 2946 .pft-x: the time or x axis line
-  'time.axis.line': { base: { stroke: tok('text-3'), width: 1.5 } },
+  'time.axis.line': { base: { ...AXIS } },
   // 2949, 6314, 7197 .pft-tk: the numbers under the axis
   'time.tk': { base: { font: [500, em(1)], fill: tok('text-3') } },
   // 2959, 6314, 7197 .ptk-grid text: a gridline's number, in the colour of its line (data-p-c, text-3 where plain)

@@ -2,6 +2,7 @@
 // patients as points. One type size (the host's, em(1)), a step under it for the axes and the quieter words, told apart by weight and colour. The
 // patient the slide is about is filled in full ink, the others in the accent; a cause the model does not simulate is an open ring. No glow, no box round a name.
 import { tok, mix, em } from './dsl.js';
+import { AXIS } from './common.js';
 
 /** look → [weight, size in em of the host's size]: the plane's words, the one table the layout measures with (tool-saag.js). */
 export const TYPE = {
@@ -16,7 +17,7 @@ export const SAAG = {
   'saag.zone.hi': { base: { fill: mix('srgb', tok('text'), 5, 'transparent') } },
   // The two cut-off lines, dashed, and the plot's own axes
   'saag.cut': { base: { fill: 'none', stroke: tok('text-3'), width: 1.2, dash: [4, 3] } },
-  'saag.axis': { base: { fill: 'none', stroke: mix('srgb', tok('border-strong'), 80, 'transparent'), width: 1 } },
+  'saag.axis': { base: { ...AXIS } },
   // The zone's name, the ticks' numbers, the axes' names
   'saag.ql': word('saag.ql', tok('text-3')),
   'saag.ax': word('saag.ax', tok('text-3')),

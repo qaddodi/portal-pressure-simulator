@@ -2,6 +2,7 @@
 // apart by weight and colour. A trial that fits the patient is in full ink, the others in the muted tone (the .dim keys). No glow, no box round
 // a reading: the row picked has a faint wash behind it, as a picked tab has.
 import { tok, mix, param, em } from './dsl.js';
+import { AXIS } from './common.js';
 
 const word = (weight, fill, size = 1) => ({ base: { weight, size: em(size), fill } });
 const ink = tok('text'), quiet = tok('text-3');
@@ -25,7 +26,7 @@ export const FOREST = {
   'forest.mk.dim': { base: { fill: muted } },
   // The line at 1 (no difference), the axis and its ticks, and the hairlines between the parts
   'forest.ref': { base: { fill: 'none', stroke: mix('srgb', tok('text'), 38, 'transparent'), width: 1 } },
-  'forest.axis': { base: { fill: 'none', stroke: mix('srgb', tok('border-strong'), 80, 'transparent'), width: 1 } },
+  'forest.axis': { base: { ...AXIS } },
   'forest.rule': { base: { fill: 'none', stroke: tok('hairline'), width: 1 } },
   'forest.tick': word(500, quiet, 0.92),
   'forest.ends': word(500, quiet, 0.92),

@@ -6,6 +6,7 @@
 // alone here; every other piece is 1 em of the host (the size the chart was drawn at). A tspan under a piece is `prof.tspan`: it takes the
 // look of its text and nothing of its own.
 import { tok, mix, px, em, max } from './dsl.js';
+import { AXIS } from './common.js';
 
 const ROW = ['wide', 'short', 'low'];
 const CELL = { layout: ROW, in: 'cell' };   // (.pz:not(.stack) .pz-cell: the instrument drawn once in a wide screen's grid cell, 2275-2280)
@@ -47,7 +48,7 @@ export const PROFILE = {
   // 7129 .ppf-v: a reading, a halo of the card's colour under it
   'prof.v': { base: { weight: 700, size: em(1), fill: tok('text'), halo } },
   // 7130, 2280 .ppf-axis
-  'prof.axis': { base: { stroke: tok('axis'), width: 1 }, when: [[CELL, { width: max(px(1), em(0.075)) }]] },
+  'prof.axis': { base: { stroke: AXIS.stroke, width: AXIS.width }, when: [[CELL, { width: max(px(1.25), em(0.0781)) }]] },
   // 7133 .ppf-blk: the red block (the hatching is the piece's fill attribute)
   'prof.blk': { base: { stroke: tok('danger'), width: 1.2, strokeOpacity: 0.7 } },
   // 7138, 2279 .ppf-brace path / 7139 text: the sinusoidal brace
