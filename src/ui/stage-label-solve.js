@@ -11,6 +11,7 @@ import { RING_DIRS, RING_SPOTS, boxGap, inLaneBox, createSlideInView, crosses, h
 import { NAME_BREAK, OFF_NEAR, nameSpots, onOtherOrgan } from './organ-names.js';
 import { leaderVesselHits, segHitsBox, segsCross } from './seg-hits.js';
 import { elBoxInto } from './shape-gl.js';
+import { createBoxOfEl } from './stage-label-box.js';
 import { store } from './store.js';
 const ZONE_AIR = 8;   // (px a circuit reading keeps clear of a zone header's words, A15)
 import { stentFacts } from './stent-waist.js';
@@ -39,19 +40,8 @@ export function createLabelSolve(st, live) {
   const { pointAtLocal, segBoxes, colSideScore, focusMarkOn, laneFor, dimObstacles, CLB, PROBE_STEPS, clBoxAt, clFree, grow } = createLabelCol({ geo, pointAt, worldToLocalInto, lineHits, stenosisAt, live, E });
   const CLB_BASE = { x0: 0, y0: 0, x1: 0, y1: 0 }, BOX_TMP = { x0: 0, y0: 0, x1: 0, y1: 0 };
   const PROBE_BUF = [], CLAMP_SEEN = new Set();
-  // An element's box in stage px, `m` px grown, written into `out` (or null when it has none).
-  function boxOfElInto(out, el, m = 2) {
-    const b = el._txt != null ? clampTextBox(el) : elBoxInto(el, EBOX, clampTextBox);
-    if (!b?.width) return null;
-    const bx = b.x, by = b.y, bw = b.width, bh = b.height;
-    worldToLocalInto(SB_A, bx, by); let x0 = SB_A[0], y0 = SB_A[1], x1 = x0, y1 = y0;
-    worldToLocalInto(SB_A, bx + bw, by); x0 = Math.min(x0, SB_A[0]); y0 = Math.min(y0, SB_A[1]); x1 = Math.max(x1, SB_A[0]); y1 = Math.max(y1, SB_A[1]);
-    worldToLocalInto(SB_A, bx, by + bh); x0 = Math.min(x0, SB_A[0]); y0 = Math.min(y0, SB_A[1]); x1 = Math.max(x1, SB_A[0]); y1 = Math.max(y1, SB_A[1]);
-    worldToLocalInto(SB_A, bx + bw, by + bh); x0 = Math.min(x0, SB_A[0]); y0 = Math.min(y0, SB_A[1]); x1 = Math.max(x1, SB_A[0]); y1 = Math.max(y1, SB_A[1]);
-    out.x0 = x0 - m; out.y0 = y0 - m; out.x1 = x1 + m; out.y1 = y1 + m;
-    return out;
-  }
-  function boxOfEl(el, m = 2) { const b = boxOfElInto(BOX_TMP, el, m); return b && { x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 }; }
+  // An element's box in stage px, `m` px grown, written into `out` (or null when it has none): stage-label-box.js.
+  const { boxOfElInto, boxOfEl } = createBoxOfEl({ EBOX, clampTextBox, elBoxInto, worldToLocalInto });
   // (The layout itself, a generator: a solve yields between labels once its slice is spent (sliceOver); run whole, it never yields.)
   function* layoutLabelsGen(f, solve, dry = false) {
     live.frameNo++;
@@ -1321,7 +1311,9 @@ export function createLabelSolve(st, live) {
       // (A reading pulled in onto a vessel takes the solid halo there too.)
       if ((cx || cy) && solve && useLines && it.key.startsWith('n:') && lineHits(rectOf(it), 2)) { it.onVessel = true; const sol = nextSol.get(it.key); if (sol) sol.onv = true; } if ((cx || cy) && !it.sel && useLines && lineHits(rectOf(it), 1, { only: 'res' })) { it.hide = true; vis.set(it.key, false); continue; }   // (pulled in onto a resistor's zigzag: hidden instead. Circuit slide 4 on a phone: "IVC", pulled out from under the card onto the liver's)
       if (!it.sel && (it.ax < -8 || it.ax > W + 8 || it.ay < -8 || it.ay > H + 8)) { it.hide = true; vis.set(it.key, false); continue; }
-      if (it.sel) { it.hide = false; continue; }
+      // (A selected label stays wherever it can, but never on a card's glass: with no free spot it hides and the card, which names the vessel, speaks for it; it
+      // returns once 10 px clear, so a card easing at its edge cannot flick it. 19 Nov 2026, bible review STG-7 / LBL-8: it used to stay under the glass.)
+      if (it.sel) { const sr = it.rot ? rectOf({ ...it, w: it.h, h: it.w }) : rectOf(it), sm = fresh || vis.get(it.key) !== false ? 0 : 10; it.hide = blockers.some((o) => hits(sr, { x0: o.x0 - sm, y0: o.y0 - sm, x1: o.x1 + sm, y1: o.y1 + sm })); vis.set(it.key, !it.hide); continue; }
       const r = it.rot ? rectOf({ ...it, w: it.h, h: it.w }) : rectOf(it), was = fresh || vis.get(it.key) !== false, m = was ? 0 : it.point || (dop.all && /^focus/.test(it.key)) ? 4 : 10;   // (a turned caption: its box turned too; a stent's point or its mark was placed 4 px off the cards)
       // A zone title is a label too: a reading is never hidden by one (the overlap pass below settles any
       // clash, and a reading outranks a zone title); other labels give way to it only where they truly overlap.

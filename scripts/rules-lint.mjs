@@ -579,6 +579,10 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   ]);
   need('src/ui/presenter.js', [[/await caseLifted\(cut\); if \(cut\(\)\) return; caseExit = true;/, "the camera behind a case card is at the whole patient: its move in takes 900 ms (presenter-proc.js frameTo reads caseExit)"]]);
   need('src/ui/presenter-proc.js', [[/live\.caseExit && !opt\.drift \? \{ \.\.\.opt, slow: true \} : opt/, "frameTo asks the move in from a case card slow"]]);
+  // A card zoom's callouts come back through their fade (19 Nov 2026, bible review STG-6): source shapes kept here (PR-02), each with its reason.
+  need('src/ui/stage-zoom.js', [
+    [/h\.el\.style\.transition = `opacity \$\{D_SMALL\}ms var\(--ease\)`; h\.el\.style\.opacity = h\.was; \}\n\s+stageScope\.timer\(\(\) => \{ for \(const h of back\) h\.el\.style\.transition = h\.tr; \}, D_SMALL \+ 40\);/, "the callouts hidden under a zoomed card return under the fade they left by, and drop the inline transition once it has run: opacity and transition written together popped them back in one frame"],
+  ]);
   // The camera has one path, the straight one (19 Nov 2026, bible review STG-4; Mohammad, 18 Nov: "camera must zoom straight from any view to any view"): no pull-back arc, no blend of two paths, no arc option.
   for (const f of ['src/ui/stage.js', 'src/ui/stage-glide.js', 'src/ui/stage-cath.js', 'src/ui/stage-ride.js', 'src/ui/stage-fit.js', 'src/ui/stage-view.js']) forbid(f, /\barcRoom\b|\bcamPath\b|\bblendPaths\b|\barcRun\b|\bviewsOverlap\b|\barc: true|\{ arc\b/, 'the camera goes straight from any view to any view: no pull-back arc, no blended refit, no arc option (cam-arc.js lerpInto)');
   forbid('src/ui/proc-anim.js', /\barc:\s*(?:true|false)/, 'a procedure shot goes straight: no arc option (STG-4)');
