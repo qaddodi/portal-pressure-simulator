@@ -9,7 +9,7 @@
 // transparency, or a browser without backdrop blur (whose solid card stays).
 
 import { BLOOD_BLUR_MS, shareFor, sharePrep, sharePlan, shareKeep, shareForget, shareShift, shareTurn, shareUse, shareRelease, shareBytes } from './blur-share.js';
-import { glCap, fbComplete } from './gl-state.js';
+import { glCap, glOn, fbComplete } from './gl-state.js';
 import { glassCover, stackOf, stackCmp } from './glass-cover.js';
 import { hold } from './gpu-budget.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
@@ -490,7 +490,7 @@ function fillMask(G, m, d, ss, mw, mh) {
   G.framebufferTexture2D(G.FRAMEBUFFER, G.COLOR_ATTACHMENT0, G.TEXTURE_2D, m.tex, 0);
   G.viewport(0, 0, mw, mh);
   G.disable(G.SCISSOR_TEST); G.disable(G.STENCIL_TEST);
-  const depth = G.isEnabled(G.DEPTH_TEST), cull = G.isEnabled(G.CULL_FACE);
+  const depth = glOn(G, G.DEPTH_TEST), cull = glOn(G, G.CULL_FACE);   // (from the context's record: gl.isEnabled is a synchronous driver query, GPU-6)
   if (depth) G.disable(G.DEPTH_TEST);
   if (cull) G.disable(G.CULL_FACE);
   G.clearColor(0, 0, 0, 0); G.clear(G.COLOR_BUFFER_BIT);
@@ -2134,8 +2134,18 @@ export function createGlassGL(wrap, source, layers, { markHold = true, software 
   document.fonts?.addEventListener?.('loadingdone', again);
   // (A CSS transition or animation starting anywhere: followed if it moves a glass or what holds it (its keyframes taken now, once); one
   // ending, anywhere: the page read again for where it ended.)
-  const docStart = (e) => { pollReset(); trackSoon(e?.target); wake(); };
-  const docEnd = () => measureEarly('transitionEnd');
+  // (GPU-13, 19 Nov 2026: any transition anywhere, a hover on a menu button, woke the glass and, as it ended, read every glass's boxes and styles again (about 18 direct reads, twice, as two
+  // renderers listen). A transition of a property that only repaints (a colour, a shadow, an opacity, a transform), on an element that is not a glass and holds none, cannot move or resize
+  // one, so it asks for nothing: the filter is by what moved and where, never by a list of pages. A property that can change a box, a custom property included, wakes as before.)
+  const PAINT_ONLY = /^(opacity|color|background-color|background-image|border-(top-|right-|bottom-|left-)?color|outline(-color|-offset)?|box-shadow|text-shadow|filter|fill|stroke|stroke-opacity|fill-opacity|transform|translate|scale|rotate|caret-color|text-decoration-color)$/;
+  const paintOnly = (e) => {
+    const p = e?.propertyName, t = e?.target, list = geo?.list;
+    if (!p || !t || !list?.length || !PAINT_ONLY.test(p)) return false;
+    for (let i = 0; i < list.length; i++) { const g = list[i]; if (g === t || t.contains?.(g)) return false; }
+    return true;
+  };
+  const docStart = (e) => { if (paintOnly(e)) return; pollReset(); trackSoon(e?.target); wake(); };
+  const docEnd = (e) => { if (paintOnly(e)) return; measureEarly('transitionEnd'); };
   const DOC_START = ['transitionrun', 'animationstart'], DOC_END = ['transitionend', 'transitioncancel', 'animationend', 'animationcancel'];
   for (const t of DOC_START) document.addEventListener?.(t, docStart, true);
   for (const t of DOC_END) document.addEventListener?.(t, docEnd, true);

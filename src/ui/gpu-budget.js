@@ -198,8 +198,33 @@ const screenPx = () => {
   return (scrPx = Math.max(1, (globalThis.innerWidth || 1) * (globalThis.innerHeight || 1) * d * d));
 };
 
+// ── Pictures held by canvases (GPU-1, 19 Nov 2026 review) ──
+// A chart, readout or callout hands its picture to its own bitmap canvas (trace-gl.js: transferToImageBitmap, then transferFromImageBitmap), and that
+// canvas holds the bitmap, the whole pool buffer, for as long as it lives. No texture or renderbuffer is made for it, so gl-state's wrappers never see
+// it, yet each is megapixels on the GPU (9.4 MB at 1536 x 1536). The drawers count what they hold here: one cell each, set at every hand-over and zeroed
+// when the picture is cleared or the drawer is disposed. A drawer the page lets go of without disposing is forgotten with it (the finalizer below).
+export const PICTURE_OWNER = 'chart pictures';
+const picCells = new Set();          // each live drawer's { b: bytes held }
+let picBytes = 0;
+const picGone = typeof FinalizationRegistry !== 'undefined' ? new FinalizationRegistry((cell) => { if (picCells.delete(cell)) picBytes -= cell.b; }) : null;
+/** A drawer's count of the picture its canvas holds: set(bytes) at each hand-over, clear() when the canvas lets it go, release() when the drawer is disposed. Made once per drawer. */
+export function pictureHold() {
+  const cell = { b: 0 };   // alloc-rare: once per drawer
+  picCells.add(cell);
+  const h = {   // alloc-rare: once per drawer
+    set(bytes) { if (!picCells.has(cell)) return; const b = bytes > 0 ? bytes : 0; picBytes += b - cell.b; cell.b = b; },
+    clear() { h.set(0); },
+    release() { if (picCells.delete(cell)) { picBytes -= cell.b; cell.b = 0; } picGone?.unregister(h); },
+    get bytes() { return cell.b; },
+  };
+  picGone?.register(h, cell, h);
+  return h;
+}
+/** The bytes and the number of pictures canvases hold now (what pps.budget() lists under 'chart pictures'). */
+export function picturesHeld() { let n = 0; for (const c of picCells) if (c.b > 0) n++; return { bytes: picBytes, n }; }   // alloc-rare: a report read by ?perf and the tests
+
 /** The bytes the registry holds for the contexts named owner (a holder's own count of what its context keeps; walks the entries, no list made). */
-export function ownerBytes(owner) { let b = 0; for (const e of entries.values()) if (e.owner === owner) b += e.bytes; return b; }
+export function ownerBytes(owner) { if (owner === PICTURE_OWNER) return picBytes; let b = 0; for (const e of entries.values()) if (e.owner === owner) b += e.bytes; return b; }
 
 /** The registry and the passes now: bytes against the memory envelope, the last frame's area against the pass envelope. */
 export function budget() {
@@ -209,6 +234,10 @@ export function budget() {
   for (const e of entries.values()) { bytes += e.bytes; const o = owners.get(e.owner) || { owner: e.owner, bytes: 0, n: 0 }; o.bytes += e.bytes; o.n++; owners.set(e.owner, o); } // alloc-rare: a report read by the ?perf readout and the tests, and once when memory first runs over its envelope
   const canvases = canvasBytes();
   bytes += canvases;
+  // (The pictures canvases hold: handed over from a chart context, so no texture of the registry's, but on the GPU all the same.)
+  const pics = picturesHeld();
+  bytes += pics.bytes;
+  if (pics.bytes > 0) owners.set(PICTURE_OWNER, { owner: PICTURE_OWNER, bytes: pics.bytes, n: pics.n });
   const big = [...entries.values()].sort((a, b) => b.bytes - a.bytes).slice(0, 8).map((e) => ({ owner: e.owner, kind: e.kind, fmt: e.fmt, w: e.w, h: e.h, samples: e.samples, levels: e.nLevels || e.levels.size, mb: +(e.bytes / 1e6).toFixed(1) })); // alloc-rare: a report read by the ?perf readout and the tests, and once when memory first runs over its envelope
   const sites = new Map(); // alloc-rare: a report read by the ?perf readout and the tests, and once when memory first runs over its envelope
   if (SITES) for (const e of entries.values()) { const k = `${e.owner} ${e.kind} ${e.site}`; const o = sites.get(k) || { site: k, n: 0, bytes: 0 }; o.n++; o.bytes += e.bytes; sites.set(k, o); } // alloc-rare: a report read by the ?perf readout and the tests, and once when memory first runs over its envelope
@@ -217,7 +246,7 @@ export function budget() {
   return { // alloc-rare: a report read by the ?perf readout and the tests, and once when memory first runs over its envelope
     creators,
     device: deviceClass(), envelope: env,
-    mb: +(bytes / 1e6).toFixed(1), canvasesMb: +(canvases / 1e6).toFixed(1), overMemory: bytes > env.mb * 1e6, // alloc-rare: a report read by the ?perf readout and the tests, and once when memory first runs over its envelope
+    mb: +(bytes / 1e6).toFixed(1), canvasesMb: +(canvases / 1e6).toFixed(1), picturesMb: +(pics.bytes / 1e6).toFixed(1), overMemory: bytes > env.mb * 1e6, // alloc-rare: a report read by the ?perf readout and the tests, and once when memory first runs over its envelope
     owners: [...owners.values()].sort((a, b) => b.bytes - a.bytes).map((o) => ({ owner: o.owner, n: o.n, mb: +(o.bytes / 1e6).toFixed(1) })), // alloc-rare: a report read by the ?perf readout and the tests, and once when memory first runs over its envelope
     largest: big,
     frame: { targets: last.targets, draws: last.draws, screens: +(last.area / scr).toFixed(2), copies: last.copies, copyScreens: +(last.copyArea / scr).toFixed(2), transfers: last.transfers, transferScreens: +(last.transferArea / scr).toFixed(2), uploads: last.uploads, uploadScreens: +(last.uploadArea / scr).toFixed(2) }, // alloc-rare: a report read by the ?perf readout and the tests, and once when memory first runs over its envelope
@@ -318,7 +347,7 @@ export function enforce(env = ENVELOPES[deviceClass()]) {
   unmet = over() ? total - env.mb * 1e6 : 0;
   return evictions - before;
 }
-function registryBytes() { return canvasBytes() + regBytes; }
+function registryBytes() { return canvasBytes() + regBytes + picBytes; }
 let peakBytes = 0;
 
 /** The registry's estimate now and the highest it has read (MB, the looks twice a second while frames run): what the crash report keeps of the page's last moments (report.js). */
@@ -358,7 +387,7 @@ export function overMemory() { return overMem; }
 /** The ?perf readout's lines. */
 export function budgetText() {
   const b = budget();
-  const lines = [`GPU budget (${b.device}): ${b.mb} of ${b.envelope.mb} MB${b.overMemory ? ' OVER' : ''} (canvases ${b.canvasesMb}); last frame ${b.frame.screens} of ${b.envelope.screens} screens drawn, ${b.frame.targets} target switches, ${b.frame.draws} passes, ${b.frame.copies} copies (${b.frame.copyScreens} screens); worst ${b.worstScreens}`];
+  const lines = [`GPU budget (${b.device}): ${b.mb} of ${b.envelope.mb} MB${b.overMemory ? ' OVER' : ''} (canvases ${b.canvasesMb}, held pictures ${b.picturesMb}); last frame ${b.frame.screens} of ${b.envelope.screens} screens drawn, ${b.frame.targets} target switches, ${b.frame.draws} passes, ${b.frame.copies} copies (${b.frame.copyScreens} screens); worst ${b.worstScreens}`];
   for (const o of b.owners.slice(0, 6)) lines.push(`  ${o.owner}: ${o.mb} MB in ${o.n}`);
   if (b.creators.length) { lines.push('  Biggest creators (owner, kind, line that made them):'); for (const c of b.creators) lines.push(`    ${c.mb} MB in ${c.n}: ${c.site}`); }
   lines.push(`  pictures handed over ${b.frame.transfers} (${b.frame.transferScreens} screens), uploads ${b.frame.uploads} (${b.frame.uploadScreens}); held ${b.holders.list.length}, let go ${b.holders.evictions}`);

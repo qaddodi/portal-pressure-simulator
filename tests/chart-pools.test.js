@@ -12,7 +12,7 @@ globalThis.setTimeout = (f) => { timers.push(f); return timers.length; };
 globalThis.clearTimeout = () => {};
 const runTimers = () => { for (const f of timers.splice(0)) f(); };
 const calls = [];
-const fb = { status: 'FRAMEBUFFER_COMPLETE', alive: true };   // (what the fake driver says of the coverage target)
+const fb = { status: 'FRAMEBUFFER_COMPLETE', alive: true, asked: 0 };   // (what the fake driver says of the coverage target)
 function fakeGL() {
   return new Proxy({}, {
     get(_, k) {
@@ -22,13 +22,14 @@ function fakeGL() {
       if (k === 'getExtension') return () => null;
       if (k === 'getProgramParameter' || k === 'getShaderParameter') return () => true;
       if (k === 'checkFramebufferStatus') return () => fb.status;
-      if (k === 'isTexture' || k === 'isFramebuffer') return () => fb.alive;
+      if (k === 'isTexture' || k === 'isFramebuffer') return () => { fb.asked++; return fb.alive; };
       return (...a) => { calls.push([k, ...a]); return k.startsWith('create') || k === 'getUniformLocation' ? {} : undefined; };
     },
   });
 }
 const contexts = [];
-globalThis.OffscreenCanvas = class { constructor(w, h) { this.w = w; this.h = h; this.resized = 0; } get width() { return this.w; } set width(v) { this.w = v; } get height() { return this.h; } set height(v) { this.h = v; } getContext() { const g = fakeGL(); contexts.push(g); return g; } transferToImageBitmap() { return {}; } addEventListener() {} };
+const canvases = [];   // (every pool canvas made, with the listeners it was given: a test fires the pool's own)
+globalThis.OffscreenCanvas = class { constructor(w, h) { this.w = w; this.h = h; this.resized = 0; this.ls = []; canvases.push(this); } get width() { return this.w; } set width(v) { this.w = v; } get height() { return this.h; } set height(v) { this.h = v; } getContext() { const g = fakeGL(); contexts.push(g); return g; } transferToImageBitmap() { return {}; } addEventListener(t, f) { this.ls.push([t, f]); } };
 globalThis.Image = class { set src(v) { this._s = v; this.width = 64; this.height = 64; queueMicrotask(() => this.onload?.()); } };
 const elem = () => ({ width: 1, height: 1, style: {}, setAttribute() {}, remove() {}, addEventListener() {}, getContext: (k) => (k === 'bitmaprenderer' ? { transferFromImageBitmap() {} } : fakeGL()) });
 globalThis.document = { createElement: elem };
@@ -80,17 +81,18 @@ test('a picture of the same size again is written into its storage', () => {
   C.dispose();
 });
 
-test('a coverage target the driver lost, or never completed, is made again, so strokes cannot silently stop while fills draw', () => {
+test('a coverage target from before a context was made again, or never completed, is made again, so strokes cannot silently stop while fills draw (asked of the context generation, never of the driver: GPU-6)', () => {
   const C = createTraceGL(host());
   clock += 3000;
   assert.ok(draw(C, 400, 200));
   const base = sharedStats.covAllocs, remade = sharedStats.covRemade;
   for (let i = 0; i < 40; i++) { clock += 16; assert.ok(draw(C, 400, 200)); }
   assert.equal(sharedStats.covAllocs, base, 'a healthy target is kept: nothing made again');
-  fb.alive = false;
+  assert.equal(fb.asked, 0, 'no synchronous object query was made in those frames');
+  // (the pool's context restored: its generation moves on, the pool's own listener is the first it was given)
+  canvases[0].ls.find(([t]) => t === 'webglcontextrestored')[1]();
   clock += 16; draw(C, 400, 200);
-  fb.alive = true;
-  assert.equal(sharedStats.covRemade, remade + 1, 'a lost target is noticed in the next frame');
+  assert.equal(sharedStats.covRemade, remade + 1, 'a target of an older context is noticed in the next frame');
   assert.ok(sharedStats.covAllocs > base, 'and allocated again');
   const a2 = sharedStats.covAllocs;
   fb.status = 'FRAMEBUFFER_INCOMPLETE_ATTACHMENT';

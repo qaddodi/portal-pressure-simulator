@@ -1100,7 +1100,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (A new look is built whole, not in REBUILD_MS chunks: the crossfade holds the page until the labels have it (busy, label-theme.js labelsBusy), so no
   // label shows the old colours beside another that has the new, and the leaders' and dots' new colours are never ahead of the words'.)
   let lookHoldUntil = 0;
-  const themeNow = () => { if (disposed) return; lookHoldUntil = performance.now() + 800; all(); pReadSoon(); };   // (the Doppler probe's look follows the theme too)
+  // (GPU-9, 19 Nov 2026: the leaders' and dots' default inks (the pinned labels' own look where they have none: drawPins) were taken once, from the first look seen or the page's tokens,
+  // and never again, so after a change of look (Light to Dark) a leader or dot that falls back to the default kept the old ink, a pale ring on a dark stage. A look change drops all four.)
+  let defLine = null, defDot = null, PIN_LINE0 = null, PIN_DOT0 = null;
+  const themeNow = () => { if (disposed) return; defLine = defDot = PIN_LINE0 = PIN_DOT0 = null; lookHoldUntil = performance.now() + 800; all(); pReadSoon(); };   // (the Doppler probe's look follows the theme too)
   const unlayer = addLabelLayer({ busy: () => !disposed && host.active() && !!(dirty.size || unread.size || waiting.size || todo.size || pending.size || markDirty.size || mtodo.size || fillT), theme: themeNow, ride: () => { if (!disposed) rideSeen(); }, dirty: told });
   darkMQ.addEventListener?.('change', themeNow);
   addEventListener('pps:labelscale', themeNow);   // (the text size: --label-k on the page)
@@ -2065,7 +2068,6 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (A record's own want bits where its writer gave them (pos.want, stage-label-layer.js paintLeaders), else the ones read from the leaders' layer at sync.)
   const wantOf = (s, key) => (typeof s.want === 'number' ? s.want : pinWant.get(key) | 0);
   const PG = new Float64Array(4);
-  let defLine = null, defDot = null, PIN_LINE0 = null, PIN_DOT0 = null;
   function pinMark(st, geo, isPath, a) {
     if (!st || !(a > 0.001) || (!st.stroke && !st.fill)) return false;
     const w = st.stroke ? st.w * dpr : 0, m = w / 2 + 2, box = MBOX;
