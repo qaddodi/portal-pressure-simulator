@@ -171,6 +171,7 @@ const presenter = {
   // (For the browser checks: the cards' GPU glass (its drawn() record, scripts/gate-motion.mjs) and a slide's degraded readiness, R05.)
   glass: () => presenterL.now()?.glass?.() ?? null,
   degraded: () => presenterL.now()?.degraded?.() ?? null,
+  shuffle: () => presenterL.now()?.shuffle?.() ?? null,   // (the two cards sharing one place on a short screen: the gallery's fit check parks it, card-shuffle.js)
   ink: () => presenterL.now()?.ink?.() ?? null,   // (N2: the pen and spotlight, for the browser checks)
 };
 

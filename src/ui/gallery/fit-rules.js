@@ -3,7 +3,6 @@
 // his hand give the same verdict:
 //
 //   scroll    a card whose content runs past its box (its last lines are hidden from view)
-//   scrolls   a data card that scrolls up and down for the same reason (the fit's last resort, pz-scrolls; the words are reachable, never cut off)
 //   clipped   a text element wider than a box that clips (a cut or ellipsised word)
 //   off       text partly outside the screen (and not inside something that scrolls on purpose)
 //   enlarged  a card already enlarged when nothing asked for it
@@ -30,13 +29,12 @@ import { TITLE_RATIO, WORDS_MIN_PX } from '../card-type.js';
 export { TITLE_RATIO, WORDS_MIN_PX };
 
 /** Every category a judge may name, in the order a list shows them. */
-export const KINDS = ['enlarged', 'zoomed', 'scroll', 'scrolls', 'clipped', 'off', 'small', 'ratio', 'sideways', 'styled', 'blank', 'cut', 'tall'];
+export const KINDS = ['enlarged', 'zoomed', 'scroll', 'clipped', 'off', 'small', 'ratio', 'sideways', 'styled', 'blank', 'cut', 'tall'];
 /** What each kind means, one line, for the list the Check button copies. */
 export const KIND_WORDS = {
   enlarged: 'a card up while nothing asked for it',
   zoomed: 'an enlarged card that did not grow or stands off the screen',
   scroll: 'words run past the card',
-  scrolls: 'the card scrolls up and down: its words need more room than the screen leaves (its last resort)',
   clipped: 'a word is cut by its box',
   off: 'text stands partly off the screen',
   small: 'lettering under 12 px',
@@ -60,7 +58,7 @@ export const PRESENTER_CARDS = ['.pz-text', '.pz-data', '.pz-panel'];
 /**
  * What does not fit right now on the slide's cards (the presenter's `.pz`). Layout only: the page's words and boxes, never a picture.
  * env.minPx: the least a letter may be on the screen (default WORDS_MIN_PX, 12).
- * Returns { n, vw, vh, shown (cards in view), enlarged[], clipped[], off[], scroll[], scrolls[], small[], sideways[], styled[], title, body, fonts }; every list holds strings.
+ * Returns { n, vw, vh, shown (cards in view), enlarged[], clipped[], off[], scroll[], small[], sideways[], styled[], title, body, fonts }; every list holds strings.
  */
 export function readCards(io, env) {
   const minPx = (env && env.minPx) || 12;
@@ -111,7 +109,6 @@ export function readCards(io, env) {
   small.sort((a, b) => a[0] - b[0]);
   // (A card whose real content runs past its box. Not scrollHeight: the GL words' and traces' overlay canvases stand 18 px past the box of a card whose
   // overflow is clipped, which made every such card look like it scrolled. The content is what is not a canvas.)
-  const scrolls = [];
   const scroll = cards.map((q) => {
     const e = document.querySelector(q);
     if (!e || !vis(e)) return null;
@@ -130,8 +127,6 @@ export function readCards(io, env) {
     if (low <= 2) return null;
     const t0 = document.querySelector('.pz-text'), tb = t0 ? io.box(t0) : null;
     const t = `${q} content runs ${Math.round(low)} px past its box (${who}; box ${Math.round(box.width)} x ${Math.round(box.height)} at y ${Math.round(box.top)}, screen ${vw} x ${vh}; teaching card ${tb ? `y ${Math.round(tb.top)}-${Math.round(tb.bottom)}` : 'none'})`;
-    // (A data card that scrolls up and down, the fit's last resort when its picture cannot be shorter and its lettering may not go under 12 px: its own kind, not words cut off.)
-    if (/auto|scroll/.test(st(e).overflowY) && io.metric(e, 'scrollHeight') > io.metric(e, 'clientHeight') + 1) { const u = t.replace('content runs', 'scrolls up and down, content runs'); scrolls.push(u); seen(u, e); return null; }
     seen(t, e);
     return t;
   }).filter(Boolean);
@@ -175,7 +170,7 @@ export function readCards(io, env) {
   const te = document.querySelector('.pz-text .pz-h'), be = document.querySelector('.pz-text .pz-line');
   if (te && be && vis(te) && vis(be)) { title = Math.round(screenPx(te) * 10) / 10; body = Math.round(screenPx(be) * 10) / 10; ratioEl = te; }
   if (ratioEl) seen('ratio', ratioEl);
-  return { n: document.querySelector('.pzb-n')?.textContent || '', vw, vh, enlarged, clipped: clipped.slice(0, 12), off: off.slice(0, 12), scroll, scrolls, small: small.slice(0, 12).map((s) => s[1]), sideways: sideways.slice(0, 12), styled, title, body, fonts, shown };
+  return { n: document.querySelector('.pzb-n')?.textContent || '', vw, vh, enlarged, clipped: clipped.slice(0, 12), off: off.slice(0, 12), scroll, small: small.slice(0, 12).map((s) => s[1]), sideways: sideways.slice(0, 12), styled, title, body, fonts, shown };
 }
 
 /** Where the two cards really are with one enlarged (getClientRects: the zoom pins getBoundingClientRect to the resting box). */
@@ -245,7 +240,6 @@ export function judgeCards(r, opts = {}) {
   const old = opts.oldRules === true, out = [];
   for (const t of r.enlarged || []) out.push(P('enlarged', t));
   for (const t of r.scroll || []) out.push(P('scroll', t));
-  for (const t of r.scrolls || []) out.push(P('scrolls', t));
   for (const t of r.clipped || []) out.push(P('clipped', t));
   for (const t of r.off || []) out.push(P('off', t));
   if (!old) {
