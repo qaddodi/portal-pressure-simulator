@@ -28,7 +28,7 @@ import { flagValue, searchNow } from '../flags.js';
 
 /** The id the presenter gives the gallery deck: the Testing decks are listed as 'test-' + their own id (presenter.js testingLoad). */
 export const DECK_ID = 'test-gallery';
-const IO = { box: readBox, rects: readRects, lines: readLines, style: readStyle, metric: readMetric, ctm: readCTM };
+const IO = { box: readBox, rects: readRects, lines: readLines, style: readStyle, metric: readMetric, ctm: readCTM, anims: readAnims };
 const LOOK_NAMES = { light: 'Light', soft: 'Soft', dark: 'Dark', navy: 'Navy', black: 'Black' };
 
 const CSS = `

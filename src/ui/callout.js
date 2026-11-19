@@ -6,6 +6,7 @@
 import { createSvgGL, svgModel, setGeo } from './svg-gl.js';
 import { restPass, cancelRest } from './rest-pass.js';
 import { onTheme } from './theme-epoch.js';
+import { readMetric, readStyle } from './layout-snap.js';
 import { KEEP, PTR } from './callout-ptr.js';   // (how far the pointer reaches past the card's edge, and how far it stays from the card's sides)
 
 const BORDER = 2; // the card's (transparent) border, which the glass covers
@@ -58,7 +59,7 @@ const leader = (h, top, px, dir, len, tx, ox) => {
 // (Read in the observer's callback, after the browser's own layout: never on a frame.)
 function observedSize(el, es) {
   const b = es[es.length - 1].borderBoxSize?.[0];
-  return [b ? [b.inlineSize, b.blockSize] : [el.offsetWidth, el.offsetHeight], parseFloat(getComputedStyle(el).borderTopLeftRadius) || 14];
+  return [b ? [b.inlineSize, b.blockSize] : [readMetric(el, 'offsetWidth'), readMetric(el, 'offsetHeight')], parseFloat(readStyle(el).borderTopLeftRadius) || 14];
 }
 
 const NO_OPTS = {};
@@ -121,7 +122,7 @@ export function glassCallout(el, { pointer = true, bare = false } = NO_OPTS) {
     lineT = 0;
     if (S.gone || !el.isConnected) return;
     if (typeof getComputedStyle !== 'function') return;
-    const cs = getComputedStyle(path);
+    const cs = readStyle(path);
     lineCls = el.className;
     path.setAttribute('fill', 'none');
     // (A bare callout's line: the callout's own --leader, 1 px; a card's outline is the stylesheet's stroke on the path.)

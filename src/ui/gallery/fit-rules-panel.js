@@ -4,10 +4,10 @@
 import { registerPanel } from './registry.js';
 import { runCheck, drawOutlines, clearOutlines, numberedReport } from './fit-check.js';
 import { KIND_WORDS } from './fit-rules.js';
-import { readBox, readRects, readStyle, readMetric, readCTM } from '../layout-snap.js';
+import { readBox, readRects, readStyle, readMetric, readCTM, readAnims } from '../layout-snap.js';
 import { fadeShown } from '../util.js';
 
-const IO = { box: readBox, rects: readRects, style: readStyle, metric: readMetric, ctm: readCTM };
+const IO = { box: readBox, rects: readRects, style: readStyle, metric: readMetric, ctm: readCTM, anims: readAnims };
 
 const css = `
 .fitc { display: flex; flex-direction: column; gap: 8px; font: 500 13px/1.35 var(--font-ui, system-ui, sans-serif); color: var(--text, inherit); }

@@ -23,7 +23,7 @@
 //    scripts do, to hold that (tests/fit-rules.test.js).
 //  - JUDGES (judgeCards, judgeZoom, judgeStructureCard) are pure functions of what a reader returned.
 //
-// io = { box(el), rects(el), style(el), metric(el, key), ctm(el), seen?(key, el) }   (seen: optional, tells the caller which element a finding is about)
+// io = { box(el), rects(el), style(el), metric(el, key), ctm(el), anims?(el), seen?(key, el) }   (seen: optional, tells the caller which element a finding is about)
 //
 // No DOM import at top level: a unit test loads this in node.
 import { TITLE_RATIO, WORDS_MIN_PX } from '../card-type.js';
@@ -329,7 +329,7 @@ export function readSheet(io) {
   const r = io.box(el);
   const tbEl = document.querySelector('.topbar'), tb = tbEl ? io.box(tbEl).bottom : 56;
   const scrollers = [el, ...el.querySelectorAll('*')].filter((n) => { const o = io.style(n).overflowY; return (o === 'auto' || o === 'scroll') && io.metric(n, 'scrollHeight') > io.metric(n, 'clientHeight') + 1 && io.metric(n, 'clientHeight') > 40; });
-  return { cls: String(el.className).split(' ').slice(0, 3).join('.'), name: el.getAttribute('aria-label') || '', pal: el.classList.contains('pal'), top: Math.round(r.top), bottom: Math.round(r.bottom), h: Math.round(r.height), topBar: Math.round(tb), room: Math.round(r.top - tb), scrolls: scrollers.length > 0, moving: !!el.getAnimations && el.getAnimations().length > 0 };
+  return { cls: String(el.className).split(' ').slice(0, 3).join('.'), name: el.getAttribute('aria-label') || '', pal: el.classList.contains('pal'), top: Math.round(r.top), bottom: Math.round(r.bottom), h: Math.round(r.height), topBar: Math.round(tb), room: Math.round(r.top - tb), scrolls: scrollers.length > 0, moving: (io.anims?.(el)?.length || 0) > 0 };
 }
 
 /** How far a sheet's top may stand below the top bar's foot while its words scroll (a sheet that scrolls has used the room; this is the gap). */

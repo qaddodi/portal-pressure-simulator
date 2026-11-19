@@ -21,7 +21,7 @@ import { caught } from './caught.js';
 import { focusIn, focusBack } from './focus-flow.js';
 import { widgetGL } from './widget-gl.js';
 import { layoutToast, paintToast, inkOf } from './toast-gl.js';
-import { readMetric, readBox } from './layout-snap.js';
+import { readMetric, readBox, readStyle } from './layout-snap.js';
 import { freeStage, bandWidth } from './free-stage.js';
 import { sliderOf, sliderFor, dotWidth, jump, glide, gliding, setHover, setHeld, setFocus, releaseAll, followInput } from './slider-gl.js';
 import { plateFor } from './plate-gl.js';
@@ -161,12 +161,12 @@ function dropToast(t) {
   const at = TOASTS.indexOf(t); if (at >= 0) TOASTS.splice(at, 1);
   t._glassMo?.disconnect(); t._glassMo = null;
   if (!wrap) return;
-  const others = [...wrap.children].filter((c) => c !== t), tops = others.map((c) => c.getBoundingClientRect().top);
+  const others = [...wrap.children].filter((c) => c !== t), tops = others.map((c) => readBox(c).top);
   t._wgl?.dispose(); t._wgl = null;
   t.remove();
   if (reduceMotionMQ.matches) return;
   others.forEach((c, i) => {
-    const dy = tops[i] - c.getBoundingClientRect().top;
+    const dy = tops[i] - readBox(c).top;
     if (Math.abs(dy) > 0.5) c.animate?.([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: D_SMALL, easing: EASE_MOVE, composite: 'add' });
   });
 }
@@ -339,7 +339,7 @@ export function tooltipFor(el, text, side = 'right') {
 // (3 Nov 2026: the tip is laid out in script from Inter's own advances (tip-gl.js), so no page measure fits it, and drawn on the GPU; the
 // page's own words, in a span beside the picture, stay for the screen reader and until the GPU has drawn it.)
 function tipShow(el, text, side, tip) {
-  const r = el.getBoundingClientRect();
+  const r = readBox(el);
   const v = typeof text === 'function' ? text() : text;
   const words = typeof v === 'object' ? v.text : v, key = typeof v === 'object' ? v.key : null;
   let span = tip._words;
@@ -432,7 +432,7 @@ export const stageBottom = (anchor) => { const fs = freeStage(), vb = visibleBot
  *  flip: opens on the other side, and keeps clear of the bottom, where there is no room (false: placed where asked, only its left held in).
  *  Its entrance is opacity alone (app.css scale-settle) or a sheet's slide, so no transform-origin is set. */
 export function placeAt(el, anchor, { side = 'below', align = 'start', gap = 8, margin = 8, edge = null, flip = true } = {}) {
-  const r = anchor.getBoundingClientRect();
+  const r = readBox(anchor);
   // (Layout size, not the rectangle: an entrance may be moving the box.)
   const w = el.offsetWidth, hh = el.offsetHeight, vb = stageBottom(anchor), cw = document.documentElement.clientWidth || innerWidth;
   const x = align === 'end' ? r.right - w : align === 'center' ? r.left + r.width / 2 - w / 2 : r.left;
@@ -472,13 +472,13 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   sheetLayer().append(el);
   const put = () => {
     if (asSheet) return;
-    const r = anchor.getBoundingClientRect(), w0 = el.offsetWidth;
+    const r = readBox(anchor), w0 = el.offsetWidth;
     const x = align === 'end' ? r.right - w0 : align === 'center' ? r.left + r.width / 2 - w0 / 2 : r.left;
     // A scrolling menu below its button may use all the room down to the 8 px margin, so it ends whole where it fits; never
     // over the bottom bar where the two meet (a phone held sideways: Settings had run 87 px over it; sweep 04 #01).
     let barTop = null, at = place;
     if (place === 'below' && el.classList.contains('app-menu')) {
-      const dock = document.getElementById('vdock'), d = dock?.offsetParent ? dock.getBoundingClientRect() : null, xl = clamp(x, 8, innerWidth - w0 - 8);
+      const dock = document.getElementById('vdock'), d = dock?.offsetParent ? readBox(dock) : null, xl = clamp(x, 8, innerWidth - w0 - 8);
       if (d && d.height && d.left < xl + w0 && d.right > xl && d.top < visibleBottom()) barTop = d.top;
       // A button low on the screen (the deck nav pill's gear on a Mac or iPad) opens it above, at its full height: below
       // it the room was the 160 px floor, which cut Settings off at "Text size on the figure".
@@ -489,7 +489,7 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
     // A menu from the thumb dock's tab row rests 8 px above the whole dock (the play bar and timeline stay up under it, 4 Nov),
     // like the cards and the phone's sheets: it rises from behind the dock and is cut on the dock's top line.
     const bar = anchor.closest('.thumb-bar'), dockEl = bar && bar.closest('.vdock'), tabTop = bar ? (dockEl || bar).getBoundingClientRect().top : null;
-    if (bar && /auto|scroll/.test(getComputedStyle(el).overflowY)) el.style.maxHeight = Math.max(160, tabTop - 16) + 'px';
+    if (bar && /auto|scroll/.test(readStyle(el).overflowY)) el.style.maxHeight = Math.max(160, tabTop - 16) + 'px';
     const vb = stageBottom(anchor);
     // A menu with no height rule of its own (Blood and Colored-by on a phone held sideways: 511-560 px of rows in 284-332 px of
     // room) takes the larger side of its button and scrolls inside it, never off the screen. One that fits is left as it was.
@@ -531,7 +531,7 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   // The keyboard opening or closing (a search field) moves the visible bottom: place the menu again.
   const vv = window.visualViewport, onVV = () => { if (!asSheet) put(); };
   // (Armed after this task, so the tap that opened the menu does not close it; a close before then cancels it.)
-  const me = { close: closePopover, has: (n) => el.contains(n) || anchor.contains(n), anchor, el, box: () => (asSheet ? null : el.getBoundingClientRect()) };
+  const me = { close: closePopover, has: (n) => el.contains(n) || anchor.contains(n), anchor, el, box: () => (asSheet ? null : readBox(el)) };
   claimSurface(me);
   vv?.addEventListener('resize', onVV);
   // (A sheet rests on the page's foot, which iOS leaves under the keyboard: any field in it is kept above the keyboard here, once, for every sheet: sheet-keyboard.js.)
@@ -568,7 +568,7 @@ function moreFlush() { const lists = [...moreAsks]; moreAsks.clear(); for (const
 function moreSync(el) {
   moreAsks.delete(el);   // (a check made now answers one that was waiting)
   // (Both read before either is written: the class would dirty the style and the padding read after it would lay the list out again.)
-  const more = el.scrollHeight - el.clientHeight - el.scrollTop > 4, pb = getComputedStyle(el).paddingBottom;
+  const more = el.scrollHeight - el.clientHeight - el.scrollTop > 4, pb = readStyle(el).paddingBottom;
   el.classList.toggle('more', more); el.style.setProperty('--fade-pb', pb);
 }
 // Whether an element has a box (neither it nor an ancestor display: none), as getClientRects().length says, without laying
@@ -760,14 +760,14 @@ function foldRun(el, hide) {
   if (cur ? cur.hide === hide : el.hidden === hide) return;
   let now = null;   // (turning round mid-way: from what is drawn now)
   if (cur) {
-    const c = getComputedStyle(el);
+    const c = readStyle(el);
     now = { opacity: +c.opacity, height: `${el.offsetHeight}px`, ...Object.fromEntries(FOLD_PROPS.map((k) => [k, c[k]])) };
     cur.anim.cancel(); folds.delete(el); el.style.overflow = '';
   }
   const drawn = el.animate && el.isConnected && (cur || (hide ? hasBox(el) : !!el.parentElement && hasBox(el.parentElement)));
   if (!drawn) { el.hidden = hide; return; }
   if (!hide) el.hidden = false;
-  const c = getComputedStyle(el);
+  const c = readStyle(el);
   const open = { opacity: 1, height: `${el.offsetHeight}px`, ...Object.fromEntries(FOLD_PROPS.map((k) => [k, c[k]])) };
   const shut = { opacity: 0, height: '0px', ...Object.fromEntries(FOLD_PROPS.map((k) => [k, '0px'])) };
   const from = now || (hide ? open : shut), to = hide ? shut : open;
@@ -1122,7 +1122,7 @@ export function menuPush(back, title, kids) {
 /** How far a panel is drawn from where it sits along y right now (px), mid-transition or mid-animation included. */
 function liveShift(panel) {
   try {
-    const m = getComputedStyle(panel).transform;
+    const m = readStyle(panel).transform;
     return !m || m === 'none' ? 0 : Math.max(0, new DOMMatrixReadOnly(m).m42 || 0);
   } catch { return 0; }
 }
@@ -1131,7 +1131,7 @@ function liveShift(panel) {
 // page; a sheet not easing is drawn where the page puts it, read once here, at the touch.)
 function sheetGrab(panel, target, t, thumb, easing) {
   let sc = null;
-  for (let n = target; n && n !== panel.parentElement; n = n.parentElement) if (n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(n).overflowY)) { sc = n; break; }
+  for (let n = target; n && n !== panel.parentElement; n = n.parentElement) if (n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(readStyle(n).overflowY)) { sc = n; break; }
   return { sc, x: t.clientX, y: t.clientY, top: !sc || sc.scrollTop <= 0, on: false, dy: 0, t: 0, trail: [], shift: easing ? pullAt(easing) : thumb ? 0 : liveShift(panel), h: panel.offsetHeight, thumb, pull: null };
 }
 export function swipeSheet(panel, onClose, enabled = null) {   // (enabled: a card that is a sheet only on a phone says when it is one)
@@ -1394,7 +1394,7 @@ function readVars() {
   const root = document.documentElement;
   for (const sh of document.styleSheets || NO_RULES) { let rules = null; try { rules = sh.cssRules; } catch (e) { caught('util:1024', e); /* (another origin) */ } collectVarNames(rules); }
   collectVarNames([root]);   // alloc-rare: a theme change reads every token once. (The root's own style: --label-k and the like.)
-  const cs = getComputedStyle(root);
+  const cs = readStyle(root);
   for (const n of varNames) varCache.set(n, cs.getPropertyValue(n).trim());   // alloc-rare: a theme change reads every token once
   alphaCache.clear();
 }
@@ -1603,7 +1603,7 @@ export function redrawSized(canvas) {
 /** Gives a canvas its box now, read here between frames, instead of waiting for the observer's first report: a card built to be opened has its widgets drawn before it is shown (card.js prepBegin, 18 Nov 2026, the
  *  tester: "the card waits half a second"). The observer's own reports carry on from it. */
 export function primeCanvasSize(canvas) {
-  const b = canvas.getBoundingClientRect();
+  const b = readBox(canvas);
   let r = boxes.get(canvas);
   if (!r) { boxes.set(canvas, { width: 0, height: 0 }); boxObserver.observe(canvas); r = boxes.get(canvas); }   // alloc-rare: a canvas met for the first time
   r.width = b.width; r.height = b.height;
@@ -1828,15 +1828,15 @@ export const axisTop = (max, min = 10) => Math.max(min, Math.ceil((max + 2) / 5)
 // way, else the shift it has now. (The zoom pill glides aside with a side card by a transform; a fit read mid-glide had the
 // circuit map dip and rise; round 2 review, RF2.)
 export function transformEndX(el) {
-  const now = getComputedStyle(el).transform;
+  const now = readStyle(el).transform;
   let t = now;
   const tr = el.getAnimations?.().find((a) => a.transitionProperty === 'transform');
   if (tr) t = tr.effect?.getKeyframes?.().at(-1)?.transform ?? now;
   try { return t && t !== 'none' ? new DOMMatrixReadOnly(t).e : 0; } catch { return 0; }
 }
 // An element's box with its horizontal transform at its end (see transformEndX).
-export function settledBox(el, q = el.getBoundingClientRect()) {
-  const t = getComputedStyle(el).transform, cur = t && t !== 'none' ? new DOMMatrixReadOnly(t).e : 0, end = transformEndX(el);
+export function settledBox(el, q = readBox(el)) {
+  const t = readStyle(el).transform, cur = t && t !== 'none' ? new DOMMatrixReadOnly(t).e : 0, end = transformEndX(el);
   if (end === cur) return q;
   const z = el.offsetWidth ? q.width / el.offsetWidth : 1;
   return new DOMRect(q.x + (end - cur) * z, q.y, q.width, q.height);
@@ -1851,18 +1851,18 @@ export function parseTranslate(t) {
 // it has this frame. The phone's data card opens and closes by a translate set frame by frame (presenter.js dockTo): the camera
 // framed 60 ms into that glide counted the card where it stood then, so the figure sat high under a card opening and low under one
 // closing, off the middle of the room between the cards (Ascites 8 on an iPhone, 21 Oct).
-export function translateRest(el, q = el.getBoundingClientRect()) {
+export function translateRest(el, q = readBox(el)) {
   const rest = el.dataset?.restTranslate;
   if (rest == null) return q;
-  const [cx, cy] = parseTranslate(getComputedStyle(el).translate), [ex, ey] = parseTranslate(rest);
+  const [cx, cy] = parseTranslate(readStyle(el).translate), [ex, ey] = parseTranslate(rest);
   if (cx === ex && cy === ey) return q;
   const z = el.offsetHeight ? q.height / el.offsetHeight : 1;
   return new DOMRect(q.x + (ex - cx) * z, q.y + (ey - cy) * z, q.width, q.height);
 }
 // An element's box without its own transform (a card's entrance offset): where it rests.
-export function restBox(el, q = el.getBoundingClientRect()) {
+export function restBox(el, q = readBox(el)) {
   if (el.dataset?.zoomed != null) return q;   // (a zoomed card, card-zoom.js, reports the place it rests: its glide is no entrance to take off)
-  const t = getComputedStyle(el).transform;
+  const t = readStyle(el).transform;
   if (!t || t === 'none') return q;
   const m = new DOMMatrixReadOnly(t), z = el.offsetHeight ? q.height / el.offsetHeight : 1;
   return new DOMRect(q.x - m.e * z, q.y - m.f * z, q.width, q.height);
