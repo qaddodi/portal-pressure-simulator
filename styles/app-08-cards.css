@@ -606,7 +606,7 @@ html.pz-covered :is(.pz-shade, .pz-text, .pz-data, .pz-case, .pz-panel, .pz-bar,
 .ab-gauge { display: grid; place-items: center; min-height: 0; }
 .ab .ab-belly > .ab-big { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3cqi; padding: 0 12cqi; text-align: center; }
 .ab .ab-belly > .ab-big > b { font-size: clamp(12px, 22cqi, 72px) !important; line-height: 1; white-space: nowrap; }
-.ab .ab-belly > .ab-big > b small { margin-left: .15em !important; font-size: .5em !important; }
+.ab .ab-belly > .ab-big > b small { margin-left: .15em !important; font-size: max(12px, .5em) !important; }   /* (the unit under the volume: half the number, never under 12 px: 11.9 px on a phone on its side, the deck sweep, 19 Nov 2026) */
 .dock-pane > .instrument-view.ab .ab-belly > .ab-big > b small { font-size: max(12px, .5em) !important; }   /* (the litres' unit: 12 px at least on a small belly) */
 .ab .ab-belly > .ab-big > .ab-grade { font-size: clamp(12px, 8.5cqi, 26px) !important; line-height: 1.1; }
 .ab .ab-belly > .ab-big { --ab-halo: 0 0 1px var(--surface), 0 0 1px var(--surface), 0 0 2px var(--surface), 0 0 2px var(--surface), 0 0 3px var(--surface), 0 0 5px var(--surface); }

@@ -668,6 +668,18 @@
 .pz.stack .pz-outline { --pzo-fs: calc(var(--s-body) * .85); gap: 14px; }   /* (a phone: the outline's words a little smaller) */
 .pz.stack .pz-panel[data-visual="outline"] .pz-dtitle { font-size: calc(var(--s-big) * .85); }
 .pz.stack .pzo-obj { padding: 12px 14px; border-radius: 14px; }
+/* A phone on its side (844 x 390): the outline slide's panel is 316 px tall, its lettering never under 12 px and never zoomed to fit (a fit that zoomed it had taken the Outline to 8.7 px, the deck sweep, 19 Nov 2026), so its
+   room is made by layout: the deck's title one line at the big size, the outline and the objectives side by side, the lists a little closer. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .pz-outline { grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 12px 22px; }
+  .pz-panel[data-visual="outline"] .pz-ph { gap: 6px; padding-top: 0; }
+  .pz-panel[data-visual="outline"] .pz-dtitle { font-size: var(--s-big); max-width: none; text-wrap: balance; }
+  .pz-outline h2.pz-sub { margin-bottom: .4em; }
+  .pz-outline ol li { padding: .3em 0; }
+  .pzo-obj { padding: 8px 14px 6px; border-radius: 14px; }
+  .pz-outline ul { gap: .3em; }
+  .pz-outline :is(ol, ul) { line-height: 1.3; }
+}
 .app.pz-hi .pzt-r { align-self: center; padding: .22em .7em; border-radius: var(--r-pill); background: var(--text-2); color: var(--surface); transition: none; }
 .app.pz-hi .pz-tile[data-rate="hi"] .pzt-r { background: var(--danger); color: var(--stage-bg); }
 .app.pz-hi .pz-tile[data-rate="mid"] .pzt-r { background: var(--caution); color: var(--on-caution); }

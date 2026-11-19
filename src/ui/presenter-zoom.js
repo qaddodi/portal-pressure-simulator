@@ -1,7 +1,7 @@
 // The data card slides out of view; the card zoomed
 // (moved out of presenter.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { clippedBy, isClipped } from './card-clip.js';
-import { COMPACT, WORDS_MIN_PX } from './card-type.js';
+import { COMPACT, SIDEWAYS_MAX_H, WORDS_MIN_PX, fitMins } from './card-type.js';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, easeOut3 } from './ease.js';
 import { flowTimeHeight } from './flow-time.js';
 import { slideFold } from './fold-slide.js';
@@ -793,11 +793,15 @@ export function createZoom(st, live) {
       // the compact layout's rule, before it may go past that as a last resort rather than scroll: it never scrolls.)
       const tableFloor = !small && !lowFloor && !shortFloor && el === live.ui.panel && !live.ui.root.classList.contains('stack') && el.querySelector(':scope > .pz-table') ? textFloor(el) : 0;
       const ln = small || el === live.ui.text ? el.querySelector('.pz-line, p') : null, lb = ln ? parseFloat(readStyle(ln).fontSize) : 0;
+      const sidePhone = innerHeight <= SIDEWAYS_MAX_H && innerWidth > innerHeight;
       const floor = lb > 12 ? Math.ceil(12 / lb * 1000) / 1000 : (el === live.ui.text ? 1 : dataFloor(el));   // (the words on every device stop at 12 px on the screen, at the deck size; the data card's lettering too, below)
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const mins = [lowFloor || floor];
       if (shortFloor > mins[0]) mins.unshift(shortFloor);   // (the compact layout's 12 px first; past it only as a last resort)
       else if (tableFloor > mins[0]) mins.unshift(tableFloor);
+      // (A phone on its side: the outline panel keeps its 12 px; its layout makes the room, styles/app-05-presenter-cards.css: card-type.js fitMins.)
+      const sideways = el === live.ui.panel && sidePhone && !!el.querySelector(':scope > .pz-outline, :scope > .pz-visual > .pz-outline');
+      if (sideways) mins.splice(0, mins.length, ...fitMins(mins, shortFloor || tableFloor || textFloor(el), true));
       let k = 1, over = 1;   // (over: the largest fit tried that still overflowed)
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const fits = () => { const o = ovOf(el); return o.v <= 1 && o.h <= 1 ? null : o; };

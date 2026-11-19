@@ -29,6 +29,13 @@ export const titleFloorK = (titlePx, bodyPx) => (titlePx > 0 && bodyPx > 0 ? Mat
 export const SIDEWAYS_MAX_H = 500;
 export const SIDEWAYS_WORDS = [[0.62, 0.8], [0.58, 0.72], [0.54, 0.64], [0.5, 0.58]];
 export const WORDS_MIN_PX = 12;
+/**
+ * The zooms a card's fit may go down to, in order (presenter-zoom.js fitEach). `mins` is the usual list: the card's 12 px floor first where it has one, then the last resort
+ * (a half) that lets lettering already at 12 px shrink rather than run out of its card. On a phone held sideways (`sideways`) a data panel's lettering is never taken under
+ * 12 px by a fit (19 Nov 2026, the deck sweep: the Outline of every deck fell to 8.7 px and the where-resistance table to 7.2 px, 402 findings; Mohammad: teaching text stays
+ * at least 12 px and never shrinks to fit): `hard`, the zoom that keeps 12 px (1 where the lettering is already at 12), is then the only floor, and the card's layout, not its zoom, makes the room.
+ */
+export const fitMins = (mins, hard, sideways) => (sideways && hard > 0 ? [hard] : mins);
 /** The sideways steps, tried in order. put(tk, bk) sets the words and says whether the pair of cards now fits; smallest() is the card's smallest
  *  lettering on the screen, px. A step is kept only while that is 12 px; where none fits the pair the words stay at the last step kept (null: not
  *  even the first keeps 12 px, the caller leaves them at Compact). Returns { below: fits, last: [tk, bk] | null }. */
