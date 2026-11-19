@@ -37,8 +37,8 @@ test('Treat › Procedures, the palette, the timeline and the circuit take the n
   assert.match(code(read('src/engine/topology.js')), new RegExp(`label: '${procLabel('dsrs').replace(/[()]/g, '\\$&')}'`), 'the circuit names the shunt as the table does');
 });
 
-test('nothing the learner reads calls the distal splenorenal shunt the Warren shunt, but the table and the About line that explain the alias', () => {
-  const allowed = new Set(['src/ui/procedure-names.js', 'src/ui/about.js']);
+test('nothing the learner reads calls the distal splenorenal shunt the Warren shunt, but the table that explains the alias', () => {
+  const allowed = new Set(['src/ui/procedure-names.js']);
   for (const f of [...walk('src').filter((p) => p.endsWith('.js'))].map((p) => p.replaceAll('\\', '/'))) {
     if (allowed.has(f) || f.startsWith('src/ui/snapshots')) continue;
     const t = code(read(f));
@@ -46,9 +46,11 @@ test('nothing the learner reads calls the distal splenorenal shunt the Warren sh
   }
 });
 
-test('the Band button, the scope card\'s button and the placed-band toast read the table, not a second spelling (bible ENG-10, 19 Nov 2026)', () => {
-  const a = code(read('src/ui/actions.js')), i = code(read('src/ui/instruments.js')), m = code(read('src/ui/main.js'));
-  assert.ok(/id: 'band', label: procLabel\('band'\)/.test(a), 'the anatomy card\'s band button');
-  assert.ok(/procLabel\('band'\)\);/.test(i) && !/'Band \(EVL\)'/.test(i), 'the scope card\'s band button');
-  assert.ok(!/Band \(EVL\) placed/.test(m) && /procLabel\('band'\)\} placed/.test(m), 'the toast');
+test('no button types a band label of its own: each reads procLabel (bible review 19 Nov, ENG-10)', () => {
+  const FILES = ['src/ui/actions.js', 'src/ui/instruments.js', 'src/ui/inspector.js', 'src/ui/stage-hover.js', 'src/ui/chart.js', 'src/ui/palette.js'];
+  for (const f of FILES) {
+    const t = code(read(f));
+    assert.ok(!/label: '(?:Band|Band \(EVL\))'/.test(t), `${f} types the band label instead of procLabel`);
+    assert.ok(!/icon\('band'\), '/.test(t), `${f} types the band button's words instead of procLabel('band')`);
+  }
 });

@@ -11,7 +11,7 @@ import { lobuleSource } from './split-src.js';
 
 test('the readout is loaded only with ?perf in the address, and nothing else imports it', () => {
   const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
-  assert.match(main, /if \(new URLSearchParams\(location\.search\)\.has\('perf'\)\) import\('\.\/perf-readout\.js'\)\.then\(\(\{ startPerfReadout \}\) => startPerfReadout\(/);
+  assert.match(main, /if \(flagOn\('perf'\)\) import\('\.\/perf-readout\.js'\)\.then\(\(\{ startPerfReadout \}\) => startPerfReadout\(/);
   const dir = new URL('../src/ui/', import.meta.url);
   for (const f of readdirSync(dir).filter((f) => f.endsWith('.js'))) {
     const src = readFileSync(new URL(f, dir), 'utf8');

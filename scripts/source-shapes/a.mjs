@@ -7,7 +7,7 @@ const main = (...parts) => new RegExp(esc(MAIN) + parts.join(''));
 // A's first occurrence in main() comes before B's first occurrence (both present).
 const before = (a, b) => main(`(?:(?!${esc(b)})[\\s\\S])*?`, esc(a), '[\\s\\S]*', esc(b));
 const BOOT = 'the engine\'s worker starts first and loads while the figure is built; no model frame is taken in before the healthy reference is set';
-const order = ['const engineUp = startHost();', 'stage = createStage({', 'await engineUp;', "host.request('healthyProfile')", 'store.set({ healthy:'];
+const order = ['const engineUp = startHost();', 'createStage({', 'await engineUp;', "host.request('healthyProfile')", 'store.set({ healthy:'];
 
 // modal-veil: the first `sel {` rule block of app.css (up to its first closing brace).
 const first = (sel) => `^(?:(?!\\n${esc(sel)} \\{)[\\s\\S])*\\n${esc(sel)} \\{`;
@@ -30,7 +30,7 @@ export default [
 
   // lobule-callout-leader-gap
   { file: 'src/ui/lobule-zoom*', need: [/const le = leaderEnd\(ink, a\[0\], a\[1\]\);/, 'lobule-zoom ends the pointer leader on the letters box grown by a gap'] },
-  { file: 'src/ui/lobule-zoom*', need: [/setGeo\(callLine, 'x2', ex\); setGeo\(callLine, 'y2', ey\)/, 'lobule-zoom ends the pointer leader on the letters box grown by a gap'] },
+  { file: 'src/ui/lobule-zoom*', need: [/ln\[2\] = ex; ln\[3\] = ey;/, 'lobule-zoom ends the pointer leader on the letters box grown by a gap'] },
   { file: 'src/ui/lobule-zoom*', forbid: [/setGeo\(callLine, 'x2', bx\)/, 'the leader no longer runs to the pill\'s middle'] },
 
   // menu-preview-one-card

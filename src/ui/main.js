@@ -2,9 +2,11 @@
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
 import './test-boot.js';   // (very first: ?testclock puts the page's clocks on the test clock before any other module reads the time)
+import { prefs, clearAll } from './prefs.js';
 import { lcFirst } from '../engine/lc-first.js';
 import { shortName, COMPACT } from './scenario-names.js';
 import { motionBudget } from './motion-budget.js';   // (first: counts from the start when ?perf or ?budget=1 asks)
+import { flagOn, flagValue, searchNow } from './flags.js';
 import { budget as gpuBudget } from './gpu-budget.js';   // (the render graph's registry and pass counts, R06: before any context is made)
 import './gl-state.js';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host, hostFailed, restartHost } from './host.js';
@@ -83,9 +85,7 @@ const ZOOM_TITLES = [['#zoomOut', 'Zoom out', 'Back out to the lobule'], ['#zoom
 import { initDebug } from './debug.js';
 import { initTopbarMotion } from './topbar-motion.js';
 import { FIRSTPASS, ORIGINS } from './blood.js';
-import { parseShare, cleanShare, encodeShare as encodeShareCode } from './share-link.js';
 import { focusBack } from './focus-flow.js';
-import { deepMerge, sanitizeParamsReport } from '../engine/scenario.js';
 import { createPaintGate } from './paint-gate.js';
 import { createSampleOwing } from './frame-samples.js';
 import { FIG_STEPS, figDetailWords } from './fig-detail-words.js';
@@ -96,7 +96,11 @@ import { createScope } from './scope.js';
 import { classSoon, runSoon } from './class-soon.js';
 import { sizeOf, watchSize, rectsSoon, restTask } from './geom.js';
 import { feedbackDiagnostics } from './feedback-diag.js';
-import { startReport, reportLines } from './report.js';
+import { fitMailto } from './packet/short.js';
+import { startReport, reportLines, note as noteEvent } from './report.js';
+import { extendHandle } from './pps-handle.js';
+import { createShare } from './share-flow.js';
+import { createKeyboard } from './keyboard.js';
 import { noteJump } from './display-state.js';
 import { createIdleRest, REST_AFTER_MS } from './idle-rest.js';
 import { pillState, foldPill, stopFold } from './pill-motion.js';
@@ -185,9 +189,9 @@ async function main() {
   applyTheme(knownLook(savedTheme));   // an unknown saved theme falls back to the device's
   glassAtLoad(document.documentElement, { stored: storedGlassMode(readLS) });   // (Settings › Blur effect as stored; on where none was chosen, every device, 12 Nov 2026)
   // The Student role was removed (to come back later): an old saved role is dropped, everyone gets the full app.
-  try { localStorage.removeItem('pps.role'); } catch (e) { caught('main:122', e); /* storage unavailable */ }
+  try { prefs.removeItem('pps.role'); } catch (e) { caught('main:122', e); /* storage unavailable */ }
   // Language selection was removed too (English only, to come back later): drop an old saved choice.
-  try { localStorage.removeItem('pps.lang'); } catch (e) { caught('main:124', e); /* storage unavailable */ }
+  try { prefs.removeItem('pps.lang'); } catch (e) { caught('main:124', e); /* storage unavailable */ }
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
@@ -350,6 +354,7 @@ async function main() {
   renderPaintHint();
   buildHud();
   wireTopbar();
+  window.ppsWired = true;   // (the buttons answer from here: a later start-up failure is a toast, not a cover over a working app; index.html's ppsBootFail)
   initTopbarMotion();
   wireThumbBar();
   wireFloating();
@@ -367,6 +372,7 @@ async function main() {
   let crashCard = null;
   host.on('crash', (m) => {
     console.error(m.message);
+    noteEvent('engine-crash', m.message);   // (the report's ring: a crash card used to leave no line of it, SHL-3)
     if (crashCard) return;
     // alloc-rare: the engine crashed (once, until Reload or Restart patient), never in a frame
     crashCard = toast('The model stopped. Reload, or restart this patient.', 'bad', { sticky: true, onClose: () => { crashCard = null; },
@@ -464,7 +470,7 @@ async function main() {
   for (const k of ['focus', 'labelLevel', 'selection']) { let was = store.get()[k]; store.on(k, (v) => { if (v === was) return; was = v; redraw(); }); }
 
   // Console handle for educators preparing a class (and for automated screenshots).
-  window.pps = { resumeUrl, loadPreset, store, updateParams, setTool, dock, details: (sel) => { store.set({ details: sel }); openPanel(); }, stage, host, card, timeline, menu: mainMenu, palette, presenter, get perf() { return framePerf(); }, motionBudget, budget: gpuBudget, get credit() { return creditPlacer; }, caught: caughtNow };   // (caught: the app's counted errors; the assignment above had replaced the one caught.js puts on window.pps, so no device report could read them)
+  extendHandle(window.pps ||= {}, { resumeUrl, loadPreset, store, updateParams, setTool, dock, details: (sel) => { store.set({ details: sel }); openPanel(); }, stage, host, card, timeline, menu: mainMenu, palette, presenter, get perf() { return framePerf(); }, motionBudget, budget: gpuBudget, get credit() { return creditPlacer; }, caught: caughtNow, toast: (t, kind) => toast(t, kind) });   // (keeps pps.report and pps.contexts, which report.js and gl-contexts.js put there first, and leaves the getters (perf, credit) lazy; caught: the app's counted errors; the assignment above had replaced the one caught.js puts on window.pps, so no device report could read them)
   // (The slide camera's gate on this device: every deck, Next and Back, each move judged from its own frames. cam-gate.js; loaded when asked.)
   // (The test clock: the page's time on a clock a window that is not in front does not throttle. test-mode.js; ?testclock starts it at boot, the camera gate turns it on for its run.)
   window.pps.testClock = async (o) => (await import('./test-mode.js')).testClock(o);
@@ -474,12 +480,12 @@ async function main() {
   window.pps.screen = Object.assign((o) => import('./screen/index.js').then((m) => m.screen(o)), { text: (r) => import('./screen/index.js').then((m) => m.text(r)) });   // (what is on the screen as data and text, from the app's own records: screen/index.js, read in only when called)
   window.pps.lookNow = (id) => applyLookAttrs(document.documentElement, knownLook(id));   // (a look on the page's attributes with nothing saved: the gallery page's looks, which must not change the look this browser keeps for the live site)
   // ?gallery on the preview copy only: the card gallery and debug page (gallery/page.js). The live site never reads it. ?check loads the same page (its Phone check panel starts the walk).
-  { const q = new URLSearchParams(location.search), g = q.get('gallery'); if ((g !== null || q.has('check')) && g !== 'frame' && /\/preview\//.test(location.pathname)) import('./gallery/page.js').then(({ startGallery }) => startGallery({ pps: window.pps })).catch((e) => caught('main:gallery', e)); }
+  { const g = flagValue('gallery'); if ((g !== null || flagValue('check') !== null) && g !== 'frame') import('./gallery/page.js').then(({ startGallery }) => startGallery({ pps: window.pps })).catch((e) => caught('main:gallery', e)); }
   // The bug packet ("What's wrong here?": a key chord, a long press on the preview pill, pps.packet) and a state link's extras (the `x` of its #s= payload), on the preview copy and a local run only: the live site never reads them.
   if (/\/preview\//.test(location.pathname) || /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) import('./packet/trigger.js').then(({ installPacketTrigger }) => installPacketTrigger({ pps: window.pps })).catch((e) => caught('main:packet', e));
   const linked = await presenter.readLink();
   if (linked) mainMenu.open('scripts', { mark: typeof linked === 'string' ? linked : null });
-  const shared = readShare(), back = new URLSearchParams(location.search).has('back');
+  const shared = readShare(), back = flagValue('back') !== null;
   if (shared) await loadShared(shared, { quiet: back });
   else {
     timeline.reset();
@@ -538,10 +544,12 @@ async function main() {
     const reg = () => whenQuiet(() => (window.requestIdleCallback || ((fn) => setTimeout(fn, 1500)))(() => navigator.serviceWorker.register('sw.js')
       .then(() => navigator.serviceWorker.ready).then((r) => whenQuiet(() => r.active?.postMessage('pps:fill'), 2000, 1000))
       .catch(() => { /* offline support is optional */ })));
-    // (The source site, `npm start`, loads src/ui/main.js and has no worker of its own: the build writes dist/sw.js, so only a built page registers one.)
+    // (The source site, `npm start`, has no worker: the build writes dist/sw.js, the only worker there is, so only a built page registers one.)
     const built = !document.querySelector('script[type=module][src^="src/"]');
     if (built) { if (window.ppsFigureReady) reg(); else addEventListener('pps:figure-ready', reg, { once: true }); }
   }
+  // (The stale-page recovery reloads with ?r=<time> to get a fresh page; once booted it has done its job, so it leaves the address, and the links the page makes (Copy link, Send feedback, resume) never carry it. SHL-10.)
+  try { const u = new URL(location.href); if (u.searchParams.has('r')) { u.searchParams.delete('r'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); } } catch (e) { caught('main:r-stamp', e); /* a link is only tidier without it */ }
   performance.mark?.('pps:booted');   // (P3: the first figure frame and the first input accepted are read from these marks and the browser's own first-input entry)
   // The surfaces most sessions never open are fetched and read in once the page is idle, one at a time, each only after the page has been
   // left alone for a moment (quiet.js): a module's read-in is tens of ms of script on a phone, and a timer alone put it in a pan or pinch.
@@ -557,7 +565,7 @@ async function main() {
 // Deep links, for a syllabus or a class page: ?script=<id> (&slide=<n>), ?preset=<id>,
 // ?home=explore|present (the menu, open at Patients or Present). They open straight into that activity.
 async function openDeepLink() {
-  const q = new URLSearchParams(location.search);
+  const q = { get: (k) => flagValue(k) || null };   // (the address's content parts: ?script, ?slide, ?preset, ?home)
   // (data-pz-opening: the deck is on its way; the corner credit waits for it rather than settle on the plain figure first.)
   if (q.get('script')) { const de = document.documentElement; de.dataset.pzOpening = ''; presenter.start(q.get('script'), Math.max(0, (parseInt(q.get('slide'), 10) || 1) - 1)).catch(() => {}).finally(() => delete de.dataset.pzOpening); return true; }
   if (q.get('preset')) {
@@ -760,57 +768,11 @@ async function loadPreset(id, opts = {}) {
   return true;   // (B1: true only when this load's answer was the one applied; a replaced or failed load answers false)
 }
 
-function encodeShare(extra) {
-  const st = store.get();
-  const payload = { v: 1, preset: st.presetId, params: st.params, view: st.view, ...extra };
-  return encodeShareCode(payload);
-}
-// (Read through share-link.js: prototype keys dropped, and only a known patient, view, selection and a finite camera kept.)
-function readShare() {
-  const m = location.hash.match(/#s=([\w-]+)/);
-  return m ? cleanShare(parseShare(m[1]), store.get().presetList?.map((p) => p.id)) : null;
-}
-async function loadShared(s, { quiet = false } = {}) {
-  // B1: a load that was replaced (another patient tapped meanwhile) or failed must not take this link's settings.
-  if (!(await loadPreset(s.preset))) return false;
-  let clamped = false, repaired = '';
-  const missing = s.missing && `This link names a patient the app does not have (“${s.missing}”), so its settings opened on the healthy patient.`;
-  // (A patient made from readings, "Yours", is saved on its owner's device only: a link made from one carries the settings, and says so.)
-  if (s.fromYours) toast('This link comes from a patient made from readings, which is saved on the sender’s device only, so its settings opened on the healthy patient.', 'bad');
-  if (s.params) {
-    const merged = deepMerge(store.get().params, s.params), { params: clean, repairs } = sanitizeParamsReport(merged);
-    updateParams(() => clean, { settle: true, history: false });
-    // (R07: a value that is not what its field takes is replaced and named, never read as "on": the first few field paths are in the toast.)
-    if (repairs.length) repaired = repairs.slice(0, 3).map((r) => r.path || 'the settings').join(', ') + (repairs.length > 3 ? ` and ${repairs.length - 3} more` : '');
-    if (JSON.stringify(clean) !== JSON.stringify(merged)) { timeline.flush(); clamped = true; }   // (the view, selection and camera of the link still apply)
-  }
-  if (s.view && s.view !== store.get().view) setViewKey(s.view === 'circuit' ? 'circuit' : 'anatomy');   // (the link's view, through the one writer: a link made inside the lobule or sinusoid carries the anatomy's)
-  if (s.sel) store.set({ selection: s.sel });
-  if (s.cam && !store.get().lobule) stage.setCamera(s.cam, 0);
-  timeline.flush();
-  if (clamped) toast(missing || `This link had values the model does not accept${repaired ? ` (${repaired})` : ''}; they were set to the nearest allowed value or the default.`, missing ? 'bad' : undefined);
-  else if (missing) toast(missing, 'bad');
-  else if (!quiet) toast('Loaded the shared scenario.');
-  return true;
-}
-// The orange PREVIEW pill reloads onto the newest build and calls this first: a URL for the same place. In Present, the same
-// presentation and slide (?script=&slide=); in Patients, the same patient, settings, view, camera and selection (#s=).
-// "back" tells the next load to land there quietly: no case card, no "shared scenario" toast.
-function resumeUrl() {
-  const u = new URL(location.href), pos = presenter.position();
-  for (const k of ['script', 'slide', 'preset', 'home']) u.searchParams.delete(k);
-  u.searchParams.set('back', '1');
-  if (pos) { u.searchParams.set('script', pos.id); u.searchParams.set('slide', String(pos.at + 1)); u.hash = ''; }
-  else { const st = store.get(); u.hash = `#s=${encodeShare({ sel: st.selection || undefined, cam: st.lobule ? undefined : stage.cameraState() })}`; }
-  return u.href;
-}
-async function share() {
-  // On the hosted site a built-in patient's link goes through its share page (c/<id>.html, written at deploy
-  // by scripts/share-pages.mjs), so iMessage or Slack previews show the patient's name.
-  const id = store.get().presetId, page = location.hostname.endsWith('github.io') && store.get().presetList?.some((p) => p.id === id);
-  const url = `${page ? new URL(`c/${id}.html`, location.href).href : location.origin + location.pathname}#s=${encodeShare()}`;
-  try { await navigator.clipboard.writeText(url); toast('Link to this exact scenario copied.'); } catch { history.replaceState(null, '', location.pathname + location.search + `#s=${encodeShare()}`); toast('Link placed in the address bar.'); }   // (the page's own path: a share page's /c/ path would make every later link /c/c/…)
-}
+// ── Scenarios & share (the links themselves: src/ui/share-flow.js) ─
+const { encodeShare, readShare, loadShared, resumeUrl, share } = createShare({
+  store, toast, setViewKey, loadPreset, updateParams, get presenter() { return presenter; }, get stage() { return stage; }, get timeline() { return timeline; },
+  env: { get location() { return location; }, get history() { return history; }, get clipboard() { return navigator.clipboard; }, open: (...a) => window.open(...a), embed: EMBED, search: () => searchNow() },
+});
 
 // ── Restart & reset ─────────────────────────────────
 // Restart: the current patient from its first moment .
@@ -843,7 +805,7 @@ function resetEverything() {
     h('p', {}, 'This clears the timeline, comparisons and every change, and reloads the simulator with a healthy patient. Your preferences are kept.'),
     h('div', { class: 'btn-row end' },
       h('button', { class: 'btn', onclick: () => closeModal() }, 'Cancel'),
-      h('button', { class: 'btn danger-fill', onclick: () => { try { sessionStorage.clear(); } catch (e) { caught('main:618', e); /* storage unavailable */ } location.replace(location.pathname); } }, 'Reset and reload'))), { sub: null, compact: true });
+      h('button', { class: 'btn danger-fill', onclick: () => { try { sessionStorage.clear(); } catch (e) { caught('main:618', e); /* storage unavailable */ } location.replace(location.pathname + (EMBED ? '?embed' : '')); } }, 'Reset and reload'))), { sub: null, compact: true });
 }
 
 // ── Actions ─────────────────────────────────────────
@@ -858,7 +820,7 @@ function doAction(a) {
     const placed = Math.round(fr?.bands || 0);
     const quiet = !!store.get().presenting;   // (a slide's own bands say nothing: the talk says it)
     if (placed >= BANDS_MAX) { if (!quiet) toast(`${BANDS_MAX} bands are already on the varices.`); return; }
-    if (!quiet) toast(`${procLabel('band')} placed: ${placed + 1} of ${BANDS_MAX}.`);
+    if (!quiet) toast(`Band (EVL) placed: ${placed + 1} of ${BANDS_MAX}.`);
   }
   host.send({ type: 'action', action: a });
   logAction('action', a.kind);
@@ -922,10 +884,10 @@ function zoomLobule() { stage.askSinusoid(false); stage.diveToLobule(); }   // (
 let tipEl, stageClock;
 function buildHud() {
   // Moving blood: the chevrons are remembered per device (blood-pref.js: it also drops what the removed Streaks option saved).
-  const blood = loadBloodPref(localStorage);
+  const blood = loadBloodPref(prefs);
   store.set({ blood });
   store.on('blood', (v) => {
-    try { localStorage.setItem('pps.blood2', JSON.stringify(v)); } catch (e) { caught('main:690', e); /* storage unavailable */ }   // alloc-rare: the saved choice is written when the Blood menu changes it, never per frame
+    try { prefs.setItem('pps.blood2', JSON.stringify(v)); } catch (e) { caught('main:690', e); /* storage unavailable */ }   // alloc-rare: the saved choice is written when the Blood menu changes it, never per frame
     sendBeat(); syncBloodBtn();
     redraw();
   });
@@ -959,11 +921,12 @@ function buildHud() {
   // The lobule is made ready as the reader reaches for it (17 Nov 2026, the tester: opening it cold took 565 ms of stage, 386 of tissue, 161 of labels in one go): the pointer resting 0.22 s on its button, or a finger
   // down on it, warms it a piece at a time (stage.warmLobule), as a deck's rows warm theirs on hover.
   { const lb = $('#viewSeg button[data-view="lobule"]'); let warmT = 0;
+    const warmSoon = () => { appScope.clear(warmT); warmT = appScope.timer(() => stage.warmLobule?.(), 220); };   // (the page's scope owns the timer: docs/scheduling.md)
     if (lb) {
-      lb.addEventListener('pointerenter', (e) => { if (e.pointerType === 'touch') return; clearTimeout(warmT); warmT = setTimeout(() => stage.warmLobule?.(), 220); });
-      lb.addEventListener('pointerleave', () => clearTimeout(warmT));
-      lb.addEventListener('pointerdown', () => { clearTimeout(warmT); stage.warmLobule?.(); });
-      lb.addEventListener('focus', () => { clearTimeout(warmT); warmT = setTimeout(() => stage.warmLobule?.(), 220); });
+      lb.addEventListener('pointerenter', (e) => { if (e.pointerType === 'touch') return; warmSoon(); });
+      lb.addEventListener('pointerleave', () => appScope.clear(warmT));
+      lb.addEventListener('pointerdown', () => { appScope.clear(warmT); stage.warmLobule?.(); });
+      lb.addEventListener('focus', warmSoon);
     } }
   $$('#viewSeg button').forEach((b) => b.addEventListener('click', () => (viewTapAgain(b.dataset.view, store.get()) ? stage.fitAgain() : b.dataset.view === 'lobule' ? zoomLobule() : b.dataset.view === 'sinusoid' ? (store.get().lobule ? stage.askSinusoid() : stage.diveToSinusoid()) : b.dataset.view === 'anatomic' && store.get().sinusoid ? stage.exitSinusoid() : b.dataset.view === 'circuit' && store.get().sinusoid ? circuitFromSinusoid() : setViewKey(b.dataset.view === 'circuit' ? 'circuit' : 'anatomy'))));
   // The legend is the lens switcher: it shows what the colors mean and changes what they show.
@@ -1164,7 +1127,7 @@ function labelLevelSeg() {
     const b = h('button', { 'aria-pressed': String(cur === v), 'data-labels': v, title: { key: 'Portal vein, the HVPG pair and what is abnormal; every station once zoomed in', all: 'Every station at every zoom', none: 'No station labels' }[v] }, l);
     b.addEventListener('click', () => {
       store.set({ labelLevel: v });
-      try { localStorage.setItem('pps.labels', v); } catch (e) { caught('main:857', e); /* storage unavailable */ }
+      try { prefs.setItem('pps.labels', v); } catch (e) { caught('main:857', e); /* storage unavailable */ }
       b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
     });
     return b;
@@ -1367,15 +1330,16 @@ function wireTopbar() {
   initDebug(() => stage.zoomLevel());
   // ?perf in the address: the readout of what blocks frames after a pan or pinch (perf-readout.js). Without it, never loaded.
   // (And the frame-time overlay beside it, frame-hud.js: fps, 1% low, interval and script percentiles, surfaces, throttle.)
-  if (new URLSearchParams(location.search).has('perf')) import('./frame-hud.js').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
+  if (flagOn('perf')) import('./frame-hud.js').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
   // High Refresh (high-refresh.js): on a touch screen the first tap goes full screen, past the browser's 60 Hz hold for pages.
-  import('./high-refresh.js').then(({ startHighRefresh }) => startHighRefresh()).catch(() => { /* full screen is a bonus */ });
-  if (/[?&]lap\b/.test(location.search)) import('./lap.js').then(({ startLap }) => startLap()).catch(() => { /* a measuring aid only */ });
-  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
+  if (!EMBED) import('./high-refresh.js').then(({ startHighRefresh }) => startHighRefresh()).catch(() => { /* full screen is a bonus */ });   // (an embed in someone else's page never takes the screen on a tap: SHL-5)
+  if (flagOn('lap')) import('./lap.js').then(({ startLap }) => startLap()).catch(() => { /* a measuring aid only */ });
+  if (flagOn('perf')) import('./perf-readout.js').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
   // ?offgpu=1 in the address: the live count of work off the GPU, flashing red when it happens during motion (offgpu-overlay.js). Without it, never loaded.
-  if (/[?&]offgpu=1\b/.test(location.search)) import('./offgpu-overlay.js').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
-  // ?watch in the address, on the preview copy (or a local run): the motion recorder and its red dot (watch/start.js; docs/watch.md). Without it, never loaded.
-  if (/[?&]watch\b/.test(location.search) && (/\/preview\//.test(location.pathname) || /^(localhost|127\.0\.0\.1)$/.test(location.hostname))) import('./watch/start.js').then(({ startWatch }) => startWatch(() => window.pps)).catch(() => { /* a measuring aid only */ });
+  if (flagOn('offgpu')) import('./offgpu-overlay.js').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
+  // ?watch in the address, on the preview copy (or a local run): the motion recorder and its red dot (watch/start.js; docs/watch.md), and on the debug page (?debug). Without either, never loaded.
+  // (The debug page, ?debug, has the recorder on by default: a person who pressed Report there has the last 10 s of motion in the packet without having to know the flag.)
+  if (flagOn('watch') || flagValue('debug') !== null) import('./watch/start.js').then(({ startWatch }) => startWatch(() => window.pps)).catch(() => { /* a measuring aid only */ });
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());
@@ -1397,7 +1361,7 @@ function setFrameBreakdown(on) {
   hudBusy = true;
   import('./frame-hud.js').then(({ startFrameHud }) => { hudEl = startFrameHud(); }).catch(() => { /* a measuring aid only */ }).finally(() => { hudBusy = false; });
 }
-const fpsOn = () => { try { return localStorage.getItem('pps.fps') === '1'; } catch { return false; } };
+const fpsOn = () => { try { return prefs.getItem('pps.fps') === '1'; } catch { return false; } };
 setFpsCounter(fpsOn());
 function openSettings(anchor, withSearch = false) {
   const cur = currentLook() || 'system';
@@ -1405,7 +1369,7 @@ function openSettings(anchor, withSearch = false) {
   const talk = presenter.active();
   // Settings is sorted by what a row does, one titled group each (the revamp, 4 Nov 2026): the one-shot actions first, then how it looks, the
   // display switches, the model, the measuring aids, and Reset last. ("Accessibility" had held Blur effect and the two measuring aids.)
-  const toggleStored = (key, caught_) => (on) => { try { localStorage.setItem(key, on ? '1' : '0'); } catch (e) { caught(caught_, e); /* storage unavailable */ } };
+  const toggleStored = (key, caught_) => (on) => { try { prefs.setItem(key, on ? '1' : '0'); } catch (e) { caught(caught_, e); /* storage unavailable */ } };
   popover(anchor, [
     // (Send feedback heads the sheet in every mode and on every device, above the dock's Search and Help, talks included, so a tester reaches it in one tap from any Settings button.)
     // (From the thumb dock's Settings tab, History (Search is a tab of its own there) and Help follow it: the dock has no More menu, and a touch keyboard has no ?. Enter full screen acts once, so it sits with them.)
@@ -1426,7 +1390,7 @@ function openSettings(anchor, withSearch = false) {
     menuSection('Display',
       menuToggle(!document.documentElement.hasAttribute('data-noglass'), 'layers', 'Blur effect', 'Frosted glass on cards and labels. Off runs cooler', (on) => {
         const root = document.documentElement;
-        try { storeGlassMode((k, x) => localStorage.setItem(k, x), on ? 'field' : 'off'); } catch (e) { caught('main:1038', e); /* storage unavailable */ }
+        try { storeGlassMode((k, x) => prefs.setItem(k, x), on ? 'field' : 'off'); } catch (e) { caught('main:1038', e); /* storage unavailable */ }
         const flip = setGlassMode(root, on ? 'field' : 'off');
         root.removeAttribute('data-noglass-auto');   // (chosen now: no longer the software renderer's own choice, blur-guard.js)
         if (flip) themeChanged();   // (the labels drawn on the GPU take the glass's look: label-theme.js)
@@ -1518,16 +1482,27 @@ function helpRows(titled = false) {
 // Send feedback: a draft in the viewer's own email app, addressed to the author, with what a bug report needs underneath
 // (the build from the preview pill, the device, the screen and a link back to this exact view). The app itself sends
 // nothing, so the Privacy page stays true.
-function sendFeedback() {
-  try { localStorage.setItem(ASK_KEY, 'done'); } catch (e) { caught('main:1120', e); /* storage unavailable */ }   // (sent once: the timed ask never comes)
-  const build = document.getElementById('preview-badge')?.textContent.trim() || 'Live site';
+async function sendFeedback() {
+  try { prefs.setItem(ASK_KEY, 'done'); } catch (e) { caught('main:1120', e); /* storage unavailable */ }   // (sent once: the timed ask never comes)
+  const pill = document.getElementById('preview-badge')?.textContent.trim();
+  const build = `${pill || 'Live site'} · ${RELEASE}`;   // (the release too: the tag and commit this page was built from, so a report from the live site names its build, SHL-3)
   const theme = currentLook() || (darkMQ.matches ? 'dark' : 'light');
-  const body = ['What happened, and what did you expect to happen?', '', '', '',
+  const base = ['What happened, and what did you expect to happen?', '', '', '',
     'Please keep these details:', `Build: ${build}`, `Device: ${navigator.userAgent}`,
     `Screen: ${innerWidth} × ${innerHeight} at ${devicePixelRatio}×, ${theme} theme`, `View: ${resumeUrl()}`,
     ...feedbackDiagnostics({ perf: framePerf, blurWhy: (el) => stage.blurWhy?.(el) ?? null }), ...reportLines()].join('\n');
+  // (What the app's own self-checks find on this screen, as a few lines under the details, and the whole report kept ready to copy: read once, here, after the Settings sheet has left, never for longer
+  // than FEEDBACK_READ_MS so the draft is not held up. The whole body is capped so the mail link stays one a mail app takes: PROD-29.)
+  let fb = null;
+  try {
+    await new Promise((ok) => appScope.timer(ok, FEEDBACK_SHEET_MS));
+    fb = await Promise.race([import('./packet/feedback.js').then((m) => m.readFeedback(window.pps)), new Promise((ok) => appScope.timer(() => ok(null), FEEDBACK_READ_MS))]);
+  } catch (e) { caught('main:feedback-read', e); /* the draft goes without it */ }
+  const body = fitMailto(base, fb?.short || '');
   location.href = `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent('Portal Pressure Simulator feedback')}&body=${encodeURIComponent(body)}`;
+  if (fb?.full) toast('Your email app has the short report.', '', { actions: [['Copy the full report', () => { navigator.clipboard?.writeText(fb.full).then(() => toast('Full report copied: paste it under your message.'), () => toast('Could not copy it from here.', 'bad')); }]] });
 }
+const FEEDBACK_SHEET_MS = 380, FEEDBACK_READ_MS = 2500;   // motion-scale: not a move (a wait for the Settings sheet to leave, then a cap on the screen read)
 function doUndo() { timeline.undo(); }
 function doRedo() { timeline.redo(); }
 function toggleTheme() {
@@ -1603,7 +1578,7 @@ addEventListener('pointerdown', (e) => {
 }, true);
 function applyTheme(t, clear) {
   applyLookAttrs(document.documentElement, t);   // (data-theme, and data-palette for Navy and Black: looks.js)
-  try { if (t) localStorage.setItem('pps.theme', t); else if (clear) localStorage.removeItem('pps.theme'); } catch (e) { caught('main:1168', e); /* storage unavailable */ }
+  try { if (t) prefs.setItem('pps.theme', t); else if (clear) prefs.removeItem('pps.theme'); } catch (e) { caught('main:1168', e); /* storage unavailable */ }
   // (The figure and the instruments take the look in the theme frame, below (onTheme), with the colour tokens and the stage's styles read
   // again: drawn here, in the task of the attribute write, they read the look before.) A hidden page runs no frame: drawn at once.
   if (document.hidden) { const f = store.get().frame; if (f) { stage?.update(viewFrame(f)); dock?.update(f); } }
@@ -1636,7 +1611,7 @@ darkMQ.addEventListener('change', () => {
 // alone, so a card, a sheet or a presenting change on the app no longer costs a style pass, nor a second one 600 ms later.)
 onTheme(syncStatusBar);
 syncStatusBar();
-function readLS(k) { try { return localStorage.getItem(k); } catch { return null; } }
+function readLS(k) { try { return prefs.getItem(k); } catch { return null; } }
 // ── Patient chart, Treat card and instrument workspace ─
 // The chart is a card floating over the right of the figure (a bottom sheet on a phone), opened
 // from Findings or by a vessel's Details. It starts closed: the figure
@@ -2299,96 +2274,18 @@ function onMode(mode) {
 }
 
 // ── Keyboard (§8.5) ─────────────────────────────────
-// The letter a key stands for: its character where that is a Latin letter, else its place on the board (an Arabic or Russian layout has no A, L or Z
-// to name, but the key in that place is the same one).
-// (Only a letter of another script falls back to its place: on a Dvorak or Colemak board the key that makes ; sits where Z is, and ; is not Z.)
-const letterOf = (e) => /^[a-z]$/i.test(e.key) ? e.key.toLowerCase() : /^\p{L}$/u.test(e.key || '') && /^Key[A-Z]$/.test(e.code || '') ? e.code[3].toLowerCase() : (e.key || '').toLowerCase();
-// Inputs that are controls, not text: a slider, a switch, a button. They keep their own keys (the arrows, Space) and leave the rest to the page.
-const NON_TEXT_INPUT = new Set(['range', 'checkbox', 'radio', 'button', 'submit', 'reset', 'image', 'color', 'file']);
+// The keys themselves are src/ui/keyboard.js (tests/keyboard.test.js drives them); this hands it what they act on.
 function wireKeyboard() {
   // (iOS Safari draws a control's :active press only once the page listens for touches: an empty passive listener, nothing else.)
   addEventListener('touchstart', () => {}, { passive: true });
-  // J injects dye for as long as it is held (at least a few seconds).
-  addEventListener('keyup', (e) => { if (letterOf(e) === 'j') stage.releaseDye(); });
-  addEventListener('blur', () => stage.releaseDye());
-  addEventListener('keydown', (e) => {
-    if (e.isComposing || e.keyCode === 229) return;   // (an input method is composing: its Enter and Esc are its own)
-    const tag = (e.target.tagName || '').toLowerCase();
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); palette.isOpen() ? palette.close() : palette.open(); return; }
-    if ((e.ctrlKey || e.metaKey) && !e.altKey && tag !== 'input' && tag !== 'textarea' && tag !== 'select' && !presenter.active() && !isModalOpen() && !mainMenu.isOpen()) {   // (in a dialog the browser's own zoom is the text's)
-      const z = e.key === '=' || e.key === '+' ? 'in' : e.key === '-' || e.key === '_' ? 'out' : e.key === '0' ? 'fit' : null;
-      if (z) { e.preventDefault(); if (z === 'in') stage.zoomIn(); else if (z === 'out') stage.zoomOut(); else stage.fit(); return; }
-    }
-    const inputType = tag === 'input' ? (e.target.type || 'text') : '';
-    if (tag === 'select' || tag === 'textarea' || e.target.isContentEditable || (tag === 'input' && !NON_TEXT_INPUT.has(inputType))) {
-      // (A dialog's one-line field, a name or a link, cancels its dialog with Esc as the old prompt did; a longer text box blurs first.)
-      if (e.key === 'Escape') { if (tag === 'input' && isModalOpen() && e.target.closest?.('#modalBack')) { e.preventDefault(); closeModal(); } else e.target.blur(); }
-      return;
-    }
-    // A slider or a switch left with focus (Chrome keeps it after a click or a drag) keeps the keys it uses; the rest, Cmd Z, Space, the letters, are the page's.
-    if (tag === 'input' && (inputType === 'range' ? /^(Arrow(Left|Right|Up|Down)|Home|End|Page(Up|Down))$/ : /^(Arrow(Left|Right|Up|Down)| |Enter)$/).test(e.key)) return;
-    // Search open with focus on one of its results: Esc closes it, and no letter reaches the figure behind it.
-    if (palette.isOpen()) { if (e.key === 'Escape') { e.preventDefault(); palette.close(); } return; }
-    if (e.key === 'Escape') {
-      // One Esc closes one thing: an open menu first, and only the menu (review #24).
-      if (popoverOpen()) { closePopover(); return; }
-      if (isModalOpen()) closeModal();
-      else if (mainMenu.isOpen()) mainMenu.close();
-      else if (projector) toggleProjector(false);
-      else if (app.classList.contains('instrument-focus')) dock.setState('open');
-      else if (treatOpen()) closeTreat({ focus: true });
-      else if (historyOpen()) closeHistory({ focus: true });
-      else if (stage.isShunting()) stage.cancelShunt();
-      else if (store.get().tool !== 'select') setTool('select');
-      else if (app.classList.contains('dock-open') && dock) dock.close();   // Tests (it hands focus back to its tab)
-      else if (store.get().sinusoid && !store.get().selection) setViewKey('lobule');
-      else if (panelShown() && !store.get().selection) closePanel({ focus: true });   // the patient chart (its close button says Esc)
-      else if (card.detailsOpen()) card.closeDetails();   // (a card's details first, then the card)
-      else store.set({ selection: null });
-      return;
-    }
-    if (isModalOpen() || mainMenu.isOpen()) return;
-    // A talk owns the keyboard (presenter.js onKey takes its own keys): undo, speed, view, lens, dye, settle and the rest would change the
-    // slide's scripted model under it, and nothing puts it back. Search (/) and the guide (?) stay.
-    if (presenter.active() && e.key !== '/' && e.key !== '?') return;
-    if (keyHeldBack(e)) return;   // (Settings › Keyboard shortcuts off: only Esc and Ctrl or Cmd with a key are the page's, keys-pref.js)
-    if (e.key === '/') { e.preventDefault(); palette.open(); return; }
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); (e.shiftKey ? doRedo : doUndo)(); return; }
-    // (A held key is one press: Space does not flicker play and pause, a number does not run its verb twenty times. J has its own rule below.)
-    // (The figure's item in focus and a label act on Space themselves; a button the keyboard reached does too, one that was clicked does not. A held Space is still ours: it must not scroll the panel behind.)
-    const spaceIsOurs = e.key === ' ' && !e.altKey && !controlOwnsKey(e.target, ' ') && !e.target.closest?.('.lb') && !(e.target.id === 'stage' && stage?.keyItem?.());
-    if (e.repeat && !(e.ctrlKey || e.metaKey) && letterOf(e) !== 'j') { if (spaceIsOurs) e.preventDefault(); return; }
-    // (The speed keys [ and ] need Option on a German, French or Spanish layout: the character they make is the key, so Option alone is no reason to drop them. On Windows the
-    // same layouts make them with AltGr, which reports Ctrl and Alt together; AltGr makes other characters too (a Polish ą), and those are not the letter's key.)
-    const altGr = !!e.getModifierState?.('AltGraph');
-    if (altGr ? e.key !== '[' && e.key !== ']' : e.ctrlKey || e.metaKey || (e.altKey && e.key !== '[' && e.key !== ']')) return;
-    if (spaceIsOurs) { e.preventDefault(); host.send({ type: 'run', running: !store.get().running }); return; }
-    // With a card open, the number keys run its verbs in order.
-    if (/^[1-9]$/.test(e.key) && card.isOpen()) { if (card.trigger(+e.key)) e.preventDefault(); return; }
-    if (e.key === '.') { host.send(RUN_ON); setTimeout(runOff, 60); return; }
-    if (e.key === '[' || e.key === ']') {
-      // One ladder: real-time speeds, then the time-lapse rates.
-      const ladder = [...SPEEDS.map((v) => [v, false]), ...LAPSES.map(([d]) => [d, true])];
-      const cur = store.get().lapse ? ladder.findIndex(([v, l]) => l && v === store.get().lapse) : ladder.findIndex(([v, l]) => !l && v === store.get().speed);
-      const [v, lap] = ladder[Math.max(0, Math.min(ladder.length - 1, (cur < 0 ? 2 : cur) + (e.key === ']' ? 1 : -1)))];
-      setSpeed(v, lap);
-      toast(lap ? `Time-lapse ${LAPSES.find((l) => l[0] === v)[2]}` : `Speed ${v}×`);
-      return;
-    }
-    const k = letterOf(e);
-    if (k === 'a' && !e.shiftKey) { if (store.get().sinusoid) return; setViewKey(viewKey() === 'circuit' ? 'anatomy' : 'circuit'); return; }
-    if ((k === 'l' || (e.key === 'C' && e.shiftKey)) && !store.get().imaging && !(store.get().lobule && store.get().sinusoid)) {
-      const ks = lensKeys(), i = ks.indexOf(store.get().colorMode);
-      const next = ks[(i + (e.shiftKey && k === 'l' ? ks.length - 1 : 1)) % ks.length];
-      store.set({ colorMode: next }); toast(`Colored by ${lcFirst(LENSES[next][0])}. ${LENSES[next][1]}.`); return;
-    }
-    if (k === 'z') { settle(); return; }
-    if (e.key === '?') { openHelp(presenter.active() ? 'present' : undefined); return; }
-    if (k === 'i') { dock.toggle(); return; }
-    if (k === 't') { if (treatOpen()) closeTreat({ focus: true }); else openTreat(); return; }
-    if (k === 'p') { timeline.togglePin(); return; }
-    if (k === 'j' && !store.get().imaging) { if (!e.repeat) injectDye({ hold: true }); return; }
+  const kb = createKeyboard({
+    palette, isModalOpen, closeModal, popoverOpen, closePopover, mainMenu, toggleProjector, app, dock, treatOpen, closeTreat, historyOpen, closeHistory, stage, store, setTool, setViewKey, viewKey,
+    panelShown, closePanel, card, presenter, keyHeldBack, doRedo, doUndo, controlOwnsKey, host, runOn: RUN_ON, runOff, speeds: SPEEDS, lapses: LAPSES, setSpeed, toast, lensKeys, lenses: LENSES, lcFirst,
+    settle, openHelp, openTreat, timeline, injectDye, projecting: () => projector,
   });
+  addEventListener('keyup', kb.onKeyUp);
+  addEventListener('blur', () => stage.releaseDye());
+  addEventListener('keydown', kb.onKeyDown);
 }
 
 // ── Projector look while presenting (§4.4) ──────────
@@ -2457,7 +2354,7 @@ function openHelp(section) {
     ['Run the model', [['Space', 'Play / pause'], ['[ ]', 'Slower / faster'], ['.', 'Step'], ['Z', 'Settle to equilibrium'], [keyLabel('Ctrl/⌘ Z'), 'Back one change on the timeline (Shift: forward)'],
       ['P', 'Compare from here / stop comparing'], ['J', 'Inject dye (hold for longer)']]],
     ['Change the view', [['A', 'Anatomy ⇄ circuit'], ['L', 'Next vessel coloring (Shift: previous)'], ['I', 'Open / close Tests'], ['T', 'Open / close Treat'],
-      [keyLabel('Ctrl/⌘ + / − / 0'), 'Zoom in / out / fit the figure'], [keyLabel('Ctrl/⌘ K or /'), 'Search'], ['?', 'This guide']]],
+      ['+ / − / 0', 'Zoom in / out / fit the figure'], [keyLabel('Ctrl/⌘ K or /'), 'Search'], ['?', 'This guide']]],
     ['Reach and act', [['Click', 'Open the actions for a vessel or organ'], ['1 – 9', 'Run an action on the open card'], ['Tab · Enter', 'Reach a vessel, open its actions'],
       ['← → ↑ ↓', 'Step through the stations, mesenteric veins to heart'], ['Shift ← →', 'Follow the vessel in focus along the flow'], ['Esc', 'Cancel · close the card · close']]],
   ];
@@ -2502,24 +2399,24 @@ function openAbout(section) {
     h('p', { class: 'sub' }, 'Each is an automated test that must pass before a release:'),
     h('ol', { class: 'refs' }, VALIDATION.map((v) => h('li', {}, v))),
     h('h3', {}, 'Status colors'),
-    h('p', { class: 'sub' }, 'Every readout’s bar and status word follow a clinical cut-off; the ticks on its bar mark the cut-offs below. A change (▲ / ▼) is drawn in neutral ink and appears only when a value keeps moving for several seconds, never for the heartbeat or breathing. Amber is borderline; red means a threshold has been crossed.'),
+    h('p', { class: 'sub' }, 'Every readout’s bar and status word follow a cut-off: a guideline’s where one exists (HVPG, liver stiffness, ascites grade) and the model’s own reference line where none does (the PPG lines at 6 and 12 mmHg, the portal vein pressure, the varix wall stress). The ticks on a bar mark the cut-offs below. A change (▲ / ▼) is drawn in neutral ink and appears only when a value keeps moving for several seconds, never for the heartbeat or breathing. Amber is borderline; red means a threshold has been crossed.'),
     tableRoles(h('div', { class: 'table-wrap' }, h('table', { class: 'cut-table' },
       h('thead', {}, h('tr', {}, CUT_HEADS.map((x, i) => h('th', {}, i ? h('span', { class: 'cut-h', 'data-sev': CUT_SEV[i] }, x) : x)))),
       // (On a phone each row stacks, its readout over four labelled lines, and an empty band is left out: five columns did not fit and the table scrolled sideways, cut off at the edge.)
       h('tbody', {}, CUTOFFS.map((r) => h('tr', {}, r.map((c, i) => h('td', i ? { 'data-label': CUT_HEADS[i], 'data-sev': CUT_SEV[i], class: c === '—' ? 'none' : '' } : {}, c)))))))),
-    h('p', { class: 'sub' }, 'Thresholds belong to gradients, not to the color of a vessel. HVPG ≥10 mmHg is clinically significant portal hypertension (CSPH) in cirrhosis. HVPG ≥20 mmHg is prognostic when measured during acute variceal bleeding. An HVPG of 12 mmHg is not a bleeding threshold: varices can bleed below it. After a TIPS for variceal bleeding, 12 mmHg is the reference for the directly measured portosystemic gradient (AASLD 2024).'),
+    h('p', { class: 'sub' }, 'The guidelines grade the HVPG, not the pressure at a single vessel; the portal vein pressure rows above are the model’s own reference. HVPG ≥10 mmHg is clinically significant portal hypertension (CSPH) in cirrhosis. HVPG ≥20 mmHg is prognostic when measured during acute variceal bleeding. An HVPG of 12 mmHg is not a bleeding threshold: varices can bleed below it. After a TIPS for variceal bleeding, 12 mmHg is the reference for the directly measured portosystemic gradient (AASLD 2024).'),
     h('h3', {}, 'Reference review'),
-    h('p', {}, 'The presentations follow Baveno VIII (J Hepatol, August 2026), with AASLD guidance where US practice differs (octreotide). Baveno VIII changed the recompensation criteria (>6 months, Child–Pugh A), the indeterminate zone for stiffness (ANTICIPATE probability ≥75%, or spleen stiffness >55 kPa on the 100 Hz probe), the window for preemptive TIPS and anticoagulation for portal vein thrombosis. Every statement number a presentation cites is kept with its source text in the project’s guidelines folder: Baveno VIII, AASLD 2024, AASLD 2021 (ascites), AASLD 2020 (vascular liver disorders) and EASL 2025 (vascular diseases of the liver), listed below.'),
+    h('p', {}, 'The presentations follow Baveno VIII (J Hepatol, 2026), with AASLD guidance where US practice differs, for example the vasoactive drug and the antibiotic in variceal bleeding. Baveno VIII changed the recompensation criteria (>6 months, Child–Pugh A), the criteria that establish CSPH without a measured gradient (LSM ≥25 kPa in selected causes, ANTICIPATE probability ≥75%, or spleen stiffness ≥55 kPa), the window for preemptive TIPS and anticoagulation for portal vein thrombosis. A statement number in a talk (for example Baveno VIII 8.18) refers to the full text of the guideline.'),
     h('h3', {}, 'Clinical review'),
     h('p', {}, 'Presentation and patient content follows the guidance below. An external clinical advisory review with named reviewers is pending; their sign-off will be listed here.'),
     h('h3', { 'data-sec': 'refs' }, 'References'),
     h('ol', { class: 'refs' },
       h('li', {}, 'Baveno VIII: advancing consensus in portal hypertension. J Hepatol, August 2026. ', pmid(42624290)),
       h('li', {}, 'Kaplan DE, et al. AASLD Practice Guidance on risk stratification and management of portal hypertension and varices in cirrhosis. Hepatology 2024;79:1180–1211.'),
+      h('li', {}, 'EASL Clinical Practice Guidelines on vascular diseases of the liver. J Hepatol 2026;84:399–456.'),
       h('li', {}, 'Biggins SW, et al. Diagnosis, evaluation, and management of ascites, spontaneous bacterial peritonitis and hepatorenal syndrome: 2021 practice guidance by the AASLD. Hepatology 2021;74:1014–1048.'),
       h('li', {}, 'Northup PG, et al. Vascular liver disorders, portal vein thrombosis, and procedural bleeding in patients with liver disease: 2020 practice guidance by the AASLD. Hepatology 2021;73:366–413.'),
-      h('li', {}, 'EASL Clinical Practice Guidelines on vascular diseases of the liver. J Hepatol 2026;84:399–456 (online 2025, doi 10.1016/j.jhep.2025.08.001).'),
-      h('li', {}, 'Bosch J, Groszmann RJ, et al. Measurement of portal pressure (HVPG). Hepatology / Semin Liver Dis.'),
+      h('li', {}, 'Bosch J, Garcia-Pagán JC, Berzigotti A, Abraldes JG. Measurement of portal pressure and its role in the management of chronic liver disease. Semin Liver Dis 2006;26:348–362.'),
       h('li', {}, 'Prognostic role of endoscopic ultrasound-guided direct portal pressure gradient measurement in porto-sinusoidal vascular disorder. Liver Int 2025. Mean direct gradient 16.7 and mean HVPG 5.5 mmHg. ', pmid(40251984)),
       h('li', {}, 'Directly measured portal pressure gradient and variceal hemorrhage in patients undergoing TIPS: bleeding occurred at <12 mmHg. ', pmid(7485008)),
       h('li', {}, 'Hepatic venous pressure gradient and prognosis in patients with acute variceal bleeding treated with pharmacologic and endoscopic therapy. ', pmid(18093686)),
@@ -2531,22 +2428,22 @@ function openAbout(section) {
   scrollToSection(section);
 }
 function openPrivacy() {
-  const keys = (() => { try { return Object.keys(localStorage).filter((k) => k.startsWith('pps.')); } catch { return []; } })();
+  const keys = (() => { try { return prefs.keys(); } catch { return []; } })();
   openModal('Privacy', h('div', {},
     h('p', {}, 'The simulator runs entirely in your browser. It makes no requests to any other site: no analytics, no trackers, no advertising, no third-party fonts or scripts. There is no account and no server that stores anything about you.'),
     h('p', {}, 'What stays on this device, in your browser’s storage: your preferences (theme) and presenter scripts you create. It leaves the device only when you share it (a link or a script file).'),
-    FEEDBACK_EMAIL ? h('p', {}, 'Send feedback (in Settings) opens a draft in your own email app with your device, screen size, how fast the page is running, which blurs the browser is drawing, a short list of recent errors and page reloads, and a link to the view you were on. Nothing is sent unless you send that email yourself.') : null,
+    FEEDBACK_EMAIL ? h('p', {}, 'Send feedback (in Settings) opens a draft in your own email app with your device, screen size, how fast the page is running, which blurs the browser is drawing, a short list of recent errors and page reloads, a few lines on what the app\'s own checks found on the screen, and a link to the view you were on. Nothing is sent unless you send that email yourself.') : null,
     h('p', {}, 'For institutions: no personal data is processed by the publisher, which supports FERPA and GDPR compliance.'),
     h('p', { class: 'sub' }, keys.length ? `Stored now: ${keys.join(', ')}.` : 'Nothing is stored on this device yet.'),
-    clearRow(keys)));
+    clearRow()));
 }
 // "Clear my data on this device" asks in place, in the dialog's own words, not with the browser's box: the button gives way to the
 // question and its two answers, and Cancel brings it back.
-function clearRow(keys) {
+function clearRow() {
   const row = h('div', { class: 'btn-row' });
   const ask = () => {
     const msg = h('p', { class: 'clear-q', role: 'alert' }, 'Delete everything this simulator has stored on this device?');
-    const go = h('button', { class: 'btn danger-fill', onclick: () => { for (const k of keys) { try { localStorage.removeItem(k); } catch (e) { caught('main:2167', e); /* storage unavailable */ } } closeModal(); toast('Your data on this device has been cleared.'); } }, 'Delete it');
+    const go = h('button', { class: 'btn danger-fill', onclick: () => { clearAll().then(() => { closeModal(); toast('Your data on this device has been cleared.'); }); } }, 'Delete it');   // (this copy's keys, the session data and its offline cache; never the other copy's: prefs.js)
     const no = h('button', { class: 'btn', onclick: () => { row.replaceChildren(start); start.focus({ preventScroll: true }); } }, 'Keep it');
     row.replaceChildren(msg, h('div', { class: 'btn-row' }, no, go));
     no.focus({ preventScroll: true });
@@ -2570,13 +2467,13 @@ function showFirstHint() {
   if (EMBED) return;   // (?embed: an iframe on someone else's page shows no hint)
   if (navigator.webdriver) return;
   let seen = true;
-  try { seen = !!localStorage.getItem(HINT_KEY); } catch (e) { caught('main:2188', e); /* storage unavailable: no hint */ }
+  try { seen = !!prefs.getItem(HINT_KEY); } catch (e) { caught('main:2188', e); /* storage unavailable: no hint */ }
   if (seen) return;
   const show = () => {
     if (store.get().selection || presenter.active() || sheetOverFigure()) return;
     const verb = matchMedia('(hover: hover) and (pointer: fine)').matches ? 'Click' : 'Tap';
     let off = null, offTalk = null;
-    const done = (why) => { off?.(); off = null; offTalk?.(); offTalk = null; if (why === 'talk') return; try { localStorage.setItem(HINT_KEY, '1'); } catch (e) { caught('main:2194', e); /* storage unavailable */ } };
+    const done = (why) => { off?.(); off = null; offTalk?.(); offTalk = null; if (why === 'talk') return; try { prefs.setItem(HINT_KEY, '1'); } catch (e) { caught('main:2194', e); /* storage unavailable */ } };
     const close = toast(`${verb} a vessel or the liver to change it.`, '', { sticky: true, onClose: done });
     off = store.on('selection', (sel) => { if (sel) close(); });
     // A sheet over the figure (Tests, the chart, Treat or History on a phone) takes the hint away: it sat over the strip of figure the sheet left.
@@ -2603,7 +2500,7 @@ function armFeedbackAsk() {
   if (EMBED) return;   // (and none asks for feedback)
   if (!FEEDBACK_EMAIL || navigator.webdriver) return;
   let was = null;
-  try { was = localStorage.getItem(ASK_KEY); } catch { return; }   // (no storage: it could not remember, so it never asks)
+  try { was = prefs.getItem(ASK_KEY); } catch { return; }   // (no storage: it could not remember, so it never asks)
   if (was === 'done') return;
   const TICK = 5000, IDLE = 60000;
   let active = 0, lastInput = 0, last = performance.now(), down = 0, timer = 0;
@@ -2622,22 +2519,26 @@ function armFeedbackAsk() {
     toast('Anything look wrong or confusing so far? A short email helps the author fix it.', '', askToast);
   };
   // (The card's answers and options are made once, with the timer, not each time it asks.)
-  const answer = (v) => { try { localStorage.setItem(ASK_KEY, v); } catch (e) { caught('main:2230', e); /* storage unavailable */ } };
+  const answer = (v) => { try { prefs.setItem(ASK_KEY, v); } catch (e) { caught('main:2230', e); /* storage unavailable */ } };
   const askToast = {
     sticky: true, holdInTalk: true,   // (held while a talk plays: it stood over a slide's tag chip and the preview badge, 16 Nov 2026; asked again, with the minutes counted anew, once the talk is over)
     actions: [['Send feedback', () => sendFeedback()], ['Not now', () => {}]],
     onClose: (why) => {
       if (why === 'pushed' || why === 'held') { active = 0; last = performance.now(); timer = setInterval(tick, TICK); return; }   // (not an answer)
-      try { if (localStorage.getItem(ASK_KEY) !== 'done') answer(was === 'later' ? 'done' : 'later'); } catch (e) { caught('main:2235', e); /* storage unavailable */ }
+      try { if (prefs.getItem(ASK_KEY) !== 'done') answer(was === 'later' ? 'done' : 'later'); } catch (e) { caught('main:2235', e); /* storage unavailable */ }
     },
   };
   timer = setInterval(tick, TICK);
 }
-(/[?&]presenter-view(?:[=&]|$)/.test(location.search) ? import('./presenter-view-page.js').then((m) => m.run()) : /[?&]gallery=frame(?:&|$)/.test(location.search) && /\/preview\//.test(location.pathname) ? import('./gallery/device-frame.js').then((m) => { document.getElementById('boot')?.remove(); document.documentElement.removeAttribute('data-boot'); document.body.replaceChildren(); m.bootFrame(); }) : main()).catch((err) => {   // (N1: ?presenter-view is the presenter's second window, text only)
+(flagValue('presenter-view') !== null ? import('./presenter-view-page.js').then((m) => m.run()) : flagValue('gallery') === 'frame' ? import('./gallery/device-frame.js').then((m) => { document.getElementById('boot')?.remove(); document.documentElement.removeAttribute('data-boot'); document.body.replaceChildren(); m.bootFrame(); }) : main()).catch((err) => {   // (N1: ?presenter-view is the presenter's second window, text only)
   // (Told to the page's own boot card too, so a failed start shows "couldn't start / Reload" at once, not a pulsing logo for 15 s and then an empty shell.)
-  const fail = () => { (window.ppsBootErrors ||= []).push(String(err?.message || err).slice(0, 300)); window.ppsBootFail?.(); };
+  const fail = () => { (window.ppsBootErrors ||= []).push(String(err?.message || err).slice(0, 300)); window.ppsBootFail?.({ force: !window.ppsWired }); noteEvent('boot-fail', String(err?.stack || err?.message || err)); };
   // (A chunk that will not load is most often a page older than the site: a deploy replaced the hashed files it names. The page's
   // boot script (index.html, ppsStale) then reloads once with a fresh index instead of stopping on "couldn't start".)
   console.error(err);
   if (/dynamically imported module|importing a module script failed|error loading dynamically/i.test(String(err?.message || err)) && window.ppsStale?.('', fail)) return;
-  fail(); document.body.append(h('pre', { style: { position: 'fixed', bottom: 0, left: 0, background: 'var(--white)', color: 'var(--critical)', padding: '8px', zIndex: 'var(--z-diag)' } }, String(err.stack || err))); });
+  fail();
+  // (The card above is what a person sees. The raw stack stays for ?perf, where a tester wants it; once the buttons answer, a late failure is one calm toast, not a cover.)
+  if (flagOn('perf')) document.body.append(h('pre', { style: { position: 'fixed', bottom: 0, left: 0, background: 'var(--white)', color: 'var(--critical)', padding: '8px', zIndex: 'var(--z-diag)' } }, String(err.stack || err)));
+  else if (window.ppsWired) { try { toast('Part of the app did not finish loading. If something does not respond, reload.', 'bad', { actions: [['Reload', () => location.reload()]] }); } catch (e) { caught('main:boot-toast', e); /* the page has no toast host yet */ } }
+});

@@ -1,4 +1,4 @@
-// The card fit rules, in one place (docs/card-gallery.md, plan 2.7). The judging that scripts/card-fit.mjs and scripts/phone-card-fit.mjs used
+// The card fit rules, in one place (docs/card-gallery.md, plan 2.7). The judging that scripts/card-fit.mjs and (until 19 Nov 2026) scripts/phone-card-fit.mjs used
 // to keep to themselves, and four checks from Mohammad's standing rules, so a script in headless Chromium and the Check button on the device in
 // his hand give the same verdict:
 //
@@ -27,11 +27,14 @@
 //
 // No DOM import at top level: a unit test loads this in node.
 import { TITLE_RATIO, WORDS_MIN_PX } from '../card-type.js';
+import { PHONE_TITLE_RATIO, RATIO_TOLERANCE, BLANK_MAX, SHEET_SHORT_MAX, wording } from '../selfcheck/limits.js';
+export { PHONE_TITLE_RATIO, RATIO_TOLERANCE, BLANK_MAX, SHEET_SHORT_MAX };
+import { EDGE_KINDS, EDGE_WORDS } from './edge-rules.js';
 
 export { TITLE_RATIO, WORDS_MIN_PX };
 
 /** Every category a judge may name, in the order a list shows them. */
-export const KINDS = ['enlarged', 'zoomed', 'scroll', 'clipped', 'off', 'small', 'ratio', 'sideways', 'styled', 'chart', 'blank', 'cut', 'tall'];
+export const KINDS = ['enlarged', 'zoomed', 'scroll', 'clipped', 'off', 'small', 'ratio', 'sideways', 'styled', 'chart', 'blank', 'cut', 'tall', 'sheet'];
 /** What each kind means, one line, for the list the Check button copies. */
 export const KIND_WORDS = {
   enlarged: 'a card up while nothing asked for it',
@@ -39,14 +42,15 @@ export const KIND_WORDS = {
   scroll: 'words run past the card',
   clipped: 'a word is cut by its box',
   off: 'text stands partly off the screen',
-  small: 'lettering under 12 px',
-  ratio: 'the title is under 1.4 times the words',
+  small: wording.small,
+  ratio: wording.ratio,
   sideways: 'something in the card scrolls sideways',
   styled: 'the card showed before it was whole',
   chart: 'a word of a chart stands outside its box',
   blank: 'empty glass above or below the words',
   cut: 'a line runs past the card',
   tall: 'the card scrolls though its words fit the space',
+  sheet: 'a phone sheet scrolls while it stops short of the room under the top bar',
 };
 /** The four kinds that are new (the checks from the standing rules); scripts can leave them out with --old-rules. */
 export const NEW_KINDS = ['small', 'ratio', 'sideways', 'styled', 'chart'];
@@ -65,6 +69,7 @@ export const PRESENTER_CARDS = ['.pz-text', '.pz-data', '.pz-panel'];
  */
 export function readCards(io, env) {
   const minPx = (env && env.minPx) || 12;
+  const shuffleMin = (env && env.shuffleMinPx) || 0;   // (the Shuffle's tall instrument card may go lower, the owner's 18 Nov decision in selfcheck/limits.js; 0 when the cards do not share a place)
   const cards = ['.pz-text', '.pz-data', '.pz-panel'];
   const cardSel = cards.join(',');
   const seen = io.seen || (() => {});
@@ -106,7 +111,8 @@ export function readCards(io, env) {
     // (Lettering under the floor, on a card and in view: the smallest first.)
     if (inView && el.closest(cardSel)) {
       const px = screenPx(el);
-      if (px && px < minPx - 0.05) { const t = `${name(el)} "${words(el, 30)}" ${px.toFixed(1)} px`; small.push([px, t]); seen(t, el); }
+      const floor = shuffleMin && el.closest('.pz-data') ? shuffleMin : minPx;
+      if (px && px < floor - 0.05) { const t = `${name(el)} "${words(el, 30)}" ${px.toFixed(1)} px`; small.push([px, t]); seen(t, el); }
     }
   }
   small.sort((a, b) => a[0] - b[0]);
@@ -261,9 +267,7 @@ export function readStructureCard(io, card, env) {
 const P = (kind, text) => ({ kind, text, line: `${kind}: ${text}` });
 
 /** The least ratio of title to words that passes (a hair under TITLE_RATIO: sizes are measured to a tenth of a pixel). */
-export const RATIO_TOLERANCE = 0.02;
 /** A phone's stacked or sideways slide (1.45 and 1.4 times the role sizes: a 23.2 px title over a 17.4 px body, 1.33) may stand at 1.3: Mohammad, 19 Nov 2026, "1.33 is OK if text needs more space". */
-export const PHONE_TITLE_RATIO = 1.3;
 
 /** The problems of a readCards result, as { kind, text, line }. */
 export function judgeCards(r, opts = {}) {
@@ -294,7 +298,6 @@ export function judgeZoom(z, rest, how) {
 }
 
 /** Empty glass allowed above the first line or below the last of a structure card (its own padding is 14 and 12). */
-export const BLANK_MAX = 24;
 
 /** The problems of a readStructureCard result (null: no card, nothing to judge). */
 export function judgeStructureCard(m, opts = {}) {
@@ -314,6 +317,34 @@ export function judgeStructureCard(m, opts = {}) {
   return out;
 }
 
+/**
+ * ONE SELF-CONTAINED FUNCTION (like readCards: scripts/fit-io.mjs can send it into a page). The phone sheet on show (Treat, Settings, History, the menus and the palette) and the room it has: its box, the top
+ * bar's foot, the room between them and whether anything in it scrolls. Null when no sheet shows or the screen is not a phone's width (the sheets are sheets only there; a wider screen's are popovers).
+ * Folded in from scripts/phone-sheet-fit.mjs (19 Nov 2026), which opened each sheet on a phone by hand.
+ */
+export function readSheet(io) {
+  const vis = (e) => { const cs = io.style(e); return !e.hidden && cs.display !== 'none' && cs.visibility !== 'hidden' && +cs.opacity > 0.5 && io.box(e).height > 40; };
+  const el = [...document.querySelectorAll('.treat-card, .history-card, .menu.as-sheet, .why-pop.as-sheet, .pal, .modal')].filter(vis).at(-1);
+  if (!el || window.innerWidth > 500) return null;
+  const r = io.box(el);
+  const tbEl = document.querySelector('.topbar'), tb = tbEl ? io.box(tbEl).bottom : 56;
+  const scrollers = [el, ...el.querySelectorAll('*')].filter((n) => { const o = io.style(n).overflowY; return (o === 'auto' || o === 'scroll') && io.metric(n, 'scrollHeight') > io.metric(n, 'clientHeight') + 1 && io.metric(n, 'clientHeight') > 40; });
+  return { cls: String(el.className).split(' ').slice(0, 3).join('.'), name: el.getAttribute('aria-label') || '', pal: el.classList.contains('pal'), top: Math.round(r.top), bottom: Math.round(r.bottom), h: Math.round(r.height), topBar: Math.round(tb), room: Math.round(r.top - tb), scrolls: scrollers.length > 0, moving: !!el.getAnimations && el.getAnimations().length > 0 };
+}
+
+/** How far a sheet's top may stand below the top bar's foot while its words scroll (a sheet that scrolls has used the room; this is the gap). */
+
+/**
+ * The problems of a readSheet result (null: no sheet). A sheet that scrolls while it stops short of the room is a sheet that could have been taller (the tester at 390 x 844, 18 Nov 2026: Treat at 405 px with
+ * 726 px of words and free room above it). The Layers menu stops under half the screen on purpose (the figure stays in view as its rows are toggled), and the command palette's list is a fixed height on purpose
+ * (it must not jump as the query changes): neither is held to it. A sheet still gliding is not read.
+ */
+export function judgeSheet(m) {
+  if (!m || m.moving) return [];
+  if (m.scrolls && m.room > SHEET_SHORT_MAX && !m.pal && !/layers/i.test(m.name || m.cls)) return [P('sheet', `${m.name || m.cls} scrolls while stopping ${m.room}px short of the room under the top bar (sheet ${m.top}-${m.bottom}, ${m.h}px)`)];
+  return [];
+}
+
 /** The problems as plain lines, for a script's log or a copied list. */
 export const linesOf = (problems) => problems.map((p) => p.line);
 
@@ -322,10 +353,10 @@ export function reportText(problems, where = {}) {
   const head = [`Card check${where.title ? `: ${where.title}` : ''}`, [where.look && `look ${where.look}`, where.size && `screen ${where.size}`, where.when].filter(Boolean).join(', ')].filter(Boolean).join('\n');
   if (!problems.length) return `${head}\nEvery card fits: no problems found.`;
   const lines = [head, `${problems.length} problem${problems.length === 1 ? '' : 's'}:`];
-  for (const k of KINDS) {
+  for (const k of [...KINDS, ...EDGE_KINDS]) {
     const of = problems.filter((p) => p.kind === k);
     if (!of.length) continue;
-    lines.push('', `${k} (${KIND_WORDS[k]})`, ...of.map((p) => `  - ${p.where ? `[${p.where}] ` : ''}${p.text}`));
+    lines.push('', `${k} (${KIND_WORDS[k] || EDGE_WORDS[k]})`, ...of.map((p) => `  - ${p.where ? `[${p.where}] ` : ''}${p.text}`));
   }
   return lines.join('\n');
 }

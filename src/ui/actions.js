@@ -8,7 +8,6 @@
 // it, and nothing here is built while the app runs. What a frame reads is written in place (see steady, the stats' cells below).
 
 import { edgeWhy } from '../engine/explain-ids.js';
-import { procLabel } from './procedure-names.js';
 import { EDGES, JUNCTION_HOST_ENDS, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgeById, edgePresent, partOf } from '../engine/topology.js';
 import { GEOM_RANGE, TAPER_CM, WAIST_MAX, WAIST_STEP, endSiteOf, geomDefault, geomOf, kindOf, lumenShown, withEnd, withWaist } from '../engine/stent-geom.js';
 import { throughFlow } from './part-names.js';
@@ -24,6 +23,7 @@ import { oxygenFor } from './blood.js';
 import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js';
 import { createStentEditor } from './stent-editor.js';
 import { createTipsVessel } from './tips-vessel.js';
+import { procLabel } from './procedure-names.js';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -397,7 +397,7 @@ function buildVarixVerbs(site) {
   const eso = site === 'eso';
   const out = [];
   const bandsCell = newCell();
-  if (eso) out.push({ type: 'button', id: 'band', label: procLabel('band'), icon: 'band', run: () => { CTX.action({ kind: 'band' }); }, note: (f) => (f.bands ? memoKey(bandsCell, Math.round(f.bands), f.bands, BANDS_NOTE) : null) });   // alloc-rare: a click handler (a verb of the open card): runs once per tap, never in a frame; the scan reaches it only through the conservative callback dispatch of the halo step
+  if (eso) out.push({ type: 'button', id: 'band', label: procLabel('band'), short: 'Band', icon: 'band', run: () => { CTX.action({ kind: 'band' }); }, note: (f) => (f.bands ? memoKey(bandsCell, Math.round(f.bands), f.bands, BANDS_NOTE) : null) });   // alloc-rare: a click handler (a verb of the open card): runs once per tap, never in a frame; the scan reaches it only through the conservative callback dispatch of the halo step
   out.push({ type: 'button', id: 'endoscope', label: 'Endoscope', short: 'Scope', icon: 'endoscope', run: () => { CTX.paneApi('endoscopy')?.setView?.('eso'); CTX.showPane('endoscopy'); } });
   // The tamponade tube. Its gastric balloon is the first step: filled in the stomach, the tube drawn up so it seats against the cardia.
   // The esophageal balloon is the second, filled only if that does not hold, and only on a tube whose gastric balloon is up: switching it on

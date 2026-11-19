@@ -17,6 +17,7 @@
 
 import { build as esbuild } from 'esbuild';
 import { fatalWarnings, refusal } from './build-warnings.mjs';
+import { releaseName } from './release-name.mjs';
 import { readFileSync, writeFileSync, rmSync, mkdirSync, cpSync, readdirSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, dirname, resolve, relative, basename, sep } from 'node:path';
@@ -62,14 +63,8 @@ const build = async (opts) => {
 };
 // Release identity (PR-04): the newest v2026.11.N tag (when the checkout has tags) plus the short commit, so a tester's "which version?"
 // has an answer and a bad merge has a rollback target. PPS_RELEASE overrides it; a checkout with no git says "build".
-const RELEASE = (() => {
-  if (process.env.PPS_RELEASE) return process.env.PPS_RELEASE;
-  const git = (a) => { try { return execSync('git ' + a, { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return ''; } };
-  const tag = git('describe --tags --abbrev=0 --match "v20*"');
-  const hash = (process.env.GITHUB_SHA || git('rev-parse HEAD')).slice(0, 8);
-  return [tag, hash].filter(Boolean).join(' · ') || 'build';
-})();
-const common = { define: { __PPS_RELEASE__: JSON.stringify(RELEASE) }, bundle: true, format: 'esm', minify: true, target: ['es2022'], legalComments: 'none', logLevel: 'warning', plugins: [stripStamps] };
+const RELEASE = releaseName((a) => { try { return execSync('git ' + a, { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return ''; } });   // (scripts/release-name.mjs: this checkout's tag and commit, never GITHUB_SHA)
+const common = { define: { __PPS_RELEASE__: JSON.stringify(RELEASE) }, bundle: true, format: 'esm', minify: true, sourcemap: 'external', target: ['es2022'], legalComments: 'none', logLevel: 'warning', plugins: [stripStamps] };
 
 // 1. The engine worker, as one self-contained module.
 const worker = await build({ ...common, entryPoints: [join(ROOT, 'src/worker.js')], outdir: ASSETS, entryNames: 'worker-[hash]', write: true, metafile: true });
@@ -256,6 +251,18 @@ html = html.replace('</head>', `${head}\n</head>`);
 writeFileSync(join(OUT, 'index.html'), withCsp(html));   // (the policy hashes the page's inline scripts, so it is added last)
 writeFileSync(join(OUT, 'release.txt'), RELEASE + '\n');
 
+// Source maps (SHL-3): written next to each file by esbuild, then moved OUT of dist into dist-maps/ (never published, never precached; the deploy keeps them per release
+// as an artifact), so a stack from the field ("chunk-ab12.js:1:48213") can be turned back into a source line by release. Nothing in dist names them.
+const MAPS = join(ROOT, 'dist-maps');
+rmSync(MAPS, { recursive: true, force: true });
+mkdirSync(MAPS, { recursive: true });
+for (const f of readdirSync(ASSETS).filter((n) => n.endsWith('.map'))) {
+  const js = join(ASSETS, f.slice(0, -4));
+  if (statSync(js, { throwIfNoEntry: false })) cpSync(join(ASSETS, f), join(MAPS, f));
+  rmSync(join(ASSETS, f), { force: true });
+}
+writeFileSync(join(MAPS, 'release.txt'), RELEASE + '\n');
+
 // 6. Service worker: precache everything; hashed assets never change, so cache-first is safe.
 const walk = (p) => (statSync(p).isDirectory() ? readdirSync(p).flatMap((f) => walk(join(p, f))) : [p]);
 const files = walk(OUT).map((p) => relative(OUT, p).split(sep).join('/')).filter((f) => f !== 'sw.js').sort();
@@ -278,7 +285,8 @@ const SCOPE = 'pps@' + new URL(self.registration.scope).pathname + '@';
 const CACHE = SCOPE + '${version}';
 const FILES = ${JSON.stringify(['./', ...install])};
 const LATER = ${JSON.stringify(later)};
-self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting())); });
+// Installed file by file, each asked again on a failed answer (pull, below): one bad response used to fail the whole install (addAll), silently, and the page kept the old worker.
+self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => Promise.all(FILES.map(async (f) => { const res = await pull(new Request(f)); if (res.status !== 200) throw new Error('install: ' + f + ' ' + res.status); await c.put(f, res); }))).then(() => self.skipWaiting())); });
 // The page asks for the rest once it has been left alone (src/ui/main.js): the fonts' other subsets, for offline use.
 // ('pps:files': a page that sees a new worker take over asks which files it holds, to tell an update that changed its own files from one it already has.)
 self.addEventListener('message', (e) => { if (e.data === 'pps:files' && e.ports[0]) e.ports[0].postMessage(FILES); else if (e.data === 'pps:fill') e.waitUntil(caches.open(CACHE).then(async (c) => { for (const f of LATER) if (!(await c.match(f))) await c.add(f); }).catch(() => {})); });
@@ -286,17 +294,20 @@ self.addEventListener('message', (e) => { if (e.data === 'pps:files' && e.ports[
 // its own hashed files (the server has only the new ones), so it can start a presentation; any older cache goes.
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => { const prev = ks.filter((k) => k !== CACHE && k.startsWith(SCOPE)).at(-1); return Promise.all(ks.filter((k) => k !== CACHE && k !== prev && (k.startsWith(SCOPE) || k.startsWith('pps-'))).map((k) => caches.delete(k))); }).then(() => self.clients.claim())); });
 // (A response is stored under waitUntil, so the worker is kept alive until the write ends; a storage failure is swallowed, the response is still served.)
-const keep = (e, req, res) => { if (res.status === 200) { const copy = res.clone(); e.waitUntil(caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {})); } };
+// A page is kept under './' only, in this copy's own cache: five deep links, ?preset= addresses or ?r= stale-recovery reloads leave one page entry, not five, and an offline start
+// opens this copy's current page, never another copy's or an older release's (the cache API's global match answers from any cache on the origin, oldest first).
+const keep = (e, req, res) => { if (res.status === 200) { const copy = res.clone(); e.waitUntil(caches.open(CACHE).then((c) => c.put(req.mode === 'navigate' ? './' : req, copy)).catch(() => {})); } };
+const mine = (req) => caches.open(CACHE).then((c) => c.match(req));
 // A hashed file the page's fresh HTML names can be missing for a moment right after a deploy (an edge of the host still on the old site, or a 404 it
 // remembered): the page would then stop with "Could not load main-HASH.js". So a failed fetch of one is asked again, up to three more times, bypassing the HTTP cache.
 const pull = async (req) => { let res; for (let i = 0; i < 4; i++) { try { res = await fetch(i ? req.url : req, i ? { cache: 'reload' } : undefined); if (res.status < 400) return res; } catch (err) { if (i === 3) throw err; } await new Promise((r) => setTimeout(r, 400 * 2 ** i)); } return res; };
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
-  if (new URL(req.url).pathname.includes('/assets/')) { e.respondWith(caches.match(req).then((hit) => hit || pull(req).then((res) => { keep(e, req, res); return res; }))); return; }
+  if (new URL(req.url).pathname.includes('/assets/')) { e.respondWith(mine(req).then((hit) => hit || pull(req).then((res) => { keep(e, req, res); return res; }))); return; }
   const fresh = req.mode === 'navigate' ? fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }) : fetch(req, { cache: 'no-cache' });
   e.respondWith(fresh.then((res) => { keep(e, req, res); return res; })
-    .catch(() => caches.match(req).then((hit) => hit || (req.mode === 'navigate' ? caches.match('./') : Response.error()))));
+    .catch(() => mine(req.mode === 'navigate' ? './' : req).then((hit) => hit || Response.error())));
 });
 `);
 

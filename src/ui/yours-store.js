@@ -2,6 +2,7 @@
 // readings is not on another device and is not in a share link (the link carries the model's settings, which any device can open). Storage can be
 // refused (a private window, site data blocked, a full quota): reads then give nothing and a save keeps the list in memory for the page's life.
 
+import { prefs } from './prefs.js';
 import { cleanYours, yoursRecord, YOURS_MAX } from '../engine/yours.js';
 import { caught } from './caught.js';
 
@@ -11,10 +12,10 @@ let mem = null;   // (the list when storage will not take it)
 /** The saved records, made safe (engine/yours.js cleanYours). */
 export function readYours() {
   if (mem) return mem;
-  try { return cleanYours(JSON.parse(localStorage.getItem(YOURS_KEY) || '[]')); } catch (e) { caught('yours-store:read', e); return []; }
+  try { return cleanYours(JSON.parse(prefs.getItem(YOURS_KEY) || '[]')); } catch (e) { caught('yours-store:read', e); return []; }
 }
 function write(list) {
-  try { localStorage.setItem(YOURS_KEY, JSON.stringify(list)); mem = null; } catch (e) { caught('yours-store:write', e); mem = list; }
+  try { prefs.setItem(YOURS_KEY, JSON.stringify(list)); mem = null; } catch (e) { caught('yours-store:write', e); mem = list; }
   return list;
 }
 /** Save the patient for family f at settings p, made from `readings`; the newest first, the oldest dropped past YOURS_MAX. Returns { list, rec }. */

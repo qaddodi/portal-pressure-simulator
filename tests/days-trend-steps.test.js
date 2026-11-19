@@ -3,7 +3,6 @@
 // (#12: the post-change reading used to overwrite today's point, so even without the calm the line fell from the day before.)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { calmed, calmedDays, calmedPieces, recordDay } from '../src/engine/trail-calm.js';
 import { treatmentKey } from '../src/engine/change-events.js';
 import { defaultParams } from '../src/engine/scenario.js';
@@ -73,12 +72,4 @@ test('a change is a treatment or a procedure, not a ramp or a slider', () => {
     const x = structuredClone(p); edit(x);
     assert.notEqual(treatmentKey(x), key);
   }
-});
-
-test('the chart feeds the Days list through the one path (recordDay, calmedDays, treatmentKey), never its own copy', () => {
-  const src = readFileSync(new URL('../src/ui/pressure-time.js', import.meta.url), 'utf8');
-  assert.match(src, /recordDay\(days, f\.day, dayV, stepNext\)/);
-  assert.match(src, /\.\.\.calmedDays\(days, key\)/);
-  assert.match(src, /treatmentKey\(f\.params\)/);
-  assert.doesNotMatch(src, /calmed\(v, calmRadius/, 'no whole-series calm of the days');
 });

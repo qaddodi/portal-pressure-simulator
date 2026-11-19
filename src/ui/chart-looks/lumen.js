@@ -25,7 +25,7 @@ export const LUMEN = {
   // 7439 .gl-stent: a stent's ring, easing in and out as the slide stents the vein
   'lumen.stent': { base: { fill: 'none', stroke: tok('stent-metal'), width: 2.2, dash: [4.6, 2.2], ease: { opacity: ease('surface') } } },
   // 7437 .gl-in: the share filled, white with a dark outline so it reads over the open lumen and the clot alike
-  'lumen.in': { base: { ...NUMBER, font: [650, px(22)], baseline: 'central' } },
+  'lumen.in': { base: { ...NUMBER, font: [600, px(22)], baseline: 'central' } },
   // 7437-7438 .gl-in.gl-word: the name and "occluded", lighter and with a thinner outline; the size is the builder's attribute
   'lumen.word': { base: { ...NUMBER, weight: 600, baseline: 'central', halo: { stroke: tok('gl-in-edge'), width: 1.3, join: 'round' } } },
 };

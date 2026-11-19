@@ -25,7 +25,7 @@ const walk = (dir, ok, out = []) => {
   return out;
 };
 // What the app ships and builds with: the source, the styles, the page and the scripts (not the tests, which name what must be gone, nor the historical docs).
-const SHIPPED = [...walk('src', (n) => /\.(js|mjs|css|html)$/.test(n)), ...walk('styles', (n) => n.endsWith('.css')), ...walk('scripts', (n) => /\.(mjs|json)$/.test(n)), 'index.html', 'sw.js'];
+const SHIPPED = [...walk('src', (n) => /\.(js|mjs|css|html)$/.test(n)), ...walk('styles', (n) => n.endsWith('.css')), ...walk('scripts', (n) => /\.(mjs|json)$/.test(n)), 'index.html'];
 
 // Names that only the streaks used: the shader function and its styles, their uniforms, the half-size pass, the baked tile, the moving-light feeds and the saved look.
 const GONE = [

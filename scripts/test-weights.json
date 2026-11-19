@@ -368,7 +368,6 @@
 "tests/label-paint-reads.test.js": 0.2,
 "tests/label-pills.test.js": 0.2,
 "tests/label-pin-pixel.test.js": 2.0,
-"tests/label-pose.test.js": 0.3,
 "tests/label-presolve-interleave.test.js": 9.3,
 "tests/label-records.test.js": 1.3,
 "tests/label-repack.test.js": 0.1,

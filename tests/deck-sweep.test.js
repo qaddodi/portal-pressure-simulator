@@ -124,24 +124,45 @@ test('--slides takes numbers and ranges', () => {
   assert.deepEqual([...parseSlides('1,4-6')], [1, 4, 5, 6]);
 });
 
-test('a slide\'s findings come from the fit rules, the edge rules, the case card and the shuffle\'s other state, told once', () => {
-  const edges = read([card('.pz-text', { leaves: [leaf('x', [24, 340, 336, 394])] })]);
-  const r = { main: { check: { problems: [{ kind: 'small', text: 'li 10 px' }] }, edges }, held: { check: { problems: [] }, edges: read([]) }, back: { edges: read([card('.pz-text', { behind: true, vis: [24, 10, 336, 40], leaves: [leaf('t', [24, 30, 300, 80], { lines: [[24, 63]] })] })]) } };
-  const lines = slideProblems(r, judgeEdges);
+test('a slide\'s findings come from the page\'s own check (fit and edge rules together), the case card and the shuffle\'s other state, told once', () => {
+  const r = {
+    main: { check: { problems: [{ kind: 'small', text: 'li 10 px' }, { kind: 'edge-cutoff', text: 'pz-text: "x" ends 28 px below the card\'s visible edge' }] } },
+    held: { check: { problems: [] } },
+    back: { check: { problems: [{ kind: 'small', text: 'li 10 px' }, { kind: 'edge-stray', text: 'pz-text behind: "t" has a line cut across by the strip\'s edge' }] } },
+  };
+  const lines = slideProblems(r);
   assert.ok(lines.includes('small: li 10 px'));
-  assert.ok(lines.some((l) => /^cutoff: /.test(l)));
-  assert.ok(lines.some((l) => /^\[instrument in front\] stray: /.test(l)));
+  assert.ok(lines.some((l) => /^edge-cutoff: /.test(l)));
+  assert.ok(lines.some((l) => /^\[instrument in front\] edge-stray: /.test(l)));
+  assert.ok(!lines.some((l) => /^\[instrument in front\] small/.test(l)), 'the back state\'s fit reads are the main state\'s: not told twice');
 });
 
 test('the summary counts by kind and size, lists what did not open, and names every finding', () => {
   const report = { decks: ['hvpg'], devices: ['iphone-landscape'], seconds: 12, results: {
-    'hvpg#3@iphone-landscape': { deck: 'hvpg', slide: 3, device: 'iphone-landscape', ok: true, shuffle: true, problems: ['cutoff: pz-text: "x" ends 28 px below', '[instrument in front] stray: pz-text behind: "t"'] },
+    'hvpg#3@iphone-landscape': { deck: 'hvpg', slide: 3, device: 'iphone-landscape', ok: true, shuffle: true, problems: ['edge-cutoff: pz-text: "x" ends 28 px below', '[instrument in front] edge-stray: pz-text behind: "t"'] },
     'hvpg#4@iphone-landscape': { deck: 'hvpg', slide: 4, device: 'iphone-landscape', ok: false, error: 'did not settle in time', problems: [] },
   } };
   const text = summarize(report);
   assert.match(text, /2 slide visits/);
   assert.match(text, /1 did not open or settle, 1 slides with findings \(2 findings\)/);
-  assert.match(text, /by kind: .*cutoff 1/);
+  assert.match(text, /by kind: .*edge-cutoff 1/);
   assert.match(text, /hvpg slide 4 on iphone-landscape: did not settle/);
   assert.match(text, /hvpg slide 3 \(shuffle\):/);
+});
+
+// ── the cross-slide body rule ──
+import { addBodyShrink } from '../scripts/deck-sweep-lib.mjs';
+test('body-shrink: a slide whose body stands under the device\'s usual size is named; a rounding step, a few slides and a failed open are not', () => {
+  const rec = (n, body, device = 'iphone', extra = {}) => [`d#${n}@${device}`, { deck: 'd', slide: n, device, ok: true, body, problems: [], ...extra }];
+  const results = Object.fromEntries([...[1, 2, 3, 4, 5, 6].map((n) => rec(n, 17.4)), rec(7, 13.9), rec(8, 17.2), rec(9, 0), rec(10, 10, 'iphone', { ok: false })]);
+  const added = addBodyShrink(results);
+  assert.deepEqual(added.map((a) => a.key), ['d#7@iphone']);
+  assert.match(results['d#7@iphone'].problems[0], /^body-shrink: the words stand at 13\.9 px; this device's other slides stand at 17\.4 px/);
+  assert.deepEqual(results['d#8@iphone'].problems, [], '0.2 px is rounding');
+  assert.deepEqual(results['d#9@iphone'].problems, [], 'no body on the slide (a table, an outline) is not a shrink');
+  assert.deepEqual(addBodyShrink(results), [], 'twice adds nothing');
+  const few = Object.fromEntries([rec(1, 17.4), rec(2, 13.9)]);
+  assert.deepEqual(addBodyShrink(few), [], 'two slides do not make a usual size');
+  const two = Object.fromEntries([...[1, 2, 3, 4, 5].map((n) => rec(n, 17.4, 'mac')), ...[1, 2, 3, 4, 5].map((n) => rec(n, 13.9, 'iphone'))]);
+  assert.deepEqual(addBodyShrink(two), [], 'each device is its own size: a phone is not held to the laptop');
 });

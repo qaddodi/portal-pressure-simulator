@@ -105,6 +105,22 @@ test('the catalog is narrowed by family, section, kind, ids and a shard that kee
 
 test('the sweep script stays layout-only: GL draws stubbed, no screenshot, no shoot settle', () => {
   const src = readFileSync(new URL('../scripts/gallery-sweep.mjs', import.meta.url), 'utf8');
-  assert.match(src, /drawArrays/);
+  assert.match(src, /from '\.\/headless\.mjs'/, 'it opens the app through the one layout-only opener, which stubs every GL draw (tests/headless-only.test.js)');
   assert.doesNotMatch(src.replace(/^\/\/.*$/gm, ''), /\.screenshot\(|\.settle\(|colourShare|assertGpuLive/, 'no pictures: the ban lifted for layout runs only');
+});
+
+test('device sizes are one list (src/ui/devices.js): the page, the frame, the sweeps, the screenshot tool and the retired runners agree on what "ipad" is', async () => {
+  const { DEVICES: ALL, GALLERY_DEVICES, contextOptions } = await import('../src/ui/devices.js');
+  const { FRAME_DEVICES } = await import('../src/ui/gallery/device-frame.js');
+  const { DEVICES: SHOOT } = await import('../scripts/shoot.mjs');
+  const { SIZES: GATE } = await import('../scripts/gate-clock.mjs');
+  assert.equal(new Set(ALL.map((d) => d.id)).size, ALL.length);
+  assert.deepEqual(Object.keys(FRAME_DEVICES), GALLERY_DEVICES.map((d) => d.id));
+  assert.deepEqual(Object.keys(SHOOT), ALL.map((d) => d.id), 'the screenshot tool takes every device of the list');
+  for (const d of ALL) assert.deepEqual([SHOOT[d.id].viewport.width, SHOOT[d.id].viewport.height, SHOOT[d.id].deviceScaleFactor, !!SHOOT[d.id].hasTouch], [d.w, d.h, d.dpr, d.touch], d.id);
+  assert.deepEqual([SHOOT.ipad.viewport.width, SHOOT.ipad.viewport.height], [1180, 820], 'ipad is landscape everywhere');
+  assert.deepEqual([GATE['ipad-portrait'].viewport.width, GATE['ipad-portrait'].viewport.height], [820, 1180]);
+  assert.equal(GATE.ipad, undefined, 'a runner that still calls the portrait iPad "ipad" would disagree with the other lists');
+  for (const d of ALL) if (d.turn) assert.equal(ALL.find((x) => x.id === d.turn).turn, d.id, `${d.id} turns back`);
+  assert.throws(() => contextOptions('ipad-mini'));
 });

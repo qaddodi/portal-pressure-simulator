@@ -10,7 +10,7 @@ import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { galleryDeck } from '../src/ui/gallery/deck.js';
 import { CATALOG } from '../src/ui/gallery/catalog.js';
-import { check } from '../scripts/clinical-wording.mjs';
+import { checkScreen } from '../src/ui/wording.js';
 import { deckStatesFull } from './deck-states.js';
 import { slideRig, mainRig, watching, liveContexts, madeAt } from './gallery-node.js';
 import { snapshotLive } from './gl-live.js';
@@ -22,15 +22,9 @@ const deck = galleryDeck();
 const entries = CATALOG.filter((e) => e.kind === 'slide');
 let rig, states, main;
 
-// The standing text rules that are not in clinical-wording.mjs (the owner's, 18 Nov 2026): Baveno VIII only, the PPG named with a minus sign.
-const MORE = [
-  ['baveno-vii', /Baveno\s+VII(?!I)/, 'Baveno VIII only, never VII'],
-  ['ppg-label', /PPG\s*\(\s*PV\s*[-–]\s*IVC\s*\)/, 'write "PPG (PV − IVC)" with the minus sign'],
-  ['no-number', /\bNaN\b|\bundefined\b|\bInfinity\b|\bnull\b|\[object /, 'a value that was never worked out reached the page'],
-  ['open-token', /\{[#\w@.-]+\}/, 'a {token} the page did not fill'],
-];
-// (A lone "—" in a card is the app's mark for a number it has none for, tile and monitor alike: it is no sentence's dash.)
-const rules = (text, prose = true) => [...check(prose ? text : text.replace(/(^|\s)—(?=\s|$)/g, '$1(none)')).map((r) => `${r.rule}: "${r.match}"`), ...MORE.filter(([, re]) => re.test(text)).map(([n, re, fix]) => `${n}: "${text.match(re)[0]}" (${fix})`)];
+// The wording rules are src/ui/wording.js's, the one list the lint, the Words dump and the registry's wording rules share (the lint's rules plus the checks for drawn text:
+// Baveno VIII only, the PPG named with a minus sign, no NaN, no open {token}). A lone "—" in a card is the app's mark for a number it has none for, tile and monitor alike: it is no sentence's dash.
+const rules = (text, prose = true) => checkScreen(prose ? text : text.replace(/(^|\s)—(?=\s|$)/g, '$1(none)')).map((r) => `${r.rule}: "${r.match}" (${r.fix})`);
 
 before(async () => {
   states = await deckStatesFull(deck);

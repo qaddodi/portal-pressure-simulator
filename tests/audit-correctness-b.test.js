@@ -16,8 +16,7 @@ async function isolatedHost() {
 
 // ── B1, B2: a load that was replaced or failed applies and announces nothing ──
 test('B1/B2: loadPreset says whether it applied; a link, "Restarted" and a patient toast wait for that', () => {
-  const ls = main.slice(main.indexOf('async function loadShared('), main.indexOf('// The orange PREVIEW pill'));
-  assert.ok(ls.indexOf('if (!(await loadPreset(s.preset))) return false;') > 0 && ls.indexOf('if (!(await loadPreset(s.preset)))') < ls.indexOf('s.params'), 'the link stops before its settings when its patient did not load');
+  // (A link stops before its settings when its patient did not load: tests/share-flow.test.js runs it.)
   const rs = main.slice(main.indexOf('async function restartPatient('), main.indexOf('function resetEverything'));
   assert.ok(rs.indexOf('if (!(await loadPreset(id))) return;') < rs.indexOf('toast(`Restarted'), 'no Restarted toast for a load that did not apply');
 });

@@ -1,5 +1,5 @@
 // The cut-offs that name slow, absent and backward flow in a vein. One set, read by the Doppler's reading (doppler.js), the figure's
-// velocity labels (stage.js), the Details sentences (about.js), the lobule's cards (actions.js), the screen-reader summary (a11y.js),
+// velocity labels (stage.js), the Details sentences (inspector.js), the lobule's cards (actions.js), the screen-reader summary (a11y.js),
 // the summary tables (table-marks.js) and the engine's stasis event (events.js), through judgeFlow (ui/velNormal.js). No imports, so the
 // worker loads it too.
 export const FLOW_CUTS = Object.freeze({

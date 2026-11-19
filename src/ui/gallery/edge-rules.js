@@ -132,3 +132,32 @@ export function judgeEdges(read, { tol = EDGE_TOL } = {}) {
   }
   return [...new Set(out)];
 }
+
+/**
+ * readEdges's answer kept small for a report: only the leaves that judgeEdges names, so a packet or a report holds the evidence and not every line of every card. Each leaf is judged on
+ * its own, so judgeEdges(compactEdges(read)) names exactly what judgeEdges(read) does (a test holds that).
+ */
+export function compactEdges(read, opts) {
+  if (!read) return read;
+  const cards = [];
+  for (const c of read.cards) {
+    const leaves = c.leaves.filter((l) => judgeEdges({ ...read, cards: [{ ...c, leaves: [l] }] }, opts).length);
+    if (leaves.length) cards.push({ ...c, leaves });
+  }
+  return { ...read, cards };
+}
+
+/** The kinds judgeEdges names, as the Check list and the registry call them ('edge-' first: the fit judges have an `off` of their own). */
+export const EDGE_KINDS = ['edge-cutoff', 'edge-off', 'edge-cutby', 'edge-stray', 'edge-nobacking'];
+/** What each edge kind means, one line, for the list the Check button copies. */
+export const EDGE_WORDS = {
+  'edge-cutoff': 'the words end past the card\'s visible edge',
+  'edge-off': 'the words end past the screen\'s edge',
+  'edge-cutby': 'a box inside the card cuts a line half drawn',
+  'edge-stray': 'a line of the card behind stands across the strip\'s edge',
+  'edge-nobacking': 'words of the teaching card stand outside their glass',
+};
+/** judgeEdges as problems, the shape the Check and the sweeps list: [{ kind: 'edge-cutoff', text, where: 'edges' }]. `read` is readEdges's result. */
+export function edgeProblems(read, opts) {
+  return judgeEdges(read, opts).map((line) => { const i = line.indexOf(': '); return { kind: `edge-${line.slice(0, i)}`, text: line.slice(i + 2), where: 'edges' }; });
+}

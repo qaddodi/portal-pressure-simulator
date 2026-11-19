@@ -2,13 +2,13 @@
 // varix cross-section, abdomen.
 
 import { NODES } from '../engine/topology.js';
-import { procLabel } from './procedure-names.js';
 import { gastricUp } from '../engine/scenario.js';
 import { wallRead, wallShare, WALL_WORDS, WALL_MEANING } from '../engine/wall-read.js';
 import { pressureColor } from './colormap.js';
 import { fmtG } from './num.js';
 import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js';
 import { wordSetter } from './gl-words.js';
+import { procLabel } from './procedure-names.js';
 import { simTime, isPaused } from './clock.js';
 import { acquireEndoGL } from './endo-gl.js';
 import { surface } from './gpu-surfaces.js';

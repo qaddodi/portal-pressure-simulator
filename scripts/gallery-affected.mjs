@@ -6,7 +6,7 @@
 //   npm run gallery:affected -- --base <ref>      against another ref
 //   npm run gallery:affected -- --files a.js,b.js the files named (no git)
 //   npm run gallery:affected -- --look navy --looks light,navy --json
-//   npm run gallery:affected -- --write dist/gallery-affected.json    also writes the ids as a JSON array (what `?gallery&sweep=affected` reads beside the page)
+//   npm run gallery:affected -- --write dist/gallery-affected.json    also writes the ids as a JSON array (what `?gallery&sweep=affected` reads beside the page, on a local run that serves it; a deploy does not write it)
 //
 // How a file maps to specimens (nothing is run, nothing is opened in a browser):
 //   1. FAMILY_ENTRY names the module(s) that make each catalog family (the instrument of a tool kind, a Tests pane, the structure card ...).

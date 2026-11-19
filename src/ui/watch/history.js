@@ -3,7 +3,7 @@
 //   exportHistory({ samples, events, traces, vb, env, startedAt }, { seconds = 10, maxBytes = 60000 }) -> { v: 1, seconds, step, startedAt, vb, env, samples, events, traces }
 //   decodeHistory(history) -> the same with every sample whole (what the rules read)
 //
-// A sample that equals the one before it in a part (camera c, labels L, cards K) leaves that part out; decodeHistory carries the last one forward.
+// A sample that equals the one before it in a part (camera c, labels L, cards K, words W) leaves that part out; decodeHistory carries the last one forward.
 // null stays null: that source could not be read. Numbers are rounded (px to whole, alpha to 0.01, zoom to 5 places). When the text is over
 // `maxBytes` the samples are thinned (every 2nd, 3rd...) until it fits, and `step` says by how much; the rules judge by time, not by counting samples.
 export const HISTORY_V = 1;
@@ -13,9 +13,9 @@ const optPx = (v) => (v == null ? undefined : r0(v));
 const label = (e) => { const o = [e[0], r0(e[1]), r0(e[2]), r0(e[3]), r0(e[4]), r2(e[5])]; if (e[6] != null) o.push(optPx(e[6]), optPx(e[7])); return o; };
 const card = (e) => [e[0], r0(e[1]), r0(e[2]), r0(e[3]), r0(e[4]), r2(e[5])];
 
-/** One sample, rounded: { t, c, L, K }. */
+/** One sample, rounded: { t, c, L, K, W }. */
 export function roundSample(s) {
-  return { t: r0(s.t), c: s.c ? [r5(s.c[0]), Math.round(s.c[1] * 100) / 100, Math.round(s.c[2] * 100) / 100] : s.c ?? null, L: s.L ? s.L.map(label) : s.L ?? null, K: s.K ? s.K.map(card) : s.K ?? null };
+  return { t: r0(s.t), c: s.c ? [r5(s.c[0]), Math.round(s.c[1] * 100) / 100, Math.round(s.c[2] * 100) / 100] : s.c ?? null, L: s.L ? s.L.map(label) : s.L ?? null, K: s.K ? s.K.map(card) : s.K ?? null, ...(s.W !== undefined ? { W: s.W ? s.W.map((v) => (v ? 1 : 0)) : null } : {}) };
 }
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -26,7 +26,7 @@ export function packSamples(samples) {
   let prev = null;
   for (const s of samples) {
     const q = { t: s.t };
-    for (const k of ['c', 'L', 'K']) if (!prev || !same(s[k], prev[k])) q[k] = s[k];
+    for (const k of ['c', 'L', 'K', 'W']) if (s[k] !== undefined && (!prev || !same(s[k], prev[k]))) q[k] = s[k];   // (W, the words bit, is absent from a history older than the pop rules: left out, not made null)
     out.push(q); prev = s;
   }
   return out;
@@ -38,6 +38,7 @@ export function unpackSamples(samples) {
   let prev = { c: null, L: null, K: null };
   for (const q of samples) {
     const s = { t: q.t, c: 'c' in q ? q.c : prev.c, L: 'L' in q ? q.L : prev.L, K: 'K' in q ? q.K : prev.K };
+    if ('W' in q ? q.W !== undefined : prev.W !== undefined) s.W = 'W' in q ? q.W : prev.W;
     out.push(s); prev = s;
   }
   return out;

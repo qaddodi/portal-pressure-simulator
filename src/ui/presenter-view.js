@@ -33,11 +33,12 @@ export const fromTalk = (m, sid) => !!m && typeof m === 'object' && m.v === PROT
 // (A slide's words as plain text: the markup of its terms and values ([label](term), {term}, **bold**) comes off.)
 export const plain = (t) => String(t ?? '').replace(/\[([^\]]+)\]\([\w:]+\)/g, '$1').replace(/\{([^}]+)\}/g, '$1').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim();
 
-/** One slide as the notes window shows it. said: puts the slide's own numbers into a text (the handout's lineText, the talk's side); without it a {token} prints as written. */
-export function slideView(s, said = (t) => t) {
+/** What the notes window prints for a slide. say(text): the slide's words with the values filled in ({hvpg} as its number, as the handout prints them,
+ *  bible review 19 Nov, CRD-10: the window printed "the HVPG is hvpg"); without it the markup only comes off. */
+export function slideView(s, say = plain) {
   if (!s) return null;
   const [q, a] = Array.isArray(s.ask) ? s.ask : s.ask ? [s.ask] : [];
-  return { kicker: plain(said(s.kicker)), title: plain(said(s.title)), line: plain(said(s.line)), notes: String(s.notes ?? '').trim(), ask: q ? [plain(said(q)), a ? plain(said(a)) : ''] : null };
+  return { kicker: say(s.kicker), title: say(s.title), line: say(s.line), notes: String(s.notes ?? '').trim(), ask: q ? [say(q), a ? say(a) : ''] : null };
 }
 
 export function createPresenterLink({ onCmd, onBlocked, sid = newSession(), beatMs = BEAT_MS } = {}) {
@@ -57,12 +58,12 @@ export function createPresenterLink({ onCmd, onBlocked, sid = newSession(), beat
   return {
     sid,
     // The slide on show (called as the bar is painted: a slide, a beat, a jump). The talk clock starts with the deck, the slide clock with the slide.
-    publish(deck, slides, i, beat = 0, beats = 1, said = null) {
+    publish(deck, slides, i, beat = 0, beats = 1, sayFor = () => plain) {
       if (!deck || !slides[i]) return;
       const now = Date.now();
       if (deck.id !== deckId) { deckId = deck.id; talk0 = now; at = -1; }
       if (i !== at) { at = i; slide0 = now; }
-      last = { t: 'state', deck: { id: deck.id, title: plain(deck.title), n: slides.length }, i, beat, beats, cur: slideView(slides[i], said?.(i)), next: slideView(slides[i + 1], said?.(i + 1)), talk0, slide0 };
+      last = { t: 'state', deck: { id: deck.id, title: plain(deck.title), n: slides.length }, i, beat, beats, cur: slideView(slides[i], sayFor(i)), next: slideView(slides[i + 1], sayFor(i + 1)), talk0, slide0 };
       post(last);
     },
     end() { last = null; deckId = null; at = -1; post({ t: 'end' }); },

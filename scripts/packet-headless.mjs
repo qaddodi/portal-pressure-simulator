@@ -5,13 +5,8 @@
 //   node scripts/packet.mjs replay <packet.txt> --env headless [--device iphone|mac|ipad|ipad-portrait|iphone-landscape] [--dir . | dist] [--url <running site>]
 //
 // The device is the nearest of the known ones to the packet's own screen size unless named. One browser, one page, about a minute.
-import { chromium } from 'playwright';
-import { CHROMIUM_ARGS, DEVICES, openApp } from './shoot.mjs';
+import { launchLayout, DEVICES } from './headless.mjs';
 import { stateLink } from '../src/ui/packet/state.js';
-import { existsSync } from 'node:fs';
-
-// The GL draws do nothing: the page's state, layout and words are real, the picture is not (the same stub as scripts/card-fit.mjs).
-export const STUB = `(() => { for (const C of [window.WebGL2RenderingContext]) { if (!C) continue; const P = C.prototype; for (const k of ['drawArrays', 'drawElements', 'drawArraysInstanced', 'drawElementsInstanced', 'drawRangeElements', 'clear', 'blitFramebuffer']) if (P[k]) P[k] = function () {}; } })();`;
 
 /** The known device whose viewport is nearest the packet's screen (log distance of width and height). */
 export function nearestDevice(vw, vh) {
@@ -27,8 +22,7 @@ export function nearestDevice(vw, vh) {
 export async function makeEnv({ packet, device = '', dir = '.', url = '' } = {}) {
   const x = packet?.state?.x || {};
   const dev = device || nearestDevice(x.vw, x.vh);
-  const EXE = process.env.CHROMIUM || (existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : '');
-  const browser = await chromium.launch({ args: CHROMIUM_ARGS, ...(EXE ? { executablePath: EXE } : {}) });
+  const L = await launchLayout({ dir, serveSite: false });   // (scripts/headless.mjs: the one layout-only opener, GL draws stubbed)
   let app = null;
   const look = x.look === 'light' || x.look === 'soft' ? 'light' : x.look ? 'dark' : 'light';
   return {
@@ -36,7 +30,7 @@ export async function makeEnv({ packet, device = '', dir = '.', url = '' } = {})
     async apply(state) {
       const link = new URL(stateLink(state, 'http://127.0.0.1/preview/'));
       const query = link.search + link.hash;   // (?script=&slide=&back=1 and #s=, whose `x` part the page applies after boot)
-      app = await openApp({ device: dev, theme: look, query, dir, url, initScript: STUB, browser });
+      app = await L.open({ device: dev, theme: look, query, url, timeout: 180000 });
       await app.page.waitForFunction(() => window.pps?.packet?.ready, null, { timeout: 120000 });
       const skipped = await app.page.evaluate(() => window.pps.packet.ready);
       return { skipped };
@@ -47,6 +41,6 @@ export async function makeEnv({ packet, device = '', dir = '.', url = '' } = {})
     async judgeHistory(history) { return (await import('../src/ui/watch/replay.js')).replayHistory(history); },
     errors: () => app?.errors || [],
     page: () => app.page,   // (for a debugging script)
-    async close() { await app?.close().catch(() => {}); await browser.close().catch(() => {}); },
+    async close() { await app?.close().catch(() => {}); await L.close().catch(() => {}); },
   };
 }

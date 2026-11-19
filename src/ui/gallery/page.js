@@ -18,10 +18,13 @@ import './plugins.js';
 import { fadeShown, toast as appToast } from '../util.js';
 import { currentLook } from '../looks.js';
 import { readBox, readRects, readLines, readStyle, readMetric, readCTM, readAnims } from '../layout-snap.js';
-import { createGalleryApi, probeBusy } from './api.js';
+import { createGalleryApi } from './api.js';
+import { pageBusy } from '../screen/settle.js';
+import { inChange } from '../frame.js';
 import { readWords, readBoxes } from './readers.js';
 import { readEdges } from './edge-rules.js';
 import { runCheck } from './fit-check.js';
+import { flagValue, searchNow } from '../flags.js';
 
 /** The id the presenter gives the gallery deck: the Testing decks are listed as 'test-' + their own id (presenter.js testingLoad). */
 export const DECK_ID = 'test-gallery';
@@ -98,7 +101,7 @@ export async function startGallery({ pps = window.pps, root = document } = {}) {
   const order = deck.slides.map((s) => s.id);   // (slide i of the deck is slide i + 1 in the presenter: its Outline slide is first)
   const entries = CATALOG;
   let open = null, look = currentLook(document.documentElement), frozen = false, shoot = false, benchOff = null;
-  const addr = readAddress(location.search, location.hash);
+  const addr = readAddress(searchNow(), location.hash);
 
   const style = el('style', '', CSS); document.head.append(style);
   const gl = el('div', 'gl'); gl.dataset.gallery = '';
@@ -112,11 +115,11 @@ export async function startGallery({ pps = window.pps, root = document } = {}) {
   // The test controls (api.js): window.pps.gallery, the settled attribute, the sweep from the address. `go` is bound below (a function declaration).
   const api = createGalleryApi({
     entries, byId, pps, go: (id) => go(id, { quiet: true, mark: false }), setLook: (id) => setLook(id), look: () => look, id: () => open?.id ?? null,
-    busy: () => probeBusy(pps, document, readAnims),
+    busy: () => pageBusy(pps, document, { anims: readAnims, changing: inChange() }),
     check: () => runCheck({ io: IO, pps }),
     words: () => readWords(IO), boxes: () => readBoxes(IO), edges: () => readEdges(IO),
     size: () => ({ w: readMetric(window, 'innerWidth'), h: readMetric(window, 'innerHeight') }),
-    affected: async () => { const r = await fetch(new URL('gallery-affected.json', location.href)); if (!r.ok) throw new Error('no gallery-affected.json beside the page: sweep=affected needs the build to write it'); return r.json(); },
+    affected: async () => { const r = await fetch(new URL('gallery-affected.json', location.href)); if (!r.ok) throw new Error('no gallery-affected.json beside the page: sweep=affected has no list on this build (a deploy does not know the push). Use the sweep=ids:... link under the push message: `npm run gallery:affected` prints it'); return r.json(); },
   });
   if (pps) pps.gallery = api;
   const ctx = {
@@ -184,7 +187,7 @@ export async function startGallery({ pps = window.pps, root = document } = {}) {
   const light = el('span', 'gl-light'), lightWords = el('span', '', 'Not settled');
   const settled = el('div'); settled.append(light, lightWords);
   const viewSec = el('div', 'gl-sec'); viewSec.append(el('h3', '', 'Look'), lookRow);
-  const actSec = el('div', 'gl-sec'), actRow = el('div', 'gl-row'); actRow.append(freezeBtn, shootBtn, linkBtn, btn('Settled?', () => checkSettled(true))); actSec.append(el('h3', '', 'Picture'), actRow, settled);
+  const actSec = el('div', 'gl-sec'), actRow = el('div', 'gl-row'); actRow.append(freezeBtn, shootBtn, linkBtn, btn('Settled?', () => checkSettled(true)), btn('Full check', () => { location.assign(`${location.pathname}?debug=check`); }, 'Full check: walk the app and report (about three minutes)')); actSec.append(el('h3', '', 'Picture'), actRow, settled);
   const infoSec = el('div', 'gl-sec'), infoPre = el('pre', 'gl-pre'), infoLinks = el('div', 'gl-links');
   infoSec.append(el('h3', '', 'This specimen'), infoPre, el('h3', '', 'Real slides that use it'), infoLinks);
   const panelSec = el('div', 'gl-sec'); panelSec.append(el('h3', '', 'Panels'));
@@ -197,7 +200,9 @@ export async function startGallery({ pps = window.pps, root = document } = {}) {
   const browse = btn('Browse', () => sheet(rail, rail.hidden));
   const prev = btn('‹', () => step(-1), 'Previous specimen'), next = btn('›', () => step(1), 'Next specimen');
   const toolsBtn = btn('Tools', () => sheet(tools, tools.hidden));
-  bar.append(browse, prev, next, name, toolsBtn);
+  // (Report: the one button that builds a packet of this screen and copies it, the same sheet as the long press on the PREVIEW pill. The bar has room for one more button on a phone, not two: Full check is in Tools.)
+  const reportBtn = btn('Report', () => { const pk = pps?.packet; if (pk?.open) pk.open(); else toast('The report is not loaded on this page (preview copy only).'); }, "What's wrong here? Copy a report of this screen");
+  bar.append(browse, prev, next, name, reportBtn, toolsBtn);
 
   // ── Benches ──
   function openBench(b) {
@@ -330,7 +335,7 @@ export async function startGallery({ pps = window.pps, root = document } = {}) {
   await ready();
   api.mark('idle', '');
   if (addr.look) setLook(addr.look); else sync();
-  if (addr.id) await go(addr.id, { quiet: true }); else if (!/[?&]sweep\b/.test(location.search)) sheet(rail, true);
-  api.startFromAddress(location.search, { lookIds: LOOK_IDS });   // (not awaited: the page is usable while a sweep runs; the report lands in window.ppsGalleryResult)
+  if (addr.id) await go(addr.id, { quiet: true }); else if (flagValue('sweep') === null) sheet(rail, true);
+  api.startFromAddress(searchNow(), { lookIds: LOOK_IDS });   // (not awaited: the page is usable while a sweep runs; the report lands in window.ppsGalleryResult)
   return { api, go, setLook, step, setShoot, freeze, get open() { return open; }, dispose() { panelOff.forEach((f) => f()); closeBench(); gl.remove(); style.remove(); } };
 }

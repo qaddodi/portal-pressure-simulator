@@ -10,6 +10,7 @@ import { fadeStep } from './motion.js';
 import { restPass } from './rest-pass.js';
 import { flattenPath } from './shape-gl.js';
 import { store, updateParams } from './store.js';
+import { procLabel } from './procedure-names.js';
 import { putText, s, toast } from './util.js';
 import { createVesselPick } from './vessel-pick.js';
 import { sceneBegin, sceneStyle } from './scene-store.js';
@@ -382,9 +383,9 @@ export function createHover(st, live) {
   // other; when that pair is exactly a named procedure's (TIPS is right portal →
   // right hepatic vein), it is that procedure, otherwise a custom shunt between those two veins.
   const NAMED_RULES = {
-    'RPV>RHV': { key: 'tips', label: 'TIPS' },
-    'PVH>IVCI': { key: 'dips', label: 'DIPS' },
-    'RPV>IVCS': { key: 'dips', label: 'DIPS' },
+    'RPV>RHV': { key: 'tips', label: procLabel('tips') },
+    'PVH>IVCI': { key: 'dips', label: procLabel('dips') },
+    'RPV>IVCS': { key: 'dips', label: procLabel('dips') },
     'CONF>IVCI': { key: 'portocaval', label: 'Portocaval shunt' },
     'SV>LRV': { key: 'dsrs', label: 'Distal splenorenal shunt' },
     'SVD>LRV': { key: 'dsrs', label: 'Distal splenorenal shunt' },

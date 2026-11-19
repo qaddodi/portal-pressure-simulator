@@ -19,7 +19,7 @@ test('the explanation never prints tIPS or pSVD: every factor of every patient w
   const e = new Engine(); e.loadPreset('cirr-decomp-tips');
   e.setParams({ ...e.params, stenosis: { TIPS: 0.4 }, thrombus: { TIPS: 0.2 } });
   for (const id of ['ppg', 'hvpg', 'pv', 'asc']) {
-    let t = '';
+    let t;
     try { t = JSON.stringify(explain(e, id)); } catch { continue; }
     assert.doesNotMatch(t, /\b[a-z][A-Z]{2,}\b/, `${id}: ${t.match(/\b[a-z][A-Z]{2,}\b/)}`);
   }

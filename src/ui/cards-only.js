@@ -7,7 +7,7 @@
 // The stand-in for the stage answers every name with itself and every call with undefined: `stage.glass.add(x)`, `stage.camera?.()` and
 // `await stage.dive()` all run and do nothing. It is never thenable (an await of it does not hang). What it cannot stand in for: anything
 // the cards take from the figure (a call-out anchored to a vessel, labels, the camera's framing around the cards), which this mode does
-// not check; deck-sweep.mjs --verify compares it with the full app on a sample so the shortcut is never trusted on its own word.
+// not check; scripts/deck-sweep-compare.mjs compares it with a full run over the same slides so the shortcut is never trusted on its own word.
 
 /** True on a page opened by a cards-only sweep (window.ppsCardsOnly set by its init script). */
 export const cardsOnly = (g = globalThis) => !!g?.ppsCardsOnly;

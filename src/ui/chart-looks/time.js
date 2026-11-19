@@ -21,7 +21,7 @@ export const TIME = {
     when: [[{ ref: true }, { width: 1.5, dash: [3, 4] }], [{ dash: true }, { dash: [3, 9] }]],
   },
   // 2945, 6314, 7197 .pft-key text (a line's name, in its colour)
-  'time.key.text': { base: { font: [700, em(1)], fill: param('c') } },
+  'time.key.text': { base: { font: [700, em(1)], fill: param('c', true) } },
   // 6316, 7201 .pft-u: the unit after a name
   'time.key.unit': { base: { weight: 500, fill: tok('text-3') } },
   // (a tspan that only carries its text's look)
@@ -31,7 +31,7 @@ export const TIME = {
   // 2949, 6314, 7197 .pft-tk: the numbers under the axis
   'time.tk': { base: { font: [500, em(1)], fill: tok('text-3') } },
   // 2959, 6314, 7197 .ptk-grid text: a gridline's number, in the colour of its line (data-p-c, text-3 where plain)
-  'time.grid.text': { base: { font: [500, em(1)], fill: param('c') } },
+  'time.grid.text': { base: { font: [500, em(1)], fill: param('c', true) } },
 
   // ── The flow-time chart ──
   // 2947-2948, 6314 .pft-t and .pft-t.meal: "Fasting" and "Meal"
@@ -43,17 +43,17 @@ export const TIME = {
   // 2952 .pft-dot: the head of a line
   'ft.dot': { base: { fill: param('c'), stroke: tok('surface-2'), width: 2 } },
   // 2954, 6314 .pft-v0: a line's first value
-  'ft.v0': { base: { font: [600, em(1)], fill: param('c'), halo: halo(4) } },
+  'ft.v0': { base: { font: [600, em(1)], fill: param('c', true), halo: halo(4) } },
   // 2953, 2955, 6315 .pft-v: a line's value at its head; near the start the first value is already there (off)
   'ft.v': {
     state: { off: 'class:off' },
-    base: { font: [700, em(1.1)], fill: param('c'), halo: halo(4), ease: { opacity: ease('small') } },
+    base: { font: [700, em(1.1)], fill: param('c', true), halo: halo(4), ease: { opacity: ease('small') } },
     when: [[{ off: true }, { opacity: 0 }]],
   },
   // 7169, 7173, 7176 .pft-band: a treatment's thin bar (stronger on a dark card)
   'ft.band.bar': { base: { fill: mix('oklab', param('rx'), 70, tok('text')) }, when: [[{ dark: true }, { fill: param('rx'), opacity: 0.8 }]] },
   // 7172, 7174, 7177 .pft-band-n tspan: a treatment's name under the clock
-  'ft.band.name': { base: { font: [600, em(1)], fill: mix('oklab', param('rx'), 62, tok('text')) }, when: [[{ dark: true }, { fill: mix('oklab', param('rx'), 72, tok('text')) }]] },
+  'ft.band.name': { base: { font: [600, em(1)], fill: mix('oklab', param('rx'), 54, tok('text')) }, when: [[{ theme: 'soft' }, { fill: mix('oklab', param('rx'), 46, tok('text')) }], [{ dark: true }, { fill: mix('oklab', param('rx'), 72, tok('text')) }]] },
 
   // ── The curve and the course ──
   // 7202 .pcv-ax: the x axis's name
@@ -79,17 +79,17 @@ export const TIME = {
   // 7208-7209, 7217 .pcv-v: a ring's value (on its own line the dashes stop round the words: a wider halo)
   'cv.v': {
     state: { off: 'class:off', on: 'class:on' },
-    base: { font: [700, em(1.1)], fill: param('c'), halo: halo(4), ease: { opacity: ease('small') } },
+    base: { font: [700, em(1.1)], fill: param('c', true), halo: halo(4), ease: { opacity: ease('small') } },
     when: [[{ on: true }, { halo: { width: 8 } }], [{ off: true }, { opacity: 0 }]],
   },
   // 7230 .pcv-sep: the dot between two values of one readout
   'cv.sep': { base: { fill: tok('text-3') } },
   // (a part of a merged readout, in its line's colour)
-  'cv.vpart': { base: { fill: param('c') } },
+  'cv.vpart': { base: { fill: param('c', true) } },
   // 7211-7212 .pcv-name: a line's name on the drawing
   'cv.name': {
     state: { off: 'class:off' },
-    base: { font: [700, em(1)], fill: param('c'), halo: halo(4), ease: { opacity: ease('small') } },
+    base: { font: [700, em(1)], fill: param('c', true), halo: halo(4), ease: { opacity: ease('small') } },
     when: [[{ off: true }, { opacity: 0 }]],
   },
   // 7212-7213 .pcv-alt: the key that stands in for the names on a cramped chart

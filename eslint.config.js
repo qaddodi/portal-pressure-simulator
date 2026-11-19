@@ -6,7 +6,7 @@ export default [
   { ignores: ['dist/', 'node_modules/', '_*.mjs', '.claude/'] },
   js.configs.recommended,
   {
-    files: ['src/**/*.js', 'sw.js'],
+    files: ['src/**/*.js'],
     languageOptions: { ecmaVersion: 2024, sourceType: 'module', globals: { ...globals.browser, ...globals.worker } },
     rules: { 'no-unused-vars': ['warn', { args: 'none', caughtErrors: 'none' }], 'no-useless-assignment': 'warn', 'no-empty': ['error', { allowEmptyCatch: true }] },
   },

@@ -16,8 +16,9 @@ for (const file of srcFiles.filter((f) => f !== 'src/ui/store.js')) {
   rules.push({ file, uncomment: true, forbid: [/\b(?:store|st|state)\.(?:set|setSoon)\(\s*\{[^}]*?\b(?:view|lobule|sinusoid)\s*:/, "write the view with setViewKey('anatomy' | 'circuit' | 'lobule' | 'sinusoid'): a field-by-field write lets a listener hear an illegal view (R08)"] });
   rules.push({ file, uncomment: true, forbid: [/\bstore\.set1\(\s*'(?:view|lobule|sinusoid)'/, 'write the view with setViewKey (R08)'] });
 }
+rules.push({ file: 'src/ui/leave-for-shot.js', need: [/if \(st\.lobule \|\| st\.view !== 'anatomic'\) setViewKey\('anatomy'\)/, 'the one write that leaves for the anatomy: the lobule, the sinusoid and the circuit all close in one legal setViewKey (R08)'] });
 for (const f of ['eus-ppg', 'ir-ppg', 'hvpg-proc']) {
-  rules.push({ file: `src/ui/${f}.js`, need: [/if \(st\.lobule \|\| st\.view !== 'anatomic'\) setViewKey\('anatomy'\)/, 'a procedure that needs the anatomy asks for it once, however the view was left (the lobule, the sinusoid, the circuit) (R08)'] });
+  rules.push({ file: `src/ui/${f}.js`, need: [/leaveFor\(/, 'a procedure that needs the anatomy asks for it once, however the view was left, through leave-for-shot.js leaveFor (R08)'] });
 }
 
 // R05: the selected instrument tab's forced-colors rule is whole (a stray ")" once made the browser drop it), and the build refuses a CSS syntax error.

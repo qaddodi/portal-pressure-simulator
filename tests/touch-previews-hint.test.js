@@ -22,7 +22,7 @@ test('the first-run hint shows once, as a sticky message card, until the first p
   assert.match(fn, /a vessel or the liver to change it\./);
   assert.match(fn, /sticky: true, onClose: done/);
   assert.match(fn, /store\.on\('selection', \(sel\) => \{ if \(sel\) close\(\); \}\)/);
-  assert.match(fn, /localStorage\.setItem\(HINT_KEY, '1'\)/);
+  assert.match(fn, /prefs\.setItem\(HINT_KEY, '1'\)/);
   assert.match(fn, /if \(navigator\.webdriver\) return;/, 'never in the browser checks or visual references');
 });
 

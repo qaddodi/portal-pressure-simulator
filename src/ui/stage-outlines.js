@@ -122,7 +122,7 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
   // writer puts translate() back, so the outline keys would change at every build).
   const gMatrix = (g) => { const l = g.transform.baseVal; let m = null; for (let i = 0; i < l.numberOfItems; i++) { const t = l.getItem(i).matrix; m = m ? m.multiply(t) : t; } return m; };
   // An outline's points in its own coordinates, every `stride` along it, kept by its path (bounded: an easing liver's outline is
-  // new on every frame). Measured piece by piece (path-pieces.js): getPointAtLength along the whole path walks it from its start
+  // new on every frame). Measured piece by piece: getPointAtLength along the whole path walks it from its start
   // on every call, and the first Doppler probe read every organ so (the colon's 608 pieces at 1752 points), a second or two
   // with the page held as a monitor first opened (Mohammad, 22 Oct). The same points, measured once per path.
   const olLocalMemo = new Map([[2, new Map()], [6, new Map()]]);   // (by stride, then by path: the strides olRingsRaw is asked for)

@@ -23,8 +23,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright';
-import { CHROMIUM_ARGS, openApp } from './shoot.mjs';
+import { launchLayout } from './headless.mjs';
 import { DECKS } from '../src/ui/decks.js';
 import { readCards, readZoom, judgeCards, judgeZoom, linesOf, WORDS_MIN_PX } from '../src/ui/gallery/fit-rules.js';
 import { inPage } from './fit-io.mjs';
@@ -42,12 +41,8 @@ const OUT = opt('out', '');
 const VERBOSE = argv.includes('--verbose');
 const ZOOM = !argv.includes('--no-zoom');
 const ONLY = +opt('slide', 0);   // (a slide number: open at it and judge that slide alone, for checking a fix)
-const EXE = process.env.CHROMIUM || (existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : '');
 const ALLOW_FILE = resolve(ROOT, 'scripts/card-fit-allowance.json');
 const ALLOW = existsSync(ALLOW_FILE) ? JSON.parse(readFileSync(ALLOW_FILE, 'utf8')) : {};
-
-// The GL draws do nothing: the page's state, layout and words are real, the picture is not.
-const STUB = `(() => { for (const C of [window.WebGL2RenderingContext]) { if (!C) continue; const P = C.prototype; for (const k of ['drawArrays', 'drawElements', 'drawArraysInstanced', 'drawElementsInstanced', 'drawRangeElements', 'clear', 'blitFramebuffer']) if (P[k]) P[k] = function () {}; } })();`;
 
 // The judging lives in src/ui/gallery/fit-rules.js, shared with the gallery page's Check button: the readers run in the page (their source text goes in
 // as it is, scripts/fit-io.mjs), the judges are plain functions of what they return.
@@ -57,11 +52,11 @@ const ZREAD = (page) => inPage(page, readZoom);
 const zoomFailing = (z, rest, how) => linesOf(judgeZoom(z, rest, how));
 const failing = (r) => linesOf(judgeCards(r, { oldRules: OLD_RULES }));
 
-async function walkDeck(browser, d, device) {
+async function walkDeck(L, d, device) {
   const rec = { deck: d.id, device, steps: [], problems: [], errors: [] };
   let app;
   try {
-    app = await openApp({ device, theme: THEME, query: `script=${d.id}&slide=${ONLY || 1}`, dir: DIR, initScript: STUB, browser });
+    app = await L.open({ device, theme: THEME, query: `script=${d.id}&slide=${ONLY || 1}`, timeout: 180000 });
     const idle = async (max = 30000) => {
       const t0 = Date.now();
       for (let ok = 0; Date.now() - t0 < max;) {
@@ -149,7 +144,7 @@ const pick = (() => {
   return mine;
 })();
 
-const browser = await chromium.launch({ args: CHROMIUM_ARGS, ...(EXE ? { executablePath: EXE } : {}) });
+const L = await launchLayout({ dir: DIR, serveSite: false });   // (scripts/headless.mjs: the one layout-only opener, GL draws stubbed)
 const jobs = pick.flatMap((d) => DEVICES_WANTED.map((device) => ({ d, device })));
 const results = [];
 let next = 0;
@@ -157,13 +152,13 @@ const T0 = Date.now();
 await Promise.all(Array.from({ length: Math.min(JOBS, jobs.length) }, async () => {
   for (let j = next++; j < jobs.length; j = next++) {
     const { d, device } = jobs[j];
-    const rec = await walkDeck(browser, d, device);
+    const rec = await walkDeck(L, d, device);
     results.push(rec);
     console.log(`${d.id} ${device}: ${rec.steps.length} slides${rec.fail ? `, FAILED TO WALK (${rec.fail})` : ''}, ${rec.problems.length} with problems${rec.errors.length ? `, ${rec.errors.length} page errors` : ''}`);
     for (const p of rec.problems) for (const t of p.problems) console.log(`    slide ${p.slide}: ${t}`);
   }
 }));
-await browser.close();
+await L.close();
 
 // Judge.
 const bad = [], stale = new Set(Object.keys(ALLOW));

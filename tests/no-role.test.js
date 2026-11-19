@@ -17,7 +17,7 @@ test('no code or style reads a role or a Student mode', () => {
 
 test('an old saved role is cleared on load and never read', () => {
   const main = read('../src/ui/main.js');
-  assert.match(main, /localStorage\.removeItem\('pps\.role'\)/);
+  assert.match(main, /prefs\.removeItem\('pps\.role'\)/);
   assert.doesNotMatch(main, /readLS\('pps\.role'\)|setItem\('pps\.role'/);
 });
 
@@ -29,5 +29,5 @@ test('Advanced physiology is in Settings for everyone', () => {
 
 test('the HVPG always shows without measuring, and an old saved choice is dropped', () => {
   const store = read('../src/ui/store.js');
-  assert.match(store, /showHvpg: \(\(\) => \{ try \{ localStorage\.removeItem\('pps\.showHvpg'\); \} catch \{[^}]*\} return true; \}\)\(\)/);
+  assert.match(store, /showHvpg: \(\(\) => \{ try \{ prefs\.removeItem\('pps\.showHvpg'\); \} catch \{[^}]*\} return true; \}\)\(\)/);
 });

@@ -14,10 +14,11 @@
 //    a ResizeObserver (it reports after the browser's own layout, for free) and their places from whoever put them there (place()).
 // A consumer reads the snapshot first and asks the browser (readBox) only for what the snapshot does not hold.
 import { framePhase } from './frame.js';
+import { flagOn } from './flags.js';
 
 // Where the reads happen: by the frame's phase ('read' is the clean one; 'early', 'late' and 'final' come after writes) or 'task'
 // (an event, a timer, an observer). Counted only while ?perf or ?offgpu is watching; window.pps.layoutReads() in the console.
-const WATCH = typeof location !== 'undefined' && /[?&](perf|offgpu)\b/.test(location.search || '');
+const WATCH = flagOn('perf') || flagOn('offgpu');
 const counts = { read: 0, early: 0, late: 0, final: 0, task: 0 };
 const note = WATCH ? () => { counts[framePhase() || 'task']++; } : () => {};
 export const layoutReads = () => ({ ...counts, afterWrites: counts.early + counts.late + counts.final });

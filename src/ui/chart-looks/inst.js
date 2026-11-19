@@ -28,9 +28,9 @@ export const INST = {
   // 5145-5146 .ab-dial-k: IAP (size: fit())
   'inst.dial.k': { base: { ...MID, weight: 600, fill: tok('text-3'), letterSpacing: own(0.12) } },
   // 5145, 5147 .ab-dial-n: the number
-  'inst.dial.n': { base: { ...MID, weight: 650, fill: tok('text'), letterSpacing: own(-0.02), size: 25 } },
+  'inst.dial.n': { base: { ...MID, weight: 600, fill: tok('text'), letterSpacing: own(-0.02), size: 25 } },
   // 5145, 5148 .ab-dial-u: mmHg (size: fit())
   'inst.dial.u': { base: { ...MID, weight: 500, fill: tok('text-3') } },
   // 5145, 5149-5151 .ab-dial-w: the word (size: fit()), in its rating's colour
-  'inst.dial.w': { state: { sev: 'data-rate' }, base: { ...MID, weight: 650, fill: tok('ok') }, when: [[{ sev: 'caution' }, { fill: tok('caution') }], [{ sev: 'danger' }, { fill: tok('danger') }]] },
+  'inst.dial.w': { state: { sev: 'data-rate' }, base: { ...MID, weight: 600, fill: tok('ok-ink') }, when: [[{ sev: 'caution' }, { fill: tok('caution-ink') }], [{ sev: 'danger' }, { fill: tok('danger-ink') }]] },
 };

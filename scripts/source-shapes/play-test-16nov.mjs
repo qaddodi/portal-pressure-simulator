@@ -20,7 +20,7 @@ export default [
   { file: 'src/ui/menu.js', forbid: [/slides\.length/, "the Present menu never counts a deck's slides itself: lib.count (decks.js slideCount) is the number the presenter shows"] },
   { file: 'src/ui/menu.js', need: [/lib\.count\(/, 'the Present menu reads its slide counts from lib.count'] },
   // Turning the circuit upright: a fresh snapshot of the bars, and the turned map kept as a circuit framing so a bar that changes size refits it.
-  { file: 'src/ui/stage-fit.js', need: [/snapFresh\(\);[^\n]*\n\s*try \{ localStorage\.setItem\('pps\.circuitRot'/, 'the turn reads the bars as they stand now'] },
+  { file: 'src/ui/stage-fit.js', need: [/snapFresh\(\);[^\n]*\n\s*try \{ prefs\.setItem\('pps\.circuitRot'/, 'the turn reads the bars as they stand now'] },
   { file: 'src/ui/stage-fit.js', need: [/markCirc\('whole', live\.rotWhole\)/, 'the turned map is a circuit framing the look-home pass refits'] },
   // Cards on the right edge glide aside for the card to their right by translate (--occ-x), never by a jump of their `right`.
   { file: 'styles/app-*.css', forbid: [/(?:^|[;{\s])right\s*:\s*calc\([^;}]*var\(--(?:panel|instr)-occ(?![^;}]*\+ 6px)/m, 'a card offsets its right edge by the cards beside it: use translate by --occ-x (app-07-floating.css .treat-card), which glides'] },

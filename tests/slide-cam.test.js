@@ -4,7 +4,7 @@
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { blendPaths, camPath, camWindow, lerpVT } from '../src/ui/cam-arc.js';
+import { camWindow, lerpVT } from '../src/ui/cam-arc.js';
 import { VB_ANAT } from '../src/ui/anatomy.js';
 import { STEP_MAX, createCamLock, createSlideClock, judgeSlideMove, lockedWrite, planSlide, slideEase } from '../src/ui/slide-cam.js';
 
@@ -46,13 +46,13 @@ test('the judge fails a glide that bends along a vessel while it zooms (Acute va
 test('the judge fails a move bent by a refit mid-way, a pull-back that zooms out and in, a second move, and a late start', () => {
   const plan = planSlide(A, B, vb.w, 1500), C = { k: 1.3, x: 120, y: -90 };
   // a refit blended in half way (the old arcs' way): it lands elsewhere and leaves the line
-  const bent = blendPaths((u) => lerpVT(A, B, u), (u) => lerpVT(A, C, u), 0.5, vb);
+  const bent = (u) => { const t = Math.min(1, Math.max(0, (u - 0.5) / 0.5)), a = t * t * (3 - 2 * t), p = lerpVT(A, B, u), q = lerpVT(A, C, u); return { k: p.k + (q.k - p.k) * a, x: p.x + (q.x - p.x) * a, y: p.y + (q.y - p.y) * a }; };
   const f1 = judgeSlideMove(traceOf(plan, frames(plan.ms), (t) => Math.min(1, t / plan.ms), bent), vb);
   assert.ok(f1.some((f) => /plan|straight line/.test(f)), f1.join('; '));
-  // a pull-back (far move): the zoom turns back
-  const far = { k: 3.2, x: -2600, y: -400 }, near = { k: 3.2, x: -200, y: -1600 }, arc = camPath(far, near, vb, vb.w);
-  assert.ok(arc.arc, 'the old far move pulled back');
-  const p2 = planSlide(far, near, vb.w, 1500), f2 = judgeSlideMove(traceOf(p2, frames(p2.ms), (t) => Math.min(1, t / p2.ms), arc.at), vb);
+  // a pull-back (far move, the old arc's way): the zoom turns back, out over the figure and in again
+  const far = { k: 3.2, x: -2600, y: -400 }, near = { k: 3.2, x: -200, y: -1600 };
+  const pull = (u) => { const v = lerpVT(far, near, u); return { k: v.k * (1 - 0.6 * Math.sin(Math.PI * u)), x: v.x, y: v.y }; };
+  const p2 = planSlide(far, near, vb.w, 1500), f2 = judgeSlideMove(traceOf(p2, frames(p2.ms), (t) => Math.min(1, t / p2.ms), pull), vb);
   assert.ok(f2.some((f) => /zoom (turns back|overshoots|changes)/.test(f)), f2.join('; '));
   // a second move after the landing, and a first frame 600 ms late, and 1.5 s after the press
   const tr = traceOf(plan, frames(plan.ms, 16, 600), (t) => Math.min(1, (t - 600) / plan.ms));

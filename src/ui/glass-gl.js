@@ -11,6 +11,7 @@
 import { BLOOD_BLUR_MS, shareFor, sharePrep, sharePlan, shareKeep, shareForget, shareShift, shareTurn, shareUse, shareRelease, shareBytes } from './blur-share.js';
 import { glCap, fbComplete } from './gl-state.js';
 import { glassCover, stackOf, stackCmp } from './glass-cover.js';
+import { flagOn } from './flags.js';
 import { hold } from './gpu-budget.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
 import { finalFrameFor, readFrameFor, framePhase, frameCount, cancelFrame, noteDraw, easeNow } from './frame.js';
@@ -563,7 +564,11 @@ export function dropsOf(v) {
   }
   return out;
 }
-const WHY_WATCH = typeof location !== 'undefined' && /[?&](perf|offgpu)\b/.test(location.search || '');
+/** How far past its card's box a drop shadow's quad reaches (CSS px): three sigmas (blur / 2) of falloff beyond the shadow's own edge, which sits `spread` out from the box
+ *  (a negative spread pulls it in, so the lift 0 10px 24px -8px reaches 28 px, not 36: a quarter fewer pixels drawn round every card). Past three sigmas the shadow is under 0.14 %
+ *  of its strength, below what 8 bits show. */
+export const dropReach = (d) => Math.max(0, d.blur * 1.5 + d.spread);
+const WHY_WATCH = flagOn('perf') || flagOn('offgpu');
 const WHY_FNS = [];   // (each glass's reporter: pps.glassWhy)
 export function createGlassGL(wrap, source, layers, { markHold = true, software = false, live = () => true, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, reblur = 0, fresh = null, dirty = null, dirtyRects = null, pictureRects = null, camKey = null, full = false, onHoles = null, dip = null, pan = null, panning = null } = {}) {
   if (reblur > 0) fresh = null;
@@ -993,7 +998,7 @@ export function createGlassGL(wrap, source, layers, { markHold = true, software 
       for (let i = 0; i < 2; i++) {
         const d = edge ? ds[i] : null, C = i ? U.uD1C : U.uD0C, Bx = i ? U.uD1B : U.uD0B;
         if (!d) { G.uniform4f(C, 0, 0, 0, 0); continue; }
-        const c = colour(d.c, 'transparent'), sp = d.spread * k, reach = (d.blur * 1.5 + Math.max(0, d.spread)) * k;
+        const c = colour(d.c, 'transparent'), sp = d.spread * k, reach = dropReach(d) * k;
         G.uniform4f(C, c[0], c[1], c[2], c[3]);
         G.uniform4f(Bx, bx + d.x * k - sp, by + d.y * k - sp, bx + p.r.width * k + d.x * k + sp, by + p.r.height * k + d.y * k + sp);
         gl0 = Math.max(gl0, reach - d.x * k); gr0 = Math.max(gr0, reach + d.x * k); gt0 = Math.max(gt0, reach - d.y * k); gb0 = Math.max(gb0, reach + d.y * k);

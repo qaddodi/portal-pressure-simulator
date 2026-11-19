@@ -14,6 +14,7 @@
 //   move stops at is always drawn at Full, and labels, text, cards and readings are on their own layers: never lowered.
 // tierLog() keeps the last changes, each with why and the registry's size then. ?perf shows the tier with the budget.
 
+import { prefs } from './prefs.js';
 import { onFrameEnd, frameBudget } from './frame.js';
 import { overBudget as graphOver, budget } from './gpu-budget.js';
 import { caught } from './caught.js';
@@ -45,7 +46,7 @@ export const sceneTier = () => tier;
 /** The vessel layer's share on a moving frame now (0: Full). */
 // Settings › Sharp while moving (PR-06): on, a move is drawn at Full like a still page, whatever the frames cost. Off (the default) is the tiers above.
 let sharp = false;
-try { sharp = localStorage.getItem('pps.sharp') === '1'; } catch { /* storage unavailable: tiers stay on */ }
+try { sharp = prefs.getItem('pps.sharp') === '1'; } catch { /* storage unavailable: tiers stay on */ }
 export const sharpMoving = () => sharp;
 export const setSharpMoving = (on) => { sharp = !!on; };
 export const tierK = () => (sharp ? 0 : TIERS[tier]);

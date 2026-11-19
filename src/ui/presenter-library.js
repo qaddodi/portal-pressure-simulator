@@ -9,6 +9,7 @@ import { resumeFor } from './resume.js';
 import { NO_ROOM, dec, enc, readMine, writeMine } from './script-library.js';
 import { store } from './store.js';
 import { askText, closeModal, confirmDialog, h, icon, openModal, toast } from './util.js';
+import { searchNow } from './flags.js';
 
 export function createLibrary(st, live) {
   const { deckNumbers, fromScript, pview, rerenderHome, start, warm } = st;
@@ -106,7 +107,7 @@ export function createLibrary(st, live) {
     if (!m) return false;
     let id = true;
     try { id = addToLibrary(dec(m[1])); } catch (e) { toast(e?.message === NO_ROOM ? NO_ROOM : 'The shared script could not be read.', 'bad'); }
-    history.replaceState(null, '', location.pathname + location.search);
+    history.replaceState(null, '', location.pathname + searchNow());
     return id;
   }
   // What the unified menu (menu.js) lists and does: the presentations, this device's scripts and their actions.

@@ -15,7 +15,7 @@ function load(text) {
   const code = lines.slice(a, end + 1).join('\n').replace(/\\`/g, '`');
   let onFetch = null;
   const state = { store: new Map(), putGate: null, putFails: false, online: true, waits: [] };
-  const cache = { put: async (r, v) => { if (state.putGate) await state.putGate; if (state.putFails) throw new Error('quota'); state.store.set(r.url, v); }, match: async (r) => state.store.get(r.url) };
+  const cache = { put: async (r, v) => { if (state.putGate) await state.putGate; if (state.putFails) throw new Error('quota'); state.store.set(r.url || r, v); }, match: async (r) => state.store.get(r.url || r) };
   const caches = { open: async () => cache, match: async (r) => state.store.get(r.url) };
   const mk = (body) => ({ ok: true, status: 200, body, clone() { return this; } });
   const fetch = async (r) => { if (!state.online) throw new Error('offline'); return mk('net:' + (r.url || r)); };
@@ -50,5 +50,14 @@ for (const [name, text] of Object.entries(texts)) {
     const r2 = load(text); r2.state.putFails = true;
     assert.equal((await r2.run('https://x.test/assets/x-1.js')).body, 'net:https://x.test/assets/x-1.js');
     await assert.doesNotReject(Promise.all(r2.state.waits));
+  });
+  test(`${name}: pages are kept under './' only, and an offline start opens this copy's current page (SHL-10)`, async () => {
+    const { state, run } = load(text);
+    for (const q of ['', '?preset=cirr', '?r=123', '#s=abc', '?script=x&slide=3']) await run('https://x.test/app/preview/' + q, 'navigate');
+    await Promise.all(state.waits);
+    assert.deepEqual([...state.store.keys()], ['./'], 'five navigations leave one page entry');
+    state.online = false;
+    const hit = await run('https://x.test/app/preview/?preset=other', 'navigate');
+    assert.match(hit.body, /^net:https:\/\/x\.test\/app\/preview\/\?script=x&slide=3$/, 'the last page this copy loaded, from its own cache');
   });
 }

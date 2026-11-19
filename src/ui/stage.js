@@ -1,9 +1,11 @@
 // Anatomical stage (blueprint §6): the figure drawn on the GPU (plate, vessels, moving blood),
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
+import { prefs } from './prefs.js';
 import { breath } from './slide-read.js';
 import { qP } from './colour-bin.js';
 import { stageCovered } from './seen.js';
+import { flagOn } from './flags.js';
 import { createCircTurn } from './circ-turn.js';
 import { peelAt, peelRank } from './flow-peel.js';
 import { EDGES, NODES, PORTAL_TERRITORY, isLiverStent, isStent, STENT_SITES } from '../engine/topology.js';
@@ -95,7 +97,7 @@ const REVERSAL_WATCH = new Set(['PV_TRUNK', 'SV_CONF', 'SMV_CONF', 'LGV_CONF', '
 import { reduceMotionMQ as reduceMotion, createReversible, VIEW_STALL_MAX, REDUCED_MOVE_MS, TURN_MS, DIVE_MS as DIVE_FULL_MS, fadeStep } from './motion.js'; // The figure's overlays drawn on the GPU, in the vessel canvas (stage-over.js; 31 Oct, recs A1): on wherever the GPU draws the
 // vessels. Not on a software renderer (the CPU would paint them) unless asked for (?stageover=gpu), as
 // CI's visual check asks, to compare it with the page's own drawing.
-const OVER_ASK = typeof location !== 'undefined' && /[?&]stageover=gpu\b/.test(location.search);
+const OVER_ASK = flagOn('stageover');
 // Parcels and arrowheads carried through junctions (blood.js createStreamChain; combined plan B1 + C1).
 // A vessel's display speed (its stream's speed, not the model's flow)
 // dashes, so a still frame shows speed too.
@@ -167,7 +169,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get adaptK() { return adaptK; }, set adaptK(v) { adaptK = v; },
     get aimed() { return aimed; }, set aimed(v) { aimed = v; },
     get aiming() { return aiming; }, set aiming(v) { aiming = v; },
-    get arcRun() { return arcRun; }, set arcRun(v) { arcRun = v; },
     get ascEls() { return ascEls; },
     get ascShown() { return ascShown; }, set ascShown(v) { ascShown = v; },
     get ascStale() { return ascStale; }, set ascStale(v) { ascStale = v; },
@@ -273,7 +274,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get figureHidden() { return figureHidden; },
     get figureShown() { return figureShown; }, set figureShown(v) { figureShown = v; },
     get firstFit() { return firstFit; }, set firstFit(v) { firstFit = v; },
-    get fitKept() { return fitKept; }, set fitKept(v) { fitKept = v; },
     get fitted() { return fitted; }, set fitted(v) { fitted = v; },
     get fluidAmp() { return fluidAmp; }, set fluidAmp(v) { fluidAmp = v; },
     get fluidBandH() { return fluidBandH; }, set fluidBandH(v) { fluidBandH = v; },
@@ -1251,7 +1251,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // keep working in the frame they already use.
   // With no saved choice, a phone or tablet held upright opens the circuit upright (the wide map would be a strip).
   const portraitPhone = () => matchMedia(UPRIGHT_MQ).matches;   // (the style sheet's upright clause, util.js)
-  let rotTarget = (() => { try { const v = localStorage.getItem('pps.circuitRot'); return v == null ? (portraitPhone() ? 1 : 0) : v === '1' ? 1 : 0; } catch { return portraitPhone() ? 1 : 0; } })();
+  let rotTarget = (() => { try { const v = prefs.getItem('pps.circuitRot'); return v == null ? (portraitPhone() ? 1 : 0) : v === '1' ? 1 : 0; } catch { return portraitPhone() ? 1 : 0; } })();
   let rotU = rotTarget;
   const turnClock = createReversible({ ms: TURN_MS, stall: VIEW_STALL_MAX, x: rotU });   // (the quarter turn's clock: reversible like the change's)
   const rotEase = easeMove;   // (the turn travels: the one move curve)
@@ -1352,7 +1352,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // are refreshed in place (see refreshValues); a value whose text changes shape lays the labels out again.
   let labelKey = null, labelFonts = 0, labelShown = [], noChevBoxes = [], labelPainted = false;   // labelPainted: the last updateLabels painted the callouts and probes
   const { ANCHOR_W, NO_ANCHOR, animZoomAt, applyClampFs, applyVT, clientToVB, clientToWorld, flushVT, freeCentre, localToWorldInto, refreshCTM, saSides, stageBox, syncView, worldToLocal, worldToLocalInto, zoomAt } = createCamera({ CIRC_C, DOT_MIN_PX, animateVT, clampGs, clientToVBFast, flushGeo, geoHeld, haloEls, mapTurn, nd, nextFrame, nodeVerts, onViewChange, placeClampLabels, readFrame, rotDeg, safeInsets, sitesPaint, svg, syncSemantic, updateLabels, vbBox, world, wrap }, live);
-    let fitKept = 0;
     let circFit = null;
     // A card or sheet opened or closed: glide to the framing for the space that is now free (not in the lobule, which refits itself).
   // (circAgain: lookHome has it take the circuit's last kind of framing again, for a new shape, instead of the close-up.)
@@ -1495,7 +1494,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let drifting = false;
     // A card's zoom (zoomOpen) carries the labels that have no world anchor by the scene camera's ride (label-gl.js ride). Every other camera move (a hand, a glide, a slow push, a presenter's move) rides nothing: the labels are pose-driven (updateLabels, labels-plan.md).
   let labelRider = null, rideCTM = null;
-    // opt.arc: a presenter's framing. A long move (the two views share nothing) pulls back and comes in rather than panning across at full zoom.
   // The view following a presenter's card frame by frame (Mohammad, 30 Oct, iPhone: "The view still snaps/jumps when I untuck a stacked
   // card"): as the readings' card slides out or tucks away, under the finger or on its own ease, the view is set each frame between the
   // framing for the readings tucked (v0) and the framing for them out (v1), at the same share u the card has travelled. The figure then
@@ -1504,11 +1502,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // push (drifting) and are solved again once it ends (followEnd, driftEnd). Any glide or framing set outright ends it (animateVT).
   // aimView: where a framing would go, without moving: the camera functions run with animateVT only noting its target.
   let following = false, follow0 = null, follow1 = null, aiming = false, aimed = null, followScene = false, followU = 0;
-  const { aimView, arcRoom, screenW, camSettle, camSettleIdle, driftEnd: driftEnd$, followAt, followStart, rideLeaders, rideNow, rideStart, rideStep, rideStop, stagePx, stagePxInto, stagePxNow, viewNow } = createRide({ applyVT, dpr, labelSettleSoon, refreshCTM, sameView, sceneSet, sceneStart, sitesPaint, stageBox, updateLabels, vCanvas, vbBox, wrap }, live);
+  const { aimView, screenW, camSettle, camSettleIdle, driftEnd: driftEnd$, followAt, followStart, rideLeaders, rideNow, rideStart, rideStep, rideStop, stagePx, stagePxInto, stagePxNow, viewNow } = createRide({ applyVT, dpr, labelSettleSoon, refreshCTM, sameView, sceneSet, sceneStart, sitesPaint, stageBox, updateLabels, vCanvas, vbBox, wrap }, live);
   function driftEnd(...a) { return driftEnd$(...a); }   // <stage-split stub>
   let handRide = false, handRideT = 0, layCTM = null;   // (handRide: the labels are held while the camera moves, see updateLabels; layCTM: the camera they were last laid out under)
   // The arc a presenter's long move is taking (see cam-arc.js), so a refit while it runs bends it to the new framing instead of starting over.
-  let arcRun = null;
   // The camera zoomed with a card (card-zoom.js, 4 Nov 2026, "zoom the entire camera"): the whole view is scaled by S about the screen point (px, py)
   // and then moved by (dx, dy) screen px, the same transform the zoomed cards are given, so the figure, the liver and the labels' places ride with them.
   // zoomOpen takes the view as it stands (null: it is not at rest, nothing is zoomed); zoomAt is one frame of it, written as the view (k, x, y), one
@@ -1536,7 +1533,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // zooms straight to that framing, so there is no stop at the fit on the way. The box is asked for when the rise
   // begins (the plate is brought up to date first, so it is measured as it will be). It expires if the lobule was not open to rise from.
   let riseBox = null, riseExp = 0, riseUsed = false;
-  const { animateVT: animateVT$, frameBox, railEnd, riseTo, riseToVT, riseVT: riseVT$, vtFor, zoomToBox } = createGlide({ CIRC_C, applyVT, arcRoom, screenW, camSettle, camSettleIdle, circVB, dpr, driftEnd, glideXfStart, glideXfStep, logMove, nextFrame, refreshCTM, rideStep, safeInsets, sameView, sitesPaint, svg, vbCenter, vtTrack, viewXfRetargetTo }, live);
+  const { animateVT: animateVT$, frameBox, railEnd, riseTo, riseToVT, riseVT: riseVT$, vtFor, zoomToBox } = createGlide({ CIRC_C, applyVT, screenW, camSettle, camSettleIdle, circVB, dpr, driftEnd, glideXfStart, glideXfStep, logMove, nextFrame, refreshCTM, rideStep, safeInsets, sameView, sitesPaint, svg, vbCenter, vtTrack, viewXfRetargetTo }, live);
   function animateVT(...a) { return animateVT$(...a); }   // <stage-split stub>
   function riseVT(...a) { return riseVT$(...a); }   // <stage-split stub>
   function zoomLiver() {
@@ -1615,7 +1612,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   recs.show(0, 0, true);
   let recAsk = 0, recVer = 0;
   const recOut = { changed: false, moving: false };
-  try { localStorage.removeItem('pps.quality'); localStorage.removeItem('pps.q'); } catch (e) { caught('stage:2826', e); /* storage unavailable */ }
+  try { prefs.removeItem('pps.quality'); prefs.removeItem('pps.q'); } catch (e) { caught('stage:2826', e); /* storage unavailable */ }
   let quality = SOFTWARE ? Q_SOFTWARE : 0, saverOn = false;   // (saverOn: Settings › Battery saver, for the step a changed renderer returns to)
   // A context handed back by a restore is read again for what the start-up one decided: whether the renderer is software (the browser can
   // lose its GPU and hand back a software one, which then needs the lower step, the yield between frames and the SVG overlays, as a
@@ -1671,7 +1668,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (Glass is glass (Mohammad, 2 Nov 2026: "glass is glass and it doesn't suddenly become solid when there is movement"; his Mac's ?perf
   // showed every card "solid, no blur"): the cards' frost is drawn by the GPU in the figure's own frame, so Battery saver no longer turns it
   // solid, nor does a stored Blur effect off (index.html: only ?noglass=1 does).)
-  const blurGuard = () => { let asked = null; try { asked = localStorage.getItem('pps.noGlass'); } catch (e) { caught('stage:2879', e); /* storage unavailable */ } guardBlur(document.documentElement, { low: SOFTWARE, asked: asked === '1' ? null : asked }); };
+  const blurGuard = () => { let asked = null; try { asked = prefs.getItem('pps.noGlass'); } catch (e) { caught('stage:2879', e); /* storage unavailable */ } guardBlur(document.documentElement, { low: SOFTWARE, asked: asked === '1' ? null : asked }); };
   blurGuard();
   // Figure resolution › Auto: zoomed in past the home framing the canvas is drawn at 1/zoom of its pixels (each part of the figure
   // keeps about the pixels it had at home), in steps down to 10%. It is changed only once the view has settled and been let go,
@@ -2270,7 +2267,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The figure's text is at its one size (Mohammad, 11 Nov 2026: the "Text size on the figure" setting removed everywhere): 100 %, with a
   // desktop's baseline (deskK). A size an older build saved is dropped, so it can never apply again.
   const labelScale = 1;
-  try { localStorage.removeItem('pps.labelScale'); localStorage.removeItem('pps.labelScaleV'); } catch (e) { caught('stage:labelScale', e); /* storage unavailable */ }
+  try { prefs.removeItem('pps.labelScale'); prefs.removeItem('pps.labelScaleV'); } catch (e) { caught('stage:labelScale', e); /* storage unavailable */ }
   // Every label on a figure (the lobule's too) reads the same scale.
   document.documentElement.style.setProperty('--label-k', String(labelScale * deskK())); document.documentElement.style.setProperty('--label-scale', String(labelScale)); document.documentElement.style.setProperty('--ts', String(labelScale));
   let labelK = labelScale * deskK();
@@ -3082,7 +3079,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     siteFp(fp) { if (fp && store.get().presenting) store.set1('presentFp', fp); slideFp = fp; if (sites.list) sites.fp = fp; },   // (the lobule's labels read the same fingerprint, from the store: lobule-model.js pinToSlide)   // (the numbers the slide's tiles now show: a what-if, a time-lapse)
     setSites(list, fp = null) { sites.list = list?.length ? [...list] : null; sites.fp = fp; if (fp) slideFp = fp; if (!sites.list) for (const k of [...resMade.keys()]) resPaint(k, SITE_DEF[k], null); if (!sites.list) for (const [k, el] of [...sites.made]) siteLeave(k, el); else { refreshCTM(); sitesPaint(); } },
     /** Frame the catheter's route ('route'), its tip close up ('tip'), or go back to the view before ('home'); a treatment's
-     *  shots are 'way' (its whole route) and 'tip' (the stretch it works on). arc: a long move pulls back and comes in. */
+     *  shots are 'way' (its whole route) and 'tip' (the stretch it works on). Every move is the straight one. */
     cathFocus,
     /** Where cathFocus(mode, ms, opt) would frame the view, without moving it (null: no route to frame yet). The way out of the lobule lands on it (riseToVT). */
     cathShot(mode, opt) { const had = !!cath.saved; let ok = false; const v = aimView(() => { ok = cathFocus(mode, 0, opt); }); if (!had) cath.saved = null; return ok ? v : null; },

@@ -10,6 +10,7 @@
 //
 // Windows nest and overlap: a window keeps a copy of the running totals at its start and reports the difference at its end.
 
+import { flagOn } from './flags.js';
 const SELF = /motion-budget\.js/;
 const READS = new Map(), WRITES = new Map(), UPS = new Map();   // (caller or target → count, since install; UPS: caller → KB uploaded)
 const tot = { reads: 0, writes: 0, made: 0, lost: 0, restored: 0, upload: 0, uploads: 0, alloc: 0, allocs: 0, copy: 0, copies: 0, bitmaps: 0, bitmap: 0 };
@@ -210,4 +211,4 @@ export const motionBudget = api;
 
 // (On at load when the address asks: ?perf (the readout shows each window's budget) or ?budget=1 (counting only, for a headless run
 // reading pps.motionBudget). Imported first by main.js, so the contexts the page makes at start are counted too.)
-if (typeof location !== 'undefined' && /[?&](?:perf\b|budget=1\b)/.test(location.search)) installMotionBudget({ skip: (el) => !!el.closest?.('#perfReadout') });
+if (flagOn('perf') || flagOn('budget')) installMotionBudget({ skip: (el) => !!el.closest?.('#perfReadout') });

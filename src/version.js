@@ -1,4 +1,4 @@
-// When the app was last updated, shown as a month and year (no version number is shown anywhere). The model, presets and decks change with
+// When the app was last updated, shown as a month and year (no version number; About also names the build, RELEASE below). The model, presets and decks change with
 // the app, so the date is the only promise the About sheet makes (19 Nov 2026, bible ENG-8: it used to promise content fixed to October). A
 // no-break space keeps month and year on one line.
 export const UPDATED = 'November\u00a02026';

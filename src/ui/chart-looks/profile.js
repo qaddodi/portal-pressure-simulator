@@ -14,7 +14,7 @@ const rated = (mid, hi) => [[{ rate: 'mid' }, mid], [{ rate: 'hi' }, hi]];
 const halo = { stroke: tok('surface'), width: 4, join: 'round' };
 // (the readings' pills: the tone of the rating, green, amber or red; 7145-7147 set --tone for each)
 const pillRect = (t) => ({ fill: mix('srgb', tok(t), 15, tok('surface')), stroke: mix('srgb', tok(t), 50, 'transparent'), width: 1 });
-const pillText = (t) => ({ fill: mix('srgb', tok(t), 82, tok('text')) });
+const pillText = (t) => ({ fill: tok(`${t}-ink`) });   // (the status ink, as the page's own pills wear it: LOOK-1)
 
 export const PROFILE = {
   // 7117-7119 .ppf-liver / .ppf-pre / .ppf-post rect: the zones' tints (the --chart-*-band theme tokens, which charts.js and stage.js read too)
@@ -66,7 +66,7 @@ export const PROFILE = {
   'prof.br.text': {
     state: RATE,
     base: { weight: 700, fill: tok('text'), halo },
-    when: rated({ fill: tok('caution') }, { fill: tok('danger') }),
+    when: rated({ fill: tok('caution-ink') }, { fill: tok('danger-ink') }),
   },
   'prof.br.k': { base: { weight: 600, fill: tok('text-2') } },
   // 7145-7150 .ppf-pill: a reading's pill, tinted as the bracket rates it

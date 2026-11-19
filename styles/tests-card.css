@@ -148,7 +148,7 @@
 .tr-list { display: flex; flex-direction: column; gap: 10px; }
 .tr-sec { position: relative; display: flex; flex-direction: column; min-width: 0; }
 .tr-items { position: relative; display: flex; flex-direction: column; min-width: 0; }
-.tr-grp { margin: 0 0 6px; font: 650 11px/1.3 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.tr-grp { margin: 0 0 6px; font: 600 12px/1.3 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
 .tr-none { font: 400 13px/1.4 var(--font-ui); color: var(--text-2); }
 /* A row: line 1 the name and the two rates with the outcome word, line 2 why it is here. */
 .tr-row { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 9px 0; border: 0; border-radius: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
@@ -186,7 +186,7 @@
 .tr-exp { display: flex; flex-direction: column; gap: 10px; padding: 10px 0 14px; font: 500 13px/1.35 var(--font-ui); color: var(--text); }
 .tr-lesson { font: 600 14px/1.4 var(--font-ui); color: var(--text); text-wrap: pretty; }
 .tr-also { font: 500 12.5px/1.4 var(--font-ui); color: var(--text-2); font-variant-numeric: tabular-nums; }
-.tr-lab { margin-top: 2px; font: 650 11px/1.3 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.tr-lab { margin-top: 2px; font: 600 12px/1.3 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
 .tr-rules { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 5px 8px; align-items: baseline; font: 400 12.5px/1.35 var(--font-ui); }
 .tr-rule { display: contents; }
 .tr-rule .g { font-weight: 700; text-align: center; color: var(--text); }
@@ -197,7 +197,7 @@
 .tr-rule.minor .r { color: var(--text-2); }
 .tr-rsep { grid-column: 1 / -1; height: 1px; background: var(--hairline); }
 .tr-model { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); }
-.tr-model .k { font: 650 11px/1.3 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.tr-model .k { font: 600 12px/1.3 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
 .tr-model .v { font: 600 15px/1.35 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text); }
 .tr-model .v b { font-weight: 600; }
 .tr-model .v s { text-decoration: none; color: var(--text-3); }
@@ -205,7 +205,7 @@
 .tr-bav { display: flex; flex-direction: column; gap: 4px; font: 400 12.5px/1.45 var(--font-ui); color: var(--text-2); }
 .tr-bav b { font-weight: 600; color: var(--text); }
 .tr-today { color: var(--text); }
-.tr-src { font: 500 11.5px/1.4 var(--font-ui); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.tr-src { font: 500 12px/1.4 var(--font-ui); color: var(--text-3); font-variant-numeric: tabular-nums; }
 .tf-hits { position: absolute; inset: 0; }
 .tf-hit { position: absolute; left: 0; right: 0; padding: 0; border: 0; border-radius: 8px; background: none; cursor: pointer; }
 #app.thumb .tr-hd .tr-t { font-size: 16px; }

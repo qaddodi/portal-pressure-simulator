@@ -2,6 +2,7 @@
 // and line, the next slide's title, the notes and the question for the room, a talk clock and a slide clock, Next and Back.
 // It follows the talk over a BroadcastChannel (presenter-view.js) and sends keys and buttons back; closing either window leaves the other working.
 
+import { flagValue } from './flags.js';
 import { VIEW_QUERY, PROTOCOL, STALE_MS, channelOf, validSession, fromTalk } from './presenter-view.js';
 import { keepAwake } from './wake-lock.js';
 
@@ -43,7 +44,7 @@ export function run() {
   document.documentElement.removeAttribute('data-boot');
   document.title = 'Presenter view';
   // (The talk this window follows is named in its address, ?presenter-view=<session>; an address with none, or a made-up one, follows nothing.)
-  const sid = new URLSearchParams(location.search).get(VIEW_QUERY);
+  const sid = flagValue(VIEW_QUERY);
   const ok = validSession(sid);
   const style = el('style', '', CSS), root = el('div', 'pv'), ch = ok && typeof BroadcastChannel === 'function' ? new BroadcastChannel(channelOf(sid)) : null;
   document.head.append(style); document.body.replaceChildren(root);

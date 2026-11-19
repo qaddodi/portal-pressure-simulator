@@ -8,17 +8,16 @@
 // where the window has been (the data card above the screen after an iPad turn, HVPG 3), reported as a finding. Layout only, as the deck sweep: GL draws stubbed,
 // the cards-only app, no picture. Local only: no workflow runs it.
 
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright';
-import { CHROMIUM_ARGS, openApp } from './shoot.mjs';
-import { serve } from './serve.mjs';
+import { launchLayout } from './headless.mjs';
 import { DECKS } from '../src/ui/decks.js';
 import { SIZES } from './gallery-sweep-lib.mjs';
-import { judgeEdges } from '../src/ui/gallery/edge-rules.js';
 import { parseSlides, slideProblems } from './deck-sweep-lib.mjs';
 import { compareTurn, summarizeTurns, turnsFor } from './rotate-sweep-lib.mjs';
+import { pointTo } from './debug-notice.mjs';
+pointTo('sweep turns ...');
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);
@@ -27,19 +26,17 @@ const list = (n, d) => (opt(n, d) || '').split(',').map((s) => s.trim()).filter(
 const DIR = opt('dir', '.'), RATE = Math.max(1, +opt('rate', 20)), TIMEOUT_MS = Math.max(5, +opt('timeout', 60)) * 1000, OUT = opt('out', '');
 const DEVICES = list('devices', 'ipad,ipad-portrait,iphone,iphone-landscape,mac,mac-short');
 const WANT = list('decks', 'hvpg'), SLIDES = parseSlides(opt('slides', ''));
-const EXE = process.env.CHROMIUM || (existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : '');
-const STUB = `(() => { for (const C of [window.WebGL2RenderingContext]) { if (!C) continue; const P = C.prototype; for (const k of ['drawArrays', 'drawElements', 'drawArraysInstanced', 'drawElementsInstanced', 'drawRangeElements', 'clear', 'blitFramebuffer']) if (P[k]) P[k] = function () {}; } })(); window.ppsLayoutOnly = true; window.ppsCardsOnly = true;`;
 
 const decks = DECKS.filter((d) => WANT[0] === 'all' || WANT.includes(d.id));
 const turns = turnsFor(DEVICES);
 if (!decks.length || !turns.length) { console.error('no deck or no pair of sizes to turn between'); process.exit(2); }
-const server = await serve(resolve(ROOT, DIR), 0, { prefix: '/preview' });
-const browser = await chromium.launch({ args: CHROMIUM_ARGS, ...(EXE ? { executablePath: EXE } : {}) });
+const L = await launchLayout({ dir: resolve(ROOT, DIR), prefix: '/preview' });   // (scripts/headless.mjs: the one layout-only opener, GL draws stubbed)
+const { browser, server } = L;
 const T0 = Date.now(), results = {};
 
 const boot = async (device) => {
   const s = SIZES[device];
-  const app = await openApp({ device: device === 'mac-short' ? 'mac' : device, theme: 'light', query: `gallery&testclock=${RATE}&testframe=100&look=light`, url: server.url, dir: DIR, browser, initScript: STUB, dpr: 1, timeout: 120000, gpuPath: false });
+  const app = await L.open({ device: device === 'mac-short' ? 'mac' : device, query: `gallery&testclock=${RATE}&testframe=100&look=light`, layoutOnly: true, cardsOnly: true });
   await app.page.setViewportSize({ width: s.w, height: s.h });
   await app.page.waitForFunction(() => !!window.pps?.gallery?.slide, null, { timeout: 120000 });
   return app;
@@ -49,12 +46,12 @@ const open = (app, deck, i) => app.page.evaluate(({ deck, i, t }) => window.pps.
 const read = (app) => app.page.evaluate(async ({ t }) => {
   const g = window.pps.gallery, nap = (ms) => new Promise((ok) => setTimeout(ok, ms));
   await g.settled({ timeoutMs: t });
-  const get = () => ({ check: g.check(), edges: g.edges(), boxes: g.boxes().boxes });
+  const get = () => ({ check: g.check(), boxes: g.boxes().boxes });
   let a = get(), stable = false;
   for (let k = 0; k < 8; k++) { await nap(150); const b = get(); if (JSON.stringify(a.boxes) === JSON.stringify(b.boxes)) { stable = true; a = b; break; } a = b; }
   return { ...a, stable };
 }, { t: TIMEOUT_MS * RATE });
-const shape = (r) => ({ boxes: r.boxes, problems: slideProblems({ main: r }, judgeEdges) });
+const shape = (r) => ({ boxes: r.boxes, problems: slideProblems({ main: r }) });
 
 // The fresh reference of every device the turns end at, then the turned reads.
 const targets = [...new Set(turns.map(([, to]) => to))];
@@ -94,8 +91,7 @@ for (const [from, to] of turns) {
   } finally { await app.close().catch(() => {}); }
   console.log(`${from} > ${to}: done (${Math.round((Date.now() - T0) / 1000)} s)`);
 }
-await browser.close();
-server.close();
+await L.close();
 
 const report = { schema: 1, at: new Date().toISOString(), turns, decks: decks.map((d) => d.id), seconds: (Date.now() - T0) / 1000, results };
 const summary = summarizeTurns(report);

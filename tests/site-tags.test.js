@@ -54,8 +54,8 @@ test('the teaching card shows the tag as a corner tab in the level\'s colour, th
     assert.ok(at >= 0, sel);
     assert.match(rule, /border-radius: var\(--pz-r\)/, `${sel} radius`);
     assert.match(rule, /border: 1px solid color-mix\(in srgb, var\(--text\) 22%, transparent\);/, `${sel} outline`);
-    assert.match(rule, /box-shadow: 0 14px 34px -10px var\(--pz-glass-drop\), 0 2px 6px -1px var\(--pz-glass-drop\);/, `${sel} shadow`);
-    assert.doesNotMatch(rule, /inset|--pz-glass-edge/, `${sel} lit edge`);
+    assert.match(rule, /box-shadow: inset 0 0 0 1px var\(--glass-edge\);/, `${sel} the one glass's edge, no drop (LOOK-3)`);
+    assert.doesNotMatch(rule, /--pz-glass-edge|inset 0 1px/, `${sel} lit edge`);
   }
   assert.doesNotMatch(css, /\.pz-shade:is\(\.stack, \.pz-card\)::(before|after)|--pz-lit-mask/);
   assert.doesNotMatch(src, /--pz-lit-[lr]/);

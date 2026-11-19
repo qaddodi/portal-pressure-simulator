@@ -41,7 +41,7 @@ export const FOREST = {
   // The Trials tab's arm bars (trial-forest.js armsLayout, host 'trial'): an arm's name and its people at the right, the 0 to 100% track,
   // the bar in the arm's colour (data-p-tone) and its percent on the bar (a halo in the card's colour) or just past its end. Their own keys:
   // the deck card's trial.* looks are design A's, sized for its large numbers.
-  'forest.arm': word(650, ink),
+  'forest.arm': word(600, ink),
   'forest.armn': word(500, tok('text-2')),
   'forest.track': { base: { fill: mix('srgb', tok('text'), 9, 'transparent') } },
   'forest.bar': { base: { fill: mix('srgb', param('tone'), 72, 'transparent') } },

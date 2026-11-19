@@ -3,8 +3,9 @@
 // sheet coming or going holds every piece (card-motion.js). Source shapes kept here (PR-02).
 const W = 'The lobule is warmed as it is reached for (17 Nov 2026):';
 export default [
-  { file: 'src/ui/main.js', need: [/lb\.addEventListener\('pointerenter', \(e\) => \{ if \(e\.pointerType === 'touch'\) return; clearTimeout\(warmT\); warmT = setTimeout\(\(\) => stage\.warmLobule\?\.\(\), 220\); \}\);/, `${W} the pointer resting 0.22 s on the Lobule button warms it`] },
-  { file: 'src/ui/main.js', need: [/lb\.addEventListener\('pointerdown', \(\) => \{ clearTimeout\(warmT\); stage\.warmLobule\?\.\(\); \}\);/, `${W} a finger down on the button warms it at once (a phone has no hover)`] },
+  { file: 'src/ui/main.js', need: [/const warmSoon = \(\) => \{ appScope\.clear\(warmT\); warmT = appScope\.timer\(\(\) => stage\.warmLobule\?\.\(\), 220\); \};/, `${W} the pointer resting 0.22 s on the Lobule button warms it (on the page's scope)`] },
+  { file: 'src/ui/main.js', need: [/lb\.addEventListener\('pointerenter', \(e\) => \{ if \(e\.pointerType === 'touch'\) return; warmSoon\(\); \}\);/, `${W} a mouse resting on the button starts the wait; a touch does not`] },
+  { file: 'src/ui/main.js', need: [/lb\.addEventListener\('pointerdown', \(\) => \{ appScope\.clear\(warmT\); stage\.warmLobule\?\.\(\); \}\);/, `${W} a finger down on the button warms it at once (a phone has no hover)`] },
   { file: 'src/ui/stage-tubes.js', need: [/if \(handDown\(\) \|\| sinceInput\(\) < prepQuiet\(\) \|\| settling\(\) \|\| cardMoveLeft\(\) > 0\) stageScope\.timer\(/, `${W} a piece of the preparation waits for a quiet moment and for any card or sheet to land`] },
   { file: 'src/ui/stage-tubes.js', need: [/function warmLobule\(\) \{\s+if \(live\.lobuleOn\) return;\s+prepRush = performance\.now\(\) \+ 4000; prepAt = 0;\s+prepLobule\(\);/, `${W} warmLobule starts the preparation now, with a tenth of a second of quiet for a few seconds`] },
   { file: 'src/ui/stage-morph.js', need: [/if \(live\.lobuleOn \|\| live\.diveWait \|\| live\.diveT > 0\) \{ mayTask\(TRACK_TAG, morphTrackStep, \{ notBefore: performance\.now\(\) \+ 250 \}\); return false; \}/, `${W} the view switch's pieces (anatomy and circuit) are not built while the lobule opens or is open`] },

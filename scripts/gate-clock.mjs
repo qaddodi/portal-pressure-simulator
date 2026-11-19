@@ -11,12 +11,13 @@ import { chromium } from 'playwright';
 import { existsSync } from 'node:fs';
 import { instantMotion } from '../tests/e2e/fast.mjs';
 import { CHROMIUM_ARGS } from './shoot.mjs';
+import { contextOptions } from '../src/ui/devices.js';
 
-export const SIZES = {
-  desktop: { viewport: { width: 1440, height: 900 } },
-  phone: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
+export const SIZES = {   // (the sizes come from src/ui/devices.js, the one list; "ipad" is landscape everywhere, so the portrait one is "ipad-portrait")
+  desktop: contextOptions('mac'),
+  phone: contextOptions('iphone', 2),
   small: { viewport: { width: 1000, height: 640 } },   // (the views stage: software WebGL costs by the pixel)
-  ipad: { viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
+  'ipad-portrait': contextOptions('ipad-portrait', 2),
 };
 export const EXE = process.env.CHROMIUM || (existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : '');
 export const launch = (gl) => chromium.launch({ args: gl ? CHROMIUM_ARGS : ['--no-sandbox', '--disable-3d-apis'], ...(EXE ? { executablePath: EXE } : {}) });

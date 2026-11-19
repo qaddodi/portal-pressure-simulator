@@ -7,7 +7,7 @@ export default [
   { file: 'src/ui/card.js', need: [/const onNameClick = \(\) => openDetails\(\);/, `${W} the name opens them`] },
   { file: 'src/ui/main.js', forbid: [/onDetails|NAMED_DETAILS|store\.set\(\{ details: normalizeSel/, `${W} the app fills the side panel for the advanced physiology and a pinned comparison only`] },
   { file: 'src/ui/main.js', need: [/onWhy: \(m, el\) => why\.open\(m, el\), {3}\/\/ \(the card's own details view/, `${W} the Why? explainer is one tap from the details`] },
-  { file: 'src/ui/main.js', need: [/else if \(card\.detailsOpen\(\)\) card\.closeDetails\(\);/, `${W} Esc takes the details back before it takes the card away`] },
+  { file: 'src/ui/keyboard.js', need: [/else if \(card\.detailsOpen\(\)\) card\.closeDetails\(\);/, `${W} Esc takes the details back before it takes the card away`] },
   { file: 'src/ui/inspector.js', forbid: [/function (edgePanel|nodePanel|organPanel)|ORGAN_ABOUT|ABOUT_EDGE|'Doppler here'/, `${W} the panel builders are gone`] },
   { file: 'src/ui/inspector.js', need: [/sel\?\.type === 'advanced' \? chart\.renderAdvanced\(ctl\) : home\(\)/, `${W} the panel keeps the chart and the advanced physiology`] },
   { file: 'src/ui/inspector.js', need: [/export const readings = liveReadings;/, `${W} tests/inspector-live-text.test.js still reads the same words`] },

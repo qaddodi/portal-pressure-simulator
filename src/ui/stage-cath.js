@@ -5,7 +5,7 @@ import { flipAt, flipFrom } from './cath-flip.js';
 import { PILL_GAP, pillsClear, placePillsInto } from './cath-pill.js';
 import { outlineBox, placeBeside } from './cath-place.js';
 import { dropLabel } from './drop-label.js';
-import { D_SMALL, D_SURFACE, easeOut3 } from './ease.js';
+import { D_SMALL, D_SURFACE, EASE_ARRIVE, easeOut3 } from './ease.js';
 import { cancelFrame } from './frame.js';
 import { glWords } from './gl-words.js';
 import { balloonOutline, balloonRy, routeRadii } from './hvpg-balloon.js';
@@ -763,7 +763,14 @@ export function createCath(st, live) {
       // and the other order's do not). It is written as a class on the box; the rows are measured again after it changes, and the plan below
       // works from the rows' sizes, so it is the same on that frame as on the next.
       const pl = planStack(cathLeadPts(A, l), R, x, y, bw, bh, box._swap, !!l.mid);
-      if (box._swap !== pl.swap) { box._swap = pl.swap; box.classList.toggle('swap', pl.swap); }
+      // (A flip of the order after the stack was shown is a soft dip and rise of the box and its leaders, not a snap: opacity on the Web Animations clock, which
+      // restarts by itself, with the motion scale's own time and curve (D_SMALL, EASE_ARRIVE); the first order is just set. A stack whose leaders cross either
+      // way is marked on its root, for the checks: bible review STG-9.)
+      if (box._swap !== pl.swap) {
+        if (box._swap !== undefined && !reduceMotion.matches) { const lead = el.querySelector('.cath-leads'); for (const t of lead ? [box, lead] : [box]) t.animate([{ opacity: 0.25 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }); }
+        box._swap = pl.swap; box.classList.toggle('swap', pl.swap);
+      }
+      if (el._unclean !== !pl.clean) { el._unclean = !pl.clean; if (el._unclean) el.dataset.leadsUnclean = '1'; else delete el.dataset.leadsUnclean; }
       // The bracket, from the middle of one reading to the middle of the other.
       const brace = box.querySelector('.cath-brace'), path = box.querySelector('.cath-brace path');
       const ys0 = pl.m0, ys1 = pl.m1;
@@ -929,9 +936,9 @@ export function createCath(st, live) {
   // Where a treatment's route enters the plate (its lead-in from outside ends there): the view never follows the tip off the figure.
   const procIn = (r) => r.parts?.[1]?.d0 ?? r.start;
   // (steady: a refit to cards that moved, see animateVT.)
-  function cathFocus(mode, ms = 700, { both = false, near = false, arc = false, steady = false, scale = false, ostium = null, route = '' } = {}) {   // (scale: the camera's own time for how far it goes, ms its ceiling: animateVT)
+  function cathFocus(mode, ms = 700, { both = false, near = false, steady = false, scale = false, ostium = null, route = '' } = {}) {   // (scale: the camera's own time for how far it goes, ms its ceiling: animateVT)
     const r = cathRoute(route);
-    if (mode === 'home') { if (cath.saved) animateVT(cath.saved, ms, { arc, scale }); cath.saved = null; return true; }
+    if (mode === 'home') { if (cath.saved) animateVT(cath.saved, ms, { scale }); cath.saved = null; return true; }
     if (!r) return false;
     if (!cath.saved) cath.saved = { ...(live.vtTarget && live.vtAnim ? live.vtTarget : live.vt) };
     const wr = wrap.getBoundingClientRect(), ins = safeInsets();
@@ -969,7 +976,7 @@ export function createCath(st, live) {
         cx = (Math.min(...ax) + Math.max(...ax)) / 2; cy = (Math.min(...ay) + Math.max(...ay)) / 2;
       } else if (mode === 'way') [cx, cy] = cathAt(r, Math.max(r.start + (r.free - r.start) * clamp(cath.st?.u || 0, 0, 1), procIn(r))).p;
       else { cx = (x0 + x1) / 2; cy = (y0 + y1) / 2; }
-      animateVT({ k, x: (fr.x0 + fr.x1) / 2 - cx * k, y: (fr.y0 + fr.y1) / 2 - cy * k }, ms, { arc, steady, scale });
+      animateVT({ k, x: (fr.x0 + fr.x1) / 2 - cx * k, y: (fr.y0 + fr.y1) / 2 - cy * k }, ms, { steady, scale });
       return true;
     } else if (mode === 'tip') {
       const tp = cutLen(r.pts, r.cum, 0, r.free).at(-1);

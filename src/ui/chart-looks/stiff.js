@@ -5,7 +5,7 @@ import { tok, mix, em } from './dsl.js';
 
 /** look → [weight, size in em of the host's size]: the bar's words, the one table the layout measures with (stiff-bar.js). */
 export const TYPE = {
-  'stiff.tk': [500, 0.92], 'stiff.zl': [600, 0.85], 'stiff.plt': [500, 1], 'stiff.v': [650, 1], 'stiff.note': [500, 0.92],
+  'stiff.tk': [500, 0.92], 'stiff.zl': [600, 0.85], 'stiff.plt': [500, 1], 'stiff.v': [600, 1], 'stiff.note': [500, 0.92],
 };
 const word = (look, fill) => ({ base: { weight: TYPE[look][0], size: em(TYPE[look][1]), fill } });
 const tint = (name, pct) => ({ base: { fill: mix('srgb', tok(name), pct, 'transparent') } });

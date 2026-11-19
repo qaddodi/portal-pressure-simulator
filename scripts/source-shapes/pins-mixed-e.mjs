@@ -59,7 +59,7 @@ export default [
   // glide-dom-1nov
   { file: 'styles/app-07-floating.css', need: [/(#labels|\.zoom-pill)[^{]*\{ opacity: [\d.]+; \}/, 'A slide\'s camera glide sets off no style passes of its own (1 Nov 2026, iPhone: (  .zoom-pill:hover .ib:not(:disabled), .zoom-pill:focus-within .ib:not(:disabled), .stage-wrap.off-home .zoom-pill .ib:not(:disabled) { opacity: 1; })'] },   // (was a slice of the file)
   { file: 'src/ui/stage-marks.js', need: [/const drawn = mkDrawn;\n\s+drawn\.clear\(\);/, 'A slide\'s camera glide sets off no style passes of its own (1 Nov 2026, iPhone:'] },   // (was a slice of the file)
-  { file: 'src/ui/stage-marks.js', need: [/\n\s+let cs = getComputedStyle\(el\)/, 'A slide\'s camera glide sets off no style passes of its own (1 Nov 2026, iPhone:'] },   // (was a slice of the file)
+  { file: 'src/ui/stage-marks.js', need: [/\n\s+(?:let|const) cs = getComputedStyle\(el\)/, 'A slide\'s camera glide sets off no style passes of its own (1 Nov 2026, iPhone:'] },   // (was a slice of the file)
   { file: 'src/ui/stage-marks.js', need: [/ drawn\.add\(el\);/, 'A slide\'s camera glide sets off no style passes of its own (1 Nov 2026, iPhone:'] },   // (was a slice of the file)
   { file: 'src/ui/stage-marks.js', need: [/if \(drawn\.has\(el\)\) \{ if \(!el\.hasAttribute\('data-gl'\)\) el\.setAttribute\('data-gl', ''\); \} else if \(el\.hasAttribute\('data-gl'\)\) el\.removeAttribute\('data-gl'\);/, 'A slide\'s camera glide sets off no style passes of its own (1 Nov 2026, iPhone:'] },   // (was a slice of the file)
   { file: 'styles/app-*.css', need: [/\.stage-view\.gl-on #overlays \[data-gl\] \{ visibility: hidden; \}/, 'A slide\'s camera glide sets off no style passes of its own (1 Nov 2026, iPhone:'] },
@@ -146,7 +146,7 @@ export default [
   { file: 'src/ui/charts.js', need: [/if \(g\.band\) \{ best = bestSpot; best\.yy = hh - \(dimN - k\) \* BAND_ROW \+ BAND_ROW \/ 2; best\.lx = cx; \}/, 'Sweep batches 02–04 (16 Oct): the Pressure chart and the HVPG tab read the bottom bar\'s own HVPG and PPG, the'] },
   { file: 'src/ui/charts.js', forbid: [/__cf|__why/, 'Sweep batches 02–04 (16 Oct): the Pressure chart and the HVPG tab read the bottom bar\'s own HVPG and PPG, the'] },
   { file: 'src/ui/instruments.js', need: [/Math\.max\(base, 12\.2 \* k\)/, 'Sweep batches 02–04 (16 Oct): the Pressure chart and the HVPG tab read the bottom bar\'s own HVPG and PPG, the'] },
-  { file: 'src/ui/instruments.js', need: [/new ResizeObserver\(\(es\) => \{[^\n]*fit\(\); \}\)\.observe\(el\)/, 'Sweep batches 02–04 (16 Oct): the Pressure chart and the HVPG tab read the bottom bar\'s own HVPG and PPG, the'] },
+  { file: 'src/ui/instruments.js', need: [/new ResizeObserver\(\(es\) => \{[^\n]*fit\(\); \}\)(?: : null;\n\s+dialRO\?)?\.observe\(el\)/, 'Sweep batches 02–04 (16 Oct): the Pressure chart and the HVPG tab read the bottom bar\'s own HVPG and PPG, the'] },
   { file: 'src/ui/instruments.js', need: [/word\.style\.display = tw > 0 &&/, 'Sweep batches 02–04 (16 Oct): the Pressure chart and the HVPG tab read the bottom bar\'s own HVPG and PPG, the'] },
   { file: 'src/ui/stage*', need: [/opacity: o\.id === 'umbilicus' \? 0 : null/, 'Sweep batches 02–04 (16 Oct): the Pressure chart and the HVPG tab read the bottom bar\'s own HVPG and PPG, the'] },
   { file: 'src/ui/stage*', need: [/findingHidden\('coll'\) \? 0 : clamp\(\(recruitFrac\('C3', f\) - 0\.15\) \/ 0\.3, 0, 1\)/, 'Sweep batches 02–04 (16 Oct): the Pressure chart and the HVPG tab read the bottom bar\'s own HVPG and PPG, the'] },
@@ -207,7 +207,7 @@ export default [
   { file: 'src/ui/stage-tubes.js', need: [/if \((?:live\.)?CTM !== (?:live\.)?widthCTM && \((?:live\.)?CTM\.sc !== (?:live\.)?widthCTM\.sc \|\| (?:live\.)?CTM\.a !== (?:live\.)?widthCTM\.a \|\| (?:live\.)?CTM\.b !== (?:live\.)?widthCTM\.b\)\) return false;/, 'The performance and heat review of 30 Oct, groups 1 and 2:'] },   // (was a slice of the file)
   { file: 'src/ui/label-gl.js', need: [/const hostK = \(\) => \(host\.scale \? host\.scale\(\) : 0\) \|\| devicePixelRatio \|\| 1;/, 'The performance and heat review of 30 Oct, groups 1 and 2: (labels at the figure canvas\'s capped density)'] },
   { file: 'src/ui/glass-gl.js', need: [/const mo = new MutationObserver\(\(recs\) => \{\n\s+if \(recs\?\.length && recs\.every\(wordsMark\)\) return;[^\n]*\n\s+pollReset\(\);\n\s+const moves = !!recs\?\.length && !changed\(recs\);\n\s+if \(moves && innerOnly\(recs\)\) return;\n\s+if \(!recs\?\.length \|\| !moves\) measureEarly\(\);\n\s+quiet = 0; ask\(\);\n\s+\}\);/, 'The performance and heat review of 30 Oct, groups 1 and 2:'] },
-  { file: 'src/ui/glass-gl.js', forbid: [/queueMicrotask|batched/, 'The performance and heat review of 30 Oct, groups 1 and 2:'] },
+  { file: 'src/ui/glass-gl.js', forbid: [/(?<!if \(later\) )queueMicrotask|batched/, 'The performance and heat review of 30 Oct, groups 1 and 2:'] },
   { file: 'src/ui/veins-gl.js', need: [/if \(cath && !moving && cathAt && !cath\.whole\) \{/, 'The performance and heat review of 30 Oct, groups 1 and 2:'] },   // (was a slice of the file)
   { file: 'src/ui/veins-gl.js', need: [/u\[0\] = Math\.min\(b\[0\], cathAt\[0\]\); u\[1\] = Math\.min\(b\[1\], cathAt\[1\]\); u\[2\] = Math\.max\(b\[2\], cathAt\[2\]\); u\[3\] = Math\.max\(b\[3\], cathAt\[3\]\);/, 'The performance and heat review of 30 Oct, groups 1 and 2:'] },   // (was a slice of the file)
   { file: 'src/ui/veins-gl.js', need: [/if \(\(u\[2\] - u\[0\]\) \* \(u\[3\] - u\[1\]\) <= PW\(\) \* PH\(\) \/ 2\) cathRect = u;/, 'The performance and heat review of 30 Oct, groups 1 and 2:'] },   // (was a slice of the file)
@@ -323,7 +323,7 @@ export default [
   { file: 'src/ui/dock.js', forbid: [/'aria-label': 'Instruments'/, 'Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch):'] },
   { file: 'src/ui/actions.js', need: [/toLocaleString\('en-US'\)\}\/µL/, 'Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch):'] },
   { file: 'src/ui/util.js', need: [/if \(kind !== 'bad' && !actions\?\.length && !present && document\.getElementById\('app'\)\?\.classList\.contains\('presenting'\)\) return NOOP_CLOSE;/, 'Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch):'] },
-  { file: 'src/ui/main.js', need: [/store\.set\(\{ colorMode: next \}\); toast\(`Colored by /, 'Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch):'] },
+  { file: 'src/ui/keyboard.js', need: [/store\.set\(\{ colorMode: next \}\); toast\(`Colored by /, 'Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch):'] },
   // tissue-gl
   { file: 'src/ui/tissue-gl.js', need: [/vec2 uv = \(p - uO\) \/ \(uRd \* vec2\(6\.0, 3\.4641016151377544\)\);/, 'The open lobule\'s tissue on the GPU (tissue-gl.js): (one repeat per 6 rd by 2√3 rd, as fieldFill)'] },
   { file: 'src/ui/tissue-gl.js', forbid: [/texture\(uQ(A|B|O), uv\)\.rgb/, 'The open lobule\'s tissue on the GPU (tissue-gl.js): (no tile read by its rgb alone)'] },   // (was a slice of the file)

@@ -11,24 +11,25 @@
 //   - on a screen where the two cards share one place (the Shuffle, an iPhone on its side) BOTH states: the words in front, then the instrument in front;
 //   - a case or question card that holds the slide, read as it stands and again once it is tapped away.
 // It says "the numbers fit", never "it looks right". Output: the failures as they come, a report (--out, JSON) and a text summary beside it.
-// --fast: the figure is not drawn at all (window.ppsLayoutOnly, seen.js) and frames come every 100 ms of app time; about a third quicker, and `--verify`
-// compares it with a plain run on a few decks so the shortcut is never trusted on its own word.
+// --fast: the figure is not drawn at all (window.ppsLayoutOnly, seen.js) and frames come every 100 ms of app time; about a third quicker. `node scripts/deck-sweep-compare.mjs <plain.json> <fast.json>`
+// compares it with a plain run over the same slides so the shortcut is never trusted on its own word.
 // --cards-only: no figure at all (window.ppsCardsOnly, src/ui/cards-only.js: the stage is a stand-in that does nothing), so a slide costs only
 // its cards: boot 2 s instead of 8, a step 0.1 to 1.3 s instead of 1.2 to 8 s. It cannot judge what the cards take from the figure (call-outs
 // on vessels, labels, the camera's framing): `node scripts/deck-sweep-compare.mjs <full.json> <cards.json>` lists every slide whose
 // problems differ between a full run and a cards-only one over the same slides, so the shortcut is never trusted on its own word.
 // Runs go side by side (--jobs): a chunk is one device and one part of the decks, one browser page each (touch devices get touch, so `(pointer: coarse)` rules apply).
 
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright';
-import { CHROMIUM_ARGS, openApp } from './shoot.mjs';
-import { serve } from './serve.mjs';
+import { launchLayout } from './headless.mjs';
 import { DECKS } from '../src/ui/decks.js';
 import { SIZES } from './gallery-sweep-lib.mjs';
-import { judgeEdges } from '../src/ui/gallery/edge-rules.js';
-import { chunksFor, slideProblems, summarize, parseSlides } from './deck-sweep-lib.mjs';
+import { chunksFor, slideProblems, summarize, parseSlides, addBodyShrink } from './deck-sweep-lib.mjs';
+import { deckRun } from '../src/ui/report/emit.js';
+import { runBlock } from '../src/ui/report/run.js';
+import { pointTo } from './debug-notice.mjs';
+pointTo('sweep decks ...');
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);
@@ -49,23 +50,18 @@ const CARDS = flag('cards-only');
 const FAST = flag('fast') || CARDS;
 const NAP = CARDS ? 120 : 250;   // (the read-until-two-agree pause, real ms)
 const VERBOSE = flag('verbose');
-const EXE = process.env.CHROMIUM || (existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : '');
-
-const STUB = `(() => { for (const C of [window.WebGL2RenderingContext]) { if (!C) continue; const P = C.prototype; for (const k of ['drawArrays', 'drawElements', 'drawArraysInstanced', 'drawElementsInstanced', 'drawRangeElements', 'clear', 'blitFramebuffer']) if (P[k]) P[k] = function () {}; } })();`
-  + (FAST ? 'window.ppsLayoutOnly = true;' : '') + (CARDS ? 'window.ppsCardsOnly = true;' : '');
 
 const withTimeout = (p, ms, what) => { let t; return Promise.race([p, new Promise((_, no) => { t = setTimeout(() => no(new Error(`${what} took more than ${Math.round(ms / 1000)} s`)), ms); })]).finally(() => clearTimeout(t)); };
 
 const decks = DECKS.filter((d) => WANT[0] === 'all' || WANT.includes(d.id));
 if (!decks.length) { console.error('no deck matches'); process.exit(2); }
-const server = await serve(resolve(ROOT, DIR), 0, { prefix: '/preview' });
-const browser = await chromium.launch({ args: CHROMIUM_ARGS, ...(EXE ? { executablePath: EXE } : {}) });
+const L = await launchLayout({ dir: resolve(ROOT, DIR), prefix: '/preview' });   // (scripts/headless.mjs: the one layout-only opener, GL draws stubbed)
 const T0 = Date.now();
 const results = {};
 
 const bootFor = async (device) => {
   const s = SIZES[device];
-  const app = await openApp({ device: device === 'mac-short' ? 'mac' : device, theme: 'light', query: `gallery&testclock=${RATE}${FAST ? '&testframe=100' : ''}&look=light`, url: server.url, dir: DIR, browser, initScript: STUB, dpr: 1, timeout: 120000, gpuPath: !CARDS });
+  const app = await L.open({ device: device === 'mac-short' ? 'mac' : device, query: `gallery&testclock=${RATE}${FAST ? '&testframe=100' : ''}&look=light`, layoutOnly: FAST, cardsOnly: CARDS });
   await app.page.setViewportSize({ width: s.w, height: s.h });
   await app.page.waitForFunction(() => !!window.pps?.gallery?.slide, null, { timeout: 120000 });
   return app;
@@ -77,14 +73,14 @@ const IN_PAGE = async ({ deck, i, t, nap0 }) => {
   const nap = (ms) => new Promise((ok) => setTimeout(ok, ms));
   const opened = await g.slide(deck, i, { timeoutMs: t });
   const read = async () => {
-    let a = { check: g.check(), edges: g.edges(), boxes: JSON.stringify(g.boxes().boxes) }, stable = false;
+    let a = { check: g.check(), boxes: JSON.stringify(g.boxes().boxes) }, stable = false;
     for (let k = 0; k < 6; k++) {
       await nap(nap0);
-      const b = { check: g.check(), edges: g.edges(), boxes: JSON.stringify(g.boxes().boxes) };
+      const b = { check: g.check(), boxes: JSON.stringify(g.boxes().boxes) };
       if (a.boxes === b.boxes) { stable = true; a = b; break; }
       a = b;
     }
-    return { check: a.check, edges: a.edges, stable };
+    return { check: a.check, stable };
   };
   const out = { opened, main: null, held: null, back: null, shuffle: false };
   if (opened.ok === false && !opened.settled) { out.main = await read(); return out; }
@@ -102,7 +98,8 @@ const IN_PAGE = async ({ deck, i, t, nap0 }) => {
     // (The spring takes about 0.4 s to land: read when two reads 150 ms apart agree.)
     const still = async () => { let a = JSON.stringify(g.edges()); for (let k = 0; k < 12; k++) { await nap(150); const b = JSON.stringify(g.edges()); if (a === b) return JSON.parse(b); a = b; } return JSON.parse(a); };
     await g.shuffleTo(1);
-    out.back = { edges: await still() };
+    await still();
+    out.back = { check: g.check() };
     await g.shuffleTo(0);
     await still();
   }
@@ -124,8 +121,8 @@ async function runChunk(chunk) {
         try {
           const r = await withTimeout(app.page.evaluate(IN_PAGE, { deck: d.id, i, t: TIMEOUT_MS * RATE, nap0: NAP }), TIMEOUT_MS * 2 + 30000, `${d.id} slide ${i + 1} on ${chunk.device}`);
           const errors = app.errors.slice(seen); seen = app.errors.length;
-          const problems = slideProblems(r, judgeEdges);
-          rec = { deck: d.id, slide: i + 1, device: chunk.device, ok: r.opened.ok !== false, settled: r.opened.settled !== false, ms: Date.now() - t0, stable: !!r.main?.stable, shuffle: r.shuffle, problems,
+          const problems = slideProblems(r);
+          rec = { deck: d.id, slide: i + 1, device: chunk.device, ok: r.opened.ok !== false, settled: r.opened.settled !== false, ms: Date.now() - t0, stable: !!r.main?.stable, shuffle: r.shuffle, problems, body: r.main?.check?.body || 0, title: r.main?.check?.title || 0,
             ...(errors.length ? { errors: errors.slice(0, 3).map((e) => e.slice(0, 200)) } : {}), ...(r.opened.error ? { error: String(r.opened.error) } : {}) };
         } catch (e) {
           rec = { deck: d.id, slide: i + 1, device: chunk.device, ok: false, settled: false, ms: Date.now() - t0, problems: [], error: String(e.message).split('\n')[0].slice(0, 300) };
@@ -147,11 +144,12 @@ await Promise.all(Array.from({ length: Math.min(JOBS, chunks.length) }, async ()
     try { await runChunk(chunks[j]); } catch (e) { console.log(`${chunks[j].name}: the run stopped: ${String(e.message).split('\n')[0]}`); }
   }
 }));
-await browser.close();
-server.close();
+await L.close();
 
 const report = { schema: 1, at: new Date().toISOString(), devices: DEVICES, decks: decks.map((d) => d.id), fast: FAST, cardsOnly: CARDS, rate: RATE, seconds: (Date.now() - T0) / 1000, results: Object.fromEntries(Object.entries(results).sort(([a], [b]) => a.localeCompare(b))) };
-const summary = summarize(report);
+addBodyShrink(report.results);   // (the cross-slide rule: a body that stands under what the device's other slides stand at)
+const run = deckRun(report);
+const summary = `${summarize(report)}\n\n${runBlock(run)}`;   // (the text, then the one report block `npm run debug -- report show|compare` reads)
 if (OUT) { mkdirSync(dirname(resolve(OUT)), { recursive: true }); writeFileSync(OUT, JSON.stringify(report, null, 1)); writeFileSync(OUT.replace(/\.json$/, '') + '.txt', `${summary}\n`); }
 console.log(`\n${summary}`);
 process.exit(Object.values(results).some((r) => r.ok === false || r.problems.length) ? 1 : 0);

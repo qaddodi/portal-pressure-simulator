@@ -133,3 +133,40 @@ test('the pull-request CI: the smoke waits for the build alone, so a lint failur
   assert.ok(!/continue-on-error/.test(jobs.smoke), 'the smoke may not continue on error');
   assert.ok(!/run:\s*npm run (build|smoke)/.test(jobs.quick), 'the lint job runs no build or smoke: they must not sit behind it');
 });
+
+// ---- The live site is only ever a copy of a GATED build (SHL-1, 19 Nov 2026) ----
+// A preview push used to rebuild `/` from main's tip whenever main's build was not cached, not strict and with no gate, and main's own deploy built
+// `ref: main` (the tip at run time), not the commit its gate had tested. A merge the gate refused could then reach every user at `/`.
+const deployText = pageJobs.deploy;
+// The steps of the deploy job as { name, text } (a step starts at "      - ").
+const stepsOf = (job) => job.split(/\n(?= {6}- )/).map((t) => ({ text: t, name: /name:\s*(.+)/.exec(t)?.[1]?.trim() || '' }));
+
+test('main\'s live copy is built from the commit the gate tested, not "main\'s tip at run time"', () => {
+  const live = stepsOf(deployText).filter((s) => /path:\s*live\b/.test(s.text) && /actions\/checkout/.test(s.text));
+  assert.equal(live.length, 1, 'one checkout for the live copy');
+  assert.ok(/if:\s*github\.ref_name == 'main'/.test(live[0].text), 'the live copy is checked out on main only');
+  assert.ok(/ref:\s*\$\{\{\s*github\.sha\s*\}\}/.test(live[0].text), 'on the commit that triggered the run (the one the gate tested)');
+  assert.ok(!/ref:\s*main\b/.test(deployText), 'no checkout of "main" by name: that is the tip at run time');
+});
+
+test('a preview push never builds the live site: it keeps the last published `/` from gh-pages', () => {
+  for (const line of deployText.split('\n').filter((l) => /\bbuild live\b/.test(l) && !/^\s*#/.test(l) && !/build\(\)/.test(l))) {
+    assert.ok(/GITHUB_REF_NAME"?\s*=\s*'main'/.test(line), `\`build live\` outside a main-only condition: ${line.trim()}`);
+  }
+  assert.ok(/ref:\s*gh-pages/.test(deployText), 'the preview run checks out the published site');
+  assert.ok(/rsync -a --exclude \.git --exclude preview kept\/ site\//.test(deployText), 'and takes everything but the old preview from it');
+  assert.ok(!/live-dist/.test(deployText), 'no cache of a live build to rebuild or restore (a miss used to mean an ungated rebuild)');
+});
+
+test('only the deploy job tags a release, and only on main after the deploy succeeded', () => {
+  const taggers = [];
+  for (const f of readdirSync(DIR).filter((n) => /\.ya?ml$/.test(n))) if (/git tag\b|git push[^\n]*\$\{?TAG|git push origin "\$T"/.test(read(f))) taggers.push(f);
+  assert.deepEqual(taggers, ['pages.yml'], 'a workflow other than pages.yml tags releases (tag-release.yml tagged a build the gate had refused)');
+  const steps = stepsOf(deployText), tag = steps.find((s) => /git tag "/.test(s.text));
+  assert.ok(tag && /if:\s*github\.ref_name == 'main' && success\(\)/.test(tag.text), 'the tag step runs on main, after every earlier step succeeded');
+  assert.ok(steps.at(-1) === tag, 'and it is the last step');
+});
+
+test('every workflow pins a runner image', () => {
+  for (const f of readdirSync(DIR).filter((n) => /\.ya?ml$/.test(n))) assert.ok(!/runs-on:\s*ubuntu-latest/.test(read(f)), `${f} uses ubuntu-latest (AGENTS.md: workflows pin ubuntu-24.04)`);
+});
