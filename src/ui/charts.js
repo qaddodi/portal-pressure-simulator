@@ -352,7 +352,9 @@ export function createProfile() {
   const setForm = (strip) => {
     if (wasStrip !== null && strip !== wasStrip) faceOf(cv).animate?.(FADE_KEYS, FADE_OPTS);   // (a short fade as it changes form)
     wasStrip = strip;
-    setDisplay(legend, strip ? 'none' : '');   // (the strip draws no lines to key)
+    // (The strip draws no lines to key, so the legend hides, but it keeps its row: taking it out of the layout let the chart grow by it, a plot
+    // that then fit, the legend back, the chart shorter again, and the form flipped about 18 times a second, 19 Nov 2026.)
+    if (legend.style.visibility !== (strip ? 'hidden' : '')) legend.style.visibility = strip ? 'hidden' : '';
   };
   // The strip's kept columns: each station's reading as a number and as written, its name's width and its text's, its column's width and centre.
   const NS = STRIP.length;
