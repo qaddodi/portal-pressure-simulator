@@ -12,6 +12,14 @@ export const OUTLINE_ID = 'gallery-fit-outlines';
  * "shown before whole" finding may be only the entry itself (check again once it rests).
  */
 export function runCheck({ io, pps, oldRules = false, doc = document }) {
+  // (The shuffle's animations are off while the cards are read: each card is then read at its own size and place, not scaled and clipped as the card behind: card-shuffle.js.)
+  let sh = null;
+  try { sh = pps?.presenter?.shuffle?.() || null; } catch { sh = null; }
+  sh?.park();
+  try { return runCheckNow({ io, pps, oldRules, doc }); } finally { sh?.resume(); }
+}
+
+function runCheckNow({ io, pps, oldRules, doc }) {
   const els = new Map();
   const tio = { ...io, seen: (k, el) => { if (!els.has(k)) els.set(k, el); } };
   const env = { minPx: WORDS_MIN_PX }, opts = { oldRules };

@@ -208,3 +208,24 @@ test('a step with its own gate fails over it; unmet pressure and the rest gate a
   assert.equal(r2.summary.rest, 1);
   assert.match(r2.text, /REST \(before a path began[^]*before "Path a": 250 MB \(78%\)/);
 });
+
+test('errors are printed once per tag with the words the app caught and the first step they appeared on; owners over 5 MB and soft holders are named', async () => {
+  const tags = { n: 0 };
+  const { io } = rig({ errors: { two: 1, three: 2 } });
+  const base = io.read;
+  let step = null;
+  const orig = io.exec; io.exec = async (s) => { step = s.label; if (s.label === 'two') tags['gl:draw'] = { n: 1, last: 'INVALID_OPERATION: bindTexture ' + 'x'.repeat(300) }; if (s.label === 'three') { tags['gl:draw'].n = 2; tags['walker:x'] = { n: 1, last: 'boom' }; } return orig(s); };
+  io.errorTags = () => JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(tags).filter(([k]) => k !== 'n'))));
+  io.read = () => { const r = base(); return { ...r, owners: [{ owner: 'veins', mb: 150 }, { owner: 'tests', mb: 3 }], holders: step === 'three' ? [{ owner: 'veins', kind: 'warm', mb: 12.5 }] : [] }; };
+  const r = await runWalk([J('a', ['one', 'two', 'three'])], io, { envelope: { mb: ENV }, info: { steps: true } });
+  assert.match(r.text, /ERRORS COUNTED \(pps\.caught\): 3 on 2 steps, 2 distinct tags/);
+  const line = r.text.split('\n').find((l) => l.includes('gl:draw'));
+  assert.match(line, /"INVALID_OPERATION: bindTexture x+" \(2x on 2 steps\); first on a > two/);
+  assert.ok(line.length < 260, 'the words are cut at 160 characters');
+  assert.match(r.text, /walker:x: "boom" \(1x on 1 step\); first on a > three/);
+  assert.match(r.text, /SOFT HOLDERS[^]*a: veins warm 12\.5 MB/);
+  assert.match(r.text, /EVERY STEP[^]*\[a\][^]*1 one: \d+ MB \(.*\), 1\+1, veins 150/);
+  assert.ok(!/tests 3/.test(r.text), 'an owner under 5 MB is not named');
+  const quiet = await runWalk([J('a', ['one'])], rig().io, { envelope: { mb: ENV }, info: { steps: false } });
+  assert.ok(!/EVERY STEP/.test(quiet.text));
+});

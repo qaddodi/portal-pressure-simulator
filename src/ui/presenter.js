@@ -51,6 +51,7 @@ import { D_SMALL, D_SURFACE, EASE_ARRIVE, RISE_PX, cssCurve, easeArrive } from '
 import { glideOpacity, glideTranslate, glideStop, glideX, glideY } from './script-glide.js';
 import { signalMove } from './num-move.js';
 import { pageOn, followOf, pageIn, swipeHeld } from './card-page.js';
+import { createShuffle } from './card-shuffle.js';
 import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, throwOutNow, throwPinned, throwRelease, throwLanded, throwFade, RAIL_GAP, RAIL_MS, throwReach } from './card-throw.js';
 import { readAnims, readBox, readMetric, readStyle, readTiming, scrollInto } from './layout-snap.js';
 import { calmFrames, cardsLanded, createFrameGates } from './cover-lift.js';
@@ -235,6 +236,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     get procThenAt() { return procThenAt; }, set procThenAt(v) { procThenAt = v; },
     get procWait() { return procWait; }, set procWait(v) { procWait = v; },
   };
+  live.shuffle = createShuffle(live);   // (the words' card and the data card sharing one place on a screen too short for both: card-shuffle.js)
   // </stage-split live>
   const app = document.getElementById('app'), view = document.getElementById('stageView'), wrap = document.getElementById('stageWrap');
   let calc = null;
@@ -1971,6 +1973,39 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   wrap.addEventListener('touchend', (e) => { if (far && !e.touches.length) farLet('touchend'); }, { passive: true, capture: true });
   wrap.addEventListener('touchcancel', () => { if (far) farLet('touchcancel'); }, { passive: true, capture: true });
 
+  // ── Shuffle (an iPhone on its side, card-shuffle.js): a swipe up or down anywhere on the slide moves the two cards that share one place, following the finger;
+  // a tap on the strip of the card behind brings it forward. Only once the move is clearly up or down (cardSwipe); a sideways move stays the slide swipe, and a
+  // touch that starts on a control stays the control's (ownsTouch). ──
+  let shufT = null;
+  wrap.addEventListener('touchstart', (e) => {
+    const sh = live.shuffle;
+    if (!sh?.active() || !ui || e.touches.length !== 1 || caseOn(e) || ownsTouch(e.target.closest?.('canvas')?.parentElement ?? e.target, { stop: wrap })) { shufT = null; return; }   // (a picture drawn on a canvas is not a control here: the card's own drags are sideways)
+    const t = e.touches[0], behind = sh.front() === 'words' ? ui.data : ui.text;
+    shufT = { x: t.clientX, y: t.clientY, on: false, behind: behind.contains(e.target) || (behind === ui.text && ui.shade.contains(e.target)) };
+  }, { passive: true, capture: true });
+  wrap.addEventListener('touchmove', (e) => {
+    if (!shufT) return;
+    if (e.touches.length !== 1) { live.shuffle.touch('end', shufT.y, false); shufT = null; return; }
+    const t = e.touches[0];
+    if (!shufT.on) {
+      const k = cardSwipe(t.clientX - shufT.x, t.clientY - shufT.y);
+      if (k < 0) { shufT = null; return; }
+      if (!k) return;
+      shufT.on = true; sw = null;   // (up or down: not a slide change)
+      live.shuffle.touch('start', shufT.y, false);
+    }
+    live.shuffle.touch('move', t.clientY);
+    if (e.cancelable) e.preventDefault();
+  }, { passive: false, capture: true });
+  const shufEnd = (e) => {
+    if (!shufT) return;
+    const g = shufT; shufT = null;
+    if (g.on) live.shuffle.touch('end', g.y);
+    else if (g.behind && e.type === 'touchend') { live.shuffle.touch('start', g.y, true); live.shuffle.touch('end', g.y); }   // (a tap on the card behind)
+  };
+  wrap.addEventListener('touchend', shufEnd, { passive: true, capture: true });
+  wrap.addEventListener('touchcancel', shufEnd, { passive: true, capture: true });
+
   // ── A trackpad or wheel on a Mac works the slide as a finger does (Mohammad, 22 Oct): fingers up anywhere bring the stacked card's
   // fingers sideways go on or back, or throw a case card off that way. One action
   // a gesture, and a gesture lasts until the wheel goes quiet, the glide after the fingers lift included (swipe.js, wheelGesture); eased as
@@ -2260,7 +2295,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // Where the show is (for the preview pill's reload): the deck and the slide on screen, or the one it is moving to.
     position: () => (deck ? { id: deck.id, at: shown?.i ?? want } : null),
     // For the browser checks: straight to slide i (0-based) of the deck shown, as the arrow keys move.
-    go: (i) => go(i), count: () => slides.length, busy: () => busy, glass: () => ui?.glass ?? null, degraded: () => ({ ...degraded, clipped: [...degraded.clipped], now: ui?.root.dataset.pzDegraded || '' }), skipLapse: () => skipLapse(),   // (a time-lapse sped to its end, as Next does)
+    go: (i) => go(i), count: () => slides.length, busy: () => busy, shuffle: () => live.shuffle, glass: () => ui?.glass ?? null, degraded: () => ({ ...degraded, clipped: [...degraded.clipped], now: ui?.root.dataset.pzDegraded || '' }), skipLapse: () => skipLapse(),   // (a time-lapse sped to its end, as Next does)
     // What Settings shows while presenting.
     settings: () => ({ width: pzWidth, setWidth: setPanelWidth, contrast: hiCon, setContrast, stacked: phone() }),
     // For the browser checks: the time-lapse slides, and the card's tiles as the slide shown should read them at its start and end.
