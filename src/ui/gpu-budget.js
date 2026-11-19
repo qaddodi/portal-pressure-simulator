@@ -13,10 +13,10 @@
 
 import { onGLCall, glRec } from './gl-state.js';
 import { onFrameEnd } from './frame.js';
+import { flagOn } from './flags.js';
 
-const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
 // (With ?perf, each entry keeps the line of code that made it, so the readout names the biggest creators: a leak names itself.)
-const SITES = /[?&]perf\b/.test(SEARCH);
+const SITES = flagOn('perf');
 const siteOf = () => {
   const lines = String(new Error().stack || '').split('\n');
   for (const l of lines) if (/\.js/.test(l) && !/gpu-budget\.js|gl-state\.js/.test(l)) return l.trim().replace(/^at\s+/, '').replace(/\?v=[0-9a-f]+/g, '').replace(/^.*\/src\/ui\//, '').replace(/^.*\/(assets|dist)\//, '');

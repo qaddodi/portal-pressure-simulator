@@ -44,6 +44,13 @@ export function pageSources(pps, doc = document) {
       const seen = new Map();
       return d.panes.map((p) => [paneName(p.el, seen), p.x, p.y, p.w, p.h, p.a]);
     },
+    // (Does each slide card hold its words? Built children, read from the cards the presenter made, no layout; prep: the slide is still being fitted unseen. The card-empty and glass-before-words rules read it.)
+    words: () => {
+      const one = (c) => doc.getElementsByClassName(c)[0];
+      const bit = (e) => (e && e.childElementCount > 0 ? 1 : 0);
+      const root = one('pz');
+      return [bit(one('pz-text')), bit(one('pz-data')), bit(one('pz-panel')), root && root.classList.contains('pz-prep') ? 1 : 0];
+    },
     traces: () => (stage && stage.cameraTraces ? stage.cameraTraces() : null),
     vb: () => { const t = stage && stage.cameraTraces ? stage.cameraTraces() : null; return t && t.length ? t[t.length - 1].vb || null : null; },
     release: () => { try { region && region.remove && region.remove(); } catch { /* gone already */ } },

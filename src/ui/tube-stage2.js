@@ -6,6 +6,7 @@
 //     buffers and vertex arrays they are drawn from (the strip's vertices are the stage 1 strip's, the same buffers).
 // Nothing here allocates in a frame: the arrays are made on the first frame or when a binning (a geometry upload) needs more, each marked alloc-rare.
 import { tubeStripVS } from './tube-geo.js';
+import { flagOn, flagNumber, searchNow } from './flags.js';
 import { tubeWebVS, webIndex, WEB_FLOATS, WEB_FAR_TAPER } from './tube-joint.js';
 import { tubeLeanFS, tubeJoinDepthFS, TUBE_DEPTH_FS } from './tube-lean-glsl.js';
 import { tubeLumenFS } from './tube-lumen-glsl.js';
@@ -17,7 +18,7 @@ import { rowBoxes, rowBoxesFromSwept, rowsInside } from './tube-cull.js';
 export const STAGE2_PROGRAMS = ['tubeLean', 'tubeDepth', 'tubeWeb', 'tubeWebDepth', 'tubeJoinDepth'];
 
 /** The page's query, read once here (the other debug flags are read the same way, where they are used). */
-export const TUBE_QUERY = typeof location !== 'undefined' ? location.search || '' : '';
+export const TUBE_QUERY = searchNow();
 
 // (The three answers, kept: the choice is read each frame and makes nothing.)
 const STAGE_1 = { stage: 1, joins: 'patch' }, STAGE_2_WEB = { stage: 2, joins: 'web' }, STAGE_3 = { stage: 3, joins: 'web' };
@@ -151,16 +152,15 @@ export function createDepthStamp() {
 // The lumen pass shades every lumen pixel of its target with the blood shader, so its cost goes with the target's area. The target is a share of the vessel layer's size
 // (`lumenScale`); the pass draws into it with the layer's own mapping scaled (the view's matrix, the wrap's shifts and the pieces' scissors times the scale: lumenPiece), and the
 // compositor reads it filtered, masked by the vessel layer's own lumen at full size.
-const SCALE_Q = /[?&]lumenscale=([0-9.]+)(?=[&#]|$)/, OFF_Q = /[?&]lumen=off(?=[&#]|$)/;
 /** ?lumen=off: no lumen pass and no blood drawn by the Tube (a device A/B that proves or clears the lumen pass as the cap). */
-export const lumenOff = (query = TUBE_QUERY) => OFF_Q.test(query);
+export const lumenOff = (query = TUBE_QUERY) => flagOn('lumen', query);
 /**
  * The share of the vessel layer's size the lumen layer is made at: ?lumenscale=<0.25..1> for every instance, else the lobule 0.5, the figure 1 (0.67 on a phone: a coarse pointer and a
  * device pixel ratio of 3 or more). phone: that answer, read once by the caller.
  */
 export function lumenScale(who, phone, query = TUBE_QUERY) {
-  const m = SCALE_Q.exec(query), q = m ? parseFloat(m[1]) : NaN;
-  if (q >= 0.25 && q <= 1) return q;
+  const q = flagNumber('lumenscale', query);
+  if (q !== null && q >= 0.25 && q <= 1) return q;
   return who === 'lobule' ? 0.5 : phone ? 0.67 : 1;
 }
 /** The target's size for a layer of w x h at `scale`, into out [w, h]: ceil of each, at least 1; the full size at a scale of 1 or more. */

@@ -25,16 +25,17 @@ export function chunksFor(devices, decks, parts = 2) {
   return out.sort((a, b) => b.load - a.load);
 }
 
-/** What one slide's reads say, as lines "kind: words". `r` is the page's answer ({ main, held, back }); `judgeEdges` is edge-rules.js's. */
-export function slideProblems(r, judgeEdges) {
+/**
+ * What one slide's reads say, as lines "kind: words". `r` is the page's answer ({ main, held, back }), each a pps.gallery.check() result: its problems are the fit rules and the edge rules
+ * together (the page's own judging, src/ui/selfcheck/: this file judges nothing). `back` is the Shuffle with the instrument in front: only its edge findings are new there (the
+ * fit reads park the Shuffle, so they match the main state's).
+ */
+export function slideProblems(r) {
   const lines = [];
-  const add = (prefix, check, edges) => {
-    for (const p of check?.problems || []) lines.push(`${prefix}${p.kind}: ${p.text}`);
-    for (const t of judgeEdges(edges)) lines.push(`${prefix}${t}`);
-  };
-  if (r.held) add('[case card up] ', r.held.check, r.held.edges);
-  if (r.main) add('', r.main.check, r.main.edges);
-  if (r.back) for (const t of judgeEdges(r.back.edges)) lines.push(`[instrument in front] ${t}`);
+  const add = (prefix, check, keep = () => true) => { for (const p of check?.problems || []) if (keep(p)) lines.push(`${prefix}${p.kind}: ${p.text}`); };
+  if (r.held) add('[case card up] ', r.held.check);
+  if (r.main) add('', r.main.check);
+  if (r.back) add('[instrument in front] ', r.back.check, (p) => /^edge-/.test(p.kind));
   return [...new Set(lines)];
 }
 

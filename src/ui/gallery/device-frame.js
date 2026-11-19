@@ -3,6 +3,7 @@
 // (hover) and (pointer: coarse) answer as the Mac does, the pixel ratio is the Mac's, and the engine is the Mac browser's. One frame at a time, because
 // WebKit keeps about 16 WebGL contexts per page and each app instance uses several.
 //
+import { GALLERY_DEVICES } from '../devices.js';
 import { readBox } from '../layout-snap.js';
 
 // Pure helpers (no DOM) first, so a unit test loads this in node; bootFrame(doc, win) draws the page.
@@ -12,14 +13,7 @@ import { readBox } from '../layout-snap.js';
 //   fitScale(390, 844, 1200, 800)  ->  0.9 (the frame is drawn at 0.9 so the whole phone shows; the app inside still sees 390 x 844)
 
 /** The sizes a frame offers (css px). `turn` names the same device held the other way. */
-export const FRAME_DEVICES = {
-  iphone: { label: 'iPhone', w: 390, h: 844, turn: 'iphone-landscape', phone: true },
-  'iphone-landscape': { label: 'iPhone sideways', w: 844, h: 390, turn: 'iphone', phone: true },
-  ipad: { label: 'iPad landscape', w: 1180, h: 820, turn: 'ipad-portrait' },
-  'ipad-portrait': { label: 'iPad portrait', w: 820, h: 1180, turn: 'ipad' },
-  mac: { label: 'Mac', w: 1440, h: 900, turn: null },
-  'mac-short': { label: 'Mac short', w: 1440, h: 780, turn: null },
-};
+export const FRAME_DEVICES = Object.fromEntries(GALLERY_DEVICES.map((d) => [d.id, { label: d.label, w: d.w, h: d.h, turn: d.turn, ...(d.phone ? { phone: true } : {}) }]));   // (src/ui/devices.js)
 export const DEFAULT_FRAME = 'iphone';
 
 /** Whether the address asks for the outer frame page. */

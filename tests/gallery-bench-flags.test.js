@@ -69,9 +69,9 @@ test('flagState reads the forms the app reads', () => {
   assert.equal(s.testclock.value, '4');
   assert.equal(s.perf.value, null);
   assert.equal(s.inputs.on, false);
-  // (the app tests /offgpu=1/ and /budget=1/ only; a bare ?offgpu or ?offgpu=0 is off, and ?fps needs digits)
+  // (one spelling: a bare ?offgpu is ?offgpu=1, and =0 is off; ?fps needs digits)
   const t = flagState('?offgpu&budget=0&fps=fast&rest=on&lumenscale=big');
-  assert.deepEqual([t.offgpu.on, t.budget.on, t.fps.on, t.rest.on, t.lumenscale.on], [false, false, false, false, false]);
+  assert.deepEqual([t.offgpu.on, t.budget.on, t.fps.on, t.rest.on, t.lumenscale.on], [true, false, false, false, false]);
   assert.equal(flagState('?testclock').testclock.on, true);
   assert.equal(flagState('').perf.on, false);
   assert.equal(flagState('?perf2').perf.on, false);   // (a different word is not the flag)

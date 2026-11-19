@@ -14,6 +14,8 @@
 import { VIEW_KEYS, viewKey, setViewKey } from '../../store.js';
 import { frameFor, cancelFrame, frameCount, inChange } from '../../frame.js';
 import { deviceClass } from '../../gpu-budget.js';
+import { pageBusy } from '../../screen/settle.js';
+import { readAnims } from '../../layout-snap.js';
 import { benchRoot, h, statusLine, copyButton, ppsOf } from './ui.js';
 
 export const HOLD_MS = 500;        // motion-scale: not a move (a bench timing). a press this long loops the move
@@ -55,15 +57,8 @@ export function appMove(pps, cur, to) {
   return via;
 }
 
-/** Is the page still moving? pps is the app's controls (or a stand-in), changing is frame.js inChange(). Pure over what it is given. */
-export function isBusy(pps, changing = false) {
-  const st = pps?.stage;
-  if (changing) return true;
-  if (st?.gliding?.()) return true;
-  if (st?.lobuleSettled && st.lobuleSettled() === false) return true;
-  if (st?.lobuleGlide?.()) return true;
-  return !!pps?.presenter?.busy?.();
-}
+/** Is the page still moving? The motion half of the one probe (screen/settle.js pageBusy with no document): cheap enough to ask every frame. changing is frame.js inChange(). */
+export const isBusy = (pps, changing = false) => pageBusy(pps, null, { changing });
 
 /** A recorder for the zoom samples that allocates nothing per sample: two typed arrays of `max` frames (a move that long is a stuck one). */
 export function createZoomRecorder(max = 2400) {
@@ -136,7 +131,7 @@ export function createSettler(pps, { quietMs = QUIET_MS, pollMs = 50 } = {}) {
         end = () => done({ ok: false, cancelled: true });   // alloc-rare: once per tap or per finished move, never in a frame
         const poll = () => {   // alloc-rare: once per tap or per finished move, never in a frame
           const t = performance.now();
-          if (isBusy(pps, inChange())) lastBusy = t;
+          if (pageBusy(pps, typeof document === 'undefined' ? null : document, { anims: readAnims, changing: inChange() })) lastBusy = t;
           if (t - lastBusy >= quietMs) { done({ ok: true }); return; }   // alloc-rare: once per tap or per finished move, never in a frame
           if (t - t0 >= limitMs) { done({ ok: false }); return; }   // alloc-rare: once per tap or per finished move, never in a frame
           timer = setTimeout(poll, pollMs);

@@ -1,37 +1,37 @@
-// The Check action of the gallery page (plan 2.7): runs the shared fit rules (fit-rules.js) on whatever card is on the screen of the device in hand,
-// outlines each problem in red, and hands back a list to copy. No layout-snap import and no DOM at top level: the caller hands in the layout reads
-// (`io`, the page gives layout-snap.js's) and the document, so a unit test runs it with a fake page. It runs on a tap, never per frame.
-import { readCards, readStructureCard, judgeCards, judgeStructureCard, reportText, WORDS_MIN_PX } from './fit-rules.js';
+// The Check action of the gallery page (plan 2.7): runs the shared rules on whatever card is on the screen of the device in hand, outlines each problem in red, and hands back a
+// list to copy. Since 19 Nov 2026 (DBG-1/DBG-2, step 6 of the bible review's migration) the Check is a view of the one rule registry: it reads the cards the way every runner does
+// (screen/read-cards.js readCardsJudged) and asks `runRules` for the families 'fit' and 'edge'; it judges nothing itself, so what the Check names is what the Phone check, the packet and
+// the sweeps name. No layout-snap import and no DOM at top level: the caller hands in the layout reads (`io`, the page gives layout-snap.js's) and the document, so a unit test runs it
+// with a fake page. It runs on a tap, never per frame.
+import { reportText } from './fit-rules.js';
+import { readCardsJudged } from '../screen/read-cards.js';
+import { runRules } from '../selfcheck/rules.js';
+import '../selfcheck/rules-fit.js';
+import '../selfcheck/rules-edges.js';
 
 export const OUTLINE_ID = 'gallery-fit-outlines';
 
+/** The rule families the Check runs. */
+export const CHECK_FAMILIES = ['fit', 'edge'];
+
 /**
- * Reads the slide's cards (and the open structure card, if any), judges them, and names the element each problem is about.
+ * Reads the slide's cards (and the open structure card, if any), judges them with the registry's fit and edge rules, and names the element each problem is about.
  * io: { box, rects, style, metric, ctm }. pps: window.pps (its `card.el` and `presenter.busy()` are used when present).
- * Returns { problems: [{ kind, text, line, where, el }], busy, slide, structure }. `busy`: the presenter was still moving cards, so a
+ * Returns { problems: [{ kind, text, line, where, el }], busy, slide, structure }. `where` is 'slide', 'card' or 'edges'. `busy`: the presenter was still moving cards, so a
  * "shown before whole" finding may be only the entry itself (check again once it rests).
  */
-export function runCheck({ io, pps, oldRules = false, doc = document }) {
-  // (The shuffle's animations are off while the cards are read: each card is then read at its own size and place, not scaled and clipped as the card behind: card-shuffle.js.)
-  let sh = null;
-  try { sh = pps?.presenter?.shuffle?.() || null; } catch { sh = null; }
-  sh?.park();
-  try { return runCheckNow({ io, pps, oldRules, doc }); } finally { sh?.resume(); }
-}
-
-function runCheckNow({ io, pps, oldRules, doc }) {
+export function runCheck({ io, pps, families = CHECK_FAMILIES }) {
   const els = new Map();
   const tio = { ...io, seen: (k, el) => { if (!els.has(k)) els.set(k, el); } };
-  const env = { minPx: WORDS_MIN_PX }, opts = { oldRules };
-  const problems = [];
-  const deck = readCards(tio, env);
-  for (const p of judgeCards(deck, opts)) problems.push({ ...p, where: 'slide', el: els.get(p.kind === 'ratio' ? 'ratio' : p.text) || null });
-  const card = pps?.card?.el;
-  const sm = card && !card.hidden ? readStructureCard(tio, card, env) : null;
-  for (const p of judgeStructureCard(sm, opts)) problems.push({ ...p, where: 'card', el: els.get(['blank', 'cut', 'tall'].includes(p.kind) ? 'card' : p.text) || null });
+  const cards = readCardsJudged({ io: tio, pps });
+  const problems = runRules({ cards }, { families }).map((f) => {
+    const kind = f.kind || f.rule, where = f.scope || (f.rule.startsWith('edge-') ? 'edges' : 'slide');
+    const el = where === 'edges' ? null : els.get(kind === 'ratio' ? 'ratio' : ['blank', 'cut', 'tall'].includes(kind) && where === 'card' ? 'card' : f.where) || null;
+    return { kind, text: f.where, line: f.line, where, el };
+  });
   let busy = false;
   try { busy = !!pps?.presenter?.busy?.(); } catch { /* (no presenter: not busy) */ }
-  return { problems, busy, slide: deck.shown > 0, structure: !!sm };
+  return { problems, busy, slide: cards.fit.shown > 0, structure: !!cards.structure };
 }
 
 /** Removes the red outlines. */
