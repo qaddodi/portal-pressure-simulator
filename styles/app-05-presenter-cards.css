@@ -687,12 +687,12 @@
 [data-site="presin"] { --site: color-mix(in srgb, var(--tour-portal) 80%, var(--tour-sys)); }
 [data-site="sin"] { --site: color-mix(in srgb, var(--tour-portal) 60%, var(--tour-sys)); }
 [data-site="postsin"] { --site: color-mix(in srgb, var(--tour-portal) 40%, var(--tour-sys)); }
-/* Shuffle (19 Nov 2026, card-shuffle.js): the words' card and the data card share one place when a screen is too short for both. Each is moved by paused animations
-   the script scrubs (a transform added to its own, a clip that leaves its top strip while it is behind, and a veil, this ::after, that darkens it).
-   The one in front stands above the other: .pz-shuf-data (set on the page while the instrument is in front) flips the order as the two cross. */
-.pz.pz-shuf .pz-text::after, .pz-shade.pz-shuf::after, .pz.pz-shuf .pz-data::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--shade-ink); opacity: 0; pointer-events: none; }
-/* The strip of the card behind holds its edge and a handle, never a piece of a line (card-shuffle.js: the card's words and numbers are taken out while it is behind, its handle put in). */
-.pz.pz-shuf .pz-data::before, .pz-shade.pz-shuf::before { content: ''; position: absolute; left: 50%; top: 10px; width: 34px; height: 4px; margin-left: -17px; border-radius: 2px; background: color-mix(in srgb, var(--text) 38%, transparent); opacity: 0; pointer-events: none; }
+/* The wallet (19 Nov 2026, card-shuffle.js; it kept the Shuffle's class names): the words' card and the data card share one place when a screen is too short for both, each centred on the
+   screen, the one behind waiting at its foot with its top 48 px showing. Each is moved by a paused animation the script scrubs (a translateY added to its own transform, the opacity of its
+   words, the opacity of its strip's name). The strip holds the card's grab bar (::before) and its name (::after, from data-strip); the card's own words and numbers are taken out while it is behind.
+   The card coming forward stands above the other for the whole change: .pz-shuf-data (set on the page while the instrument is the one coming or in front) puts it there. */
+.pz.pz-shuf .pz-data::before, .pz-shade.pz-shuf::before { content: ''; position: absolute; left: 50%; top: 10px; width: 36px; height: 4px; margin-left: -18px; border-radius: 2px; background: color-mix(in srgb, var(--text) 38%, transparent); pointer-events: none; }
+.pz.pz-shuf .pz-data::after, .pz-shade.pz-shuf::after { content: attr(data-strip); position: absolute; left: var(--pz-cp, 18px); right: 44px; top: 22px; font: var(--caps-w, 700) 12px/1 var(--font-ui); letter-spacing: var(--caps-ls, .07em); text-transform: uppercase; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0; pointer-events: none; }
 .pz.pz-shuf .pz-text { z-index: 2; }
 .pz.pz-shuf .pz-data { z-index: 1; }
-.pz.pz-shuf.pz-shuf-data .pz-data { z-index: 3; }   /* (the words' card is 2: over the instrument while it leads, under it once it does) */
+.pz.pz-shuf.pz-shuf-data .pz-data { z-index: 3; }   /* (the words' card is 2: over the instrument while it comes, under it once the instrument does) */

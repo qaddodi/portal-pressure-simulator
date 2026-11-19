@@ -10,7 +10,7 @@ globalThis.cancelAnimationFrame = () => {};
 performance.now = () => T;
 const MOs = [];
 globalThis.MutationObserver = class { constructor(cb) { this.cb = cb; this.t = []; MOs.push(this); } observe(el) { this.t.push(el); } disconnect() { this.t = []; } };
-const { createShuffle, shufPose, shufPoseCss, shufKeyframes, SHUF } = await import('../src/ui/card-shuffle.js');
+const { createShuffle, shufPoseCss, shufFall, shufKeyframes, SHUF } = await import('../src/ui/card-shuffle.js');
 const ct = await import('../src/ui/card-throw.js');
 const tick = (ms) => { T += ms; const f = q; q = []; f.forEach((x) => x(T)); };
 
@@ -37,25 +37,24 @@ const rig = () => {
   return { live, sh, text, shade, data, root };
 };
 
-test('shufPoseCss is shufPose in percentages of the card\'s own box: the same top edge, the same slip, for any height and width', () => {
-  const num = /translate\(calc\((-?[\d.]+)% \+ (-?[\d.]+)px\), calc\((-?[\d.]+)px - (-?[\d.]+)%\)\) rotate\((-?[\d.]+)deg\) scale\((-?[\d.]+)\)/;
-  for (const card of ['words', 'data']) for (const p of [0, 0.2, 0.5, 0.8, 1]) for (const [h, w] of [[200, 300], [340, 520]]) {
-    const m = num.exec(shufPoseCss(card, p));
-    assert.ok(m, shufPoseCss(card, p));
-    const x = +m[1] / 100 * w + +m[2], ty = +m[3] - +m[4] / 100 * h, g = shufPose(card, p, h, SHUF.strip, w);
-    assert.ok(Math.abs(x - g.x) < 0.01, `${card} ${p}: x`);
-    assert.ok(Math.abs(ty - g.ty) < 0.01, `${card} ${p}: ty`);
-    assert.ok(Math.abs(+m[6] - g.s) < 1e-4, `${card} ${p}: scale`);
+test('shufPoseCss is shufFall in a share of the card\'s own box and one length: the same place at the foot for any height', () => {
+  const num = /^translateY\(calc\((-?[\d.]+)% \+ (-?[\d.]+)px\)\)$/;
+  const geo = { H: 393, pad: 24 };
+  for (const card of ['words', 'text', 'data']) for (const p of [0, 0.2, 0.5, 0.8, 1]) for (const h of [200, 264, 340]) {
+    const m = num.exec(shufPoseCss(card, p, geo));
+    assert.ok(m, shufPoseCss(card, p, geo));
+    const ty = +m[1] / 100 * h + +m[2], g = card === 'data' ? 1 - p : p;   // (g: how far toward the foot: the words' two layers go as p goes, the instrument's as 1 - p)
+    assert.ok(Math.abs(ty - shufFall(card, h, geo) * g) < 0.02, `${card} ${p} at ${h}`);
   }
+  // (the words' own box is two paddings shorter than the glass it stands on: its fall is the glass's, so both layers land at the same place)
+  const hGlass = 300, hWords = hGlass - 2 * geo.pad;
+  assert.ok(Math.abs(shufFall('words', hGlass, geo) - shufFall('text', hWords, geo)) < 1e-9);
 });
 
-test('the clip\'s foot is a share of the card\'s height: for any height it shows what shufPose says shows', () => {
-  const k = shufKeyframes('data');
-  const re = /^inset\((-?[\d.]+)px (-?[\d.]+)px calc\(\(100% - (\d+)px\) \* ([\d.]+) - ([\d.]+)px\) (-?[\d.]+)px round/;
-  for (const h of [150, 340, 600]) for (let i = 0; i <= SHUF.steps; i++) {
-    const m = re.exec(k.clip[i].clipPath), foot = (h - +m[3]) * +m[4] - +m[5], g = shufPose('data', i / SHUF.steps, h);
-    assert.ok(Math.abs(foot - (h - g.vis - 40 * g.f)) < 0.2, `h ${h} step ${i}`);
-  }
+test('the keyframes carry the pose, the contents\' opacity and the strip\'s name from behind (one end) to in front (the other)', () => {
+  const k = shufKeyframes('data', { H: 393, pad: 0 });
+  for (const list of [k.tf, k.ink, k.name]) { assert.equal(list.length, SHUF.steps + 1); assert.equal(list[0].offset, 0); assert.equal(list.at(-1).offset, 1); }
+  assert.match(k.tf[0].transform, /^translateY\(calc\(50\.000% \+ /); assert.equal(k.tf.at(-1).transform, 'translateY(calc(0.000% + 0.00px))');
 });
 
 test('a card thrown on a slide change keeps the Shuffle\'s pose: the throw composes it into its own transform, never drops it', () => {
@@ -65,7 +64,7 @@ test('a card thrown on a slide change keeps the Shuffle\'s pose: the throw compo
   assert.equal(sh.front(), 'data');
   ct.throwOut(text, 'next', 300); ct.throwOut(shade, 'next', 300); ct.throwOut(data, 'next', 300);
   tick(16); tick(16);
-  for (const [el, kind] of [[text, 'words'], [shade, 'words'], [data, 'data']]) {
+  for (const [el, kind] of [[text, 'text'], [shade, 'words'], [data, 'data']]) {
     const t = el.style.transform;
     assert.match(t, /^translateX\(-?[\d.]+px\) /, 'the throw\'s own translate first');
     assert.ok(t.endsWith(shufPoseCss(kind, 1)), `${kind}: and the shuffle's pose for this position after it: ${t}`);
@@ -75,7 +74,7 @@ test('a card thrown on a slide change keeps the Shuffle\'s pose: the throw compo
   // (landed out: the card behind is still behind at its pose, which its animation shows again when the throw lets go)
   ct.throwIn(text, 'next', 0);
   for (let i = 0; i < 6; i++) tick(16);
-  assert.ok(text.style.transform.endsWith(shufPoseCss('words', 1)), 'in, it keeps the pose too');
+  assert.ok(text.style.transform.endsWith(shufPoseCss('text', 1)), 'in, it keeps the pose too');
 });
 
 test('a card the Shuffle does not hold, or a Shuffle that is off, is thrown by its own translate alone', () => {
