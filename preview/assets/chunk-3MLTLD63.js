@@ -1,0 +1,1 @@
+var t=await fetch(new URL("./glyph-data-opsz-14438fb076.json",import.meta.url));if(!t.ok)throw new Error("glyph-data-opsz-14438fb076.json: "+t.status);var{GLYPHS_OPSZ:o,OPSZ_STOPS:a}=await t.json();export{o as GLYPHS_OPSZ,a as OPSZ_STOPS};

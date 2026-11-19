@@ -1,0 +1,1 @@
+var t=Object.freeze({none:1,stentNone:2,stasis:9,stasisOff:12,reversedQ:.12,reversedRel:.02,reversedThrough:.03,stillQ:.05,stillOffQ:.08,stillRef:.3,shuntLarge:.3,shuntModerate:.1,liverSevere:55,liverLow:75}),l=e=>Math.abs(e)<t.stillQ,r=(e,s)=>Math.abs(e)<(s?t.stillOffQ:t.stillQ);export{t as a,l as b,r as c};

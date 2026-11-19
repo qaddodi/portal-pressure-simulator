@@ -1,0 +1,1 @@
+var o=0,e=new Set,s=()=>{o++;for(let t of[...e])try{t()}catch(n){setTimeout(()=>{throw n})}};globalThis.document?.fonts?.addEventListener?.("loadingdone",s);var d=()=>o;function r(t){return e.add(t),()=>{e.delete(t)}}export{d as a,r as b};

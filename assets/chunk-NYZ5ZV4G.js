@@ -1,0 +1,1 @@
+import{h as u}from"./chunk-RXGX7OHJ.js";var d=240;function k(t){if(!(t>0))return 0;let e=Math.min(1,t/d);return u(e)}function O(t,e,i,h,m,n){let o=n/2,l=h-e,a=m-i,f=Math.max(1,Math.ceil(Math.hypot(l,a)/Math.max(.5,n*.45)));for(let r=0;r<=f;r++){let s=r/f;t.roundRect(e+l*s-o,i+a*s-o,n,n,o)}}var y=()=>({v:void 0,s:""});export{k as a,O as b,y as c};

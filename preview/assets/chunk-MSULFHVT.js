@@ -1,0 +1,6 @@
+function c(t,o){let n=String(t??"");if(n.length<=o)return n;let r=n.slice(0,Math.max(0,o-1)),e=Math.max(r.lastIndexOf(`
+`),r.lastIndexOf(" "));return`${(e>o*.5?r.slice(0,e):r).trimEnd()}\u2026`}var p=(t,o)=>`${o+1}. ${t.rule}: ${String(t.what??"").replace(/\s+/g," ").trim()}${t.where?`, ${String(t.where).replace(/\s+/g," ").trim()}`:""}`;function $(t,{max:o=1800}={}){let n=(t?.findings||[]).filter(s=>s&&s.rule),r=n.length?`Self-checks on this screen: ${n.length} finding${n.length===1?"":"s"}`:"Self-checks on this screen: nothing named",e=[r],l=r.length,h=0;for(let[s,u]of n.entries()){let g=c(p(u,s),240),a=`
+\u2026 and ${n.length-s-1} more in the full report`;if(l+1+g.length+(s<n.length-1?a.length:0)>o)break;e.push(g),l+=1+g.length,h++}h<n.length&&e.push(`\u2026 and ${n.length-h} more in the full report`);let i=t?.health||{};return i.errors&&e.push(`Caught errors: ${i.errors}`),c(e.join(`
+`),o)}var f=t=>encodeURIComponent(t).length;function M(t,o="",{maxEncoded:n=6e3}={}){let r=(i,s)=>s?`${i}
+
+${s}`:i,e=r(t,o);if(f(e)<=n)return e;let l=o;for(;l&&f(r(t,l))>n;)l=l.length<40?"":c(l,Math.floor(l.length*.8));e=r(t,l);let h=t;for(;f(e)>n&&h.length>200;)h=c(h,Math.floor(h.length*.85)),e=r(h,l);return e}export{$ as a,M as b};
