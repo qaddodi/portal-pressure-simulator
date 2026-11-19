@@ -48,7 +48,6 @@ const EXE = process.env.CHROMIUM || (existsSync('/opt/pw-browsers/chromium') ? '
 const STUB = `(() => { for (const C of [window.WebGL2RenderingContext]) { if (!C) continue; const P = C.prototype; for (const k of ['drawArrays', 'drawElements', 'drawArraysInstanced', 'drawElementsInstanced', 'drawRangeElements', 'clear', 'blitFramebuffer']) if (P[k]) P[k] = function () {}; } })();`
   + (FAST ? 'window.ppsLayoutOnly = true;' : '');
 
-const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
 const withTimeout = (p, ms, what) => { let t; return Promise.race([p, new Promise((_, no) => { t = setTimeout(() => no(new Error(`${what} took more than ${Math.round(ms / 1000)} s`)), ms); })]).finally(() => clearTimeout(t)); };
 
 const decks = DECKS.filter((d) => WANT[0] === 'all' || WANT.includes(d.id));
@@ -60,7 +59,7 @@ const results = {};
 
 const bootFor = async (device) => {
   const s = SIZES[device];
-  const app = await openApp({ device, theme: 'light', query: `gallery&testclock=${RATE}${FAST ? '&testframe=100' : ''}&look=light`, url: server.url, dir: DIR, browser, initScript: STUB, dpr: 1, timeout: 120000 });
+  const app = await openApp({ device: device === 'mac-short' ? 'mac' : device, theme: 'light', query: `gallery&testclock=${RATE}${FAST ? '&testframe=100' : ''}&look=light`, url: server.url, dir: DIR, browser, initScript: STUB, dpr: 1, timeout: 120000 });
   await app.page.setViewportSize({ width: s.w, height: s.h });
   await app.page.waitForFunction(() => !!window.pps?.gallery?.slide, null, { timeout: 120000 });
   return app;
