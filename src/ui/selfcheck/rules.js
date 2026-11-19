@@ -19,7 +19,7 @@
 //   RULES      the list of { id, owner, why, kind }, live (the same array registerRule adds to)
 //   ruleList() / ruleIds() / clashes() / rulesOwning(file)
 //
-// Every rule ships with a unit test with a case that must not fire (tests/helpers/selfcheck.js: fires(), quiet()). A rule that fires wrongly wastes as much agent
+// Every rule ships with a unit test with a case that must not fire (tests/selfcheck-helpers.js: fires(), quiet()). A rule that fires wrongly wastes as much agent
 // time as no rule. Modules register themselves when imported; selfcheck/plugins.js lists them (one import line each).
 
 const rules = new Map(), clash = [];

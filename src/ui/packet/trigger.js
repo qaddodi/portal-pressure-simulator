@@ -1,5 +1,5 @@
 // The three ways to ask "What's wrong here?" in the app (preview copy only, never the live site): a chord on a keyboard, a long press on the orange PREVIEW pill on a
-// phone, and `pps.packet.open()` (the gallery's Tools button calls it; so can a console or a headless run). Loaded lazily by main.js, with ?pkt applied after boot.
+// phone, and `pps.packet.open()` (the gallery's Tools button calls it; so can a console or a headless run). Loaded lazily by main.js, with the state link's extras (the `x` of its #s= payload) applied after boot.
 //
 //   Alt+Shift+/   (Option+Shift+? on a Mac): Shift+? alone is the keyboard-shortcuts help, so the chord adds Alt.
 //   hold the pill 0.7 s, or Settings > What's wrong here? (no gesture needed): the packet sheet; a short tap still reloads onto the newest build, as before.

@@ -1,4 +1,4 @@
-// The one browser check, on request only ([smoke] in a commit message, or the Actions tab: checks.yml). Never before a push.
+// The one browser check: gates the `main` deploy (pages.yml), runs in ci.yml, and on request from the Actions tab (checks.yml). Never before a push.
 // It asks only "does the built app start and open?", on the GPU path (software WebGL named as a GPU, since CI has no graphics card):
 //
 //   static   no conflict marker; the app and the worker bundle (scripts/gate-static.mjs)                       ~1 s
