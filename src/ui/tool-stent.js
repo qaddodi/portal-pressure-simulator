@@ -22,7 +22,7 @@ import { frameFor, cancelFrame, frameAnimating, easeNow } from './frame.js';
 import { createSvgGL, svgModel, setWords, setGeo, setPts, setPolys } from './svg-gl.js';
 import { flattenPath } from './shape-gl.js';
 import { stentCutD, bareOf } from './stent-mesh.js';
-import { restPass } from './rest-pass.js';
+import { restPass, cancelRest } from './rest-pass.js';
 import { reduceMotionMQ } from './motion.js';
 import { easeArrive } from './ease.js';
 import { FOLLOW_JUMP, FOLLOW_LONE, FOLLOW_STREAM_MS, FOLLOW_MIN_MS, FOLLOW_MAX_MS, FOLLOW_GAP0, FOLLOW_GLIDE_MS } from './tool-lumen.js';
@@ -592,9 +592,13 @@ export function createStent() {
       glL.relook(); glT?.relook(); glB.relook();
     }
   };
-  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fitAll) : null;
+  // (The observer only asks: fitAll writes the stages' aspect ratios, which resizes the very boxes it watches, and a write inside the observer's own callback is what the browser reports as
+  // "ResizeObserver loop completed with undelivered notifications", the error the iPhone's Phone check named on the stent editor. The fit runs in the next rest pass, once, however many resizes asked.)
+  let fitAsk = 0;
+  const fitSoon = () => { if (!fitAsk) fitAsk = restPass(() => { fitAsk = 0; if (el.isConnected) fitAll(); }); };
+  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fitSoon) : null;
   ro?.observe(stageL); ro?.observe(stageB);
-  const dispose = () => { ro?.disconnect(); if (raf) cancelFrame(raf); raf = 0; animating(false); glL.dispose?.(); glT?.dispose?.(); glB.dispose?.(); };
+  const dispose = () => { ro?.disconnect(); if (fitAsk) cancelRest(fitAsk); fitAsk = 0; if (raf) cancelFrame(raf); raf = 0; animating(false); glL.dispose?.(); glT?.dispose?.(); glB.dispose?.(); };
   return {
     el, configure, dispose,
     /** The card's shape as it is now: its width over the height of what it shows (the side view and the chart under it, in the pictures' own units). Moves with the words' size. */

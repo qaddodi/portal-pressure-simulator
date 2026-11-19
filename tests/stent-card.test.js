@@ -484,3 +484,22 @@ test('the veins\' names stand under their stubs, never behind the flow arrow, at
     assert.ok(o.nameY + fs * 0.55 < o.h, `fs ${fs}: inside the picture`);
   }
 });
+
+test('the stent card\'s resize observer only asks: it writes nothing inside its own callback (the browser\'s "ResizeObserver loop completed with undelivered notifications", Phone check 19 Nov 2026)', async () => {
+  const { card, doc } = await made();
+  let cb = null;
+  globalThis.ResizeObserver = class { constructor(f) { cb = f; } observe() {} disconnect() {} };
+  const { createStent } = await import('../src/ui/tool-stent.js');
+  const fresh = createStent();
+  doc.body.append(fresh.el);
+  assert.ok(cb, 'the card watches its pictures');
+  const stage = [...fresh.el.querySelectorAll('*')].filter((x) => x.style && x.style.aspectRatio !== undefined);
+  const before = stage.map((x) => x.style.aspectRatio);
+  Object.defineProperty(doc.defaultView.HTMLElement.prototype, 'offsetWidth', { configurable: true, get() { return 340; } });
+  try {
+    cb([]);
+    assert.deepEqual(stage.map((x) => x.style.aspectRatio), before, 'nothing is written while the observer is delivering');
+    for (let i = 0; i < 20 && stage.map((x) => x.style.aspectRatio).join() === before.join(); i++) await new Promise((r) => setTimeout(r, 10));
+    assert.notDeepEqual(stage.map((x) => x.style.aspectRatio), before, 'the fit follows, in a pass of its own');
+  } finally { delete doc.defaultView.HTMLElement.prototype.offsetWidth; fresh.dispose?.(); card.dispose?.(); }
+});

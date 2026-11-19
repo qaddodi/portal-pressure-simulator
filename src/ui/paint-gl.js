@@ -923,7 +923,7 @@ export function createPaintGL(gl) {
       putState(st);
     }
     clearTimeout(freeT); freeT = setTimeout(release, WARM_MS);   // (R08: kept warm through the next slide's paints)
-    if (res) { if (warmHold?.held) warmHold.touch(); else warmHold = hold({ owner: 'paint-gl', kind: 'warm', bytes: resBytes, release, gl }); }   // alloc-rare: only on the first picture of a warm period, when the painter's targets are first held
+    if (res) { if (warmHold?.held) warmHold.touch(); else warmHold = hold({ owner: 'paint-gl', kind: 'warm', soft: true, bytes: resBytes, release, gl }); }   // alloc-rare: only on the first picture of a warm period, when the painter's targets are first held
     return job.done;
   }
   /** Gives back what an unfinished job holds (a picture no longer wanted). */

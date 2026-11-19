@@ -1145,11 +1145,19 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // held in the render graph's budget (gpu-budget.js): while the graph is over its memory envelope it is given back whole, and the next
   // dive builds it again, as its first ever did. Never while the lobule is open.
   let keptH = null, keptT = 0;
-  const KEPT_MS = deviceClass() === 'phone' ? 12000 : 90000;   // (a phone keeps what a visit left for 12 s, not 90: its envelope holds one visit's pictures and little else, 19 Nov 2026)
+  const KEPT_MS = deviceClass() === 'phone' ? 3000 : 90000;   // motion-scale: not a move (how long bitmaps are kept); (a phone keeps what a visit left for 3 s, not 90: its envelope holds one visit's pictures and little else, and its idle preparation has no room to make them again ahead of a dive anyway, 19 Nov 2026)
   // motion-scale: not a move (how long bitmaps are kept); (how long out of the lobule before the bitmaps it kept are given back)
   function keptHold() {   // alloc-rare: once per close of the lobule
     if (keptH?.held) { keptH.touch(); return; }
-    keptH = hold({ owner: 'lobule kept', kind: 'retained', soft: true, bytes: () => ownerBytes('lz-canvas'), release: keptRelease });
+    keptH = hold({ owner: 'lobule kept', kind: 'retained', soft: true, bytes: keptBytes, release: keptRelease });
+  }
+  // What the visit left, as the registry would count it: the lz canvases' own contexts, and the pictures hosted in the vessels' context (a recorded picture put on the GPU, 4 bytes a texel and a third more for its mips).
+  // Hosted, the canvases own nothing in the registry, so this holder used to read 0 and the budget (room() skips a holder that holds nothing) never asked it to give anything back.
+  const picBytes = (cv) => (cv && (cv.gpuPicture === true || cv.tileCopy === true) && cv.width ? cv.width * cv.height * 5.4 : 0);
+  function keptBytes() {   // alloc-rare: read by the budget's twice-a-second look while the holder is held
+    let b = ownerBytes('lz-canvas') + picBytes(worldCv) + picBytes(worldOld);
+    for (const tiles of tileSets.values()) for (const q of tiles) b += picBytes(q.cv) + picBytes(q.quietG?.cv) + picBytes(q.liverG?.cv);
+    return b;
   }
   function keptRelease(timed = false) {   // (timed: after a while out of the lobule; the idle preparation does not draw it again until the next visit asks)
     keptH = null;

@@ -78,3 +78,22 @@ test('the HVPG deck from slide 4 to slide 6: the tip, the lobule and its wash, t
     rig.st.setCamera({ k: 1, x: 0, y: 0 }, 300); await rig.run(250, `round ${round} fit`);
   }
 });
+
+test('the lobule in and out again and again: the figure gives back what the visit left within seconds, and a visit does not leave more than the one before', { timeout: 280000 }, async () => {
+  rig.st.setCamera({ k: 1, x: 0, y: 0 }, 300); await rig.run(300, 'fit');
+  await rig.run(1500, 'settle'); const boot = rig.report().nowMB;
+  const after = [], peaks = [];
+  for (let i = 0; i < 5; i++) {
+    rig.start();
+    await rig.view('lobule', 300);
+    rig.setViewKey('anatomy'); await rig.run(60, `visit ${i} out`);
+    await rig.run(420, `visit ${i} 8 s out`);
+    after.push(rig.report().nowMB); peaks.push(rig.report().peakMB);
+    assert.equal(rig.report().unmetMB, 0, said(rig.report()));
+  }
+  const r = rig.report();
+  // (Phone Check, 19 Nov 2026: the figure's one context, "veins", read 117 MB above where a path began after the views path and kept growing over a patient's presets and lobule entries.)
+  for (const [i, mb] of after.entries()) assert.ok(mb <= boot * 1.25 + 2, `visit ${i}: 8 s after leaving the lobule the page holds ${mb} MB, boot ${boot} MB (${r.owners.join(', ')}; ${r.holders.join(', ')})`);
+  assert.ok(Math.max(...after) - Math.min(...after) <= 6, `visits leave different amounts: ${after.join(', ')} MB`);
+  assert.ok(Math.max(...peaks) <= env * 0.9, `a visit's peak was ${Math.max(...peaks)} MB of ${env}`);
+});

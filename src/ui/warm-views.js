@@ -6,8 +6,9 @@
 //     and the next one reuse them;
 //   - scratch targets are made in size buckets (bucket()), so a picture a few pixels larger reuses the one there instead of making
 //     another. Clearing content never deletes capacity; a lost context still drops every handle (a restored one makes them afresh).
+import { deviceClass } from './gpu-budget.js';
 export const WARM_VIEWS = true;   // (switch deleted; kept for stage.js until its own pass)
 /** How long a view out of sight keeps its GPU targets (ms). */
-export const WARM_MS = 12000;
+export const WARM_MS = deviceClass() === 'phone' ? 4000 : 12000;   // (a phone's envelope holds one view's targets and little else: 4 s, so a quick Lobule → Anatomy still makes nothing again, and a visit is gone before the next step, 19 Nov 2026)
 /** A size rounded up to its bucket (256 px steps). */
 export const bucket = (n) => Math.ceil(n / 256) * 256;
