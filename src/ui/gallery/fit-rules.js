@@ -27,6 +27,8 @@
 //
 // No DOM import at top level: a unit test loads this in node.
 import { TITLE_RATIO, WORDS_MIN_PX } from '../card-type.js';
+import { PHONE_TITLE_RATIO, RATIO_TOLERANCE, BLANK_MAX, SHEET_SHORT_MAX, wording } from '../selfcheck/limits.js';
+export { PHONE_TITLE_RATIO, RATIO_TOLERANCE, BLANK_MAX, SHEET_SHORT_MAX };
 import { EDGE_KINDS, EDGE_WORDS } from './edge-rules.js';
 
 export { TITLE_RATIO, WORDS_MIN_PX };
@@ -40,8 +42,8 @@ export const KIND_WORDS = {
   scroll: 'words run past the card',
   clipped: 'a word is cut by its box',
   off: 'text stands partly off the screen',
-  small: 'lettering under 12 px',
-  ratio: 'the title is under 1.4 times the words',
+  small: wording.small,
+  ratio: wording.ratio,
   sideways: 'something in the card scrolls sideways',
   styled: 'the card showed before it was whole',
   chart: 'a word of a chart stands outside its box',
@@ -67,6 +69,7 @@ export const PRESENTER_CARDS = ['.pz-text', '.pz-data', '.pz-panel'];
  */
 export function readCards(io, env) {
   const minPx = (env && env.minPx) || 12;
+  const shuffleMin = (env && env.shuffleMinPx) || 0;   // (the Shuffle's tall instrument card may go lower, the owner's 18 Nov decision in selfcheck/limits.js; 0 when the cards do not share a place)
   const cards = ['.pz-text', '.pz-data', '.pz-panel'];
   const cardSel = cards.join(',');
   const seen = io.seen || (() => {});
@@ -108,7 +111,8 @@ export function readCards(io, env) {
     // (Lettering under the floor, on a card and in view: the smallest first.)
     if (inView && el.closest(cardSel)) {
       const px = screenPx(el);
-      if (px && px < minPx - 0.05) { const t = `${name(el)} "${words(el, 30)}" ${px.toFixed(1)} px`; small.push([px, t]); seen(t, el); }
+      const floor = shuffleMin && el.closest('.pz-data') ? shuffleMin : minPx;
+      if (px && px < floor - 0.05) { const t = `${name(el)} "${words(el, 30)}" ${px.toFixed(1)} px`; small.push([px, t]); seen(t, el); }
     }
   }
   small.sort((a, b) => a[0] - b[0]);
@@ -263,9 +267,7 @@ export function readStructureCard(io, card, env) {
 const P = (kind, text) => ({ kind, text, line: `${kind}: ${text}` });
 
 /** The least ratio of title to words that passes (a hair under TITLE_RATIO: sizes are measured to a tenth of a pixel). */
-export const RATIO_TOLERANCE = 0.02;
 /** A phone's stacked or sideways slide (1.45 and 1.4 times the role sizes: a 23.2 px title over a 17.4 px body, 1.33) may stand at 1.3: Mohammad, 19 Nov 2026, "1.33 is OK if text needs more space". */
-export const PHONE_TITLE_RATIO = 1.3;
 
 /** The problems of a readCards result, as { kind, text, line }. */
 export function judgeCards(r, opts = {}) {
@@ -296,7 +298,6 @@ export function judgeZoom(z, rest, how) {
 }
 
 /** Empty glass allowed above the first line or below the last of a structure card (its own padding is 14 and 12). */
-export const BLANK_MAX = 24;
 
 /** The problems of a readStructureCard result (null: no card, nothing to judge). */
 export function judgeStructureCard(m, opts = {}) {
@@ -332,7 +333,6 @@ export function readSheet(io) {
 }
 
 /** How far a sheet's top may stand below the top bar's foot while its words scroll (a sheet that scrolls has used the room; this is the gap). */
-export const SHEET_SHORT_MAX = 40;
 
 /**
  * The problems of a readSheet result (null: no sheet). A sheet that scrolls while it stops short of the room is a sheet that could have been taller (the tester at 390 x 844, 18 Nov 2026: Treat at 405 px with

@@ -7,8 +7,10 @@
 //   npm run debug -- model ...                                       the model's numbers (scripts/model-cli.mjs; docs/model-cli.md)
 //   npm run debug -- sweep decks|specimens|turns [--layout-only] ... the headless layout sweeps, GL stubbed (deck-sweep, gallery-sweep, rotate-sweep; scripts/headless.mjs)
 //   npm run debug -- rules [--family fit] [--json]                   every self-check rule with its owner file and why
+//   npm run debug -- limits                                          the owner's standing numbers the judges hold the screen to (12 px, 1.4x, the Shuffle's 10 px ...)
 //   npm run debug -- flags                                           every address flag, where it works and what it does
 //   npm run debug -- scan                                            node-only scans: off-GPU, wording, source shapes
+//   npm run debug -- doc [--check]                                   regenerate (or check) the tables of docs/debug.md from the rules, limits and flags
 //   npm run debug -- affected                                        the gallery links a change touches (scripts/gallery-affected.mjs)
 //
 // `--print` after the verb shows the command it would run and runs nothing. Every sweep runs here in the container: never on Actions runners (owner, 18 Nov 2026).
@@ -31,6 +33,7 @@ export function plan(verb, args) {
     case 'report': return [{ file: 'report.mjs', args }];
     case 'model': return [{ file: 'model-cli.mjs', args }];
     case 'affected': return [{ file: 'gallery-affected.mjs', args }];
+    case 'doc': return [{ file: 'debug-doc.mjs', args }];
     case 'sweep': {
       const [kind, ...more] = args;
       const file = { decks: 'deck-sweep.mjs', specimens: 'gallery-sweep.mjs', turns: 'rotate-sweep.mjs' }[kind];
@@ -52,6 +55,12 @@ async function showRules() {
   if (args.includes('--json')) { console.log(JSON.stringify(list, null, 1)); return 0; }
   console.log(`${list.length} rule${list.length === 1 ? '' : 's'}${fam ? ` in family ${fam}` : ''} (id, kind, owner: why)\n`);
   for (const r of list) console.log(`${r.id.padEnd(30)} ${r.kind.padEnd(7)} ${r.owner}: ${r.why}`);
+  return 0;
+}
+async function showLimits() {
+  const { LIMITS } = await import('../src/ui/selfcheck/limits.js');
+  if (args.includes('--json')) { console.log(JSON.stringify(LIMITS, null, 1)); return 0; }
+  for (const l of LIMITS) console.log(`${l.id.padEnd(20)} ${String(l.value).padEnd(6)} ${l.unit.padEnd(22)} since ${l.since}\n  ${l.rule}\n  Exceptions: ${l.exceptions}`);
   return 0;
 }
 async function showFlags() {
@@ -77,6 +86,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   let code;
   if (verb === 'rules') code = await showRules();
   else if (verb === 'flags') code = await showFlags();
+  else if (verb === 'limits') code = await showLimits();
   else if (verb === 'help' || verb === '--help' || !verb) code = help();
   else {
     const steps = plan(verb, args);

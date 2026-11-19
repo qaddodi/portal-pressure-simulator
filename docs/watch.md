@@ -2,6 +2,8 @@
 
 Step 2c of `/mnt/project-files/card-gallery-plan/screen-report-recs.md`. Preview copy (or a local run) only; off without `?watch`; the debug page (`/preview/?debug`) starts it by default. Its pop rules (`card-pop`, `card-size-snap`, `glass-before-words`, `card-empty`, 19 Nov 2026) judge the drawn cards and whether they hold words; they have not yet been tuned on a real device.
 
+> **Unverified on a device (19 Nov 2026).** The recorder has been exercised only in Node and in the layout-only run; its sources (`labelDrawnBy`, the glass region's `drawn()`, the words bit) are read as the code documents them, not seen live. The first real `?debug` or `?watch` run on a phone or Mac is the test of the sources, and of every threshold below. Until then, a packet that says "0 motion findings" means no rule fired on what the recorder saw, not that nothing popped.
+
 Open `/preview/?watch`. Use the app. When a motion rule fails, a small red dot with a count appears at the bottom left. Tap it for the findings
 (rule, what and where, why, the file that owns it). **Copy** puts the findings and the last 10 seconds of history on the clipboard.
 

@@ -119,7 +119,7 @@ export async function startGallery({ pps = window.pps, root = document } = {}) {
     check: () => runCheck({ io: IO, pps }),
     words: () => readWords(IO), boxes: () => readBoxes(IO), edges: () => readEdges(IO),
     size: () => ({ w: readMetric(window, 'innerWidth'), h: readMetric(window, 'innerHeight') }),
-    affected: async () => { const r = await fetch(new URL('gallery-affected.json', location.href)); if (!r.ok) throw new Error('no gallery-affected.json beside the page: sweep=affected needs the build to write it'); return r.json(); },
+    affected: async () => { const r = await fetch(new URL('gallery-affected.json', location.href)); if (!r.ok) throw new Error('no gallery-affected.json beside the page: sweep=affected has no list on this build (a deploy does not know the push). Use the sweep=ids:... link under the push message: `npm run gallery:affected` prints it'); return r.json(); },
   });
   if (pps) pps.gallery = api;
   const ctx = {

@@ -149,3 +149,20 @@ test('the summary counts by kind and size, lists what did not open, and names ev
   assert.match(text, /hvpg slide 4 on iphone-landscape: did not settle/);
   assert.match(text, /hvpg slide 3 \(shuffle\):/);
 });
+
+// ── the cross-slide body rule ──
+import { addBodyShrink } from '../scripts/deck-sweep-lib.mjs';
+test('body-shrink: a slide whose body stands under the device\'s usual size is named; a rounding step, a few slides and a failed open are not', () => {
+  const rec = (n, body, device = 'iphone', extra = {}) => [`d#${n}@${device}`, { deck: 'd', slide: n, device, ok: true, body, problems: [], ...extra }];
+  const results = Object.fromEntries([...[1, 2, 3, 4, 5, 6].map((n) => rec(n, 17.4)), rec(7, 13.9), rec(8, 17.2), rec(9, 0), rec(10, 10, 'iphone', { ok: false })]);
+  const added = addBodyShrink(results);
+  assert.deepEqual(added.map((a) => a.key), ['d#7@iphone']);
+  assert.match(results['d#7@iphone'].problems[0], /^body-shrink: the words stand at 13\.9 px; this device's other slides stand at 17\.4 px/);
+  assert.deepEqual(results['d#8@iphone'].problems, [], '0.2 px is rounding');
+  assert.deepEqual(results['d#9@iphone'].problems, [], 'no body on the slide (a table, an outline) is not a shrink');
+  assert.deepEqual(addBodyShrink(results), [], 'twice adds nothing');
+  const few = Object.fromEntries([rec(1, 17.4), rec(2, 13.9)]);
+  assert.deepEqual(addBodyShrink(few), [], 'two slides do not make a usual size');
+  const two = Object.fromEntries([...[1, 2, 3, 4, 5].map((n) => rec(n, 17.4, 'mac')), ...[1, 2, 3, 4, 5].map((n) => rec(n, 13.9, 'iphone'))]);
+  assert.deepEqual(addBodyShrink(two), [], 'each device is its own size: a phone is not held to the laptop');
+});

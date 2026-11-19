@@ -62,7 +62,7 @@ before a push (`docs/tube-renderer.md`); every other headless run stays off.
 
 **Layout-only runs open the app through `scripts/headless.mjs` (19 Nov 2026).** Its `launchLayout()` / `open()` stub every GL draw, take no picture (`page.screenshot` throws) and are the only way the deck sweep,
 the gallery sweep, the turn sweep, the packet replay and `card-fit` start a browser; `tests/headless-only.test.js` fails a runner that imports the picture tool's `openApp` or pastes its own stub. Pictures stay in `scripts/shoot.mjs`.
-Every debug tool ends with one report block (`docs/report.md`); `node scripts/report.mjs show|compare <paste>` reads it. `npm run debug` lists every debug verb (packet, report, model, sweep, rules, flags, scan, affected).
+Every debug tool ends with one report block (`docs/report.md`); `node scripts/report.mjs show|compare <paste>` reads it. `npm run debug` lists every debug verb (packet, report, model, sweep, rules, limits, flags, scan, affected, doc). The one guide to all of it, for the owner and for agents, is `docs/debug.md` (its tables are generated: `npm run debug -- doc`).
 
 ## Questions about the model's numbers (use the terminal model command)
 

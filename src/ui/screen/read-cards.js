@@ -9,6 +9,7 @@ import { WORD_ROOTS, readWords, readBoxes } from '../gallery/readers.js';
 import { readCards, readStructureCard, readSheet, WORDS_MIN_PX } from '../gallery/fit-rules.js';
 import { readEdges, compactEdges } from '../gallery/edge-rules.js';
 import { box4, r1, r2, CARD_KINDS } from './util.js';
+import { SHUFFLE_MIN_PX } from '../selfcheck/limits.js';
 
 export { CARD_KINDS };
 
@@ -97,9 +98,11 @@ export function readCardsJudged({ io, pps, minPx = WORDS_MIN_PX }) {
   try { sheet = readSheet(io); } catch { /* (no sheet to read on a page that cannot be walked) */ }
   let sh = null;
   try { sh = pps?.presenter?.shuffle?.() || null; } catch { sh = null; }
+  let shared;
+  try { shared = !!sh?.active?.(); } catch { shared = false; }   // (the two cards share one place: the instrument card is the tall one that may go to SHUFFLE_MIN_PX)
   sh?.park();
   try {
-    const fit = readCards(io, { minPx });
+    const fit = readCards(io, { minPx, shuffleMinPx: shared ? SHUFFLE_MIN_PX : 0 });
     const el = pps?.card?.el;
     const structure = el && !el.hidden ? readStructureCard(io, el, { minPx }) : null;
     return { fit, structure, edges, sheet };

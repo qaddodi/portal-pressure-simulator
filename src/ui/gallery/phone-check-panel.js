@@ -19,6 +19,7 @@ import { readMetric } from '../layout-snap.js';
 import { keepAwake } from '../wake-lock.js';
 import { RELEASE } from '../../version.js';
 import { reportLines } from '../report.js';
+import { readLedger, ledgerLines } from '../kill-ledger.js';
 
 export const DEFAULT_RATE = 6;
 
@@ -110,6 +111,7 @@ function mount(host, ctx) {
     current = runWalk(journeys, io, { deadlineMs: req.full ? 0 : DEADLINE_MS, envelope: env, fresh: !!req.fresh, info }).then(async (report) => {
       try { info.lastSeen = reportLines().filter((l) => /last-seen/.test(l)); } catch { /* (no report yet) */ }
       if (info.lastSeen.length) report.text = report.text.replace(/\n\nNOT CHECKED HERE/, `\n  the page's own record: ${info.lastSeen.join('; ')}\n\nNOT CHECKED HERE`);
+      try { const lines = ledgerLines(readLedger(window.localStorage)); report.text = report.text.replace(/\n\nNOT CHECKED HERE/, `\n\n${lines.join('\n')}\n\nNOT CHECKED HERE`); } catch { /* (no storage: no ledger) */ }
       last = report;
       fill.style.transform = 'scaleX(1)';
       const s = report.summary;

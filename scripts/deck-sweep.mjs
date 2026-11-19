@@ -11,8 +11,8 @@
 //   - on a screen where the two cards share one place (the Shuffle, an iPhone on its side) BOTH states: the words in front, then the instrument in front;
 //   - a case or question card that holds the slide, read as it stands and again once it is tapped away.
 // It says "the numbers fit", never "it looks right". Output: the failures as they come, a report (--out, JSON) and a text summary beside it.
-// --fast: the figure is not drawn at all (window.ppsLayoutOnly, seen.js) and frames come every 100 ms of app time; about a third quicker, and `--verify`
-// compares it with a plain run on a few decks so the shortcut is never trusted on its own word.
+// --fast: the figure is not drawn at all (window.ppsLayoutOnly, seen.js) and frames come every 100 ms of app time; about a third quicker. `node scripts/deck-sweep-compare.mjs <plain.json> <fast.json>`
+// compares it with a plain run over the same slides so the shortcut is never trusted on its own word.
 // --cards-only: no figure at all (window.ppsCardsOnly, src/ui/cards-only.js: the stage is a stand-in that does nothing), so a slide costs only
 // its cards: boot 2 s instead of 8, a step 0.1 to 1.3 s instead of 1.2 to 8 s. It cannot judge what the cards take from the figure (call-outs
 // on vessels, labels, the camera's framing): `node scripts/deck-sweep-compare.mjs <full.json> <cards.json>` lists every slide whose
@@ -25,7 +25,7 @@ import { fileURLToPath } from 'node:url';
 import { launchLayout } from './headless.mjs';
 import { DECKS } from '../src/ui/decks.js';
 import { SIZES } from './gallery-sweep-lib.mjs';
-import { chunksFor, slideProblems, summarize, parseSlides } from './deck-sweep-lib.mjs';
+import { chunksFor, slideProblems, summarize, parseSlides, addBodyShrink } from './deck-sweep-lib.mjs';
 import { deckRun } from '../src/ui/report/emit.js';
 import { runBlock } from '../src/ui/report/run.js';
 import { pointTo } from './debug-notice.mjs';
@@ -122,7 +122,7 @@ async function runChunk(chunk) {
           const r = await withTimeout(app.page.evaluate(IN_PAGE, { deck: d.id, i, t: TIMEOUT_MS * RATE, nap0: NAP }), TIMEOUT_MS * 2 + 30000, `${d.id} slide ${i + 1} on ${chunk.device}`);
           const errors = app.errors.slice(seen); seen = app.errors.length;
           const problems = slideProblems(r);
-          rec = { deck: d.id, slide: i + 1, device: chunk.device, ok: r.opened.ok !== false, settled: r.opened.settled !== false, ms: Date.now() - t0, stable: !!r.main?.stable, shuffle: r.shuffle, problems,
+          rec = { deck: d.id, slide: i + 1, device: chunk.device, ok: r.opened.ok !== false, settled: r.opened.settled !== false, ms: Date.now() - t0, stable: !!r.main?.stable, shuffle: r.shuffle, problems, body: r.main?.check?.body || 0, title: r.main?.check?.title || 0,
             ...(errors.length ? { errors: errors.slice(0, 3).map((e) => e.slice(0, 200)) } : {}), ...(r.opened.error ? { error: String(r.opened.error) } : {}) };
         } catch (e) {
           rec = { deck: d.id, slide: i + 1, device: chunk.device, ok: false, settled: false, ms: Date.now() - t0, problems: [], error: String(e.message).split('\n')[0].slice(0, 300) };
@@ -147,6 +147,7 @@ await Promise.all(Array.from({ length: Math.min(JOBS, chunks.length) }, async ()
 await L.close();
 
 const report = { schema: 1, at: new Date().toISOString(), devices: DEVICES, decks: decks.map((d) => d.id), fast: FAST, cardsOnly: CARDS, rate: RATE, seconds: (Date.now() - T0) / 1000, results: Object.fromEntries(Object.entries(results).sort(([a], [b]) => a.localeCompare(b))) };
+addBodyShrink(report.results);   // (the cross-slide rule: a body that stands under what the device's other slides stand at)
 const run = deckRun(report);
 const summary = `${summarize(report)}\n\n${runBlock(run)}`;   // (the text, then the one report block `npm run debug -- report show|compare` reads)
 if (OUT) { mkdirSync(dirname(resolve(OUT)), { recursive: true }); writeFileSync(OUT, JSON.stringify(report, null, 1)); writeFileSync(OUT.replace(/\.json$/, '') + '.txt', `${summary}\n`); }
