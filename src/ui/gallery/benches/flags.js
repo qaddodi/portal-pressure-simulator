@@ -8,6 +8,7 @@
 //   ?perf          frame.js, main.js, motion-budget.js, glass-gl.js, layout-snap.js, caught.js, gpu-budget.js (the readout and the frame panel)
 //   ?fps=N         frame.js (frames asked for every refresh, every overrun logged)
 //   ?offgpu=1      main.js, offgpu-overlay.js, glass-gl.js, layout-snap.js
+//   ?watch         main.js, watch/start.js
 //   ?budget=1      motion-budget.js
 //   ?lap           main.js, lap.js, frame.js
 //   ?inputs        frame.js
@@ -25,6 +26,7 @@ export const FLAGS = Object.freeze([
   { id: 'perf', group: 'Measure', kind: 'bare', meaning: 'The frame panel and the lag readout after a pan or pinch (frame-hud.js, perf-readout.js); also counts GL budget sites, layout reads and caught errors in the console.' },
   { id: 'fps', group: 'Measure', kind: 'value', def: '120', valid: /^\d+$/, meaning: 'Frames asked for every refresh while the page shows, and every overrun written to the console with its surfaces. It keeps the page drawing.' },
   { id: 'offgpu', group: 'Measure', kind: 'fixed', fixed: '1', meaning: 'A live count of work that is not on the GPU, per frame, flashing red when any happens while something moves.' },
+  { id: 'watch', group: 'Measure', kind: 'bare', meaning: 'The motion recorder (preview copy or a local run): keeps 20 seconds of camera, label and card numbers, judges them with the motion rules and shows a red dot with the findings (src/ui/watch, docs/watch.md).' },
   { id: 'budget', group: 'Measure', kind: 'fixed', fixed: '1', meaning: 'Counts the motion budget only, with no readout, for a run that reads pps.motionBudget.' },
   { id: 'lap', group: 'Measure', kind: 'bare', meaning: 'The device lap: a fixed route of about 90 seconds the page drives itself and writes up as one block of text to paste back.' },
   { id: 'inputs', group: 'Measure', kind: 'bare', meaning: 'Starts the input-to-paint tracker at load (tap, press or key to the first changed frame, last 200 inputs).' },
