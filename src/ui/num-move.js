@@ -26,6 +26,24 @@ const wakers = [];
 /** Wake glass after motion writes, while the scheduler can still draw it in this frame. */
 export function signalMove() { for (let i = 0; i < wakers.length; i++) wakers[i](); }
 
+/**
+ * A card moved by its caller's own paused animation, scrubbed by number (card-shuffle.js: the wallet's cards, a translateY ADDED to the card's own transform). The glass must not read that
+ * animation from its clock: a paused animation's clock stands where it was first seen (glass-motion.js clockOf, rate 0), so the plate stayed where the wallet was built while the words moved,
+ * and the text slid through a plate that did not move (Mohammad, a landscape iPhone, 19 Nov 2026). The animation is marked as driven here and its offset is the number given to driveTo(),
+ * read by the glass from driven(el) like a finger's move; it adds to the card's inline transform and translate, which the glass still reads.
+ */
+export function driveBy(el, an) {
+  if (!el || !an) return;
+  DRIVEN_ANIMS.add(an);
+  let d = DRIVEN.get(el);
+  if (!d) DRIVEN.set(el, (d = { x: 0, y: 0, on: false, prop: 'translate' }));   // alloc-rare: once per element
+  d.prop = 'translate';
+}
+/** The offset (px) the element's driven animation holds now; the glass is woken by signalMove(), called once after all the cards are set. */
+export function driveTo(el, x, y) { const d = DRIVEN.get(el); if (d) { d.x = x; d.y = y; d.on = true; } }
+/** Lets the glass read the element by itself again (its animation cancelled). */
+export function driveOff(el) { const d = DRIVEN.get(el); if (d) { d.on = false; d.x = 0; d.y = 0; } }
+
 /** Calls fn() whenever a glass mover's number changes; returns the function that stops it. */
 export function onMove(fn) {
   wakers.push(fn);

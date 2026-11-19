@@ -269,7 +269,7 @@ test('a card in front that stands over the strip is touched as itself: the strip
 
 test('every scrub wakes the glass, so the plate and the words move together with no frame of lag', () => {
   const c = src('src/ui/card-shuffle.js');
-  assert.match(c, /import \{ signalMove \} from '\.\/num-move\.js';/);
+  assert.match(c, /import \{ signalMove, driveBy, driveTo, driveOff \} from '\.\/num-move\.js';/);
   assert.match(c, /function scrub\(\) \{[^\n]*signalMove\(\); \}/);
 });
 
@@ -292,4 +292,23 @@ test('the wallet measures the words at their own height (no cap, no zoom of an e
   assert.match(l, /shuf = true; below = true;\n(?:\s*\/\/[^\n]*\n)*\s*ts\.maxHeight = 'none'; ts\.removeProperty\('--pz-fit'\); ts\.removeProperty\('--pz-z'\);/);
   assert.match(l, /return top0 \+ t\.height \+ 2 \* pad \+ \(shuf \? Math\.max\(0, padT - pad\) : 0\) \+ gap \+ ch <= foot; \};/);
   assert.deepEqual(SHUF.cols.map((c) => parseInt(/(\d+)px/.exec(c)[1], 10)).slice(-2), [720, 800]);
+});
+
+test('the glass reads a wallet card\'s move from the number the wallet holds, never from the paused animation\'s clock (which a pause freezes at the time it was first seen): the plate moves with the words', async () => {
+  const n = await import('../src/ui/num-move.js');
+  const el = {}, an = {};
+  assert.equal(n.driven(el), null);
+  n.driveBy(el, an);
+  assert.equal(n.isDrivenAnimation(an), true, 'the animation is the glass\'s to leave alone');
+  assert.equal(n.driven(el), null, 'no offset until one is given');
+  n.driveTo(el, 0, 137.5);
+  assert.deepEqual({ ...n.driven(el) }, { x: 0, y: 137.5, on: true, prop: 'translate' }, 'the plate\'s offset is the number');
+  n.driveTo(el, 0, 20);
+  assert.equal(n.driven(el).y, 20, 'it follows every scrub');
+  n.driveOff(el);
+  assert.equal(n.driven(el), null, 'let go when the wallet is built again or off');
+  const c = src('src/ui/card-shuffle.js');
+  assert.match(c, /if \(a\.glass\) driveTo\(a\.el, 0, shufFall\(a\.layer, a\.h\) \* shufBehind\(a\.layer, p\)\);/, 'every scrub sets it');
+  assert.match(c, /if \(glass\) \{ const a = anims\[anims\.length - 1\]; driveBy\(el, a\.tf\); if \(a\.name\) driveBy\(el, a\.name\);/, 'both animations of a glass card are the glass\'s to leave alone');
+  assert.match(c, /if \(a\.glass\) driveOff\(a\.el\);/);
 });
