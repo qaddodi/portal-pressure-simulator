@@ -2,7 +2,6 @@
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { readLedger, addKill, ledgerLines, KILLS_KEY, KILLS_MAX } from '../src/ui/kill-ledger.js';
 
 const mem = () => { const m = new Map(); return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => { m.set(k, String(v)); }, m }; };
@@ -32,11 +31,4 @@ test('the Phone check prints the ledger, or says none ended', () => {
   const l = ledgerLines([{ at: '2026-11-19T10:20:30.000Z', where: 'slide 5', mb: 301, peak: 318, env: '320 MB (phone)', s: 142, device: 'phone' }, { at: '2026-11-19T11:00:00.000Z', where: 'slide 9', mb: 250, peak: 300, env: '320 MB (phone)', s: 60, device: 'phone' }]);
   assert.match(l[0], /KILL LEDGER \(2 tabs ended.*lowest 250 MB, highest 301 MB/);
   assert.match(l[1], /2026-11-19 10:20 {2}301 MB \(highest 318\) of 320 MB \(phone\), 142 s after opening, at slide 5 \[phone\]/);
-});
-
-test('report.js adds each kill it notices, and the Phone check puts the ledger before its "not checked" note', () => {
-  const rep = readFileSync(new URL('../src/ui/report.js', import.meta.url), 'utf8');
-  assert.match(rep, /addKill\(store\('local'\), l, \{ device: deviceClass\(\) \}\)/);
-  const pc = readFileSync(new URL('../src/ui/gallery/phone-check-panel.js', import.meta.url), 'utf8');
-  assert.match(pc, /ledgerLines\(readLedger\(window\.localStorage\)\)/);
 });

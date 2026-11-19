@@ -112,7 +112,7 @@ Every check the app runs on itself is a named rule with one owner file and one r
 | `figure-vessel-width` | the screen now | A shown vessel has a width: a width that is not a number, or nothing, is a vessel the GPU draws as a hairline or not at all. | `src/ui/stage-tubes.js` |
 | `figure-pressure-missing` | the screen now | Under the pressure lens every shown vein has a model pressure at both ends; none means the colour was painted from no frame. | `src/ui/stage-tubes.js` |
 
-**Words follow US and Baveno VIII usage** (32)
+**Words follow US and Baveno VIII usage** (33)
 
 | Rule | Looks at | Why | Owner file |
 |---|---|---|---|
@@ -127,6 +127,7 @@ Every check the app runs on itself is a named rule with one owner file and one r
 | `wording-gut` | the screen now | Learner text is written for US physicians: splanchnic arteries, mesenteric veins, splanchnic inflow (docs/ai-humanizer.md section 6) | `src/ui/wording.js` |
 | `wording-scarring` | the screen now | Learner text is written for US physicians: fibrosis, fibrotic (docs/ai-humanizer.md section 6) | `src/ui/wording.js` |
 | `wording-clotted` | the screen now | Learner text is written for US physicians: thrombosed (docs/ai-humanizer.md section 6) | `src/ui/wording.js` |
+| `wording-alcohol-related` | the screen now | Learner text is written for US physicians: alcohol-associated (AASLD) (docs/ai-humanizer.md section 6) | `src/ui/wording.js` |
 | `wording-lymph-made` | the screen now | Learner text is written for US physicians: lymph formation (docs/ai-humanizer.md section 6) | `src/ui/wording.js` |
 | `wording-lay-anatomy` | the screen now | Learner text is written for US physicians: tricuspid regurgitation, left renal vein, hydrothorax, pulmonary edema (docs/ai-humanizer.md section 6) | `src/ui/wording.js` |
 | `wording-british-idiom` | the screen now | Learner text is written for US physicians: American idiom (in parentheses, most common, scheduled for, continue) (docs/ai-humanizer.md section 6) | `src/ui/wording.js` |
