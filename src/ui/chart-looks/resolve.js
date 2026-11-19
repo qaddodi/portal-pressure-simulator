@@ -107,7 +107,8 @@ function val(v, ctx, params) {
     case 'param': {
       const name = params && params[v.n];
       if (name == null) { report(`no data-p-${v.n} on a piece that asks for it`); return MAGENTA; }
-      const c = tokensOf(ctx)[name];
+      const T = tokensOf(ctx);
+      const c = (v.ink && T[`${name}-ink`]) || T[name];
       if (c == null) { report(`no token "${name}" (data-p-${v.n}) for ${ctx.theme}/${ctx.palette}/${ctx.view}`); return MAGENTA; }
       return c;
     }

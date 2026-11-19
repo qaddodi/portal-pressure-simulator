@@ -69,6 +69,12 @@ export const TOKENS = {
     'flow-reversed': '#EC7424',
     // (as text, a label's "⟲" and reversed reading: the orange mixed toward the ink, 4.5:1 on the paper; the vessel and arrowhead orange stays the stroke's. ST-3)
     'flow-reversed-ink': 'color-mix(in srgb, var(--flow-reversed) 62%, var(--text))',
+    // Status colours as TEXT (LOOK-1, 19 Nov 2026): --caution, --ok and --danger are fills and strokes (amber is 3.28:1 on a Light card); a word, a number or a chip's
+    // label takes the ink form, in a style sheet and in a chart (tok('caution-ink')) alike. tests/token-contrast.test.js and chart-text-contrast.test.js measure both.
+    'caution-ink': 'color-mix(in srgb, var(--caution) 70%, var(--text))', 'ok-ink': 'color-mix(in srgb, var(--ok) 88%, var(--text))', 'danger-ink': 'color-mix(in srgb, var(--danger) 88%, var(--text))', 'critical-ink': 'color-mix(in srgb, var(--critical) 88%, var(--text))',
+    // A trace's colour as text (the HVPG equation's terms, a catheter reading's name, a chart line's name and number): the trace itself is a line (3:1), the word is this ink,
+    // the same hue. A chart piece asks for it with param('c', true) (chart-looks/resolve.js).
+    'tr-pv-ink': 'color-mix(in srgb, var(--tr-pv) 62%, var(--text))', 'tr-ppg-ink': 'color-mix(in srgb, var(--tr-ppg) 62%, var(--text))', 'tr-hvpg-ink': 'color-mix(in srgb, var(--tr-hvpg) 62%, var(--text))', 'tr-wedge-ink': 'color-mix(in srgb, var(--tr-wedge) 62%, var(--text))', 'tr-sin-ink': 'color-mix(in srgb, var(--tr-sin) 62%, var(--text))', 'tr-hv-ink': 'color-mix(in srgb, var(--tr-hv) 62%, var(--text))', 'tr-ra-ink': 'color-mix(in srgb, var(--tr-ra) 62%, var(--text))', 'tr-ivc-ink': 'color-mix(in srgb, var(--tr-ivc) 62%, var(--text))', 'tr-var-ink': 'color-mix(in srgb, var(--tr-var) 62%, var(--text))', 'tr-cav-ink': 'color-mix(in srgb, var(--tr-cav) 62%, var(--text))', 'tr-scler-ink': 'color-mix(in srgb, var(--tr-scler) 62%, var(--text))',
     // lens ramps ("#colour position", interpolated in OKLab by colormap.js; pressure positions are mmHg, the others run 0 to 1)
     // (pressure: lightness falls at every stop, so 12 and 20 mmHg differ on a projector or a printout as well as in hue (round 2 review A7,
     // Mohammad 18 Oct). The hue turns where the meaning turns: blue to 8 or so, the violet turn centred on 10 to 12 and a richer violet there,
@@ -219,6 +225,7 @@ export const TOKENS = {
     'organ-a': '.52',
     'bg': '#DDD0B9',
     'flow-reversed-ink': 'color-mix(in srgb, var(--flow-reversed) 50%, var(--text))',   // (Oat's ground is darker: 4.7:1 at half. ST-3)
+    'tr-pv-ink': 'color-mix(in srgb, var(--tr-pv) 55%, var(--text))', 'tr-ppg-ink': 'color-mix(in srgb, var(--tr-ppg) 55%, var(--text))', 'tr-hvpg-ink': 'color-mix(in srgb, var(--tr-hvpg) 55%, var(--text))', 'tr-wedge-ink': 'color-mix(in srgb, var(--tr-wedge) 55%, var(--text))', 'tr-sin-ink': 'color-mix(in srgb, var(--tr-sin) 55%, var(--text))', 'tr-hv-ink': 'color-mix(in srgb, var(--tr-hv) 55%, var(--text))', 'tr-ra-ink': 'color-mix(in srgb, var(--tr-ra) 55%, var(--text))', 'tr-ivc-ink': 'color-mix(in srgb, var(--tr-ivc) 55%, var(--text))', 'tr-var-ink': 'color-mix(in srgb, var(--tr-var) 55%, var(--text))', 'tr-cav-ink': 'color-mix(in srgb, var(--tr-cav) 55%, var(--text))', 'tr-scler-ink': 'color-mix(in srgb, var(--tr-scler) 55%, var(--text))',   // (Oat's cards are darker: a step more toward the text)
     // (ST-5: Oat is the weakest look for coloured text. The ink forms take 20 % of the text colour, not 12, so they hold 4.5:1 on its darkest card, surface-3; white on the amber fill, 6.6:1, for the dark ink's 2.8:1; the day counter's amber a step deeper)
     'ok-ink': 'color-mix(in srgb, var(--ok) 80%, var(--text))', 'danger-ink': 'color-mix(in srgb, var(--danger) 80%, var(--text))', 'critical-ink': 'color-mix(in srgb, var(--critical) 80%, var(--text))',
     'on-caution': '#FFFFFF', 'lapse-ink': '#744500',
@@ -303,6 +310,7 @@ export const TOKENS = {
     'ok': '#34C38F', 'caution': '#F0B43C', 'danger': '#F2634D', 'critical': '#FF4747', 'info': '#7C9BFF', 'disease': '#D2A2F2',
     'flow-normal': '#2CC5BD', 'flow-reversed': '#FF8C42',
     'flow-reversed-ink': 'var(--flow-reversed)',   // (6.8:1 on the dark ground already: the same orange)
+    'tr-pv-ink': 'var(--tr-pv)', 'tr-ppg-ink': 'var(--tr-ppg)', 'tr-hvpg-ink': 'color-mix(in srgb, var(--tr-hvpg) 70%, var(--text))', 'tr-wedge-ink': 'var(--tr-wedge)', 'tr-sin-ink': 'var(--tr-sin)', 'tr-hv-ink': 'var(--tr-hv)', 'tr-ra-ink': 'var(--tr-ra)', 'tr-ivc-ink': 'var(--tr-ivc)', 'tr-var-ink': 'var(--tr-var)', 'tr-cav-ink': 'var(--tr-cav)', 'tr-scler-ink': 'var(--tr-scler)',   // (the dark looks' traces are already light enough to read as words)
     'critical-ink': 'color-mix(in srgb, var(--critical) 75%, var(--text))',   // (ST-5: 4.2:1 on Dark's raised card, surface-3, at 12 %; 4.7 at 25)
     // lens ramps for a dark ground (visual-style C1): the light looks' ramps fall to dark ends that sink into the ground (a 30 mmHg vessel was 1.41:1).
     // Pressure keeps its hue path (ice, sky, cornflower, violet, magenta, wine) and keeps lightness falling at every stop (OKLab L .92 to .50); the flow,

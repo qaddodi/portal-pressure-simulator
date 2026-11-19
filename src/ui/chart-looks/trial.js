@@ -28,7 +28,7 @@ export const TRIAL = {
   // The trial's own effect size, a step heavier; a caveat a learner should keep; the mark of a trial not yet read against its paper
   'trial.eff': word('trial.eff', tok('text')),
   'trial.note': word('trial.note', tok('text-2')),
-  'trial.warn': word('trial.warn', tok('caution')),
+  'trial.warn': word('trial.warn', tok('caution-ink')),
   // The line on whether the slide's patient fits the trial (only on a slide: trial-fit.js): a filled accent disc with a tick when the patient
   // fits, an open ring with a cross or a dash when not or when the model cannot tell, and its words
   'trialfit.ring': { base: { fill: 'none', stroke: tok('text-3'), width: 1.5 } },

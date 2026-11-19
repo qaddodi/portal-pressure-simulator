@@ -812,7 +812,7 @@
 .ab .ab-belly > .ab-big > .ab-rate[data-dir="up"] { color: color-mix(in srgb, var(--caution) 55%, var(--text)) !important; }
 .ab .ab-belly > .ab-big > .ab-rate[data-dir="down"] { color: color-mix(in srgb, var(--vel-normal) 60%, var(--text)) !important; }
 .ab-rate[data-dir="up"] .ab-rate-a { color: var(--caution-ink); }
-.ab-rate[data-dir="down"] .ab-rate-a { color: var(--vel-normal); }
+.ab-rate[data-dir="down"] .ab-rate-a { color: color-mix(in srgb, var(--vel-normal) 60%, var(--text)); }   /* (as the line above it: the raw velocity colour was 2.88:1 on Light, 2.42 on Soft) */
 /* A small belly (320 px phone, phone on its side): the balance may take two lines ("▲ 200" over "mL/day") so its every
    word sits inside the ring, 4 px or more from it, with the litres and grade centred over it (sweep 2, item 3: one line
    ran out of the ring and pushed the block 13 px right). Its backing hugs the words, and its arrow takes the line's own

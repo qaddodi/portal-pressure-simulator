@@ -9,8 +9,8 @@ export const TALK = {
   'talk.band.rect': { base: { fill: param('rx'), opacity: 0.12 }, when: [[{ dark: true }, { opacity: 0.24 }]] },
   // 7188-7196 .ptk-band-n: the treatment's name, a halo of the tile colour under it; paint-order: stroke
   'talk.band.name': {
-    base: { font: [600, em(1)], fill: mix('oklab', param('rx'), 62, tok('text')), halo: { stroke: tok('surface-2'), width: 3, join: 'round' } },
-    when: [[{ dark: true }, { fill: mix('oklab', param('rx'), 72, tok('text')) }]],
+    base: { font: [600, em(1)], fill: mix('oklab', param('rx'), 54, tok('text')), halo: { stroke: tok('surface-2'), width: 3, join: 'round' } },
+    when: [[{ theme: 'soft' }, { fill: mix('oklab', param('rx'), 46, tok('text')) }], [{ dark: true }, { fill: mix('oklab', param('rx'), 72, tok('text')) }]],   // (LOOK-1: amber and orange band names were 4.3:1 on Light's card and 3.4 on Soft's)
   },
   // 2962 .ptk-mark line
   'talk.mark.line': { base: { stroke: tok('border'), width: 1, dash: [2, 6] } },
@@ -33,7 +33,7 @@ export const TALK = {
     when: [[{ rate: 'mid' }, { stroke: tok('caution') }], [{ rate: 'hi' }, { stroke: tok('danger') }]],
   },
   // 2967, 6178 .ptk-lbl: a line's name at its right end, in the line's colour (data-p-c)
-  'talk.lbl': { base: { font: [700, px(14)], fill: param('c') }, when: [[{ host: 'talk' }, { size: em(1) }]] },
+  'talk.lbl': { base: { font: [700, px(14)], fill: param('c', true) }, when: [[{ host: 'talk' }, { size: em(1) }]] },
   // 2968-2969 .ptk-pt: a point, filled in its cut-off's colour
   'talk.pt': {
     state: { rate: 'data-rate' },
@@ -44,7 +44,7 @@ export const TALK = {
   'talk.value': {
     state: { rate: 'data-rate' },
     base: { font: [700, px(22)], fill: tok('text') },
-    when: [[{ host: 'talk' }, { size: em(1.5) }], [{ rate: 'mid' }, { fill: tok('caution') }], [{ rate: 'hi' }, { fill: tok('danger') }]],
+    when: [[{ host: 'talk' }, { size: em(1.5) }], [{ rate: 'mid' }, { fill: tok('caution-ink') }], [{ rate: 'hi' }, { fill: tok('danger-ink') }]],
   },
   // 7182-7183 .pz-talk .ptk-ms: a milestone's name, a halo under it
   'talk.ms': {
@@ -107,7 +107,7 @@ export const TALK = {
   'talk.read': {
     state: { rate: 'data-rate', now: 'class:now' },
     base: { font: [600, em(1)], fill: tok('text') },
-    when: [[{ rate: 'mid' }, { fill: tok('caution') }], [{ rate: 'hi' }, { fill: tok('danger') }], [{ now: true }, { weight: 700 }]],
+    when: [[{ rate: 'mid' }, { fill: tok('caution-ink') }], [{ rate: 'hi' }, { fill: tok('danger-ink') }], [{ now: true }, { weight: 700 }]],
   },
   'talk.read.name': { base: { font: [500, em(1)], fill: tok('text-3') } },
 };
