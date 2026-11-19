@@ -79,7 +79,8 @@ test('a swipe up or a swipe down changes the card, whichever card is in front; a
 
 test('the words and numbers of a card behind are not there, and come in only as the card arrives; the strip\'s name is there while the card is behind', () => {
   assert.equal(shufInk(0), 0); assert.equal(shufInk(1), 1);
-  for (const f of [0, 0.2, 0.5, 0.65]) assert.equal(shufInk(f), 0, `a card ${f} of the way forward shows no words yet (no half line shows past the card crossing it)`);
+  for (const f of [0, 0.2, 0.5]) assert.equal(shufInk(f), 0, `a card ${f} of the way forward shows no words yet (no half line shows past the card crossing it)`);
+  assert.equal(shufInk(0.7), 1, 'whole 0.2 of the way past the middle');
   assert.equal(shufInk(0.98), 1);
   let last = -1;
   for (let i = 0; i <= 40; i++) { const v = shufInk(i / 40); assert.ok(v >= last - 1e-12, 'only ever more of the words as the card comes forward'); last = v; }
@@ -240,4 +241,20 @@ test('arrowsOwnKey: a field, a slider, a menu row, the dock\'s divider keep Up a
   const el = (matches) => ({ closest: (sel) => (sel.split(',').map((x) => x.trim()).includes(matches) ? {} : null) });
   for (const m of ['input', 'select', 'textarea', '[role="slider"]', '[role="separator"]', '[role="menuitem"]', '[role="listbox"]', '[role="radiogroup"]']) assert.equal(arrowsOwnKey(el(m)), true, m);
   assert.equal(arrowsOwnKey(el('button')), false); assert.equal(arrowsOwnKey(null), false); assert.equal(arrowsOwnKey({}), false);
+});
+
+test('the words hand over at the middle of the change with no blank gap: one card\'s are gone as the other\'s begin, and at no p are neither on the screen for long', () => {
+  const kd = shufKeyframes('data'), kw = shufKeyframes('words');
+  const inkAt = (k, p) => { const x = p * SHUF.steps, i = Math.min(SHUF.steps - 1, Math.floor(x)), a = +k.ink[i].opacity + 1, b = +k.ink[i + 1].opacity + 1; return a + (b - a) * (x - i); };   // (what the keyframes give between their points)
+  let blank = 0, prev = null, longest = 0;
+  for (let i = 0; i <= 1000; i++) {
+    const p = i / 1000, d = inkAt(kd, p), w = inkAt(kw, p);
+    assert.ok(!(d > 0.02 && w > 0.02), `both cards' words show at p ${p}`);
+    if (d < 0.1 && w < 0.1) { blank += 1; longest = Math.max(longest, blank); } else blank = 0;
+    prev = [d, w];
+  }
+  void prev;
+  assert.ok(longest <= 45, `the words are both nearly gone for ${longest / 10}% of the change (a flash); the handoff is one straight ramp each, the middle is a point`);
+  assert.equal(inkAt(kd, 0.5), 0); assert.equal(inkAt(kw, 0.5), 0);
+  assert.ok(inkAt(kw, 0.3) > 0.99 && inkAt(kd, 0.7) > 0.99, 'the card leaving keeps its words to p 0.3, the card arriving has them whole from p 0.7');
 });

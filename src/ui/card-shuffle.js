@@ -29,7 +29,7 @@ export const SHUF = Object.freeze({
   gap: 14,        // px least between the foot of the card in front and the top of the strip
   cols: ['min(400px, 62vw)', 'min(460px, 62vw)', 'min(520px, 62vw)'],   // the wallet's card widths (--pz-cw), one for both cards, centred on the screen: 400 first; a slide whose words or instrument need more height takes a wider column (fewer lines), never a smaller type
   drag: 190,      // px of finger travel for the whole change
-  steps: 12,      // keyframes along the way
+  steps: 20,      // keyframes along the way (the words' handoff ramps begin and end on one)
   w: 14,          // the spring's stiffness: about 0.4 s to settle
 });
 
@@ -64,14 +64,16 @@ export function shufPoseCss(card, p, geo = geom) {
 }
 
 const smooth = (a, b, v) => { const t = clamp01((v - a) / (b - a)); return t * t * (3 - 2 * t); };
-const INK_FROM = 0.66, INK_TO = 0.96, NAME_FROM = 0, NAME_TO = 0.06;
+// (The words of the two cards hand over at the middle of the change, p = 0.5: the card leaving has faded out by there, the card arriving starts there, one straight ramp each, so the screen is
+// never blank and the two never show at once. Mohammad's play-test, 19 Nov: frames 4 to 9 of the swap held no words at all, a flash.)
+const INK_FROM = 0.5, INK_TO = 0.7, NAME_FROM = 0, NAME_TO = 0.06;
 /**
  * How much of a card's words and numbers show while the card is f of the way forward (0 behind, 1 in front): none while it is a strip or leaving, whole only as it arrives. The strip shows
  * the card's edge, its grab bar and its name and never a piece of a line (19 Nov 2026, the sweep: a half line of the card behind showed in 406 of 412 Shuffle slides; Mohammad:
  * "disgusting stray text"). The words are not clipped to a line, they are not there: whatever the card holds, however tall its first line. Moving, a card's words fade out early and in late, so none
  * shows past the card that is crossing it.
  */
-export const shufInk = (f) => smooth(INK_FROM, INK_TO, f);
+export const shufInk = (f) => clamp01((f - INK_FROM) / (INK_TO - INK_FROM));
 /** The strip's name: whole only while the card is at the foot, gone by the time it has risen 6% of the way, so it never stands over the words of the card coming forward over it (Mohammad, 19 Nov: "when swapping between cards the texts overlap"). */
 export const shufName = (f) => 1 - smooth(NAME_FROM, NAME_TO, f);
 
