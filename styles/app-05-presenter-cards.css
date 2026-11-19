@@ -616,6 +616,10 @@
    (presenter.js fitCards sets --pz-fit, the zoom of the card's contents), never clipped or hidden. */
 .app.presenting .stage-view { touch-action: pan-x pan-y; }
 .pz-text, .pz-data, .pz-panel { overflow: clip; overscroll-behavior: none; }
+/* The last resort (18 Nov 2026, the layout sweep: 31 data cards on an iPhone held sideways ran 3 to 254 px past their box, the path cards, a forest, the stent's chart,
+   their feet clipped off the screen with no way to reach them). A data card on the stacked layout whose picture cannot be made shorter, and whose lettering may not go
+   under 12 px, scrolls up and down inside its box (presenter-zoom.js fitCards sets .pz-scrolls); never sideways, so a phone's swipe still opens the next card. */
+.pz-data.pz-scrolls, .pz-panel.pz-scrolls { overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; scrollbar-width: thin; }
 .pz-text > *, .pz-data > *, .pz-panel > * { zoom: var(--pz-fit, 1); }
 .pz-data.col > :not(.pz-tool) { zoom: calc(var(--pz-fit, 1) * var(--pz-dk, 1)); }   /* (stacked under the words when the pair would not fit: the data card's blocks at one of a few fixed smaller sizes, presenter.js DK) */
 /* Pictures never zoom (card sizing, 5 Nov 2026): an instrument or chart (.pz-tool) is drawn in real screen px, at the size its box has,
