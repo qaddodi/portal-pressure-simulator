@@ -7,11 +7,12 @@
 //   &steps=0          leave the every-step table out of the report (it is on by default)
 //   ?check            the check (about 3 minutes; paths that would start after 200 s are dropped and named)
 //   ?check=full       no time limit
-//   &rate=8           test-clock speed (default 6; rate=1 is real pace)   &only=views,panes   just those paths (ids from journeys.js)   &fresh=1  forget a half-done run
+//   &testclock=8      test-clock speed (&rate=8 is the old spelling) (default 6; rate=1 is real pace)   &only=views,panes   just those paths (ids from journeys.js)   &fresh=1  forget a half-done run
 import { registerPanel } from './registry.js';
 import { buildJourneys, stepCount } from './journeys.js';
 import { runWalk, savedWalk, forgetWalk, DEADLINE_MS } from './walk.js';
 import { createExecutor, readDevice, judgeHere } from './walk-exec.js';
+import { flagValue, flagNumber, searchNow } from '../flags.js';
 import { ENVELOPES, deviceClass } from '../gpu-budget.js';
 import { errorTotal } from './api.js';
 import { readMetric } from '../layout-snap.js';
@@ -23,15 +24,15 @@ export const DEFAULT_RATE = 6;
 
 /** What the address asks for: null without `check`, else { full, rate, only: [ids], fresh }. Pure, for the tests. */
 export function parseCheckAddress(search) {
-  const q = new URLSearchParams(search || '');
-  if (!q.has('check')) return null;
-  const rate = Number(q.get('rate'));
+  const at = search || '';   // (a plain search string: the flags module applies no gate to one)
+  if (flagValue('check', at) === null) return null;
+  const rate = flagNumber('testclock', at) ?? flagNumber('rate', at) ?? NaN;   // (testclock is the one name; rate is the old spelling)
   return {
-    full: q.get('check') === 'full',
+    full: flagValue('check', at) === 'full',
     rate: Number.isFinite(rate) && rate >= 1 ? Math.min(20, rate) : DEFAULT_RATE,
-    only: (q.get('only') || '').split(',').map((s) => s.trim()).filter(Boolean),
-    fresh: q.get('fresh') === '1',
-    steps: q.get('steps') !== '0',
+    only: (flagValue('only', at) || '').split(',').map((s) => s.trim()).filter(Boolean),
+    fresh: flagValue('fresh', at) === '1',
+    steps: flagValue('steps', at) !== '0',
   };
 }
 
@@ -58,7 +59,7 @@ html[data-phonecheck] .gl-bar { display: none !important; }
 function safeStorage() { try { return window.sessionStorage; } catch { return null; } }
 
 function mount(host, ctx) {
-  const addr = parseCheckAddress(location.search);
+  const addr = parseCheckAddress(searchNow());
   if (!document.getElementById('pc-css')) { const st = document.createElement('style'); st.id = 'pc-css'; st.textContent = css; document.head.append(st); }
   const pps = ctx.pps;
   const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };

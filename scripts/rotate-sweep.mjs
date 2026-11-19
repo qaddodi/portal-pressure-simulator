@@ -16,7 +16,6 @@ import { CHROMIUM_ARGS, openApp } from './shoot.mjs';
 import { serve } from './serve.mjs';
 import { DECKS } from '../src/ui/decks.js';
 import { SIZES } from './gallery-sweep-lib.mjs';
-import { judgeEdges } from '../src/ui/gallery/edge-rules.js';
 import { parseSlides, slideProblems } from './deck-sweep-lib.mjs';
 import { compareTurn, summarizeTurns, turnsFor } from './rotate-sweep-lib.mjs';
 
@@ -49,12 +48,12 @@ const open = (app, deck, i) => app.page.evaluate(({ deck, i, t }) => window.pps.
 const read = (app) => app.page.evaluate(async ({ t }) => {
   const g = window.pps.gallery, nap = (ms) => new Promise((ok) => setTimeout(ok, ms));
   await g.settled({ timeoutMs: t });
-  const get = () => ({ check: g.check(), edges: g.edges(), boxes: g.boxes().boxes });
+  const get = () => ({ check: g.check(), boxes: g.boxes().boxes });
   let a = get(), stable = false;
   for (let k = 0; k < 8; k++) { await nap(150); const b = get(); if (JSON.stringify(a.boxes) === JSON.stringify(b.boxes)) { stable = true; a = b; break; } a = b; }
   return { ...a, stable };
 }, { t: TIMEOUT_MS * RATE });
-const shape = (r) => ({ boxes: r.boxes, problems: slideProblems({ main: r }, judgeEdges) });
+const shape = (r) => ({ boxes: r.boxes, problems: slideProblems({ main: r }) });
 
 // The fresh reference of every device the turns end at, then the turned reads.
 const targets = [...new Set(turns.map(([, to]) => to))];

@@ -18,10 +18,13 @@ import './plugins.js';
 import { fadeShown, toast as appToast } from '../util.js';
 import { currentLook } from '../looks.js';
 import { readBox, readRects, readLines, readStyle, readMetric, readCTM, readAnims } from '../layout-snap.js';
-import { createGalleryApi, probeBusy } from './api.js';
+import { createGalleryApi } from './api.js';
+import { pageBusy } from '../screen/settle.js';
+import { inChange } from '../frame.js';
 import { readWords, readBoxes } from './readers.js';
 import { readEdges } from './edge-rules.js';
 import { runCheck } from './fit-check.js';
+import { flagValue, searchNow } from '../flags.js';
 
 /** The id the presenter gives the gallery deck: the Testing decks are listed as 'test-' + their own id (presenter.js testingLoad). */
 export const DECK_ID = 'test-gallery';
@@ -98,7 +101,7 @@ export async function startGallery({ pps = window.pps, root = document } = {}) {
   const order = deck.slides.map((s) => s.id);   // (slide i of the deck is slide i + 1 in the presenter: its Outline slide is first)
   const entries = CATALOG;
   let open = null, look = currentLook(document.documentElement), frozen = false, shoot = false, benchOff = null;
-  const addr = readAddress(location.search, location.hash);
+  const addr = readAddress(searchNow(), location.hash);
 
   const style = el('style', '', CSS); document.head.append(style);
   const gl = el('div', 'gl'); gl.dataset.gallery = '';
@@ -112,7 +115,7 @@ export async function startGallery({ pps = window.pps, root = document } = {}) {
   // The test controls (api.js): window.pps.gallery, the settled attribute, the sweep from the address. `go` is bound below (a function declaration).
   const api = createGalleryApi({
     entries, byId, pps, go: (id) => go(id, { quiet: true, mark: false }), setLook: (id) => setLook(id), look: () => look, id: () => open?.id ?? null,
-    busy: () => probeBusy(pps, document, readAnims),
+    busy: () => pageBusy(pps, document, { anims: readAnims, changing: inChange() }),
     check: () => runCheck({ io: IO, pps }),
     words: () => readWords(IO), boxes: () => readBoxes(IO), edges: () => readEdges(IO),
     size: () => ({ w: readMetric(window, 'innerWidth'), h: readMetric(window, 'innerHeight') }),
@@ -330,7 +333,7 @@ export async function startGallery({ pps = window.pps, root = document } = {}) {
   await ready();
   api.mark('idle', '');
   if (addr.look) setLook(addr.look); else sync();
-  if (addr.id) await go(addr.id, { quiet: true }); else if (!/[?&]sweep\b/.test(location.search)) sheet(rail, true);
-  api.startFromAddress(location.search, { lookIds: LOOK_IDS });   // (not awaited: the page is usable while a sweep runs; the report lands in window.ppsGalleryResult)
+  if (addr.id) await go(addr.id, { quiet: true }); else if (flagValue('sweep') === null) sheet(rail, true);
+  api.startFromAddress(searchNow(), { lookIds: LOOK_IDS });   // (not awaited: the page is usable while a sweep runs; the report lands in window.ppsGalleryResult)
   return { api, go, setLook, step, setShoot, freeze, get open() { return open; }, dispose() { panelOff.forEach((f) => f()); closeBench(); gl.remove(); style.remove(); } };
 }

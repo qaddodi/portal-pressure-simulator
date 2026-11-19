@@ -8,11 +8,13 @@
 // label-place.js's `hits`, `overlap`, `within`, `boxGap` and `needsLeader` (the functions the solver places by); the dim alpha is the one token
 // --label-dim (tokens.css). tests/screen-readers.test.js checks that this file imports them and defines none of them.
 import { boxGap, hits, needsLeader, overlap, within } from '../label-place.js';
+import { DIM_ALPHA } from '../label-explain.js';
+import { CARD_KINDS } from './util.js';
 
-/** The alpha a label the slide or the explainer does not light steps back to: --label-dim in styles/tokens.css (65 %, 3:1 over the vessels). One place. */
-export const LABEL_DIM = 0.65;
-/** What each card root is called in words (WORD_ROOTS of gallery/readers.js). */
-export const CARD_NAMES = { '.pz-text': 'teaching card', '.pz-data': 'data card', '.pz-panel': 'top card', '.action-card': 'structure card', '#dock': 'Tests card', '.toast': 'toast' };
+/** The alpha a label the slide or the explainer does not light steps back to: label-explain.js's DIM_ALPHA, which is the token --label-dim (styles/tokens.css; tests/screen-readers.test.js ties the three). Not a second copy. */
+export const LABEL_DIM = DIM_ALPHA;
+/** What each card root is called in words: util.js's one table. */
+export const CARD_NAMES = CARD_KINDS;
 
 const r1 = (v) => Math.round(v * 10) / 10;
 const r2 = (v) => Math.round(v * 100) / 100;

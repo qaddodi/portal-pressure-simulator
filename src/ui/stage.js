@@ -4,6 +4,7 @@
 import { breath } from './slide-read.js';
 import { qP } from './colour-bin.js';
 import { stageCovered } from './seen.js';
+import { flagOn } from './flags.js';
 import { createCircTurn } from './circ-turn.js';
 import { peelAt, peelRank } from './flow-peel.js';
 import { EDGES, NODES, PORTAL_TERRITORY, isLiverStent, isStent, STENT_SITES } from '../engine/topology.js';
@@ -95,7 +96,7 @@ const REVERSAL_WATCH = new Set(['PV_TRUNK', 'SV_CONF', 'SMV_CONF', 'LGV_CONF', '
 import { reduceMotionMQ as reduceMotion, createReversible, VIEW_STALL_MAX, REDUCED_MOVE_MS, TURN_MS, DIVE_MS as DIVE_FULL_MS, fadeStep } from './motion.js'; // The figure's overlays drawn on the GPU, in the vessel canvas (stage-over.js; 31 Oct, recs A1): on wherever the GPU draws the
 // vessels. Not on a software renderer (the CPU would paint them) unless asked for (?stageover=gpu), as
 // CI's visual check asks, to compare it with the page's own drawing.
-const OVER_ASK = typeof location !== 'undefined' && /[?&]stageover=gpu\b/.test(location.search);
+const OVER_ASK = flagOn('stageover');
 // Parcels and arrowheads carried through junctions (blood.js createStreamChain; combined plan B1 + C1).
 // A vessel's display speed (its stream's speed, not the model's flow)
 // dashes, so a still frame shows speed too.

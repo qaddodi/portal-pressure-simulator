@@ -2,7 +2,8 @@
 // step costs one check. On, each timed step waits for the GPU (gl.finish) before and after it, so its time is the GPU's own
 // work rather than the moment the call was queued. That slows the page, so it is only for measuring. A step timed without a
 // context (gl null) is the page's own script time.
-const ORGANS_Q = typeof location !== 'undefined' ? location.search.match(/[?&]gpuorgans=(force)\b/)?.[1] : null;
+import { flagOn } from './flags.js';
+const ORGANS_Q = flagOn('gpuorgans') ? 'force' : null;
 /**
  * The notes the ?perf readout totals over a gesture's window (perf-readout.js), by fixed name so the totals stay a few dozen numbers:
  * what the vessel layer did (a whole draw and why, a pan shift, rows redrawn), what each surface submitted, what was uploaded,

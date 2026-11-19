@@ -5,6 +5,7 @@ import './test-boot.js';   // (very first: ?testclock puts the page's clocks on 
 import { lcFirst } from '../engine/lc-first.js';
 import { shortName, COMPACT } from './scenario-names.js';
 import { motionBudget } from './motion-budget.js';   // (first: counts from the start when ?perf or ?budget=1 asks)
+import { flagOn, flagValue, searchNow } from './flags.js';
 import { budget as gpuBudget } from './gpu-budget.js';   // (the render graph's registry and pass counts, R06: before any context is made)
 import './gl-state.js';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host, hostFailed, restartHost } from './host.js';
@@ -464,7 +465,9 @@ async function main() {
   for (const k of ['focus', 'labelLevel', 'selection']) { let was = store.get()[k]; store.on(k, (v) => { if (v === was) return; was = v; redraw(); }); }
 
   // Console handle for educators preparing a class (and for automated screenshots).
-  window.pps = { resumeUrl, loadPreset, store, updateParams, setTool, dock, details: (sel) => { store.set({ details: sel }); openPanel(); }, stage, host, card, timeline, menu: mainMenu, palette, presenter, get perf() { return framePerf(); }, motionBudget, budget: gpuBudget, get credit() { return creditPlacer; }, caught: caughtNow };   // (caught: the app's counted errors; the assignment above had replaced the one caught.js puts on window.pps, so no device report could read them)
+  // (MERGED into the handle the modules made before boot, never replaced: caught.js, report.js and gl-contexts.js each put pps.caught, pps.report and pps.contexts on it at import. A plain assignment here dropped them,
+  // so the flags bench had no Device report or WebGL contexts button. Getters stay getters: defineProperties with the literal's own descriptors, not Object.assign, which would read them once.)
+  Object.defineProperties(window.pps ||= {}, Object.getOwnPropertyDescriptors({ resumeUrl, loadPreset, store, updateParams, setTool, dock, details: (sel) => { store.set({ details: sel }); openPanel(); }, stage, host, card, timeline, menu: mainMenu, palette, presenter, get perf() { return framePerf(); }, motionBudget, budget: gpuBudget, get credit() { return creditPlacer; }, caught: caughtNow, toast: (t, kind) => toast(t, kind) }));   // (toast: the packet's "Packet copied." says itself through it)
   // (The slide camera's gate on this device: every deck, Next and Back, each move judged from its own frames. cam-gate.js; loaded when asked.)
   // (The test clock: the page's time on a clock a window that is not in front does not throttle. test-mode.js; ?testclock starts it at boot, the camera gate turns it on for its run.)
   window.pps.testClock = async (o) => (await import('./test-mode.js')).testClock(o);
@@ -474,12 +477,12 @@ async function main() {
   window.pps.screen = Object.assign((o) => import('./screen/index.js').then((m) => m.screen(o)), { text: (r) => import('./screen/index.js').then((m) => m.text(r)) });   // (what is on the screen as data and text, from the app's own records: screen/index.js, read in only when called)
   window.pps.lookNow = (id) => applyLookAttrs(document.documentElement, knownLook(id));   // (a look on the page's attributes with nothing saved: the gallery page's looks, which must not change the look this browser keeps for the live site)
   // ?gallery on the preview copy only: the card gallery and debug page (gallery/page.js). The live site never reads it. ?check loads the same page (its Phone check panel starts the walk).
-  { const q = new URLSearchParams(location.search), g = q.get('gallery'); if ((g !== null || q.has('check')) && g !== 'frame' && /\/preview\//.test(location.pathname)) import('./gallery/page.js').then(({ startGallery }) => startGallery({ pps: window.pps })).catch((e) => caught('main:gallery', e)); }
+  { const g = flagValue('gallery'); if ((g !== null || flagValue('check') !== null) && g !== 'frame') import('./gallery/page.js').then(({ startGallery }) => startGallery({ pps: window.pps })).catch((e) => caught('main:gallery', e)); }
   // The bug packet ("What's wrong here?": a key chord, a long press on the preview pill, pps.packet) and a state link's extras (the `x` of its #s= payload), on the preview copy and a local run only: the live site never reads them.
   if (/\/preview\//.test(location.pathname) || /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) import('./packet/trigger.js').then(({ installPacketTrigger }) => installPacketTrigger({ pps: window.pps })).catch((e) => caught('main:packet', e));
   const linked = await presenter.readLink();
   if (linked) mainMenu.open('scripts', { mark: typeof linked === 'string' ? linked : null });
-  const shared = readShare(), back = new URLSearchParams(location.search).has('back');
+  const shared = readShare(), back = flagValue('back') !== null;
   if (shared) await loadShared(shared, { quiet: back });
   else {
     timeline.reset();
@@ -557,7 +560,7 @@ async function main() {
 // Deep links, for a syllabus or a class page: ?script=<id> (&slide=<n>), ?preset=<id>,
 // ?home=explore|present (the menu, open at Patients or Present). They open straight into that activity.
 async function openDeepLink() {
-  const q = new URLSearchParams(location.search);
+  const q = { get: (k) => flagValue(k) || null };   // (the address's content parts: ?script, ?slide, ?preset, ?home)
   // (data-pz-opening: the deck is on its way; the corner credit waits for it rather than settle on the plain figure first.)
   if (q.get('script')) { const de = document.documentElement; de.dataset.pzOpening = ''; presenter.start(q.get('script'), Math.max(0, (parseInt(q.get('slide'), 10) || 1) - 1)).catch(() => {}).finally(() => delete de.dataset.pzOpening); return true; }
   if (q.get('preset')) {
@@ -809,7 +812,7 @@ async function share() {
   // by scripts/share-pages.mjs), so iMessage or Slack previews show the patient's name.
   const id = store.get().presetId, page = location.hostname.endsWith('github.io') && store.get().presetList?.some((p) => p.id === id);
   const url = `${page ? new URL(`c/${id}.html`, location.href).href : location.origin + location.pathname}#s=${encodeShare()}`;
-  try { await navigator.clipboard.writeText(url); toast('Link to this exact scenario copied.'); } catch { history.replaceState(null, '', location.pathname + location.search + `#s=${encodeShare()}`); toast('Link placed in the address bar.'); }   // (the page's own path: a share page's /c/ path would make every later link /c/c/…)
+  try { await navigator.clipboard.writeText(url); toast('Link to this exact scenario copied.'); } catch { history.replaceState(null, '', location.pathname + searchNow() + `#s=${encodeShare()}`); toast('Link placed in the address bar.'); }   // (the page's own path: a share page's /c/ path would make every later link /c/c/…)
 }
 
 // ── Restart & reset ─────────────────────────────────
@@ -1367,15 +1370,15 @@ function wireTopbar() {
   initDebug(() => stage.zoomLevel());
   // ?perf in the address: the readout of what blocks frames after a pan or pinch (perf-readout.js). Without it, never loaded.
   // (And the frame-time overlay beside it, frame-hud.js: fps, 1% low, interval and script percentiles, surfaces, throttle.)
-  if (new URLSearchParams(location.search).has('perf')) import('./frame-hud.js').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
+  if (flagOn('perf')) import('./frame-hud.js').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
   // High Refresh (high-refresh.js): on a touch screen the first tap goes full screen, past the browser's 60 Hz hold for pages.
   import('./high-refresh.js').then(({ startHighRefresh }) => startHighRefresh()).catch(() => { /* full screen is a bonus */ });
-  if (/[?&]lap\b/.test(location.search)) import('./lap.js').then(({ startLap }) => startLap()).catch(() => { /* a measuring aid only */ });
-  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
+  if (flagOn('lap')) import('./lap.js').then(({ startLap }) => startLap()).catch(() => { /* a measuring aid only */ });
+  if (flagOn('perf')) import('./perf-readout.js').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
   // ?offgpu=1 in the address: the live count of work off the GPU, flashing red when it happens during motion (offgpu-overlay.js). Without it, never loaded.
-  if (/[?&]offgpu=1\b/.test(location.search)) import('./offgpu-overlay.js').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
+  if (flagOn('offgpu')) import('./offgpu-overlay.js').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
   // ?watch in the address, on the preview copy (or a local run): the motion recorder and its red dot (watch/start.js; docs/watch.md). Without it, never loaded.
-  if (/[?&]watch\b/.test(location.search) && (/\/preview\//.test(location.pathname) || /^(localhost|127\.0\.0\.1)$/.test(location.hostname))) import('./watch/start.js').then(({ startWatch }) => startWatch(() => window.pps)).catch(() => { /* a measuring aid only */ });
+  if (flagOn('watch')) import('./watch/start.js').then(({ startWatch }) => startWatch(() => window.pps)).catch(() => { /* a measuring aid only */ });
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());
@@ -2633,7 +2636,7 @@ function armFeedbackAsk() {
   };
   timer = setInterval(tick, TICK);
 }
-(/[?&]presenter-view(?:[=&]|$)/.test(location.search) ? import('./presenter-view-page.js').then((m) => m.run()) : /[?&]gallery=frame(?:&|$)/.test(location.search) && /\/preview\//.test(location.pathname) ? import('./gallery/device-frame.js').then((m) => { document.getElementById('boot')?.remove(); document.documentElement.removeAttribute('data-boot'); document.body.replaceChildren(); m.bootFrame(); }) : main()).catch((err) => {   // (N1: ?presenter-view is the presenter's second window, text only)
+(flagValue('presenter-view') !== null ? import('./presenter-view-page.js').then((m) => m.run()) : flagValue('gallery') === 'frame' ? import('./gallery/device-frame.js').then((m) => { document.getElementById('boot')?.remove(); document.documentElement.removeAttribute('data-boot'); document.body.replaceChildren(); m.bootFrame(); }) : main()).catch((err) => {   // (N1: ?presenter-view is the presenter's second window, text only)
   // (Told to the page's own boot card too, so a failed start shows "couldn't start / Reload" at once, not a pulsing logo for 15 s and then an empty shell.)
   const fail = () => { (window.ppsBootErrors ||= []).push(String(err?.message || err).slice(0, 300)); window.ppsBootFail?.(); };
   // (A chunk that will not load is most often a page older than the site: a deploy replaced the hashed files it names. The page's

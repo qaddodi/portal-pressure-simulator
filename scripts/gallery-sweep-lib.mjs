@@ -7,18 +7,12 @@
 // `boxes` are the page's own rounded reads (pps.gallery.boxes(), 2 px steps), so a change of 2 px or less is the rounding, not the layout.
 
 /** The key of a result in a report and a baseline. A specimen held behind a case or question card has a second result, `<id>#lifted`: the slide once the card was tapped away. */
+import { GALLERY_DEVICES } from '../src/ui/devices.js';
 export const keyOf = (id, device) => `${id}@${device}`;
 export const splitKey = (key) => { const i = key.lastIndexOf('@'); return { id: key.slice(0, i), device: key.slice(i + 1) }; };
 
 /** The device sizes a sweep covers, in css px, with the browser context each belongs to: touch rules `(pointer: coarse)` apply on the touch ones. */
-export const SIZES = {
-  mac: { w: 1440, h: 900, touch: false },
-  'mac-short': { w: 1440, h: 780, touch: false },
-  ipad: { w: 1180, h: 820, touch: true },
-  'ipad-portrait': { w: 820, h: 1180, touch: true },
-  iphone: { w: 390, h: 844, touch: true },
-  'iphone-landscape': { w: 844, h: 390, touch: true },
-};
+export const SIZES = Object.fromEntries(GALLERY_DEVICES.map((d) => [d.id, { w: d.w, h: d.h, touch: d.touch }]));   // (src/ui/devices.js: the one list of sizes)
 
 /**
  * The runs a sweep makes: each is one browser context (one boot) and the sizes it takes by resizing its page. Desktop with a mouse; touch for the

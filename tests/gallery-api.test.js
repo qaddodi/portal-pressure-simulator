@@ -162,8 +162,8 @@ test('probeBusy asks the presenter, the camera, the cards and the animations; er
   assert.equal(probeBusy({ presenter: { busy: () => true }, stage: { gliding: () => true } }, held), true, 'but the camera still gliding is not');
   const fin = { playState: 'running', effect: { getTiming: () => ({ iterations: 1 }), target: null } }, loop = { playState: 'running', effect: { getTiming: () => ({ iterations: Infinity }), target: null } };
   const calm = new JSDOM('<!doctype html><body></body>').window.document;
-  assert.equal(probeBusy({}, calm, () => [loop]), false, 'a loop that never ends is not motion to wait for');
-  assert.equal(probeBusy({}, calm, () => [fin]), true, 'a running animation that will end is');
+  assert.equal(probeBusy({}, calm, { anims: () => [loop] }), false, 'a loop that never ends is not motion to wait for');
+  assert.equal(probeBusy({}, calm, { anims: () => [fin] }), true, 'a running animation that will end is');
   assert.equal(errorTotal({ caught: () => ({ a: { n: 2 }, b: { n: 3 } }) }), 5);
   assert.equal(errorTotal({}), 0);
 });
