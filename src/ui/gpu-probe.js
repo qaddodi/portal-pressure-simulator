@@ -22,7 +22,7 @@ export const COUNTED = {
   // (Every other copy of a picture and every target made again at a new size, 30 Oct (review 6a): the kept picture laid onto the
   // canvas, a resolution fade's canvas copies, and the layer's and the kept picture's targets sized again. A pan copies nothing
   // since 31 Oct: the layer wraps, veins-gl wrapPieces.)
-  present: 'copies: kept picture onto the canvas', fadeCopy: 'copies: resolution fade',
+  present: 'copies: kept picture onto the canvas', presentPart: 'copies: kept picture in part, the blood\'s box (rest)', fadeCopy: 'copies: resolution fade',
   fboAlloc: 'targets: sized again',
   // (Who asked for each whole draw and each target sized again, 30 Oct: the step from the catheter slide into the lobule held a frame
   // for 2.8 s over 8 whole draws and two sizings, and the caller is not in the readout otherwise. One of the fixed list BY.)

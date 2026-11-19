@@ -1352,6 +1352,16 @@ export function createGlassGL(wrap, source, layers, { markHold = true, software 
     G.bindFramebuffer(G.READ_FRAMEBUFFER, null); G.bindFramebuffer(G.DRAW_FRAMEBUFFER, null);
     return true;
   }
+  // Whether a present that lays only a box of the picture (veins-gl restBox, GPU-4) may leave this glass as the last present drew it: it is asleep (two
+  // frames of the page in a row changed nothing, and nothing is moving, fading or asked for), and the blur it draws from is kept. Not drawn in the
+  // figure's canvas: it lays nothing there. Asked before the present.
+  function glassSteady() {
+    if (lost || dead) return false;
+    if (!hostOn || !hf || !hk) return !raf;
+    if (raf || inPrep || quiet < 2 || !SHARED || performance.now() < liveUntil || moving()) return false;
+    const S = hk.share;
+    return !!S && !!S.t && S.snapOk && S.ok;
+  }
   // The glass over the picture the figure has just laid (veins-gl top), into its canvas: first (prepInto, before any glass is drawn on
   // that picture) the region behind the glasses blurred from it, then each glass (drawInto) in its turn among the page's layers: the
   // pane under the labels, the teaching card's shade ('low'), the callouts, the other cards ('high'). The cards' two turns share one
@@ -1501,6 +1511,10 @@ export function createGlassGL(wrap, source, layers, { markHold = true, software 
   let cr0 = null;
   function runShare(S, cr) {
     cr0 = cr;
+    // (A rest present laid in part (veins-gl restBox, GPU-4): the screen outside its box still holds the glasses of the last present, which a blur taken
+    // from it would soak up. It blurs in a whole present, which comes at least every 200 ms: the glass is drawn from the blur it has, as it is between
+    // two of the blood's blurs (BLOOD_BLUR_MS) anyway.)
+    if (host?.clipped?.() && S.t && S.snapOk && S.ok) { shareTurn(S); S.usedIn = frameCount(); return true; }
     if (!shareTurn(S)) return S.ok;
     const G = hk.G, W2 = host.canvas.width, H2 = host.canvas.height, k = hk.k;
     S.ok = false;
@@ -2197,8 +2211,8 @@ export function createGlassGL(wrap, source, layers, { markHold = true, software 
       warmPrograms(h.gl, false); if (SHADER_WARM) h.warmIn?.(warmTask(h.gl));   // (started now, published when done: see warmPrograms, warmTask)
       host.canvas.addEventListener('webglcontextlost', onHostLost);
       hostTops = cards && !co
-        ? [host.add({ order: h.order?.low ?? 1, prep: prepInto, draw: () => drawInto('low') }), host.add({ order: h.order?.high ?? 3, draw: () => drawInto('high') })]
-        : [host.add({ order: h.order ?? 2, prep: prepInto, draw: () => drawInto('all') })];
+        ? [host.add({ order: h.order?.low ?? 1, prep: prepInto, draw: () => drawInto('low'), steady: glassSteady }), host.add({ order: h.order?.high ?? 3, draw: () => drawInto('high'), steady: glassSteady })]
+        : [host.add({ order: h.order ?? 2, prep: prepInto, draw: () => drawInto('all'), steady: glassSteady })];
       // (The figure's canvas faded, hidden or moved by a style of its own (a resolution's fade, a sub-pixel rest): looked at again.)
       hostMo = new MutationObserver((recs) => { if (!recs?.length || changed(recs)) measureEarly('canvasWrites'); else wake(); });
       hostMo.observe(host.canvas, { attributes: true, attributeOldValue: true, attributeFilter: ['style', 'class', 'hidden'] });

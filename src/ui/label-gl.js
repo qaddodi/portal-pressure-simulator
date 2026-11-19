@@ -877,6 +877,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   let ghosts = [], xfOld = 1, xfNew = 1;
   // (Host mode: whether a picture with the labels is owed to the host's canvas; whether the SVG was given every label back.)
   let owed = false, released = true;   // (at first the SVG shows every label: none is marked yet)
+  let drewStill = false;   // (the last draw left nothing moving, fading or easing: steady())
   // (Host mode: the labels and marks the SVG still draws, as of the last picture: what lies between the figure's canvas and the callouts'
   // glass, which is drawn into that canvas only where it crosses none of them; svgLeft.)
   const svgLeft = new Set();
@@ -1796,6 +1797,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (settleBoxes()) { try { onBoxes?.(); } catch (e) { caught('label-gl:1031', e); /* (a listener's failure is not the labels') */ } }
     if (nb && coverOpen) { coverOpen(); coverOpen = null; }
     // (What waits for the labels to stand drawn: run once a draw has left nothing owed, the pictures all built.)
+    drewStill = !moving;
     if (moving) ask();
   }
   // A mark's look, read again while it may be changing: a frame draws the look it has kept and, when it may have changed, owes it to the
@@ -2659,6 +2661,13 @@ void main() { o = texture(uT, vUV) * uA; }`;
     check() { check(); },
     /** Host mode: whether the host's canvas owes a picture with the labels. */
     get owed() { return owed; },
+    /** Host mode: whether a present that lays only a box of the picture (veins-gl restBox) may leave the labels as the last present drew them: nothing is owed, moving,
+     *  fading, easing, waiting to be built or crossing, and the last draw left it so. Asked before the present, so it reads the state as it is now, not as the draw left it. */
+    steady() {
+      if (lost || drawing || owed || released || !drewStill) return released && !lost && !drawing && !owed;   // (given back to the SVG: nothing of theirs is on the canvas)
+      return todo.size === 0 && pending.size === 0 && dirty.size === 0 && live.size === 0 && exact.size === 0 && ghosts.length === 0 && !rideM && !rp && !needRepack
+        && mtodo.size === 0 && markDirty.size === 0 && markLive.size === 0 && xfNew === 1 && xfOld === 1 && !la?.moving;
+    },
     /** The label groups and marks the SVG drew itself at the last picture (in host mode, none while it draws them all). */
     svgLeft: () => { SVGL.length = 0; for (const el of svgLeft) SVGL.push(el); return SVGL; },
     /** The ?perf surfaces list (gpu-surfaces.js): the labels laid out at the last picture, and how many of them the SVG drew itself. */
