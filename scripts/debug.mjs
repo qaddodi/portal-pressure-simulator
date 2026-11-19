@@ -10,6 +10,7 @@
 //   npm run debug -- limits                                          the owner's standing numbers the judges hold the screen to (12 px, 1.4x, the Shuffle's 10 px ...)
 //   npm run debug -- flags                                           every address flag, where it works and what it does
 //   npm run debug -- scan                                            node-only scans: off-GPU, wording, source shapes
+//   npm run debug -- doc [--check]                                   regenerate (or check) the tables of docs/debug.md from the rules, limits and flags
 //   npm run debug -- affected                                        the gallery links a change touches (scripts/gallery-affected.mjs)
 //
 // `--print` after the verb shows the command it would run and runs nothing. Every sweep runs here in the container: never on Actions runners (owner, 18 Nov 2026).
@@ -32,6 +33,7 @@ export function plan(verb, args) {
     case 'report': return [{ file: 'report.mjs', args }];
     case 'model': return [{ file: 'model-cli.mjs', args }];
     case 'affected': return [{ file: 'gallery-affected.mjs', args }];
+    case 'doc': return [{ file: 'debug-doc.mjs', args }];
     case 'sweep': {
       const [kind, ...more] = args;
       const file = { decks: 'deck-sweep.mjs', specimens: 'gallery-sweep.mjs', turns: 'rotate-sweep.mjs' }[kind];
