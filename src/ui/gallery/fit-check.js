@@ -19,7 +19,7 @@ export const CHECK_FAMILIES = ['fit', 'edge'];
 /**
  * Reads the slide's cards (and the open structure card, if any), judges them with the registry's fit and edge rules, and names the element each problem is about.
  * io: { box, rects, style, metric, ctm }. pps: window.pps (its `card.el` and `presenter.busy()` are used when present).
- * Returns { problems: [{ kind, text, line, where, el }], busy, slide, structure }. `where` is 'slide', 'card' or 'edges'. `busy`: the presenter was still moving cards, so a
+ * Returns { problems: [{ kind, text, line, where, el }], busy, slide, structure, body, title }. `where` is 'slide', 'card' or 'edges'. `busy`: the presenter was still moving cards, so a
  * "shown before whole" finding may be only the entry itself (check again once it rests).
  */
 export function runCheck({ io, pps, families = CHECK_FAMILIES }) {
@@ -33,7 +33,7 @@ export function runCheck({ io, pps, families = CHECK_FAMILIES }) {
   });
   let busy = false;
   try { busy = !!pps?.presenter?.busy?.(); } catch { /* (no presenter: not busy) */ }
-  return { problems, busy, slide: cards.fit.shown > 0, structure: !!cards.structure };
+  return { problems, busy, slide: cards.fit.shown > 0, structure: !!cards.structure, body: cards.fit.body || 0, title: cards.fit.title || 0 };   // (body and title: the teaching card's sizes on the screen, px, for the deck sweep's body-shrink pass)
 }
 
 /** Removes the red outlines. */

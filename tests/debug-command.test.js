@@ -32,6 +32,7 @@ test('rules lists every rule with its owner and why, by family; flags lists ever
   assert.match(edge.stdout, /^5 rules in family edge/); assert.ok(!/fit-small/.test(edge.stdout));
   const js = JSON.parse(run('rules', '--json').stdout);
   assert.ok(js.every((r) => r.id && r.owner && r.why && r.family));
+  const lim = run('limits'); assert.equal(lim.status, 0); assert.match(lim.stdout, /words-floor\s+12\s+px\s+since 17 Nov 2026[\s\S]*Shuffle on a short sideways phone: 10 px/);
   const fl = run('flags');
   assert.equal(fl.status, 0); assert.match(fl.stdout, /\?perf\s+live/); assert.match(fl.stdout, /\?watch\s+(preview|local)/);
 });

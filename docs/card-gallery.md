@@ -86,4 +86,4 @@ The first run works out each deck's states and each curve's sweep (about 100 s);
   module a dozen others import, plus `SHARED_FILES` and `CSS_FAMILIES`. A catalog change names exactly the entries that differ from the base. A hub change
   (util.js, store.js, tokens.css) is "broad" and says to sweep everything; a deck file is listed as "test by hand". It prints a deep link for each of up to 10
   specimens and one Sweep link (`?gallery&sweep=ids:a,b&fresh=1`) for the rest. A new catalog family needs its modules in `FAMILY_ENTRY` (the test fails until it has them).
-  `--write <file>` also writes the ids as a JSON array, the file `?gallery&sweep=affected` reads beside the page (the deploy does not write it yet).
+  `--write <file>` also writes the ids as a JSON array, the file `?gallery&sweep=affected` reads beside the page (the deploy does not write it, because a deploy has no git history to diff against; the push message's `sweep=ids:...` link is the list, and `sweep=affected` on a preview says so).

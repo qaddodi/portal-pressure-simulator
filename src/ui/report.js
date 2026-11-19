@@ -10,6 +10,7 @@
 import { caught } from './caught.js';
 import { overBudget, contextCount, deviceClass, memoryMB, peakMB, ENVELOPES } from './gpu-budget.js';
 import { onFrameEnd } from './frame.js';
+import { addKill } from './kill-ledger.js';
 
 const RING_KEY = 'pps.ring', ALIVE_KEY = 'pps.alive', RELOADS_KEY = 'pps.reloads', LAST_KEY = 'pps.last', MAX = 20;
 let ring = [], where = () => '', t0 = 0, lost = 0, errors = 0, wasKilled = false;
@@ -43,6 +44,7 @@ export function startReport(getWhere) {
     // (Where it was and how much the page held when its last moment was written: the slide or view, the registry's estimate now and its highest, against the envelope.)
     try {
       const l = JSON.parse(read('session', LAST_KEY) || 'null');
+      if (l && typeof l.where === 'string') addKill(store('local'), l, { device: deviceClass() });   // (kept across tabs: the ledger the Phone check prints, kill-ledger.js)
       if (l && typeof l.where === 'string') note('last-seen', `${l.where}, GPU estimate ${l.mb} MB (highest ${l.peak}) of ${l.env}, ${l.s} s after it opened`);
     } catch { /* a note that cannot be read is left out */ }
   }

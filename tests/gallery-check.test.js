@@ -77,7 +77,7 @@ test('the copied list numbers each problem as its outline is', () => {
   const t = numberedReport([{ kind: 'small', text: 'span "a" 10.0 px' }, { kind: 'scroll', text: 'card runs 9 px past' }], { title: 'T', look: 'dark', size: '390 x 844' });
   assert.match(t, /^Card check: T\nlook dark, screen 390 x 844\n2 problems:/);
   assert.match(t, /scroll \(words run past the card\)\n {2}- #2 card runs 9 px past/);
-  assert.match(t, /small \(lettering under 12 px\)\n {2}- #1 span "a" 10\.0 px/);
+  assert.match(t, /small \(lettering under 12 px[^\n]*\)\n {2}- #1 span "a" 10\.0 px/);
 });
 
 test('the frame request: the device, the rest of the address, the page inside the frame', () => {
