@@ -13,6 +13,10 @@ if (typeof addEventListener === 'function') {
   addEventListener('keydown', (e) => { if (e.key === 'Tab') keyboardNav = true; }, true);
 }
 
+// Controls that use Up and Down themselves (a field, a slider, the dock's divider, a menu's rows, a group of choices): the wallet's Up and Down keys leave them alone.
+const ARROW_OWNERS = 'input, select, textarea, [contenteditable], [role="slider"], [role="separator"], [role="menu"], [role="menuitem"], [role="listbox"], [role="option"], [role="radiogroup"], [role="tablist"], [role="spinbutton"]';
+export const arrowsOwnKey = (el) => !!el?.closest?.(ARROW_OWNERS);
+
 /** True when the focused element should get this key itself instead of the talk. `digits`: a slide number is half typed, so Enter
  *  confirms it. */
 export function controlOwnsKey(el, key, digits = '') {

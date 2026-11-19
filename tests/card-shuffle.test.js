@@ -4,6 +4,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { arrowsOwnKey } from '../src/ui/key-owner.js';
 import { SHUF, shufMaxH, shufFall, shufPoseCss, shufBehind, shufKeyframes, shufInk, shufName, spring, shufEnd, shufFrom, shufDrag, shufDir, createShuffle } from '../src/ui/card-shuffle.js';
 import { WORDS_MIN_PX } from '../src/ui/card-type.js';
 
@@ -82,7 +83,7 @@ test('the words and numbers of a card behind are not there, and come in only as 
   assert.equal(shufInk(0.98), 1);
   let last = -1;
   for (let i = 0; i <= 40; i++) { const v = shufInk(i / 40); assert.ok(v >= last - 1e-12, 'only ever more of the words as the card comes forward'); last = v; }
-  assert.equal(shufName(0), 1); assert.equal(shufName(1), 0); assert.equal(shufName(0.5), 0);
+  assert.equal(shufName(0), 1); assert.equal(shufName(1), 0); assert.equal(shufName(0.06), 0); assert.equal(shufName(0.5), 0);
   const k = shufKeyframes('data');
   const at = (list, p) => +list[Math.round(p * SHUF.steps)].opacity;
   assert.equal(at(k.ink, 0), -1, 'behind, the contents\' opacity is taken to nothing'); assert.equal(at(k.ink, 1), 0, 'in front, nothing is added');
@@ -191,4 +192,52 @@ test('each strip is named by the slide: the words\' by its kicker, the instrumen
   assert.match(l, /function stripNames\(\)/);
   assert.match(l, /sl\?\.kicker \|\| live\.deck\?\.head \|\| 'The words'/);
   assert.match(l, /sl\?\.tool\?\.title \|\| sl\?\.tool\?\.short/);
+});
+
+test('no text ever stands over other text while the cards change: a name or words of the card sinking never meet the words of the card rising (the strip, the words, every height, every p)', () => {
+  const H = 393, PAD = 16, vis = 0.02;
+  const topAt = (h, g) => (H - h) / 2 + g * (h / 2 + H / 2 - SHUF.strip);   // the pose's own sum: a card h tall, g of the way to the foot
+  let worst = Infinity;
+  for (const hr of [120, 180, 240, 269, 281]) for (const hs of [120, 180, 240, 269, 281]) {
+    for (let i = 0; i <= 400; i++) {
+      const p = i / 400;
+      for (const dir of [0, 1]) {   // 0: the instrument rises (p 0 to 1); 1: the words rise (the same p seen the other way)
+        const q = dir === 0 ? p : 1 - p;   // how far the card rising is forward
+        const fr = q, fs = 1 - q;
+        const gr = 1 - fr, gs = 1 - fs;
+        const inkR = shufInk(fr), inkS = shufInk(fs), nameS = shufName(fs);
+        assert.ok(!(inkR > vis && inkS > vis), `the words of both cards show at once at ${p}`);
+        const tr = topAt(hr, gr), ts = topAt(hs, gs);
+        const ink = [tr + PAD, tr + hr - PAD], name = [ts + 22, ts + 34];
+        if (inkR > vis && nameS > vis) {
+          const gap = Math.max(name[0] - ink[1], ink[0] - name[1]);
+          worst = Math.min(worst, gap);
+          assert.ok(gap >= 0, `the name of the card sinking is over the words of the card rising: heights ${hr}/${hs}, p ${p}, dir ${dir}`);
+        }
+      }
+    }
+  }
+  assert.ok(worst > -1);
+});
+
+test('the Up and Down keys change the card as a swipe does, where the wallet stands, and leave a menu, a field, a slider and the dock\'s divider their own', () => {
+  globalThis.requestAnimationFrame ??= (f) => setTimeout(() => f(performance.now()), 16);
+  const live = { ui: { root: { classList: { toggle() {} } }, text: null, shade: null, data: null, zoom: { on: false } } };
+  const sh = createShuffle(live);
+  assert.equal(sh.swap(), false, 'off: no swap');
+  sh.sync(true, 'k', { H: 393, pad: 16 });
+  assert.equal(sh.active(), true);
+  assert.equal(sh.swap(), true); assert.equal(sh.front(), 'words', 'the change has begun, not landed');
+  live.ui.zoom.on = true; assert.equal(sh.swap(), false, 'a zoomed card holds the pair still');
+  live.ui.zoom.on = false;
+  const p = src('src/ui/presenter.js');
+  assert.match(p, /else if \(\(k === 'ArrowUp' \|\| k === 'ArrowDown'\) && live\.shuffle\.active\(\) && !popoverOpen\(\) && !arrowsOwnKey\(e\.target\)\) \{ if \(!e\.repeat\) live\.shuffle\.swap\(\); \}/);
+  assert.match(p, /import \{ controlOwnsKey, arrowsOwnKey \} from '\.\/key-owner\.js';/);
+  assert.match(src('src/ui/main.js'), /\['↑ · ↓', 'Change the card/, 'the Guide lists them');
+});
+
+test('arrowsOwnKey: a field, a slider, a menu row, the dock\'s divider keep Up and Down; the page and a plain button do not', () => {
+  const el = (matches) => ({ closest: (sel) => (sel.split(',').map((x) => x.trim()).includes(matches) ? {} : null) });
+  for (const m of ['input', 'select', 'textarea', '[role="slider"]', '[role="separator"]', '[role="menuitem"]', '[role="listbox"]', '[role="radiogroup"]']) assert.equal(arrowsOwnKey(el(m)), true, m);
+  assert.equal(arrowsOwnKey(el('button')), false); assert.equal(arrowsOwnKey(null), false); assert.equal(arrowsOwnKey({}), false);
 });
