@@ -554,7 +554,11 @@ export function createLadders(st, live) {
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       if (lockKey && shiftLock?.key === lockKey && readingsOnly()) shift = shiftLock.v; else if (lockKey) shiftLock = { key: lockKey, v: shift };
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-      if (Math.abs(shift) > 0.5) { dd.style.top = `${((y + shift) / k).toFixed(1)}px`; dd.style.maxHeight = capOf(dd, (foot - y - shift) / k); } else shift = 0;
+      if (Math.abs(shift) > 0.5) {
+        dd.style.top = `${((y + shift) / k).toFixed(1)}px`; dd.style.maxHeight = capOf(dd, (foot - y - shift) / k);
+        // (The card was fitted against the cap it had before the pair was centred, raised or shuffled: its instrument's pictures took that room, and ran up to 8 px past the new one, the deck sweep, 19 Nov 2026. Fitted again at the cap it rests with.)
+        if (fitDone.get(dd) !== fitSig(dd)) fitCards(dd);
+      } else shift = 0;
       // (How far the words rise with the readings all out: the readings' whole travel, so the instrument card never moves (Mohammad, 22 Oct:
       // "It's ok if the top of the teaching card slips behind upper part of the screen as the info below is more pertinent").)
       if (ws) slip.lift = dpx + slip.base;   // (in all: a Gut to heart chart's own rise, slip.base, and then the readings' travel)

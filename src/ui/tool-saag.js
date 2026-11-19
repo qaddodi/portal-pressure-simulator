@@ -44,13 +44,13 @@ export function pointsOf(rows, extra = [], own = null) {
 export const saagWords = (pts) => `SAAG against ascitic fluid protein, g/dL. ${pts.length ? pts.map((p) => `${p.name}${p.modeled ? '' : ' (not modeled)'}: SAAG ${fmt(p.saag, 1)}, protein ${fmt(p.tp, 1)}`).join('; ') : 'No patient with fluid to tap.'}.`;
 
 /** The plane's drawing at width W, base type size f. Pure: pts → { texts, rects, paths, H, plot }. meas(text, font) → px. */
-export function saagLayout(W, f, meas, pts, { read = null, source = true } = {}) {
+export function saagLayout(W, f, meas, pts, { read = null, source = true, plotH = 0 } = {}) {
   const texts = [], rects = [], paths = [];
   const px = (look) => TYPE[look][1] * f, font = (look) => `${TYPE[look][0]} ${px(look)}px Inter`;
   const say = (x, y, t, look, anchor = 'start') => texts.push({ x, y, t, look, anchor });
   const tk = px('saag.ax'), axl = px('saag.axl'), ql = px('saag.ql'), pl = px('saag.pl'), pls = px('saag.pls');
   const L = Math.ceil(meas('0.0', font('saag.ax')) + f * 0.9), R = Math.ceil(f * 0.5), T = Math.ceil(axl * 1.5);
-  const pw = W - L - R, ph = Math.round(Math.min(Math.max(pw * 0.62, 130), 280));
+  const pw = W - L - R, ph = plotH > 0 ? Math.round(plotH) : Math.round(Math.min(Math.max(pw * 0.62, 130), 280));   // (plotH: the plot's height when the card's room asks for less than the width gives, never under 100)
   const X = (p) => L + (Math.min(Math.max(p, 0), TP_MAX) / TP_MAX) * pw, Y = (s) => T + (1 - Math.min(Math.max(s, 0), SAAG_MAX) / SAAG_MAX) * ph;
   const r = Math.max(4, Math.round(f * 0.4)), rc = Math.round(r * 1.3);
   // The zones: portal hypertension (SAAG over its cut-off) in two, split at the protein cut-off
@@ -111,10 +111,12 @@ export function createSaag() {
     const W = Math.round(readMetric(el, 'clientWidth') || 0);
     if (dead || !W || !el.isConnected) return;
     const f = fittedType(el, gl, 12);
-    const key = `${W}|${f}|${pts.map((p) => `${p.name}:${p.saag.toFixed(1)}:${p.tp.toFixed(1)}:${p.own ? 1 : 0}`).join(',')}`;
+    const room = parseFloat(el.closest?.('.pz-data')?.style.getPropertyValue('--pz-room')) || 0;   // (the room the data card really has for the picture, presenter-zoom.js toolRoom)
+    const key = `${W}|${f}|${room}|${pts.map((p) => `${p.name}:${p.saag.toFixed(1)}:${p.tp.toFixed(1)}:${p.own ? 1 : 0}`).join(',')}`;
     if (key === drawn) return;
     drawn = key;
-    const L = saagLayout(W, f, textW, pts, { read });
+    let L = saagLayout(W, f, textW, pts, { read });
+    if (room > 0 && L.H > room) L = saagLayout(W, f, textW, pts, { read, plotH: Math.max(100, L.plot.ph - (L.H - room)) });   // (the plot gives its height up, not the words: they keep their size)
     const kids = [
       ...L.rects.map((r) => sv('rect', { x: r.x, y: r.y, width: r.w, height: r.h, rx: r.r, 'data-look': r.look })),
       ...L.paths.map((p) => sv('path', { d: p.d, 'data-look': p.look })),
@@ -142,6 +144,7 @@ export function createSaag() {
   return {
     el,
     configure(t, ctx = null) { tool = t || null; ctx0 = ctx; tries = 0; drawn = ''; clearTimeout(poll); gather(); },
+    refit() { draw(); },   // (the data card's room changed: presenter-zoom.js toolRoom)
     clear() {},
     dispose() { dead = true; clearTimeout(poll); ro?.disconnect(); gl.dispose?.(); },
   };

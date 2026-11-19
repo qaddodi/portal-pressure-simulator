@@ -762,6 +762,7 @@
    the tester: 15.5 px on HVPG 13 to 15, Shunts 15 and 16, Ascites 8 and Varices 10 and 11 at 1440 x 780, 18 px on a card that is not compact). The role size above stays for the rest of the panel and for the data card.) */
 .pz.short:not(.stack):not(.low) .pz-panel > .pz-ph { --s-body: calc(clamp(17px, calc(2.311 * var(--pzh)), 28px) * var(--ts, 1)); zoom: 1; }
 .pz.short:not(.stack):not(.low) .pz-data.pz-lt { --pz-gap: 6px; }
+.pz.short:not(.stack):not(.low) .pz-data.pz-lt.has-tool { padding-block: 14px; }   /* (an instrument card too tall for its room stands tighter top and bottom too, 19 Nov 2026: 22 px more for the picture; the sides keep the words' card's edge) */
 .pz.short:not(.stack):not(.low) .pz-data.pz-lt .pz-tiles { gap: 6px; }
 .pz.short:not(.stack):not(.low) .pz-data.pz-lt .pz-tiles .pz-tile { padding-block: 4px; }
 .pz.short:not(.stack):not(.low) .pz-panel.pz-lt { gap: 10px; padding-bottom: 16px; }

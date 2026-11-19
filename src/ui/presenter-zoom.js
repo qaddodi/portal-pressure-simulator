@@ -8,6 +8,7 @@ import { slideFold } from './fold-slide.js';
 import { fontGen, onFontsLoaded } from './font-arrival.js';
 import { cancelFrame, easeNow } from './frame.js';
 import { readBox, readCTM, readMetric, readRects, readStyle } from './layout-snap.js';
+import { toolRoomOf } from './tool-room.js';
 import { wordsOf } from './live-text.js';
 import { reduceMotionMQ as reduce } from './motion.js';
 import { cancelRest, restPass } from './rest-pass.js';
@@ -509,7 +510,7 @@ export function createZoom(st, live) {
   // (A card holding the quick check grows as its answers ease open and shut; it was fitted with every answer open, so its own
   // height is left out (the window's stands in): refitting mid-ease cut the easing short and jolted the words' size.)
   // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-  const fitSig = (el) => `f${fontGen()}|${readMetric(el, 'clientWidth')}x${el.querySelector('.pz-check') ? `q${innerWidth}x${innerHeight}` : readMetric(el, 'clientHeight')}|${el.className.replace(/ ?\b(?:tool-open|pz-sliding)\b/g, '')}|${el.style.maxHeight}|${document.documentElement.style.cssText}|${el.style.getPropertyValue('--pz-reach')},${el.style.getPropertyValue('--pz-fkrow')}|${[...el.children].map((c) => (c.hidden ? 0 : c.className + (readStyle(c).maxHeight !== 'none' ? ':' + readMetric(c, 'offsetHeight') : ''))).join()}|${el === live.ui?.data ? `s${live.want}` : (el.querySelector('.pzv') ? wordsOf(el) : el.textContent).replace(/\d/g, '0')}`;
+  const fitSig = (el) => `f${fontGen()}|${readMetric(el, 'clientWidth')}x${el.querySelector('.pz-check') ? `q${innerWidth}x${innerHeight}` : readMetric(el, 'clientHeight')}|${el.className.replace(/ ?\b(?:tool-open|pz-sliding)\b/g, '')}|${el.style.maxHeight}|${document.documentElement.style.cssText}|${el.style.getPropertyValue('--pz-reach')},${el.style.getPropertyValue('--pz-fkrow')}|${[...el.children].map((c) => (c.hidden ? 0 : c.className + (c.classList.contains('pz-tool') || readStyle(c).maxHeight !== 'none' ? ':' + readMetric(c, 'offsetHeight') : ''))).join()}|${el === live.ui?.data ? `s${live.want}` : (el.querySelector('.pzv') ? wordsOf(el) : el.textContent).replace(/\d/g, '0')}`;
   const fitDone = new WeakMap(), smOf = new WeakMap();
   // A card that ends its fit with words still cut off is recorded by slide and card (degrade 'card-clipped:<slide>:<card>', the ?perf paste),
   // once per fit, never while the cards move (a part mid-slide is not where it rests). The fit's own floor and the capped parts it ignores
@@ -645,11 +646,14 @@ export function createZoom(st, live) {
   }
   // The smallest lettering in a card as it reaches the screen: its font size times every zoom on its way (the card's own, its parts',
   // the interface's), or an SVG's drawn scale. (As tests/e2e/text-floor.mjs measures it.)
-  function minText(el) {
+  // (zoomed: only the lettering the card's fit (--pz-fit) can change. A data card's instrument is never zoomed (styles/app-05-presenter-cards.css: .pz-data > .pz-tool[data-kind] { zoom: 1 }); the fit
+  // shortens only its pictures. Its own lettering held the floor at the 12 px its words already stand at, so the fit stopped at 0.82 with the pictures still 54 px too tall, 19 Nov 2026.)
+  function minText(el, zoomed = false) {
     let min = Infinity;
     const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
     for (let n; (n = w.nextNode());) {
       const e = n.parentElement;
+      if (zoomed && e?.closest('.pz-tool[data-kind]')) continue;
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       if (!e || !n.textContent.trim() || !readRects(e).length) continue;
       const fs = parseFloat(readStyle(e).fontSize);
@@ -660,6 +664,33 @@ export function createZoom(st, live) {
       min = Math.min(min, fs * k);
     }
     return min;
+  }
+  // The room a data card's instrument has for its pictures (--pz-room, px): the card's height cap less its padding and every other part it holds (the header, its gaps).
+  // Every instrument sizes its picture against it, not against the window: a window-share budget (path's 0.55 of the height) ignored where the card stands under
+  // the words, so the pictures ran 10 to 74 px past the card on a short Mac and an iPad (19 Nov 2026). Not the instrument's own height: it never enters its own budget.
+  const roomSeen = new WeakMap();
+  function toolRoom(el) {
+    if (el !== live.ui.data) return;
+    const tool = el.querySelector(':scope > .pz-tool[data-kind]');
+    const cap = parseFloat(el.style.maxHeight) || parseFloat(readStyle(el).maxHeight);
+    if (!tool || !(cap > 0) || live.ui.root.classList.contains('stack') || readStyle(tool).display === 'none') {
+      if (roomSeen.delete(el)) { el.style.removeProperty('--pz-room'); live.ui.tools?.refit(); }
+      return;
+    }
+    // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
+    const cs = readStyle(el), z = readMetric(el, 'offsetHeight') ? readBox(el).height / readMetric(el, 'offsetHeight') : 1, parts = [];
+    let rows = 0;
+    for (const c of el.children) {
+      const s = readStyle(c);
+      if (s.display === 'none' || s.position === 'absolute' || s.position === 'fixed') continue;
+      rows++;
+      if (c !== tool) parts.push(readBox(c).height / z + ((parseFloat(s.marginTop) || 0) + (parseFloat(s.marginBottom) || 0)) * (parseFloat(s.zoom) || 1));
+    }
+    const room = toolRoomOf({ cap, rows, parts, gap: parseFloat(cs.rowGap) || 0, pad: ['paddingTop', 'paddingBottom', 'borderTopWidth', 'borderBottomWidth'].reduce((a, k) => a + (parseFloat(cs[k]) || 0), 0) });
+    if (roomSeen.get(el) === room) return;
+    roomSeen.set(el, room);
+    el.style.setProperty('--pz-room', `${room}px`);
+    live.ui.tools?.refit();   // (a picture drawn by the page's own code, the path card, lays out again for the room it has now)
   }
   function fitFlowTime(el) {
     if (el !== live.ui.data) return;
@@ -693,7 +724,7 @@ export function createZoom(st, live) {
   // The least the data card's fit may be (17 Nov 2026, the tester: its labels fell to 10.3 px at 1440 x 780): its smallest lettering as it reaches the screen at a fit of 1 shrinks no further than 12 px; a card
   // whose lettering is not above 12 px at a fit of 1 keeps the old floor, half.
   function dataFloor(el) {
-    const L = minText(el);
+    const L = minText(el, true);
     return L > 12 ? Math.max(0.5, Math.ceil(12 / L * 1000) / 1000) : 0.5;
   }
   function fitCards(...els) {
@@ -714,6 +745,7 @@ export function createZoom(st, live) {
       const was = parseFloat(el.style.getPropertyValue('--pz-fit')) || 1;
       el.style.removeProperty('--pz-fit'); el.style.removeProperty('--pz-z');
       fitFlowTime(el);
+      toolRoom(el);
       // (The stacked card is fitted with its readings' card tucked, against the tucked cap, whatever state it is in: the instrument holds
       // one size open or tucked, and nothing the fit reads comes from the fit before it. Its readings' travel (--pz-d) is measured at each trial
       // fit, so the tucked card nets its readings out exactly, and once more at the fit it ends with.)

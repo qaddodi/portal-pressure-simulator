@@ -34,6 +34,7 @@ import { CARD_WIDE_MIN, cardCompact, isCardKind, layout as cardLayout, model as 
 export const FIG_TEXT_MIN = 10, ROLE_MIN = 11, ROLE_SMALL = ['ctc', 'csc'], FIT_MIN = FIG_TEXT_MIN / ROLE_MIN;   // (ROLE_SMALL: the small layout's (a phone's) grid answers and their second line, 11 px, drawn whole on a phone, never fitted down)
 export const COL_MIN = 104, NODE_MAX = 140, NODE_MAX_E3 = 176, E3_LEAVES = 3, ROOT_MAX = 330, GAP_Y = 20, MAP_UNIT = 66, GAP = 10;
 const PILL_H = 22, PILL_PAD = 10, FIT_SHARE = 0.55;   // (the data card keeps under half the window's height for the picture, which with the card's own rows is all it has; never drawn below 60%: 72% left the Rule of five 513 px tall in a 482 px card on a 900 px Mac, 62% still 11 px over in one 481 px high)
+const FIT_TIGHT = 0.88;
 export const TOKEN = { n: 'text', ok: 'ok', warn: 'caution', bad: 'danger', acc: 'accent' };
 const svg = svgModel;
 /** The type of each kind of words: weight, size and line height in px (the look that draws it is path.<role>). */
@@ -186,7 +187,8 @@ export function createPath() {
   function ask() { if (asked) return; asked = true; loadMetrics().then(() => { ready = true; if (spec && W > 0) layout(); }).catch(() => { asked = false; }); }
 
   /** Everything that does not change with the patient: the columns, the nodes' words and their heights, the rooms reserved, the total height. */
-  function layout(sc = 1, small = false) {
+  function layout(sc = 1, small = false, tight = false) {
+    const G = tight ? 6 : GAP, R1 = tight ? 8 : 12, R2 = tight ? 4 : 7;   // (tight: the rows closer, only where the card's real room asks for it, below)
     if (!spec || !(W > 0) || !ready) return;
     const Wv = W / sc;   // (the width the picture is laid out in: wider than the card when it is drawn smaller to fit the card's height)
     // (A phone held sideways gives its cards a wider column when the pair does not fit the height (card-shuffle.js SHUF.wide): a card that wide is not the phone layout's small map but the card or chart a Mac draws.)
@@ -202,20 +204,20 @@ export function createPath() {
     // (a card kind's patient is the slide's own and never changes while it is up: its row is this patient's alone, none when it has no chips)
     L.tiled = tiled;
     L.chipsH = card ? chipsH(base) : isLive(of) ? Math.max(chipsH(base), chipsH(worst)) : chipsH(base);
-    L.y.chips = y; if (L.chipsH) y += L.chipsH + GAP;
+    L.y.chips = y; if (L.chipsH) y += L.chipsH + G;
     L.y.pic = y;
     if (card) {
       // (a score card, a grid or a ladder: path-cards.js lays out the tallest body any patient can have)
       L.card = cardLayout(spec.algo, Wv, compact, base, CARD_HELPERS, true);
-      y += L.card.H + GAP;
+      y += L.card.H + G;
     } else if (compact) {
       const B = mapBodyOf(of, spec, base, Wv, W, y);
       L.k = B.k; L.map = B.map;
-      y += L.map.H + GAP;
-      L.y.rule1 = y; y += 12;
+      y += L.map.H + G;
+      L.y.rule1 = y; y += R1;
       L.y.read = y;
       L.readH = B.readH;
-      y += L.readH + GAP;
+      y += L.readH + G;
     } else {
       const boxes = treeBoxes(spec.tree, Wv), heights = new Map(), fl = new Map();
       for (const [id, b] of boxes) {
@@ -223,9 +225,9 @@ export function createPath() {
         fl.set(id, f); heights.set(id, f.h);
       }
       L.tree = { ...treePlace(spec.tree, boxes, heights, y), boxes, flows: fl };
-      y += L.tree.H + GAP;
+      y += L.tree.H + G;
     }
-    L.y.rule2 = y; y += 7;
+    L.y.rule2 = y; y += R2;
     L.y.foot = y;
     L.foot = flow([[{ text: spec.foot, face: 'foot' }]], Wv);
     // (the foot row: the figure's number on the left, the source's pill on the right, centred on one line)
@@ -235,14 +237,18 @@ export function createPath() {
     L.H = Math.ceil(y); L.Wv = Wv; L.sc = sc;
     // (a chart or card taller than the data card can hold is drawn smaller, all of it together, rather than cut off at the bottom: the card keeps
     // about half the window's height for it; the phone's small map has its own room)
-    const room = Math.max(300, viewSize().h * FIT_SHARE);
+    const given = parseFloat(pic.closest?.('.pz-data')?.style.getPropertyValue('--pz-room'));   // (the room the data card really has for the instrument, presenter-zoom.js toolRoom; none on a phone's sheet)
+    const room = given > 0 ? given : Math.max(300, viewSize().h * FIT_SHARE);
     // (The small map is fitted the same way off a phone: on a 900 px Mac the Rule of five map stood 513 px tall in a 482 px card and the card cut its last 90 px.)
     if (sc === 1 && (!compact || !phone) && L.H > room) {
       // (B13, 16 Nov 2026: fitted down to 60% the Baveno bleeding chart's words came out at 5 to 6 px. A figure that needs less than FIT_MIN of its size to fit
       // is not shrunk past it: the whole chart gives way to the small map (12 px words and up), whose own height is fitted the same way.)
-      const need = room / L.H;
-      if (need >= FIT_MIN) return layout(need, small);
-      return compact ? layout(FIT_MIN, small) : layout(1, true);
+      // (Where the data card's real room says it, the rows stand closer first (6 px, not 10), then the picture is drawn smaller, to FIT_TIGHT of its size at the least: its smallest word is then 10.5 px,
+      // above the 10 px floor of every figure, FIG_TEXT_MIN. Stiffness 8 on a 780 px Mac stood 24 px past its card at FIT_MIN.)
+      if (!tight && given > 0) return layout(1, small, true);
+      const need = room / L.H, floor = tight ? FIT_TIGHT : FIT_MIN;
+      if (need >= floor) return layout(need, small, tight);
+      return compact ? layout(floor, small, tight) : layout(1, true, tight);
     }
     L.Hr = Math.ceil(L.H * sc);
     lay = L;
