@@ -16,7 +16,7 @@
 import { prefs } from './prefs.js';
 import { store, replaceParams, setViewKey } from './store.js';
 import { freshPatient } from './slide-motion.js';
-import { controlOwnsKey } from './key-owner.js';
+import { controlOwnsKey, arrowsOwnKey } from './key-owner.js';
 import { startChange } from './change-order.js';
 import { h, toast, svgIcon, icon, clamp, isModalOpen, popoverOpen, SHORT_SIDE_MQ } from './util.js';
 import { swipeDir, SWIPE_MIN, SWIPE_RATIO, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js';
@@ -2087,6 +2087,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     else if (k === 'ArrowLeft' || k === 'PageUp' || k === 'Backspace') { if (!e.repeat) prev(); }
     else if (k === 'Home') go(0);
     else if (k === 'End') go(slides.length - 1);
+    // (The wallet, a screen too short for both cards: Up and Down change the card, as a swipe up or down does, on a Mac in a short window too. Otherwise they move no slide, and a menu, a field,
+    // a slider or the dock's divider that has them keeps them.)
+    else if ((k === 'ArrowUp' || k === 'ArrowDown') && live.shuffle.active() && !popoverOpen() && !arrowsOwnKey(e.target)) { if (!e.repeat) live.shuffle.swap(); }
     else if (lk === 'b' || k === '.' || lk === 'w') toggleBlack();
     else if (lk === 'f') fullscreen();
     else if (lk === 'g') toggleJump(true);

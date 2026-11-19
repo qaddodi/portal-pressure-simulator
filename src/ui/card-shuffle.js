@@ -64,7 +64,7 @@ export function shufPoseCss(card, p, geo = geom) {
 }
 
 const smooth = (a, b, v) => { const t = clamp01((v - a) / (b - a)); return t * t * (3 - 2 * t); };
-const INK_FROM = 0.66, INK_TO = 0.96, NAME_FROM = 0.1, NAME_TO = 0.5;
+const INK_FROM = 0.66, INK_TO = 0.96, NAME_FROM = 0, NAME_TO = 0.06;
 /**
  * How much of a card's words and numbers show while the card is f of the way forward (0 behind, 1 in front): none while it is a strip or leaving, whole only as it arrives. The strip shows
  * the card's edge, its grab bar and its name and never a piece of a line (19 Nov 2026, the sweep: a half line of the card behind showed in 406 of 412 Shuffle slides; Mohammad:
@@ -72,7 +72,7 @@ const INK_FROM = 0.66, INK_TO = 0.96, NAME_FROM = 0.1, NAME_TO = 0.5;
  * shows past the card that is crossing it.
  */
 export const shufInk = (f) => smooth(INK_FROM, INK_TO, f);
-/** The strip's name: whole while the card is behind, gone before the card is half forward. */
+/** The strip's name: whole only while the card is at the foot, gone by the time it has risen 6% of the way, so it never stands over the words of the card coming forward over it (Mohammad, 19 Nov: "when swapping between cards the texts overlap"). */
 export const shufName = (f) => 1 - smooth(NAME_FROM, NAME_TO, f);
 
 /** The keyframes of one card's transform (to be ADDED to its own), its contents' opacity (ADDED to their own: 0 whole, -1 gone) and its strip's name, from p = 0 (offset 0) to p = 1 (offset 1). */
@@ -239,6 +239,13 @@ export function createShuffle(live) {
     /** The glass of the card behind is not cut: it stands partly past the screen's foot, where nothing is drawn. (card-shuffle.js kept no cut since the wallet; the glass asks and is told none.) */
     cutOf: () => null,
     stripHit,
+    /** The Up and Down keys: the same change a swipe makes, the card behind comes forward (or goes back, pressed again mid-way). False when the wallet is off, a finger is on it or a card is zoomed. */
+    swap() {
+      if (!on || dragging || live.ui?.zoom?.on) return false;
+      const to = target === 1 ? 0 : 1;
+      rising = to === 1 ? 'data' : 'words'; front(); target = to; run();
+      return true;
+    },
     /** A card is to be zoomed: it is brought to the front (the pair then holds still while the zoom is up: touch). */
     hold(card) { if (!on) return; rising = card === 'words' ? 'words' : 'data'; front(); target = card === 'words' ? 0 : 1; v = 0; run(); },
     settled: () => !dragging && !raf && p === target,
