@@ -12,7 +12,7 @@ import { STENT_CLOSED_D } from './stent-ease.js';
 import { stentParts, geomOf, geomDefault, kindOf, benchFlow, BENCH_DP, endSiteOf, END_U } from './stent-geom.js';
 import { stentStillHeld } from './flow-cuts.js';
 import { LYMPH, tissueP, sinusoidPull, hepLymphOf } from './lymph.js';
-import { DisplayMean, holdAt } from './display-mean.js';
+import { DisplayMean, holdAt, BREATH_S } from './display-mean.js';
 import { hvBlocked } from './pressure-cuts.js';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
@@ -944,6 +944,7 @@ export class Engine {
       this._dmIn = new Float64Array(n); this._dmP = new Float64Array(N); this._dmQ = new Float64Array(E);
     }
     const v = this._dmIn, Pf = this.Pf, Qf = this.Qf;
+    const arrive = this._arrive; this._arrive = false;   // (a restored slide's state, at rest: restore)
     let same = dm.seeded && this.extf?.length === N;
     for (let i = 0; same && i < N; i++) same = Pf[i] === this._dmP[i];
     for (let k = 0; same && k < E; k++) same = Qf[k] === this._dmQ[k];
@@ -952,11 +953,15 @@ export class Engine {
       this.calmExt(v.subarray(N + E, N + E + N));
       v[n - 2] = this.iap - (this._swing?.iap || 0);
       v[n - 1] = this.pvVm ?? this.dopplerVelocity('PV_TRUNK');
-      dm.seed(v);
+      dm.seed(v, arrive ? BREATH_S + 60 / (this.hr || HR_REST) + 0.1 : 0);
       this.extf = Float64Array.from(v.subarray(N + E, N + E + N)); this.iapf = v[n - 2]; this._pvVshown = v[n - 1];
     }
     v.set(this.P, 0); v.set(this.Q, N); v.set(this.ext, N + E); v[n - 2] = this.iap; v[n - 1] = this.dopplerVelocity('PV_TRUNK');
-    if (dm.add(v, dt, 60 / (this.hr || HR_REST))) {
+    // (The beat's window is one beat long, 60 / the heart rate. The rate the baroreflex gives dithers by a tenth of a beat a minute at rest, and a window that long
+    // changes by 0.15% with it, which on an aortic swing of ±25 mmHg is 0.05 mmHg of ripple in the shown mean: a rate with the dither filtered out, 5 s, keeps it still.)
+    const hr = this.hr || HR_REST;
+    this._hrw = !same || this._hrw == null ? hr : this._hrw + (hr - this._hrw) * Math.min(1, dt / 5);
+    if (dm.add(v, dt, 60 / this._hrw)) {
       const o = dm.out;
       for (let i = 0; i < N; i++) Pf[i] = o[i];
       for (let k = 0; k < E; k++) Qf[k] = o[N + k];
@@ -1124,6 +1129,16 @@ export class Engine {
     const sched = [[0.02, 10], [0.2, 15], [2, 20], [10, 30]];
     for (let r = 0; r < n; r++) for (const [dt, k] of sched) for (let i = 0; i < k; i++) this.step(dt);
     this.quiet = q; this.t = t; this.cyc = cyc;
+  }
+  /** A slide's state with a transfusion in it is the transfusion DONE: the units run in over 10 to 15 minutes of model time, which the settle's 343 s does
+   *  not cover, so a state handed to the page with units still dripping went on moving for minutes after it landed (eight units: the portal pressure
+   *  26 → 35 mmHg, the systolic pressure +10; ENG-1 of 19 Nov 2026). Quiet 10 s steps until every infusion has run out, then the settle again. */
+  finishInfusions() {
+    if (!this.infusions.length || this.bleed.active) return;   // (a bleed under way is a process: its slide shows it going on, and the quiet steps would run it on for ten more minutes)
+    const q = this.quiet, t = this.t, cyc = this.cyc; this.quiet = true;
+    for (let i = 0; i < 200 && this.infusions.length; i++) this.step(10);
+    this.quiet = q; this.t = t; this.cyc = cyc;
+    this.settle();
   }
   /** A few quiet relaxation steps that leave the clock alone, so a live change reaches its steady state in about a second
    *  while the Doppler and tracings keep sweeping at real time (the arterial buffer alone takes half a minute of model time). */
@@ -1782,7 +1797,9 @@ export class Engine {
   }
 
   // ───────────────────────── snapshot ─────────────────────────
-  snapshot() {
+  /** `rest`: the state is a settled patient whose shown means have converged (a slide's), so the page's restore holds its readings still while the
+   *  display windows refill (display-mean.js seed) instead of reading the first seconds' partial windows. */
+  snapshot({ rest = false } = {}) {
     return structuredClone({
       params: this.paramsTarget(), V: Array.from(this.V), P: Array.from(this.P), Q: Array.from(this.Q), t: this.t, day: this.day,
       baro: this.baro, MAPf: this.MAPf, habr: this.habr, hr: this.hr, slow: this.slow, blood: this.blood,
@@ -1792,6 +1809,9 @@ export class Engine {
       valsalva: this.valsalva, evState: this.evState,
       // (The shown readings, the means over the last breath and beat: a restored moment reads as it did, not as this instant's swing.)
       Pf: this.Pf ? Array.from(this.Pf) : null, Qf: this.Qf ? Array.from(this.Qf) : null, iapf: this.iapf,
+      // (and the slow means the vitals and the portal flow read, with the shown ones: a restore that started them over from this instant's beat put 1 to 4 s of swing on the MAP, the pressures and the portal flow)
+      vitM: this.vitM ? [...this.vitM] : null, vitM1: this.vitM1 ? [...this.vitM1] : null, pvQm: this.pvQm, pvVm: this.pvVm,
+      ...(rest ? { rest: true } : {}),
     });
   }
   restore(s) {
@@ -1816,7 +1836,9 @@ export class Engine {
     this.Qf = Float64Array.from(c.Qf?.length === this.E ? c.Qf : this.Q);
     this.iapf = Number.isFinite(c.iapf) && c.Pf?.length === this.N ? c.iapf : undefined;
     this._held = null;   // (the readings' dead band, holdShown, starts over with the shown means)
-    this.pvQm = this.pvVm = undefined; this.vitM = null;
+    this.pvQm = Number.isFinite(c.pvQm) ? c.pvQm : undefined; this.pvVm = Number.isFinite(c.pvVm) ? c.pvVm : undefined;
+    this.vitM = Array.isArray(c.vitM) && Array.isArray(c.vitM1) ? [...c.vitM] : null; this.vitM1 = this.vitM ? [...c.vitM1] : undefined;
+    this._arrive = !!c.rest;
     this.qpm = Array.isArray(c.qpm) ? [...c.qpm] : null;   // (one from before it was kept starts it at this moment's inflow)
     this._hiddenOn = false; this._carry = null; this._ease = null;   // (a hidden copy being relaxed, and what it moved, belonged to the state before)
     this._drug = this.drugEffects();

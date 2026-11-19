@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createCore, WARM_DT, WARM_STEPS } from '../src/worker-core.js';
+import { createCore, atBedside } from '../src/worker-core.js';
 import { restingEngine } from '../src/engine/bedside-rest.js';
 import { detectEvents } from '../src/engine/events.js';
 
@@ -79,7 +79,7 @@ test('long jobs yield to the event loop and queued snapshots see the completed s
   await core.handle({ type: 'run', running: false });
   const reference = restingEngine();   // (the worker's own starting engine, at the bedside's rest: the beat's phase carries through a load, as it does on a running one)
   reference.loadPreset('cirr-decomp');
-  reference.beat = true; for (let i = 0; i < WARM_STEPS; i++) reference.step(WARM_DT);   // (a patient opens at its bedside rest: worker-core.js 'preset')
+  atBedside(reference);   // (a patient opens at its bedside rest: worker-core.js 'preset')
   // Mirror the host's frame reads, including event hysteresis and the derived
   // diameter cache, so the complete snapshots can be compared exactly.
   const referenceFrame = () => {

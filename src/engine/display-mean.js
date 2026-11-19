@@ -29,10 +29,16 @@ export class DisplayMean {
     this.out = new Float64Array(n);
     this.closes = 0;
     this.seeded = false;
+    this.holdS = 0; this.heldV = new Float64Array(n);   // (the seed an arrival holds the output at while its windows fill with real bins, seed)
   }
 
-  /** Start over at a steady value: every bin of both windows holds `v`, so the output is `v` until the model moves. */
-  seed(v) {
+  /** Start over at a steady value: every bin of both windows holds `v`, so the output is `v` until the model moves.
+   *  `holdS` > 0 is a model that arrives AT REST (a slide's state: a settled patient, its means converged): the windows are filled with `v`, not with
+   *  the swing of a breath and a beat, so the first seconds' partial windows would read the swing's share, 0.3 to 0.5 mmHg, up and back (the means of a
+   *  settled patient carry no news, the seed is already their mean). The output stays at `v` for `holdS` seconds, until the real bins have replaced the
+   *  seed in both windows, and goes to the real means then, which at rest are the seed's own to a few thousandths. A change of any kind in the first
+   *  seconds writes the shown values and seeds again without it, so it shows at once as it always did. */
+  seed(v, holdS = 0) {
     const n = this.n;
     this.acc.fill(0); this.accT = 0;
     const k1 = Math.ceil(BREATH_S / BIN_S);
@@ -43,6 +49,7 @@ export class DisplayMean {
     for (let b = 0; b < RING2; b++) { this.r2.set(v, b * n); this.d2[b] = BIN_S; }
     this.h2 = 0; this.c2 = RING2;
     this.box.set(v); this.out.set(v);
+    this.holdS = holdS > 0 ? holdS : 0; if (this.holdS) this.heldV.set(v);
     this.seeded = true;
   }
 
@@ -83,6 +90,7 @@ export class DisplayMean {
       got += w;
     }
     for (let i = 0; i < n; i++) out[i] /= got;
+    if (this.holdS > 0) { this.holdS -= T; if (this.holdS > 0) out.set(this.heldV); }
   }
 
   tail1() { return (this.h1 - this.c1 + RING1) % RING1; }
