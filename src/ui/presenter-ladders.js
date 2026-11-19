@@ -309,7 +309,7 @@ export function createLadders(st, live) {
     // On a laptop or tablet the data card always stacks under the words' card, at its width, a gap below it (0.6 of the margin),
     // above the controls; what does not fit is made smaller in fixed steps, never moved to the top right. A card in view that
     // changes place fades out, moves while unseen and fades back in.
-    let below = false, shuf = false, tight = !!lock?.tight, colIx = lock?.col || 0, gap = 0, cw = 0, foot = H, wordsCap = Infinity, rise = 0;   // (rise: how far a stacked pair that is a few px too tall for the screen stands higher, into its top margin, so the data card keeps its whole height)   // (wordsCap: the height the words' card is held to where the data card needs the room, below)
+    let below = false, shuf = false, room = lock?.room || 0, colIx = lock?.col || 0, gap = 0, cw = 0, foot = H, wordsCap = Infinity, rise = 0;   // (rise: how far a stacked pair that is a few px too tall for the screen stands higher, into its top margin, so the data card keeps its whole height)   // (wordsCap: the height the words' card is held to where the data card needs the room, below)
     slip.base = 0;
     const top0 = cardOn && t ? sm : 0;   // (the cards' top: one margin from the top, as from the side)
     if (cardOn && !low && t && !off(dd)) {
@@ -396,7 +396,7 @@ export function createLadders(st, live) {
         live.ui.text.classList.toggle('pz-nocauses', !!lock.nc);
         if (lock.folds) setFolds(true);
         shuf = !!lock.shuf;
-        if (shuf) foot = top0 + shufMaxH(H / k, tight) * k;   // (the wallet's room: a card centred with the strip's room kept below and above it)
+        if (shuf) foot = top0 + shufMaxH(H / k, room) * k;   // (the wallet's room: a card centred with the strip's room kept below and above it)
         t = r(live.ui.text); below = lock.below; dk = lock.dk; cw = t.right - wr.left + pad - sl; ch = foldH(dk) * k;
       } else {
         // (The words at Compact at the one card width, then the steps below; the column never widens.)
@@ -410,10 +410,11 @@ export function createLadders(st, live) {
           // (The column widens only when a slide needs it: 400 px first, then 460 and 520 (fewer lines of the same type). A column is taken when the words fit it alone and the instrument's blocks, at their
           // own steps and never under 12 px, fit the height the strip leaves; the widest is kept where none does.)
           const kEl = dd.querySelector('.pz-tiles .pzt-k'), dkMin = dkFloorOf(kEl ? parseFloat(readStyle(kEl).fontSize) : 0);
-          // (A card still taller than that at the widest column takes the tight room, the gap under it a little smaller (SHUF.gapTight): a card of 282 px is not a card that cannot stand.)
+          // (A card still taller than that at the widest column takes more room, never a smaller body: first the gap under it a little smaller (SHUF.gapTight), then the whole screen less one
+          // edge each way, the card behind standing under it with its strip out of sight (a swipe or Up and Down still change the card). The teaching card's body text never shrinks to fit, 2a8217e3.)
           let both = false;
-          for (tight of [false, true]) {
-            foot = top0 + shufMaxH(H / k, tight) * k;
+          for (room = 0; room < 3; room++) {
+            foot = top0 + shufMaxH(H / k, room) * k;
           for (colIx = 0; colIx < SHUF.cols.length; colIx++) {
             live.ui.root.style.setProperty('--pz-cw', SHUF.cols[colIx]);
             t = r(live.ui.text); cw = t.right - wr.left + pad - sl;
@@ -427,8 +428,6 @@ export function createLadders(st, live) {
             trim = 0;
             let fits = steps();
             if (!fits) for (const n of [1, 2]) { trim = n; fits = steps(); if (fits) break; }
-            // (None fits at Regular: the words step to Compact, as a phone on its side always did, once the title and the CAUSES line have given what they can; WIDE.words, never under 12 px.)
-            if (!fits) for (const n of [0, 1, 2]) { trim = n; if (step()) { fits = true; break; } }
             ch = ch0; gap = gap0;
             both = fits && dataFits;
             if (both || colIx === SHUF.cols.length - 1) break;
@@ -469,7 +468,7 @@ export function createLadders(st, live) {
       if (dk < 1) dd.style.setProperty('--pz-dk', dk); else dd.style.removeProperty('--pz-dk');
       live.foldHeld = dd.classList.contains('pz-folds') ? foldKey : null;
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-      if (lockKey && !lock) live.textLock = { key: lockKey, below, shuf, tight, col: colIx, dk, folds: dd.classList.contains('pz-folds'), nc: live.ui.text.classList.contains('pz-nocauses'), vars: ['--pz-tk', '--pz-bk'].map((n) => [n, ts.getPropertyValue(n)]) };
+      if (lockKey && !lock) live.textLock = { key: lockKey, below, shuf, room, col: colIx, dk, folds: dd.classList.contains('pz-folds'), nc: live.ui.text.classList.contains('pz-nocauses'), vars: ['--pz-tk', '--pz-bk'].map((n) => [n, ts.getPropertyValue(n)]) };
       // (A Gut to heart chart is drawn at its own size, never zoomed by the fit, and has a smallest height. Where the pair is too tall for it
       // even at the smallest steps, the words' card eases up with the data card, its top slipping behind the screen's top if need be, so the
       // chart stays whole in its card instead of spilling past the screen (Mohammad, 22 Oct: "It's ok if the top of the teaching card slips

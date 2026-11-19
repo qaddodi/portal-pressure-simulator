@@ -26,6 +26,7 @@ import { setThrowPose } from './card-throw.js';
 export const SHUF = Object.freeze({
   strip: 48,      // px of the card behind that show at the foot of the screen: its grab bar and its name (a finger's height, never a piece of a line)
   gapTight: 6,    // px least under the card in front when the slide has no column that fits it with the usual gap
+  edge: 8,        // px least between a card and the screen's edge when even that is not room: it then stands over the strip of the card behind
   gap: 14,        // px least between the foot of the card in front and the top of the strip
   cols: ['min(400px, 62vw)', 'min(460px, 62vw)', 'min(520px, 62vw)'],   // the wallet's card widths (--pz-cw), one for both cards, centred on the screen: 400 first; a slide whose words or instrument need more height takes a wider column (fewer lines), never a smaller type
   drag: 190,      // px of finger travel for the whole change
@@ -35,7 +36,7 @@ export const SHUF = Object.freeze({
 
 
 /** The tallest a card in front can be: centred, with the strip and its gap below it (and the same above, so it stays centred). H: the screen's height. */
-export const shufMaxH = (H, tight = false) => Math.max(0, H - 2 * (SHUF.strip + (tight ? SHUF.gapTight : SHUF.gap)));
+export const shufMaxH = (H, room = 0) => Math.max(0, H - 2 * (room >= 2 ? SHUF.edge : SHUF.strip + (room === 1 ? SHUF.gapTight : SHUF.gap)));
 
 // The screen's height and the padding of the words' glass, in the page's px: written by sync() after each layout, read by every pose (module state: the throw composes the same pose).
 const geom = { H: 390, pad: 0 };
@@ -188,6 +189,9 @@ export function createShuffle(live) {
     for (const a of anims) {
       if (a.card !== behind || !a.glass) continue;
       const top = a.top + shufFall(a.layer, a.h) * shufBehind(a.layer, p);
+      // (A card in front that stands over the strip (the last room, shufMaxH 2) is touched as itself: a tap on its foot is not a tap on the strip under it.)
+      const f = anims.find((x) => x.card !== behind && x.glass);
+      if (f && y < f.top + shufFall(f.layer, f.h) * shufBehind(f.layer, p) + f.h) return false;
       const hh = Math.max(36, SHUF.strip);
       return x >= a.left - 6 && x <= a.left + a.w + 6 && y >= top - 6 && y <= top + hh;
     }
