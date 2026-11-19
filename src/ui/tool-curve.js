@@ -81,9 +81,19 @@ import { fittedType, tokName } from './chart-ctx.js';
 import { plotPanel } from './plot-look.js';
 import { createSvgGL, svgModel, setWords, wordsOf, setGeo } from './svg-gl.js';
 import { airRatio } from './endo-size.js';
+import { smoothPath } from './smooth-path.js';
 import { NODES } from '../engine/topology.js';
 import { safeParamPath, pathOf, getAt, patchOf, mergeOf } from './import-safety.js';
 import { reduceMotionMQ } from './motion.js';
+
+/** A parameter curve through its settled sweep points: a monotone smooth path (no overshoot: a flat stretch stays flat), so the joins are not straight; a straight-line path where x does not run one way (CH-1, bible review 19 Nov 2026). */
+export function curvePath(pts) {
+  const n = pts.length;
+  let up = true, down = true;
+  for (let i = 1; i < n; i++) { if (!(pts[i][0] > pts[i - 1][0])) up = false; if (!(pts[i][0] < pts[i - 1][0])) down = false; }
+  if (n > 2 && (up || down)) return smoothPath(pts);
+  return pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join('');
+}
 const nextFrame = frameFor('tool-curve');
 
 const CV_MIN = 12;   // (px on the screen: the smallest the chart's words are drawn)
@@ -817,7 +827,7 @@ export function createCurve() {
       sv('text', { class: 'pcv-ax', 'data-look': 'cv.ax', x: G.nameAt ?? Math.max(8 + cw(xAxisName(ax), f, 1) / 2, Math.min(G.w - 8 - cw(xAxisName(ax), f, 1) / 2, (L + R) / 2)), y: B + (G.nameAt == null ? 2.6 : 1.25) * f, 'text-anchor': 'middle' }, xAxisName(ax))];
     const lines = ls.map((l, j) => {
       const Y = j && !G.one ? YR || YL : YL, ys = ser?.ys[j], xs = lineX(j);
-      const d = ys ? ys.map((y, i) => (Number.isFinite(y) ? [X(xs[i]), Y(y)] : null)).filter(Boolean).map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join('') : '';
+      const d = ys ? curvePath(ys.map((y, i) => (Number.isFinite(y) ? [X(xs[i]), Y(y)] : null)).filter(Boolean)) : '';
       return { l, Y, path: sv('path', { class: `ptk-line pcv-line${l.ref ? ' pcv-ref' : l.dash ? ' pcv-dash' : ''}`, 'data-look': 'cv.line', 'data-p-c': tokName(l.c), d }),
         ring: sv('circle', { class: 'pcv-ring off', 'data-look': 'cv.ring', 'data-p-c': tokName(l.c), r: Math.max(5, f * 0.45), 'data-nomorph': '' }),
         // (Its pieces for a merged readout, "5.3 mm · 72 %": a separator and a value in each line's colour, built with the drawing, so a
