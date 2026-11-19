@@ -263,6 +263,9 @@
    The fades run on the label's children, not the label: a faded ancestor would stop the glass seeing the figure behind it. */
 .cath-label > * { opacity: var(--lo); transition: opacity var(--d-surface) var(--ease); }
 .cl-glass { position: absolute; z-index: -1; pointer-events: none; background: var(--glass-tint); }
+/* The callouts keep no drop (19 Nov 2026, the card shadow is for cards): the one glass's lift (--glass-shadow) is cleared here for the label, its glass and its ::before, so a small
+   reading is not smudged by a 24 px lift. Remove this rule to give the callouts the lift too. */
+.cath-label { --glass-shadow: none; }
 .cl-glass path { fill: none; stroke: var(--rg); stroke-width: 4; stroke-linejoin: miter; }
 /* The printed tag (callout.js): the path is stroked 2 px and clipped to its inside, so 1 px shows; the border
    colour carries a fifth of the reading's colour, enough to tell a free tag from a wedged one at the edge without a ring. */

@@ -136,7 +136,7 @@ export const TOKENS = {
     'vel-ink': '45%',   // a stent point's number: how much of its velocity colour, the rest the text's (4.5:1 at least on the light stage)
 
     // rendering: organ lighting, vessel tubes, background plane, circuit map
-    'shadow-rgb': '46 22 34', 'shadow-a': '.15', 'vessel-shadow': 'rgb(var(--shadow-rgb) / var(--shadow-a))',
+    'shadow-rgb': '46 22 34', 'shadow-a': '.15', 'card-shadow-a': '.45', 'vessel-shadow': 'rgb(var(--shadow-rgb) / var(--shadow-a))',
     'tube-shade': '.24', 'tube-sheen': '.42',
     'vessel-knock-a': '0',   // the paper gap where vessels of one tier cross (veins-gl.js, visual-style V2): PARKED on every look (8 Nov 2026). It cut the lower vessel round the end of one that joins it (hepatic veins into the IVC, branches off a trunk) with a black cap on the dark looks; it needs the joins listed before it comes back
     'vessel-rim-a': '0',   // a dark lumen's light rim (veins-gl.js, visual-style V1): off on the light looks, whose dark casing already edges it
@@ -217,6 +217,7 @@ export const TOKENS = {
   // Soft light: warm, low-glare paper with frosted cards and softer ink; organ colours unchanged.
   soft: {
     from: 'light',
+    'card-shadow-a': '.5',   // (the card lift's strength: Light .45, Soft a little more, the dark looks .75; --glass-shadow in app-03-layouts.css)
     // (pressure keeps its pale end from before Linen's: Oat is darker than #DCEBF7, so that end reads lighter than the ground here, where Linen's #B8D5ED would sit at Oat's own lightness)
     // (COL-1: the two low stops, where a healthy hepatic vein, the cava and the central vein sit (3 to 5 mmHg), were 1.25:1 and 1.22:1 on Oat's ground; as dark against Oat's ground as Linen's are against Linen's: 1.37:1 and 1.81:1, where Linen's are 1.28 and 1.79)
     'ramp-pressure': '#8DB8E2 0, #6A9FDE 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30',
@@ -343,7 +344,7 @@ export const TOKENS = {
     'grid': '#2B2926', 'axis': '#4A4641',
     'tr-pv': DARK_TRACE.pv, 'tr-ppg': '#FFD166', 'tr-hvpg': '#8466E8', 'tr-wedge': DARK_TRACE.wedge, 'tr-sin': '#DA7EDD', 'tr-hv': DARK_TRACE.hv, 'tr-ra': '#B7B1A8', 'tr-ivc': DARK_TRACE.ivc, 'tr-var': '#F28A56', 'tr-cav': '#A9CC55', 'tr-sv': 'var(--origin-spleen)', 'tr-smv': 'var(--origin-smv)', 'tr-imv': 'var(--origin-imv)', 'tr-scler': '#B7C2D4',
     'shadow-1': '0 0 0 1px var(--hairline)', 'shadow-2': 'var(--shadow-menu)', 'shadow-3': 'var(--shadow-dialog)',
-    'shadow-rgb': '0 0 0', 'shadow-a': '.38', 'vessel-shadow': 'rgb(var(--shadow-rgb) / var(--shadow-a))', 'tube-shade': '.3', 'tube-sheen': '.38', 'vessel-rim-a': '.3', 'vessel-knock-a': '0', 'organ-cast': 'rgba(0, 0, 0, .42)', 'tex-a': '.13', 'lit-hi': '.2', 'lit-lo': '.18', 'fx-ink': 'rgba(233, 237, 246, .9)', 'stent-metal': '#A0ABBE', 'suture-thread': '#E8742A', 'suture-edge': '#3a1d0a', 'stent-marker': '#BAC2D0', 'stent-alpha': '.5', 'stent-glint': '.24', 'stent-rail-w': '1.15', 'stent-strut-w': '.8',
+    'shadow-rgb': '0 0 0', 'shadow-a': '.38', 'card-shadow-a': '.75', 'vessel-shadow': 'rgb(var(--shadow-rgb) / var(--shadow-a))', 'tube-shade': '.3', 'tube-sheen': '.38', 'vessel-rim-a': '.3', 'vessel-knock-a': '0', 'organ-cast': 'rgba(0, 0, 0, .42)', 'tex-a': '.13', 'lit-hi': '.2', 'lit-lo': '.18', 'fx-ink': 'rgba(233, 237, 246, .9)', 'stent-metal': '#A0ABBE', 'suture-thread': '#E8742A', 'suture-edge': '#3a1d0a', 'stent-marker': '#BAC2D0', 'stent-alpha': '.5', 'stent-glint': '.24', 'stent-rail-w': '1.15', 'stent-strut-w': '.8',
     // ── BEGIN device materials, dark looks (visual-style D1, D6, D9; Navy and Black take these) ──
     'dev-poly': '#F0F0ED', 'dev-poly-edge': '#1C212B', 'dev-scope-edge': '#C9CED6',
     'dev-latex': '#FCE6B3', 'dev-latex-edge': '#B08A59', 'dev-latex-a': '.34', 'dev-nylon': '#E5EDF7',

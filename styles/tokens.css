@@ -300,6 +300,7 @@
   --vel-ink: 45%;
   --shadow-rgb: 46 22 34;
   --shadow-a: .15;
+  --card-shadow-a: .45;
   --vessel-shadow: rgb(var(--shadow-rgb) / var(--shadow-a));
   --tube-shade: .24;
   --tube-sheen: .42;
@@ -605,6 +606,7 @@
     --shadow-3: var(--shadow-dialog);
     --shadow-rgb: 0 0 0;
     --shadow-a: .38;
+    --card-shadow-a: .75;
     --vessel-shadow: rgb(var(--shadow-rgb) / var(--shadow-a));
     --tube-shade: .3;
     --tube-sheen: .38;
@@ -864,6 +866,7 @@
   --shadow-3: var(--shadow-dialog);
   --shadow-rgb: 0 0 0;
   --shadow-a: .38;
+  --card-shadow-a: .75;
   --vessel-shadow: rgb(var(--shadow-rgb) / var(--shadow-a));
   --tube-shade: .3;
   --tube-sheen: .38;
@@ -965,6 +968,7 @@
 }
 /* Soft light: warm, low-glare paper with frosted cards and softer ink. */
 :root[data-theme="soft"] {
+  --card-shadow-a: .5;
   --ramp-pressure: #8DB8E2 0, #6A9FDE 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30;
   --gut-a: .70;
   --organ-a: .52;

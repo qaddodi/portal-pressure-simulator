@@ -37,7 +37,7 @@
 .app.presenting.pz-blacked .stage-credit { opacity: 0; }   /* (set with the black screen's own .on, presenter.js toggleBlack) */
 .pz { position: absolute; inset: 0; z-index: var(--z-hud); pointer-events: none; color: var(--text); }
 /* A pane of frosted glass: a crisp edge with a hairline highlight and a soft shadow onto the figure. */
-.pz-shade { position: absolute; left: 0; top: 0; bottom: 0; width: 0; z-index: var(--z-figure); pointer-events: none; --gl-glass: 1; --gl-tint: var(--glass-tint); background: var(--gl-tint); box-shadow: inset 0 0 0 1px var(--glass-edge); transition: opacity var(--d-small) var(--ease); }
+.pz-shade { position: absolute; left: 0; top: 0; bottom: 0; width: 0; z-index: var(--z-figure); pointer-events: none; --gl-glass: 1; --gl-tint: var(--glass-tint); background: var(--gl-tint); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); transition: opacity var(--d-small) var(--ease); }
 /* (Without a backdrop blur the words keep a plain backdrop of the page colour.) */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-shade { --gl-glass: 0; background: var(--glass-tint); } }
 @media (prefers-reduced-transparency: reduce) { .pz-shade { background: color-mix(in srgb, var(--stage-bg) 94%, transparent); } }
@@ -48,7 +48,7 @@
   --pz-cp: clamp(18px, calc(1.4 * var(--pz-b)), 40px);   /* (one padding, both cards) */
   --pz-cw: min(calc(clamp(340px, min(38vw, calc(23.5 * var(--pz-b))), 640px) * var(--pz-wk, 1)), 42vw);   /* (one card width, about 40 characters of body text) */
   --pz-rw-outline: min(calc(50 * var(--pz-b)), 82%); --pz-rw-table: min(calc(54 * var(--pz-b)), 82%); --pz-rw-check: min(calc(42 * var(--pz-b)), 82%); --pz-rw-chart: min(calc(54 * var(--pz-b)), 82%); --pz-rw-plane: min(calc(48 * var(--pz-b)), 74%); }   /* (the reading cards' widths on a wide screen, below) */
-.pz-shade.pz-card:not(.stack) { --pz-r: clamp(16px, calc(2.2 * var(--pzh)), 28px); left: var(--pz-cm); top: var(--pz-cm); bottom: var(--pz-cm); --gl-tint: var(--glass-tint); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 22%, transparent); border-radius: var(--pz-r); box-shadow: inset 0 0 0 1px var(--glass-edge); }
+.pz-shade.pz-card:not(.stack) { --pz-r: clamp(16px, calc(2.2 * var(--pzh)), 28px); left: var(--pz-cm); top: var(--pz-cm); bottom: var(--pz-cm); --gl-tint: var(--glass-tint); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 22%, transparent); border-radius: var(--pz-r); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-shade.pz-card:not(.stack) { --gl-glass: 0; background: var(--glass-tint); } }
 @media (prefers-reduced-transparency: reduce) { .pz-shade.pz-card:not(.stack) { --gl-glass: 0; background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 /* A card never changes shape in view: its size snaps while it is gone, and it leaves and arrives like the data card. */
@@ -70,7 +70,7 @@
 .pz.pz-card.low .pz-text { left: calc(max(10px, env(safe-area-inset-left, 0px)) + var(--pz-cp)); }
 .pz-shade.low { --pz-tabh: calc(var(--pz-tabf) * 1.6); }
 /* The data card is the same glass: see-through tint, the same blur, crisp edge with a hairline highlight, soft shadow. */
-.pz-data.pz-data { --gl-glass: 1; --gl-tint: var(--glass-tint); background: var(--gl-tint); border-color: color-mix(in srgb, var(--text) 10%, transparent); box-shadow: inset 0 0 0 1px var(--glass-edge); }
+.pz-data.pz-data { --gl-glass: 1; --gl-tint: var(--glass-tint); background: var(--gl-tint); border-color: color-mix(in srgb, var(--text) 10%, transparent); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); }
 /* (4 Nov 2026: a zoomed card no longer cuts the teaching card's words away under it (card-zoom.js: that clip-path repainted the words every frame of the zoom). The words stay, and the card's frost is raised so they only ghost through it, as the glass's own tint: no per-frame work.) */
 /* Tiles sit lighter than the glass around them in light mode, darker in dark mode. */
 .pz-data .pz-tile, .pz-data .pz-tool .endo-read > div { background: color-mix(in srgb, var(--white) 78%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent); }
@@ -202,7 +202,7 @@
    sits on one line, or stacked in a short column where the line will not fit. It fades in and out, and never takes a tap.
    Its shell is the nav pill's, in every theme and on every screen: the same glass, outline, edge highlight, shadow, 16 px corners
    and 14 px sides (Mohammad, 17 Oct: "Unify the style of those pills"). */
-.pz-fk { position: absolute; left: 0; top: 0; translate: var(--fx, 0px) var(--fy, 0px); display: flex; flex-wrap: nowrap; align-items: center; gap: .55em; box-sizing: border-box; padding: .22em 14px .26em; border-radius: var(--r-sheet); white-space: nowrap; font: 400 max(12px, calc(var(--s-cap) * .9))/1.25 var(--font-ui); color: var(--text-2); --gl-glass: 1; --gl-tint: var(--glass-tint); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); box-shadow: inset 0 0 0 1px var(--glass-edge); pointer-events: none; opacity: 0; transition: opacity var(--d-small) var(--ease); }
+.pz-fk { position: absolute; left: 0; top: 0; translate: var(--fx, 0px) var(--fy, 0px); display: flex; flex-wrap: nowrap; align-items: center; gap: .55em; box-sizing: border-box; padding: .22em 14px .26em; border-radius: var(--r-sheet); white-space: nowrap; font: 400 max(12px, calc(var(--s-cap) * .9))/1.25 var(--font-ui); color: var(--text-2); --gl-glass: 1; --gl-tint: var(--glass-tint); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); pointer-events: none; opacity: 0; transition: opacity var(--d-small) var(--ease); }
 .pz-fk.on { opacity: 1; transition: opacity var(--d-surface) var(--ease) .12s; }   /* (in with the teaching card: its pace and start, presenter.js cardsIn; out at the card's own .32 s) */
 .pz-fk[hidden] { display: none; }
 .pz-fk b { font-weight: 600; color: var(--text); margin-right: .1em; }
@@ -432,7 +432,7 @@
 }
 /* The case card: a new patient's case, centred on the slide in the cards' glass, just big enough for its words (the figure shows above and below).
    It enters and leaves whole (a fade and a short rise), never changing size. */
-.pz-case { position: absolute; inset: 0; margin: auto; width: min(calc(100% - 32px - 2 * max(env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px))), 920px); height: fit-content; max-height: calc(100% - 2 * max(84px, 11vh)); box-sizing: border-box; display: flex; flex-direction: column; align-items: flex-start; gap: clamp(10px, calc(1.6 * var(--pzh)), 20px); padding: clamp(20px, 4vw, 44px); overflow: hidden; --gl-glass: 1; --gl-tint: var(--glass-tint); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: clamp(16px, calc(2.2 * var(--pzh)), 28px); box-shadow: inset 0 0 0 1px var(--glass-edge); pointer-events: auto; cursor: pointer; opacity: 0; translate: 0 14px; }   /* (in and out are written by the frames, presenter.js caseFade: no transition) */
+.pz-case { position: absolute; inset: 0; margin: auto; width: min(calc(100% - 32px - 2 * max(env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px))), 920px); height: fit-content; max-height: calc(100% - 2 * max(84px, 11vh)); box-sizing: border-box; display: flex; flex-direction: column; align-items: flex-start; gap: clamp(10px, calc(1.6 * var(--pzh)), 20px); padding: clamp(20px, 4vw, 44px); overflow: hidden; --gl-glass: 1; --gl-tint: var(--glass-tint); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: clamp(16px, calc(2.2 * var(--pzh)), 28px); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); pointer-events: auto; cursor: pointer; opacity: 0; translate: 0 14px; }   /* (in and out are written by the frames, presenter.js caseFade: no transition) */
 .pz-case.on { opacity: 1; translate: none; }
 .pz-case:not(.on) { pointer-events: none; }   /* (lifted and fading while the patient still loads behind it: touches and clicks pass through) */
 .pz.stack .pz-case { border-radius: 18px; }
