@@ -307,8 +307,9 @@
   .pz-rail li { position: relative; min-height: 7.8em; }
   .pz-rail .n { position: absolute; top: 1.1em; right: 50%; font-size: var(--s-cap); transform-origin: 100% 0; rotate: -60deg; }
   /* (The first name, "Pre-hepatic", tilts down and to the left of its bar: the six columns start that far in from the card's edge, else its first letters
-     run out of the card, Sites and causes 2, 16 Nov 2026. 3.3 caption sizes is half its width; the liver's bracket follows the columns.) */
-  .pz:not(.low) .pz-rail { --pl: max(0px, calc((12 * 3.3 * var(--t-cap) * var(--ts, 1) - 100cqw) / 11)); }
+     run out of the card, Sites and causes 2, 16 Nov 2026. 3.3 caption sizes is half its width; the liver's bracket follows the columns. A rule inside a container query cannot style the container itself, so `--pl` sits on the rail's children: it had sat on
+     .pz-rail, which the query never reaches, and the columns never moved in: Pre-hepatic ran 3 px out on a 1440 x 780 Mac, 19 Nov 2026.) */
+  .pz:not(.low) .pz-rail > :is(ol, .pz-rail-liver) { --pl: max(0px, calc((12 * 3.3 * var(--t-cap) * var(--ts, 1) - 100cqw) / 11)); }
   .pz:not(.low) .pz-rail ol { padding-left: var(--pl); }
   .pz:not(.low) .pz-rail-liver { left: calc(var(--rp) + var(--pl) + (100% - 2 * var(--rp) - var(--pl)) / 6 + 3px); width: calc((100% - 2 * var(--rp) - var(--pl)) / 2 - 6px); }
 }
@@ -384,7 +385,12 @@
 .pzt-d[data-way="bad"] { color: var(--danger-ink); }
 .pz-col { display: block; width: min(100%, 460px); height: auto; overflow: visible; font: 600 var(--s-cap) var(--font-ui); }
 .pz-lapse { display: flex; align-items: center; gap: .8em; font: 600 var(--s-lab)/1.2 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-2); }
-.pzl-bar { position: relative; flex: 1; max-width: 12em; height: .5em; border-radius: .25em; background: var(--hairline); overflow: hidden; }
+/* (The words beside the bar may wrap: "Distal splenorenal shunt (DSRS) → Four months later" is one line nowhere narrower than 352 px, and a nowrap box that wide stood 15 px past
+   an iPhone's card with the bar squeezed to nothing. The hidden widest copy (.pzv-s) wraps the same way in the same cell, so the row's height still never changes as the live words do.
+   The bar keeps 2.5 em; the words take what is left.) */
+.pz-lapse .pzl-t { min-width: 0; }
+.pz-lapse .pzl-t > :is(.pzv-s, .pzv-t) { white-space: normal; overflow-wrap: break-word; }
+.pzl-bar { position: relative; flex: 1 0 2.5em; max-width: 12em; height: .5em; border-radius: .25em; background: var(--hairline); overflow: hidden; }
 .pzl-bar i { position: absolute; inset: 0; transform-origin: left; transform: scaleX(var(--k, 0)); background: linear-gradient(90deg, var(--tour-portal), var(--tour-sys)); border-radius: inherit; transition: transform var(--d-small) linear /*own pace*/; }
 .pz-lapse.done { color: var(--text); }
 /* A compare slide's treatments: a segmented switch on the live model (the pressed one eases to the accent). */

@@ -21,11 +21,12 @@ const containerBlock = (prelude) => {
 
 test('item 3: a small belly lets the balance take two lines that hug the words, centred, its arrow readable', () => {
   const b = containerBlock('@container (max-width: 124px)');
-  assert.match(b, /\.dock-pane > \.instrument-view\.ab \.ab-belly > \.ab-big > \.ab-rate\[data-dir\] \{ display: block; width: min-content; max-width: 100%; white-space: normal; text-align: center;/);
+  assert.match(b, /\.ab-belly > \.ab-big > \.ab-rate\[data-dir\] \{ display: block; width: min-content; max-width: 100%; white-space: normal; text-align: center;/);
   assert.match(b, /\.ab-rate\[data-dir\] > \.ab-rate-a \{ margin-right: \.3em; color: inherit; \}/);
   // (A steady line holds the second line's room, so the litres and grade never jump when the balance appears.)
   assert.match(b, /\.ab-rate\[data-dir="steady"\] \{ margin-bottom: 1\.1em; \}/);
-  // (Only in the Tests card; a slide's belly keeps its one-line balance.)
+  // (The Tests card's belly and, from 19 Nov 2026, a slide's too, but only while it is under 125 px: a slide's 84 px belly on a phone on its side cut "▲ 1,700 mL/day" at both sides. A larger slide belly keeps its one line.)
+  assert.match(b, /:is\(\.dock-pane > \.instrument-view\.ab, \.pz-tool\[data-kind="abdomen"\] \.ab\) \.ab-belly/);
   assert.doesNotMatch(b, /(^|\n)\s*\.ab \.ab-belly/);
   // The litres' unit is 12 px at least on the small belly (it was half the 20 px number: 10 px).
   assert.match(css, /\.dock-pane > \.instrument-view\.ab \.ab-belly > \.ab-big > b small \{ font-size: max\(12px, \.5em\) !important; \}/);

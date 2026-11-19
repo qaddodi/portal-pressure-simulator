@@ -815,11 +815,12 @@
 /* A small belly (320 px phone, phone on its side): the balance may take two lines ("▲ 200" over "mL/day") so its every
    word sits inside the ring, 4 px or more from it, with the litres and grade centred over it (sweep 2, item 3: one line
    ran out of the ring and pushed the block 13 px right). Its backing hugs the words, and its arrow takes the line's own
-   readable colour there. */
+   readable colour there. A slide's belly is the same ring and takes the same rule (it had been scoped to the dock pane alone, so on a slide the 84 px belly
+   kept one nowrap line, "▲ 1,700 mL/day", about 97 px wide, cut off by the ring at both sides: albumin 3, ascites 13 and 19, kidney 5 on a phone on its side, 19 Nov 2026). */
 @container (max-width: 124px) {
-  .dock-pane > .instrument-view.ab .ab-belly > .ab-big > .ab-rate[data-dir] { display: block; width: min-content; max-width: 100%; white-space: normal; text-align: center; border-radius: .7em; padding: .06em .45em .1em; }
-  .dock-pane > .instrument-view.ab .ab-belly > .ab-big > .ab-rate[data-dir="steady"] { margin-bottom: 1.1em; }   /* (one line, holding the second line's room, so the litres and grade never move as the balance comes and goes) */
-  .dock-pane > .instrument-view.ab .ab-belly > .ab-big > .ab-rate[data-dir] > .ab-rate-a { margin-right: .3em; color: inherit; }
+  :is(.dock-pane > .instrument-view.ab, .pz-tool[data-kind="abdomen"] .ab) .ab-belly > .ab-big > .ab-rate[data-dir] { display: block; width: min-content; max-width: 100%; white-space: normal; text-align: center; border-radius: .7em; padding: .06em .45em .1em; }
+  :is(.dock-pane > .instrument-view.ab, .pz-tool[data-kind="abdomen"] .ab) .ab-belly > .ab-big > .ab-rate[data-dir="steady"] { margin-bottom: 1.1em; }   /* (one line, holding the second line's room, so the litres and grade never move as the balance comes and goes) */
+  :is(.dock-pane > .instrument-view.ab, .pz-tool[data-kind="abdomen"] .ab) .ab-belly > .ab-big > .ab-rate[data-dir] > .ab-rate-a { margin-right: .3em; color: inherit; }
 }
 /* (The Doppler strip's pattern word gives way first, with an ellipsis, so the strip never shrinks its type below three quarters.) */
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report > .dop-pattern { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
