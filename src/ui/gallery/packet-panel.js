@@ -1,6 +1,6 @@
 // The "What's wrong here?" button on the gallery page's Tools (plan screen-report-recs section 3): the same bug packet as the key chord and the long press on the
-// preview pill (trigger.js). Imported by the gallery page (plugins.js), never by the live app.
-import { registerPanel } from '../gallery/registry.js';
+// preview pill (src/ui/packet/trigger.js). Imported by the gallery page (plugins.js), never by the live app.
+import { registerPanel } from './registry.js';
 
 function mount(host, ctx) {
   const box = document.createElement('div'), go = document.createElement('button'), why = document.createElement('p');
