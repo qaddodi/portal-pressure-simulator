@@ -402,14 +402,23 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     [/D\.lumBox\.on = !!C && joinBase < 0;/, "the lumen pass is scissored to the rows' box only at rest: between the views the rows' points move, and the bundle's points are the first sample's"],
   ]);
 
-  // The lobule's label search keeps to a deadline (15 Nov 2026, app review LZ2-1): source shapes moved out of tests (PR-02), each with its reason.
+  // The lobule's label search is a generator bounded by a count of solves (15 Nov 2026 LZ2-1; 19 Nov 2026 STG-1): source shapes moved out of tests (PR-02), each with its reason.
   need('src/ui/lobule-zoom*', [
-    [/searchBudget\.begin\(\);\n\s+do \{\n\s+const s2 = solve\(permOf\(items, idx, ord\), base, LC\.ld0, trial\);/, "the order search begins its budget and checks it between solves, so a crowded layout is never 0.6 s in one frame"],
-    [/if \(searchBudget\.over\(\)\) break;\n\s+\} while \(nextPerm\(idx, items\.length\)\);/, "the six-label order loop stops at its deadline"],
-    [/if \(sol\.total >= 1e5 && !searchBudget\.over\(\)\) sol = retryClash\(/, "the other-sinusoid retry (30 x 120 solves, 2 s) only starts inside the deadline"],
-    [/if \(searchBudget\.end\(\)\) nextFrame\(\(\) => \{ if \((?:live\.)?geo && (?:live\.)?fade > 0\) \{ (?:live\.)?layoutKey = ''; lzLoop\.want\(true\); \} \}\);/, "a cut search is run again, longer, in a later frame"],
+    [/searchBudget\.begin\(\);\n\s+do \{\n\s+const s2 = solve\(permOf\(items, idx, ord\), base, LC\.ld0, trial\);\n\s+searchBudget\.spend\(\);/, "the order search begins its budget and counts each solve, so a crowded layout is bounded by the same number of solves on every device"],
+    [/if \(searchBudget\.over\(\)\) break;\n\s+if \(sliceOver\(\)\) yield;\n\s+\} while \(nextPerm\(idx, items\.length\)\);/, "the six-label order loop stops at its budget and yields between solves once its frame's slice is spent"],
+    [/if \(sol\.total >= 1e5 && !searchBudget\.over\(\)\) sol = yield\* retryClash\(/, "the other-sinusoid retry only starts inside the budget, and goes on in later frames where it stopped"],
+    [/function\* layoutBody\(fr0, g, jb\)/, "the layout is a generator: a search that is not finished goes on in the next frame, the labels standing where they were seen until it lands (STG-1)"],
     [/cands\.length = Math\.min\(cands\.length, 8\);/, "eight other sinusoids at most"],
-    [/if \(searchBudget\.over\(\)\) break;\n\s+sinIt\.a\[0\] = a\[0\]; sinIt\.a\[1\] = a\[1\];/, "the candidate loop stops at its deadline"],
+    [/if \(searchBudget\.over\(\)\) break;\n\s+sinIt\.a\[0\] = a\[0\]; sinIt\.a\[1\] = a\[1\];/, "the candidate loop stops at its budget"],
+    [/if \(winSin != null\) pick\.sin = winSin;/, "the sinusoid that carries the label is set once, when the search has finished, never under a search that is cut"],
+    [/const callLead = placeCall\(fr, placed, cards, LC\.none, crosses, ring, hex, keep, into, callOutMain, true\);/, "the pill is placed dry (no write to the page) and written once, landCall, when the layout lands"],
+  ]);
+  forbid('src/ui/lobule-zoom*', /performance\.now\(\) > (?:live\.)?deadline|searchBudget\.end\(/, 'the label search is bounded by a count of solves, never a clock: the same lobule state must give the same layout on every device (STG-1)');
+  forbid('src/ui/lobule-zoom*', /pick\.sin = t\.id/, 'pick.sin is set once when the search has finished (STG-1)');
+  // What covers the figure is one list, src/ui/blockers.js (19 Nov 2026, bible review STG-2): source shapes moved out of tests (PR-02), each with its reason.
+  for (const f of ['src/ui/stage-label-items.js', 'src/ui/lobule-zoom.js', 'src/ui/sinusoid-view.js']) forbid(f, /querySelectorAll\(\s*['"`]\.stage-blocker:not\(\[hidden\]\)['"`]\s*\)|BLOCKER_SEL\s*=/, 'what covers the figure is read from src/ui/blockers.js (one list, one set of rules, rest boxes), never a copy: a label tucked under the teaching glass in the lobule and sinusoid when each kept its own');
+  need('src/ui/stage-fit.js', [
+    [/function cardSpaceFrom\(list\) \{[\s\S]{0,300}for \(const \{ el, rest: q,/, "the room the catheter's readings keep to counts each card at its rest box, so a card still sliding in does not move them twice (STG-2)"],
   ]);
 
   // The sinusoid view's cells pass is scissored to the cells' boxes (15 Nov 2026, app review OG-2): source shapes moved out of tests (PR-02), each with its reason.

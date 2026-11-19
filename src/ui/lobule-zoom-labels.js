@@ -546,11 +546,22 @@ export function createLobuleLabels(st, live) {
   const boxOv = overlapLRTB;
   // (placeCall's answer, the pill's box and its leader's two ends, written into the record it is handed: the layout's own, kept and written
   // again each time, or a fresh one in the settled re-layout that still has a clash, where the first answer must outlive the second.)
-  const mkCallOut = () => ({ box: { l: 0, r: 0, t: 0, b: 0 }, lead: [[0, 0], [0, 0]] });   // alloc-rare: once at setup (callOutMain), else only in the settled clash retry (coreFirst), never a frame of a hand's move
+  // (The pill's own place and leader are kept in the record too (ax, ay, line, ring), so a layout can place it without writing the page, `dry`, and the page
+  // is written once, commitCall, when the layout lands: a search that spans frames never moves the pill early, and a trial never shows. The lead array
+  // carries its record (lead.rec) so the pill's state can be read back from it.)
+  const mkCallOut = () => { const o = { box: { l: 0, r: 0, t: 0, b: 0 }, lead: [[0, 0], [0, 0]], has: false, ax: 0, ay: 0, line: [0, 0, 0, 0], ring: [0, 0, 0] }; o.lead.rec = o; return o; };   // alloc-rare: once at setup (callOutMain), else only in the settled clash retry (coreFirst), never a frame of a hand's move
   const callOutMain = mkCallOut();
   const CALL_GAP = 7, CALL_PAD = [10, 10, 4, 5];   // (the leader's gap to the letters, px; the pill's left, right, top and bottom padding, app.css .lz-call)
   const callInk = { x0: 0, y0: 0, x1: 0, y1: 0, r: 0 };   // (the letters' box, grown by the gap: written again at each placement)
-  function placeCall(fr, placed, cards, leads, crosses, ring, hex, keep, into, out) {
+  // The pill, its leader and its ring written to the page as placeCall's record has them (the one place a layout moves them).
+  function commitCall(o) {
+    put(callEl, o.ax, o.ay);
+    setGeo(callLine, 'x1', o.line[0]); setGeo(callLine, 'y1', o.line[1]); setGeo(callLine, 'x2', o.line[2]); setGeo(callLine, 'y2', o.line[3]);
+    setGeo(callRing, 'cx', o.ring[0]); setGeo(callRing, 'cy', o.ring[1]); setGeo(callRing, 'r', o.ring[2]);
+    leadGL.paint();
+  }
+  function placeCall(fr, placed, cards, leads, crosses, ring, hex, keep, into, out, dry = false) {
+    out.has = false;
     if (!callEl.isConnected) { mount(labels, callEl); mount(leaders, callLine, callRing); }
     // (Not shown until its size is known for its words: placed at a guessed size, it slid sideways once measured, seconds in on a slow renderer.)
     const on = !!ring && callEl._lzSz?.txt === callEl.textContent;
@@ -598,7 +609,7 @@ export function createLobuleLabels(st, live) {
     const ob = out.box;
     ob.l = bl; ob.r = br; ob.t = bt; ob.b = bb; placed.push(ob);
     live.cpOn = true; live.cpAt = live.call.at; live.cpDx = bx - a[0]; live.cpDy = by - a[1]; live.callCost = bcost;   // (where it sat, kept as numbers: callState saves and puts them back)
-    put(callEl, bx - w / 2, by - hh / 2);
+    out.has = true; out.ax = bx - w / 2; out.ay = by - hh / 2;
     // The leader starts on the ring's edge (not at its centre) and runs to the pill.
     const dl = Math.hypot(bx - a[0], by - a[1]) || 1, e0 = rr / dl;
     // The leader stops CALL_GAP short of the word's letters (the pill's padding is not letters), on the side facing the ring, so the line never
@@ -608,9 +619,10 @@ export function createLobuleLabels(st, live) {
     const le = leaderEnd(ink, a[0], a[1]);
     let ex = bx, ey = by;
     if (le) { const k = Math.max(Math.hypot(le.x - a[0], le.y - a[1]), rr) / dl; ex = a[0] + (bx - a[0]) * k; ey = a[1] + (by - a[1]) * k; }
-    setGeo(callLine, 'x1', a[0] + (bx - a[0]) * e0); setGeo(callLine, 'y1', a[1] + (by - a[1]) * e0); setGeo(callLine, 'x2', ex); setGeo(callLine, 'y2', ey);
-    setGeo(callRing, 'cx', a[0]); setGeo(callRing, 'cy', a[1]); setGeo(callRing, 'r', rr);
-    leadGL.paint();
+    const ln = out.line, rg = out.ring;
+    ln[0] = a[0] + (bx - a[0]) * e0; ln[1] = a[1] + (by - a[1]) * e0; ln[2] = ex; ln[3] = ey;
+    rg[0] = a[0]; rg[1] = a[1]; rg[2] = rr;
+    if (!dry) commitCall(out);
     const ld = out.lead;
     ld[0][0] = a[0] + (bx - a[0]) * e0; ld[0][1] = a[1] + (by - a[1]) * e0; ld[1][0] = ex; ld[1][1] = ey;
     return ld;
@@ -940,5 +952,5 @@ export function createLobuleLabels(st, live) {
       L.gl = null;
     }
   }
-  return { CORE, DESIGN, LAB_KEYS, LAY_ORDER, LIT_OF, anchorOf, callOutMain, callRingAt, cvKeep, explainSet, fadeIn, fadeOut, fillBase, followEnd, follows, freezeLabelGlides, gone, handOn, hexOf, hitKind, isHid, dimmed, keepDiscs, labGliding, labKey, labWH, labelLayerOff, labs, leadOff, leadOn, measQ, measureNow, measureRun, measureShown, mirrorAll, mirrorNow, mirrorRelease, mkCallOut, named, noteAt, panel, pick, pickAnchors, placeCall, placeZones, put, ride, rideList, rimFrac, ringDepth, sameBase, seenAt, setHid, setLayFade, callFade, shiftGeo, sinAt, sinTube, sizeEnv, spot, syncDim, tlNow, trClear, unglide };
+  return { CORE, DESIGN, LAB_KEYS, LAY_ORDER, LIT_OF, anchorOf, callOutMain, commitCall, callRingAt, cvKeep, explainSet, fadeIn, fadeOut, fillBase, followEnd, follows, freezeLabelGlides, gone, handOn, hexOf, hitKind, isHid, dimmed, keepDiscs, labGliding, labKey, labWH, labelLayerOff, labs, leadOff, leadOn, measQ, measureNow, measureRun, measureShown, mirrorAll, mirrorNow, mirrorRelease, mkCallOut, named, noteAt, panel, pick, pickAnchors, placeCall, placeZones, put, ride, rideList, rimFrac, ringDepth, sameBase, seenAt, setHid, setLayFade, callFade, shiftGeo, sinAt, sinTube, sizeEnv, spot, syncDim, tlNow, trClear, unglide };
 }

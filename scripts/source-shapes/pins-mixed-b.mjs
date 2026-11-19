@@ -307,7 +307,7 @@ export default [
   { file: 'src/ui/stage*', need: [/sp = glow \? Math\.min\(GLOW_SPAN, \(n - 1\) >> 1\) : 1/, 'The after-meal gut glow lights only the loop edges that show (Mohammad, 20 Oct, Circulation 10/13'] },
   // lobule-callout-ring
   { file: 'styles/app-*.css', forbid: [/\.lz-call-[lr]/, 'the lobule callout ring and leader keep a bold fixed weight: no sheet rule is left to thin it'] },
-  { file: 'src/ui/lobule-zoom*', need: [/setGeo\(callLine, 'x1', a\[0\] \+ \(bx - a\[0\]\) \* e0\)/, 'the lesion leader starts on the ring edge, not its centre'] },
+  { file: 'src/ui/lobule-zoom*', need: [/ln\[0\] = a\[0\] \+ \(bx - a\[0\]\) \* e0;/, 'the lesion leader starts on the ring edge, not its centre'] },
   { file: 'src/ui/lobule-zoom*', forbid: [/callLine\.setAttribute\('x1', a\[0\]\); callLine/, 'the lesion leader no longer starts at the ring centre'] },
   { file: 'src/ui/lobule-zoom*', need: [/const rd = ringDepth\(ring, cb\);[\s\S]*?\(rd > 0 \? 1e6 \+ rd \* 1e3 : 0\)/, 'labels pay the full clash cost for touching the ring'] },
   { file: 'src/ui/lobule-zoom*', need: [/\(rd0 > 0 \? 1e6 \+ rd0 \* 1e4 : 0\)/, 'the pointer pill pays the full clash cost for touching the ring too'] },
