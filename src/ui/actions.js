@@ -111,7 +111,8 @@ export function spanOfEdge(e) {
   const k = EI[e.id], ends = JUNCTION_HOST_ENDS[partOf(e.id)], i1 = NI[ends ? ends[0] : e.from], i2 = NI[ends ? ends[1] : e.to];
   return { el: null, dn: null, cut: null, at: (f) => {
     const PF = f.Pf || f.P, q = f.Qf ? f.Qf[k] : f.Q[k];
-    if (q >= -0.01) { SPAN.a = PF[i1]; SPAN.b = PF[i2]; }   // (a vein with no flow through it, a clot, reads in its own direction: the sign of nothing flips the bar) else { SPAN.a = PF[i2]; SPAN.b = PF[i1]; }
+    // (a vein with no flow through it, a clot, reads in its own direction: the sign of nothing flips the bar)
+    if (q >= -0.01) { SPAN.a = PF[i1]; SPAN.b = PF[i2]; } else { SPAN.a = PF[i2]; SPAN.b = PF[i1]; }
     SPAN.d = SPAN.a - SPAN.b; SPAN.ok = true;
     return SPAN;
   } };

@@ -55,3 +55,21 @@ for (const preset of ['budd-chiari', 'pvt-chronic']) {
     assert.ok(n > 0);
   });
 }
+
+// A vein whose flow runs backward reads its bar from the far end to the near end: the else branch of spanOfEdge once sat inside a comment, so it never ran.
+test('spanOfEdge: reversed flow swaps the bar (the else branch is code, not a comment)', async () => {
+  const { spanOfEdge } = await import('../src/ui/actions.js');
+  const e = new Engine();
+  e.loadPreset('budd-chiari');
+  const f = e.snapshot();
+  const x = EDGES.find((y) => !y.shunt && !JUNCTION_HOST_ENDS[partOf(y.id)]);
+  const k = EDGES.indexOf(x);
+  const P = Array.from(f.Pf || f.P), Q = Array.from(f.Q);
+  P[NI[x.from]] = 10; P[NI[x.to]] = 3;
+  Q[k] = 1;
+  const fwd = spanOfEdge(x).at({ P, Q });
+  assert.deepEqual([fwd.a, fwd.b], [10, 3], 'forward flow reads from → to');
+  Q[k] = -1;
+  const back = spanOfEdge(x).at({ P, Q });
+  assert.deepEqual([back.a, back.b], [3, 10], 'reversed flow reads to → from');
+});
