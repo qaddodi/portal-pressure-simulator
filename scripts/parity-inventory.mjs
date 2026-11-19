@@ -58,7 +58,7 @@ const commit = (() => { try { return execFileSync('git', ['rev-parse', 'HEAD'], 
 const camName = (cam) => cam == null ? null : typeof cam === 'string' ? cam : Array.isArray(cam) ? cam.join('+') : cam.on ? `on:${[].concat(cam.on).join('+')}` : JSON.stringify(cam);
 const topicOf = Object.fromEntries(DECKS.map((d) => [d.id, d.topic ?? null]));
 const decks = DECKS.map((d) => ({
-  id: d.id, title: d.title, topic: topicOf[d.id], level: d.level ?? null, minutes: d.minutes ?? null, objectives: (d.objectives || []).length,
+  id: d.id, title: d.title, short: d.short ?? null, summary: d.summary ?? null, topic: topicOf[d.id], level: d.level ?? null, minutes: d.minutes ?? null, objectives: (d.objectives || []).length,
   checks: (d.checks || []).length,
   slides: d.slides.map((s) => ({
     id: s.id ?? null, preset: s.preset ?? null, view: s.view ?? null, cam: camName(s.cam), lens: s.lens ?? null,
@@ -286,7 +286,7 @@ const inventory = {
   generatedFrom: { repo: 'qaddodi/portal-pressure-simulator', commit },
   counts: { rows: rows.length, decks: decks.length, slides: allSlides.length, presets: presets.length, settings: settings.length, shortcuts: shortcuts.length, controls: controls.plain.length, gallery: gallery.length },
   rows,
-  presets, looks, decks: sortBy(decks, (d) => d.id), topics: TOPICS.map(([topic, , list]) => ({ topic, decks: list.map((x) => x[0]) })), kinds,
+  presets, looks, decks: sortBy(decks, (d) => d.id), topics: TOPICS.map(([topic, label, list]) => ({ topic, label, decks: list.map(([id, short, head]) => ({ id, short, head })) })), kinds,
   lenses,
   shell: { menus: { blood: bloodRows, lobule: lobuleRows, layersPhone, lensGrid: lenses.map((l) => ({ label: l.name, hint: l.note })), thumbTabs, mainMenu, behaviours },
     topbar, views, zoomGroup, playbar, settings, helpPages, shortcuts, palette, controls, platform },
