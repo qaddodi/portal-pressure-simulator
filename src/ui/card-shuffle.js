@@ -21,6 +21,7 @@
 import { frameFor } from './frame.js';
 import { clamp01, lerp } from './num.js';
 import { readMetric, readBox } from './layout-snap.js';
+import { flagOn } from './flags.js';
 import { setThrowPose } from './card-throw.js';
 import { signalMove, driveBy, driveTo, driveOff } from './num-move.js';
 
@@ -154,7 +155,25 @@ export function createShuffle(live) {
       for (const c of r.addedNodes) if (c.nodeType === 1 && c.animate && !a.inks.some((k) => k.effect?.target === c)) a.inks.push(a.mkInk(c));   // alloc-rare: once per child that arrives while the wallet stands
     }
   }) : null;
-  function dropAnims() { kids?.disconnect(); for (const a of anims) { if (a.glass) driveOff(a.el); for (const k of [a.tf, a.name, ...(a.inks || [])]) { try { k?.cancel(); } catch { /* (an animation already gone) */ } } } anims = []; }
+  // (A card's height changes while the wallet stands: its height glides to its content, its chart's rows come in, a layout writes it. The glass's move is a number, driveTo(), made from the height the card had
+  // when the wallet was built, while the words' move is half the card's OWN box in the page's percentages: the two stood a share of the difference apart (a card 20 px taller moved its plate 10 px
+  // short at the foot, a third of that at 70% of a swap), and the last rows of the HVPG 8 chart hung below the plate (Mohammad's play-test, 19 Nov 2026). The height is taken from the observer's own
+  // box, no layout read, and the numbers set again at once.)
+  const sizes = typeof ResizeObserver === 'function' ? new ResizeObserver((es) => {
+    let changed = false;
+    for (const en of es) {
+      const a = anims.find((x) => x.el === en.target), h = en.borderBoxSize?.[0]?.blockSize ?? readMetric(en.target, 'offsetHeight');
+      if (a && h > 0 && Math.abs(h - a.h) > 0.01) { a.h = h; changed = true; }
+    }
+    if (changed) scrub();
+  }) : null;
+  // pps.wallet() (?perf): the wallet's own numbers now, to set beside what the glass drew (pps.glass.rects) and the page's boxes: p, and each card's height as the wallet holds it (h), as the page has it
+  // (domH, a fresh read), and the offset the plate is driven by (drive: px) against the one the words take (domDrive: from the page's height).
+  if (flagOn('perf')) {
+    const P = (globalThis.pps ||= {});
+    P.wallet = () => ({ on, p, key, anims: anims.map((a) => { const domH = readMetric(a.el, 'offsetHeight'); return { layer: a.layer, h: a.h, domH, drive: a.glass ? shufFall(a.layer, a.h) * shufBehind(a.layer, p) : null, domDrive: shufFall(a.layer, domH) * shufBehind(a.layer, p) }; }) });
+  }
+  function dropAnims() { kids?.disconnect(); sizes?.disconnect(); for (const a of anims) { if (a.glass) driveOff(a.el); for (const k of [a.tf, a.name, ...(a.inks || [])]) { try { k?.cancel(); } catch { /* (an animation already gone) */ } } } anims = []; }
   function scrub() { const t = p * 1000; for (const a of anims) { a.tf.currentTime = t; if (a.glass) driveTo(a.el, 0, shufFall(a.layer, a.h) * shufBehind(a.layer, p)); if (a.name) a.name.currentTime = t; for (const k of a.inks) k.currentTime = t; } signalMove(); }   // (the glass is woken after every write, so the plate is drawn where the words are in this frame, never one behind)
   function marks(onNow) { const r = root(); if (r) { r.classList.toggle('pz-shuf', onNow); live.ui.shade?.classList.toggle('pz-shuf', onNow); live.ui.data?.classList.toggle('pz-shuf', onNow); } }
   // The card coming forward stands above the other for the whole change (the one rising from the foot is over the one that sinks behind it), so no layer is swapped where both show.
@@ -185,6 +204,7 @@ export function createShuffle(live) {
         name: glass ? mk(ik.name, { pseudoElement: '::after' }) : null,
       });
       kids?.observe(el, { childList: true });
+      sizes?.observe(el);
       // (A glass card's move and its name's fade are the page's own paused animations, scrubbed here: the glass reads the move from the number driveTo() holds, and leaves both animations alone, num-move.js
       // driveBy. Read from their clock, a paused animation stands where it was first seen: the plate stayed put while the words moved, and the name's fade could dim the plate.)
       if (glass) { const a = anims[anims.length - 1]; driveBy(el, a.tf); if (a.name) driveBy(el, a.name); driveTo(el, 0, shufFall(layer, h) * shufBehind(layer, p)); }

@@ -326,3 +326,27 @@ test('a move by number is told for 250 ms (the figure lays every present whole w
     signalMove(); assert.ok(movedWithin(250), 'each move tells again');
   } finally { performance.now = real; }
 });
+
+test('a card that changes height while the wallet stands has its plate driven by the height it has now, so the plate and its words stay together (HVPG 8 chart rows below the glass, 19 Nov 2026)', async () => {
+  const { driven } = await import('../src/ui/num-move.js');
+  globalThis.requestAnimationFrame ??= (f) => setTimeout(() => f(performance.now()), 16);
+  let roCb = null;
+  const realRO = globalThis.ResizeObserver;
+  globalThis.ResizeObserver = class { constructor(cb) { roCb = cb; } observe() {} disconnect() {} };
+  try {
+    const anim = () => ({ pause() {}, cancel() {}, currentTime: 0 });
+    const card = (h) => ({ offsetHeight: h, children: [], animate: anim, getBoundingClientRect: () => ({ top: 100, left: 20, width: 300, height: h, right: 320, bottom: 100 + h }), classList: { toggle() {} } });
+    const data = card(200);
+    const live = { ui: { root: { classList: { toggle() {} } }, text: null, shade: null, data, zoom: { on: false } } };
+    const { createShuffle, shufFall, shufBehind } = await import('../src/ui/card-shuffle.js');
+    const sh = createShuffle(live);
+    sh.sync(true, 'k', { H: 393, pad: 16 });
+    assert.ok(roCb, 'the card\'s size is watched');
+    const want = (h) => shufFall('data', h) * shufBehind('data', 0);
+    assert.equal(driven(data)?.y, want(200), 'built at its height');
+    roCb([{ target: data, borderBoxSize: [{ blockSize: 220 }] }]);
+    assert.equal(driven(data).y, want(220), 'the height it has now');
+    roCb([{ target: data, borderBoxSize: [{ blockSize: 220 }] }]);
+    assert.equal(driven(data).y, want(220), 'the same height changes nothing');
+  } finally { globalThis.ResizeObserver = realRO; }
+});

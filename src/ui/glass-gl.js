@@ -1628,6 +1628,7 @@ export function createGlassGL(wrap, source, layers, { markHold = true, software 
     G.uniform1f(U.uCell, SMOOTH.cell * k); G.uniform1f(U.uReach, SMOOTH.reach * k);
     G.activeTexture(G.TEXTURE0); G.bindTexture(G.TEXTURE_2D, hk.share ? hk.share.t.copy : hk.copy);
     drawPanes(G, U, panes, cr, k, maskFromKit, frameMarks, final);
+    if (RECT_ON) rectNote(panes, cr);
     noteSeen(panes, final);
     // (The figure's context left as its other passes expect to find it.)
     G.disable(G.BLEND); G.bindVertexArray(null); G.useProgram(null);
@@ -1655,6 +1656,17 @@ export function createGlassGL(wrap, source, layers, { markHold = true, software 
   const note = (k) => { whyN[k] = (whyN[k] || 0) + 1; };
   const describe = (r) => { const t = r?.target; return t ? `${t.nodeName.toLowerCase()}${t.id ? '#' + t.id : ''}${t.classList?.length ? '.' + [...t.classList].slice(0, 3).join('.') : ''} ${r.attributeName}: ${String(r.oldValue ?? '').slice(0, 60)} → ${String(t.getAttribute?.(r.attributeName) ?? '').slice(0, 60)}` : ''; };
   if (WHY_WATCH) { const P = (globalThis.pps ||= {}); P.glassWhy ||= () => { const o = {}; for (const f of WHY_FNS) f(o); return o; }; WHY_FNS.push((o) => { o[whyKey] = { ...whyN, last: { ...whyLast } }; }); }
+  // What the shader drew, per frame, to be measured against the page (Mohammad's play-test, 19 Nov 2026: a chart's rows hung below a card's glass in a wallet swap): pps.glass.rects() = the last 120 draws of
+  // each glass, [{ frame, t, panes: [{ el: the glass's classes, l, t, w, h: its box as drawn, CSS px from the page's top left, a: its alpha }] }], oldest first. ?perf (or ?offgpu=1) records it; nothing is
+  // kept otherwise. The numbers are the ones put to the shader: compare them with getBoundingClientRect() of the card in the same frame (pps.wallet() gives the wallet's own numbers).
+  const RECT_ON = WHY_WATCH, RING = [], RMAX = 120;
+  let ringAt = 0;
+  function rectNote(panes, cr) {
+    const rec = RING.length < RMAX ? (RING[RING.length] = { frame: 0, t: 0, panes: [] }) : RING[ringAt++ % RMAX];   // alloc-rare: the debug ring only, filled once
+    rec.frame = frameCount(); rec.t = performance.now(); rec.panes.length = 0;
+    for (const p of panes) rec.panes.push({ el: String(p.g?.className || ''), l: p.r.left, t: p.r.top, w: p.r.width, h: p.r.height, a: p.a });
+  }
+  if (RECT_ON) { const P = (globalThis.pps ||= {}); const g = (P.glass ||= { rects: () => [] }); const prev = g.rects; g.rects = () => [...prev(), ...RING.slice(ringAt % RMAX).concat(RING.slice(0, ringAt % RMAX)).map((r) => ({ frame: r.frame, t: r.t, which: whyKey, panes: r.panes.map((q) => ({ ...q })) }))]; }
   const anims = new Map();   // (element → Map(animation → { kf: its keyframes, c: its clock }))
   // (2 Nov 2026, Mohammad: "MOVE. EVERYTHING. TO. GPU". Where each animation is in a frame comes from its clock (glass-motion.js clockOf,
   // clockAt): its timing taken once when it is first seen, its start time once it has started, and the frame's time. A frame asked each
