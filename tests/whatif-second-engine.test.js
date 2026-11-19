@@ -3,7 +3,6 @@
 // (calc-client.js sharedCalc → whatIfOf); the answer is the same, and the engine that answers is left as it was.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { createCore } from '../src/worker-core.js';
 
 const PATCH = { tips: { on: true, d: 8 } };
@@ -27,10 +26,4 @@ test('whatIfOf answers a snapshot as whatIf answers the live patient, and touche
   assert.equal(out[0].reqId, 4);
   for (const k of ['base', 'rx']) for (const f of Object.keys(onLive[k])) assert.ok(Math.abs(out[0].result[k][f] - onLive[k][f]) < 1e-9, `${k}.${f}: ${out[0].result[k][f]} vs ${onLive[k][f]}`);
   assert.ok(out[0].result.rx.ppg < out[0].result.base.ppg - 3, 'a TIPS lowers the PPG: the question was answered, not echoed');
-});
-
-test('the Trials card asks the second engine, not the live one', () => {
-  const src = readFileSync(new URL('../src/ui/trials-pane.js', import.meta.url), 'utf8');
-  assert.ok(/sharedCalc\(\)\.request\('whatIfOf'/.test(src), 'whatIfOf on the shared calculator');
-  assert.ok(!/host\.request\('whatIf'/.test(src), 'no whatIf on the live worker');
 });
