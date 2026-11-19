@@ -25,7 +25,7 @@ before(async () => {
 }, { timeout: 60000 });
 
 const fpOf = (preset) => { const e = new Engine(); e.loadPreset(preset); for (let i = 0; i < 400; i++) e.step(0.004); return fingerprintOf(computeMetrics(e), { P: e.Pf || e.P, Q: e.Qf || e.Q, params: e.params }); };
-const mount = (plot) => { const host = document.createElement('div'); host.append(plot.el); document.body.append(host); return host; };
+const mount = (plot) => { const host = document.createElement('div'); host.className = 'pz-data'; host.append(plot.el); document.body.append(host); return host; };
 
 test('the summary plane: its ticks, cut-off lines and points are read where the builder drew them, and it passes the chart rules', async () => {
   const fps = ['healthy', 'csph', 'cirr-decomp'].map((p) => ({ name: p, f: fpOf(p) }));
@@ -125,6 +125,7 @@ test('pps.screen\'s charts part: tiles, a words pill and the plane\'s dot agains
   const { rich } = await import('../src/ui/presenter-words.js');
   const fp = fpOf('cirr-decomp');
   const root = document.createElement('div');
+  root.className = 'pz-data';
   const tiles = bigTiles();
   const plot = planePlot(PLANES['hvpg-ppg'], { card: true });
   const line = document.createElement('p');
@@ -152,4 +153,56 @@ test('pps.screen\'s charts part: tiles, a words pill and the plane\'s dot agains
   const { screenText } = await import('../src/ui/screen/text.js');
   assert.match(screenText(build()), /Chart planecard#0.*hvpg across and ppg up.*legend|no legend/);
   root.remove();
+});
+
+test('a chart\'s legend is the key nearest it inside its own card; a key elsewhere on the page is no legend, and pictures that are no card\'s chart are not charts', async () => {
+  const { createSvgGL, svgModel } = await import('../src/ui/svg-gl.js');
+  const { planeCardKey } = await import('../src/ui/visual-plane.js');
+  const fp = fpOf('cirr-decomp');
+  const stray = document.createElement('div');   // a key somewhere else on the page (the SAAG quadrant's "Protein" key in the 19 Nov 2026 packet), far up the tree
+  stray.innerHTML = '<div class="pzc-key"><p><b>Protein</b> high</p></div>';
+  const stage = document.createElement('div');
+  const card = document.createElement('div'); card.className = 'pz-data';
+  const plot = planePlot(PLANES['csph'], { card: true });
+  card.append(plot.el);
+  // a readout's GPU words, and a picture that rides the figure, in the same card
+  const words = document.createElement('span'), glass = document.createElement('div');
+  card.append(words, glass);
+  createSvgGL(words, { still: true }).show(svgModel('svg', { viewBox: '0 0 40 15' }, svgModel('text', { x: 0, y: 12 }, '14.2')));
+  createSvgGL(glass, { follows: true }).show(svgModel('svg', { viewBox: '0 0 40 15' }, svgModel('text', { x: 0, y: 12 }, 'label')));
+  // a picture outside every card (the lobule's leaders, a label layer)
+  const loose = document.createElement('div');
+  createSvgGL(loose, { host: 'lobule' }).show(svgModel('svg', { viewBox: '0 0 40 15' }, svgModel('text', { x: 0, y: 12 }, 'Portal vein')));
+  stage.append(stray, card, loose);
+  document.body.append(stage);
+  plot.set([], fp);
+  await run(8);
+  const { charts } = readCharts(document);
+  assert.deepEqual(charts.map((c) => c.host), ['planecard'], 'one chart: the readout words, the glass and the loose picture are not charts');
+  assert.equal(charts[0].legend.where, 'none', 'the key elsewhere on the page is not this chart\'s legend');
+  // its own key, inside the card, is
+  card.append(planeCardKey(PLANES['hvpg-ppg']));
+  const c = readCharts(document).charts[0];
+  assert.equal(c.legend.where, 'html');
+  assert.deepEqual(c.legend.entries, PLANES['hvpg-ppg'].zones.map((z) => z.short || z.t));
+  stage.remove();
+});
+
+test('two charts in one card each take the key beside them, and a card with a key of its own does not lend it to the card before it', async () => {
+  const { planeCardKey } = await import('../src/ui/visual-plane.js');
+  const fp = fpOf('cirr-decomp');
+  const mk = (id, withKey) => {
+    const wrap = document.createElement('div'); wrap.className = 'pz-data';
+    const part = document.createElement('div');
+    const plot = planePlot(PLANES[id], { card: true });
+    part.append(plot.el); if (withKey) part.append(planeCardKey(PLANES[id]));
+    wrap.append(part); document.body.append(wrap); plot.set([], fp);
+    return wrap;
+  };
+  const a = mk('hvpg-ppg', true), b = mk('csph', false);
+  await run(8);
+  const [ca, cb] = readCharts(document).charts;
+  assert.equal(ca.legend.where, 'html');
+  assert.equal(cb.legend.where, 'none');
+  a.remove(); b.remove();
 });

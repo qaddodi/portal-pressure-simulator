@@ -873,7 +873,7 @@ export function createSvgGL(box, opts = null) {
   cv.setAttribute('role', 'img');
   box.prepend(cv);
   // alloc-rare: a picture's kept state, made once for each chart host
-  const g = { box, cv, local: { host: opts?.host || '' }, lc: null, gpu: null, until: 0, ask: 0, lookAsk: 0, ins: new Map(), dead: false, timers: new Set(), vk: 1, ve: 0, vf: 0, follows: !!opts?.follows, draw: null, drawnOk: false, drawnAsk: 0 };
+  const g = { box, cv, local: { host: opts?.host || '' }, lc: null, gpu: null, until: 0, ask: 0, lookAsk: 0, ins: new Map(), dead: false, timers: new Set(), vk: 1, ve: 0, vf: 0, follows: !!opts?.follows, still: !!opts?.still, draw: null, drawnOk: false, drawnAsk: 0 };
   // (Drawn in the read phase, the owner's word that the GPU drew (g.drawn: gl-words.js makes the page's own words clear) is given at the frame's
   // final phase, as a write of the page belongs: a class set in the read phase would have the reads after it lay the page out again. Same frame.)
   g.drawnFn = () => { g.drawnAsk = 0; g.drawn?.(g.drawnOk); };   // alloc-rare: made once with the picture
