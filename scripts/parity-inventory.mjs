@@ -166,6 +166,42 @@ const palette = {
   patients: 'every patient (group Patient)', presentations: 'every deck and script of the library (group Present)',
 };
 
+// menus and sheets of the bars: Blood, Layers (lobule), the labels switch, the colour lens, the phone's bottom bar, the main menu's tabs and rows
+const bloodSrc = between(mainJs, 'function bloodItems()', '// Which stations are labelled');
+const lobSrc = between(mainJs, 'function lobuleLayerItems()', '// ── Treat card');
+const toggleRows = (src, tag) => [...src.matchAll(/(?:toggle|menuToggle|layer)\((?:[^,]*,\s*)?'[a-z-]+',\s*'([^']+)',\s*'((?:[^'\\]|\\.)*)'/g)].map((m) => ({ menu: tag, label: m[1], hint: unescape(m[2]) }));
+const bloodRows = [
+  ...[...bloodSrc.matchAll(/toggle\(!!b\.[a-zA-Z]+, '[a-z]+', '([^']+)', '((?:[^'\\]|\\.)*)'/g)].map((m) => ({ menu: 'Blood', section: 'Moving blood', label: m[1], hint: unescape(m[2]) })),
+  ...[...bloodSrc.matchAll(/layer\('[a-z]+', '[a-z]+', '([^']+)', '((?:[^'\\]|\\.)*)'\)/g)].map((m) => ({ menu: 'Blood', section: 'Show on the figure', label: m[1], hint: unescape(m[2]) })),
+  ...[['Key'], ['All'], ['None']].map(([l]) => ({ menu: 'Blood', section: 'Labels', label: l })),
+];
+const lobuleRows = [...lobSrc.matchAll(/menuToggle\(!!l\.[a-z]+, '[a-z]+', '([^']+)', '((?:[^'\\]|\\.)*)'/g)].map((m) => ({ menu: 'Layers', section: 'Show on the lobule', label: m[1], hint: unescape(m[2]) }));
+const layersPhone = [{ menu: 'Layers (phone)', label: 'Fit to screen' }, { menu: 'Layers (phone)', label: 'Turn upright' }];
+const thumbSrc = between(mainJs, 'function wireThumbBar()', "const tests = tab(");
+const thumbTabs = [...between(mainJs, 'function wireThumbBar()', 'for (const b of [find, layers, more])').matchAll(/= tab\('([a-z]+)', '[a-z]+', '([^']+)'/g)].map((m) => ({ id: m[1], label: m[2] }));
+const menuSrc = read('src/ui/menu.js');
+const mainMenu = {
+  tabs: [...menuSrc.matchAll(/\['(present|patients)', '([^']+)', '[a-z]+'\]/g)].map((m) => ({ id: m[1], label: m[2] })),
+  actions: uniq([...menuSrc.matchAll(/svgIcon\('[a-z]+', 'mi-ic'\), (?:r \? '([^']+)' : '([^']+)'|'([^']+)'|`([^`$]+))/g)].flatMap((m) => [m[1], m[2], m[3], m[4]]).filter(Boolean).map((x) => x.trim()).filter((x) => x !== 'Resume')).concat(['Import', 'Print notes', 'Add current state']).filter((x, i, a) => a.indexOf(x) === i),
+};
+// behaviours a person relies on, each tied to the source that does it (the script fails if that source is gone, so a row is never kept for code that left)
+const BEHAVIOURS = [
+  ['view pills: a second tap on the active view refits it', read('src/ui/view-tap.js'), 'viewTapAgain'],
+  ['view pills: Sinusoid shows only while the lobule is open, and keeps the full view pill', mainJs, "sinHide = !st.lobule"],
+  ['view pills: Anatomy and Circuit turn the figure between the two views', mainJs, "setViewKey(b.dataset.view === 'circuit'"],
+  ['zoom: Zoom in is off inside the sinusoid view', mainJs, "$('#zoomIn').disabled = inSin"],
+  ['Layers button shows only in the lobule view', mainJs, "fadeShown($('#btnLobuleLayers'), on)"],
+  ['Blood button dims when the moving blood is off', mainJs, "b.classList.toggle('off', !on)"],
+  ['phone bottom bar: Treat, Tests, Search, Layers, Settings; a second tap on a tab closes it', mainJs, 'a second tap on the same tab closes its own'],
+  ['colour legend and lens name show on the top bar and open the lens menu', html, 'id="btnLayers"'],
+  ['play button: press and hold opens the speed menu', tl, 'holdTimer'],
+  ['Esc closes one thing at a time', read('src/ui/keyboard.js'), 'One Esc closes one thing'],
+];
+const behaviours = BEHAVIOURS.map(([label, src, needle]) => {
+  if (!src.includes(needle)) throw new Error(`parity-inventory: the source for "${label}" moved ("${needle}" is gone); update the script`);
+  return label;
+});
+
 // every named control: aria-labels in the page and the source (templated ones, with ${…}, are listed apart)
 const labelFiles = ['index.html', ...readdirSync(join(ROOT, 'src/ui')).filter((f) => f.endsWith('.js')).map((f) => `src/ui/${f}`)];
 const plain = new Set(), templated = new Set();
@@ -218,6 +254,12 @@ for (const c of palette.commands) row('search', c.group === 'App' || c.group ===
 for (const d of platform.deepLinks) row('platform', 'B1', `deep link ?${d}=`);
 row('platform', 'B1', 'installable PWA'); row('platform', 'B1', 'works offline');
 for (const l of looks) row('look', 'B1', l.id, l.name);
+for (const m of [...bloodRows, ...lobuleRows, ...layersPhone]) row('menu', 'B1', `${m.menu}/${m.label}`, `${m.menu}: ${m.label}`);
+for (const l of lenses) row('menu', 'B3', `Lens/${l.name}`, `Colour by ${l.name}`);
+for (const t of thumbTabs) row('bottombar', 'B1', t.label, `Bottom bar: ${t.label}`);
+for (const t of mainMenu.tabs) row('mainmenu', 'B2', `tab/${t.label}`, `Menu tab: ${t.label}`);
+for (const a of mainMenu.actions) row('mainmenu', 'B12', `action/${a}`, `Menu action: ${a}`);
+for (const b of behaviours) row('behaviour', 'B1', b);
 for (const p of presets) row('preset', 'B2', p.id, p.label);
 for (const d of decks) {
   row('deck', 'B13', d.id, d.title);
@@ -241,7 +283,8 @@ const inventory = {
   rows,
   presets, looks, decks: sortBy(decks, (d) => d.id), topics: TOPICS.map(([topic, , list]) => ({ topic, decks: list.map((x) => x[0]) })), kinds,
   lenses,
-  shell: { topbar, views, zoomGroup, playbar, settings, helpPages, shortcuts, palette, controls, platform },
+  shell: { menus: { blood: bloodRows, lobule: lobuleRows, layersPhone, lensGrid: lenses.map((l) => ({ label: l.name, hint: l.note })), thumbTabs, mainMenu, behaviours },
+    topbar, views, zoomGroup, playbar, settings, helpPages, shortcuts, palette, controls, platform },
   treat, tests, gallery, chartLooks,
 };
 
