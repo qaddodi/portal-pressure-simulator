@@ -37,8 +37,8 @@ test('Treat › Procedures, the palette, the timeline and the circuit take the n
   assert.match(code(read('src/engine/topology.js')), new RegExp(`label: '${procLabel('dsrs').replace(/[()]/g, '\\$&')}'`), 'the circuit names the shunt as the table does');
 });
 
-test('nothing the learner reads calls the distal splenorenal shunt the Warren shunt, but the table and the About line that explain the alias', () => {
-  const allowed = new Set(['src/ui/procedure-names.js', 'src/ui/about.js']);
+test('nothing the learner reads calls the distal splenorenal shunt the Warren shunt, but the table that explains the alias', () => {
+  const allowed = new Set(['src/ui/procedure-names.js']);
   for (const f of [...walk('src').filter((p) => p.endsWith('.js'))].map((p) => p.replaceAll('\\', '/'))) {
     if (allowed.has(f) || f.startsWith('src/ui/snapshots')) continue;
     const t = code(read(f));

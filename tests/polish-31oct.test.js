@@ -74,7 +74,7 @@ test('the Guide lists every key the figure answers: dye, zoom, color lens, undo,
 });
 
 test('a percentage is "75%" everywhere a person reads it: the cards, the Why bars, the toasts and the timeline match the figure and the slides', () => {
-  for (const f of ['src/ui/actions.js', 'src/ui/inspector.js', 'src/ui/about.js', 'src/ui/tool-lumen.js', 'src/ui/instruments.js', 'src/ui/chart.js', 'src/engine/explain.js', 'src/engine/events.js']) {
+  for (const f of ['src/ui/actions.js', 'src/ui/inspector.js', 'src/ui/tool-lumen.js', 'src/ui/instruments.js', 'src/ui/chart.js', 'src/engine/explain.js', 'src/engine/events.js']) {
     const code = src(f).split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
     assert.doesNotMatch(code, /(\d|\}|\)) %(?=['"`.,:;)\]]| (of|stays|compensated|CSPH|decompensated|blood)\b)/, `${f}: a space before the percent sign`);
   }

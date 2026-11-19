@@ -157,7 +157,6 @@ export default [
   { file: 'src/engine/scenario.js', forbid: [/Presinusoidal block/, 'Tile, menu and number polish, 31 Oct (the "Polish tiles, cards and tables" sprint thread).'] },
   { file: 'src/engine/scenario.js', need: [/summary: 'Presinusoidal resistance: high portal pressure/, 'Tile, menu and number polish, 31 Oct (the "Polish tiles, cards and tables" sprint thread).'] },
   { file: 'src/ui/actions.js', need: [/makes the resistance post-sinusoidal/, 'Tile, menu and number polish, 31 Oct (the "Polish tiles, cards and tables" sprint thread).'] },
-  { file: 'src/ui/about.js', forbid: [/when the IVC is blocked|hepatic veins are blocked/, 'Tile, menu and number polish, 31 Oct (the "Polish tiles, cards and tables" sprint thread).'] },
   { file: 'src/engine/events.js', need: [/title: 'Bleeding more likely', detail: 'HVPG ≥12 mmHg\. Bleeding risk climbs with the gradient from about 12 mmHg, but varices can bleed below it/, 'Tile, menu and number polish, 31 Oct (the "Polish tiles, cards and tables" sprint thread).'] },
   { file: 'src/engine/events.js', forbid: [/title: 'HVPG ≥ 12 mmHg'/, 'Tile, menu and number polish, 31 Oct (the "Polish tiles, cards and tables" sprint thread).'] },
   { file: 'src/engine/events.js', need: [/15–30% of blood volume lost/, 'Tile, menu and number polish, 31 Oct (the "Polish tiles, cards and tables" sprint thread).'] },
