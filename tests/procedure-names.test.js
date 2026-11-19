@@ -45,3 +45,10 @@ test('nothing the learner reads calls the distal splenorenal shunt the Warren sh
     assert.ok(!/Warren/.test(t), `${f} still says "Warren" in a string`);
   }
 });
+
+test('the Band button, the scope card\'s button and the placed-band toast read the table, not a second spelling (bible ENG-10, 19 Nov 2026)', () => {
+  const a = code(read('src/ui/actions.js')), i = code(read('src/ui/instruments.js')), m = code(read('src/ui/main.js'));
+  assert.ok(/id: 'band', label: procLabel\('band'\)/.test(a), 'the anatomy card\'s band button');
+  assert.ok(/procLabel\('band'\)\);/.test(i) && !/'Band \(EVL\)'/.test(i), 'the scope card\'s band button');
+  assert.ok(!/Band \(EVL\) placed/.test(m) && /procLabel\('band'\)\} placed/.test(m), 'the toast');
+});

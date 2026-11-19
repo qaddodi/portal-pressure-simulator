@@ -20,6 +20,8 @@ export const RULES = [
   // a noun with no article ("less portal blood", "less ascites") or by than/likely/often, and never by the/its/his/her/their/a number.
   ['less-as-minus', /\bless\s+(?:(?:the|its|his|her|their|that|this|what)\b|[0-9])/i, 'write "minus" (or − in an equation)'],
   ['less-as-minus', /\b(?:MAP|WHVP|FHVP|IVC|RAP|IAP|HVPG|PPG|pressure|pressures|reading|readings|mmHg)\s+less\b(?!\s+(?:than|likely|often|so|well|room|time|common|reliable|blood|flow|portal|of|and|or|in|to|on|at))/i, 'write "minus"'],
+  // (AASLD's name since 2019 is alcohol-associated liver disease; the old "alcohol-related" was in 22 deck lines, bible ENG-10.)
+  ['alcohol-related', /\balcohol[- ]related\b/i, 'alcohol-associated (the AASLD term)'],
   ['belly', /\bbell(?:y|ies)\b/i, 'abdomen, peritoneal cavity, intra-abdominal pressure (IAP)'],
   ['takes-back', /\b(?:takes?|took|taken|taking)\s+back\b/i, 'peritoneal reabsorption (mL/day)'],
   ['kidney-pressure', /\bkidney (?:pressure|P)\b/i, 'abdominal perfusion pressure (APP)'],

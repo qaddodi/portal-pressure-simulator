@@ -2,7 +2,7 @@
 // an infection, surgery, the mouth and, after the first decompensation, the antibiotic question.
 //
 // Sources, checked against guidelines/baveno-viii-2026.pdf on 11 Nov 2026 (the SBP prophylaxis row of the antibiotic card: guidelines/aasld-2021-ascites.pdf, 15 Nov 2026):
-// - 3.7: superimposed acute liver injury (alcohol-related hepatitis, acute viral hepatitis HEV/HAV/HBV, HBV flares, autoimmune hepatitis,
+// - 3.7: superimposed acute liver injury (alcohol-associated hepatitis, acute viral hepatitis HEV/HAV/HBV, HBV flares, autoimmune hepatitis,
 //   drug-induced liver injury) can precipitate decompensation and/or ACLF in compensated cirrhosis/cACLD (LoE 2).
 // - 3.10: bacterial infections in compensated cirrhosis/cACLD with CSPH can precipitate decompensation and/or ACLF (LoE 2);
 //   3.11: the prognostic impact of infections without CSPH is unclear (LoE 5).
@@ -28,7 +28,7 @@ export const TIPPING = {
   objectives: ['Name the second hits that push a compensated patient with CSPH into decompensation', 'Say why infection matters in CSPH, and the HVPG at which abdominal surgery carries a higher risk', 'Explain what dental care and long-term antibiotics can and cannot prevent'],
   summary: 'A man with CSPH can stay compensated for years, until a second hit precipitates decompensation: a liver injury, an infection or surgery. What each does, what dental care may prevent, and why no long-term antibiotic is started after the first decompensation only to prevent the next.',
   checks: [
-    ['Which events can precipitate decompensation in a compensated patient with CSPH?', 'A second liver injury (alcohol-related hepatitis, acute viral hepatitis, an HBV flare, autoimmune hepatitis or drug-induced injury), a bacterial infection, and surgery, especially major surgery (Baveno VIII 3.7, 3.10, 3.13).'],
+    ['Which events can precipitate decompensation in a compensated patient with CSPH?', 'A second liver injury (alcohol-associated hepatitis, acute viral hepatitis, an HBV flare, autoimmune hepatitis or drug-induced injury), a bacterial infection, and surgery, especially major surgery (Baveno VIII 3.7, 3.10, 3.13).'],
     ['What HVPG is associated with a higher short-term mortality after abdominal surgery, and what may be considered before major surgery?', 'An HVPG ≥16 mmHg in a candidate for non-hepatic abdominal surgery (Baveno VIII Table 3). A preoperative TIPS may be considered before major surgery, on weak evidence (3.20).'],
     ['A man with cirrhosis has just had his first episode of ascites. Should he start a long-term antibiotic to prevent the next decompensation?', 'No. Long-term primary antibiotic prophylaxis is not recommended after the first decompensating event (Baveno VIII 4.12, strong).'],
     ['A man with CSPH has an HVPG of 12 mmHg and no ascites. After a flare of hepatitis B his HVPG is 17 mmHg and he has ascites. Which lever moved?', 'Intrahepatic resistance. The flare added acute injury to a fibrotic liver, and the same portal inflow meeting a higher resistance gave a higher gradient.'],
@@ -48,17 +48,17 @@ export const TIPPING = {
       tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'asc'], keepTiles: true, title: 'HVPG and ascites over two weeks' },
       kicker: 'Second hit', site: 'sin', title: 'A second liver injury raises the HVPG and brings on ascites',
       line: 'A hepatitis B flare raises resistance in his already fibrotic sinusoids. Two weeks later, his HVPG is {hvpg} and {asc} of ascites has formed.',
-      notes: 'Baveno VIII 3.7: a superimposed acute liver injury (alcohol-related hepatitis, acute viral hepatitis, an HBV flare, autoimmune hepatitis or drug-induced liver injury) can precipitate decompensation or acute-on-chronic liver failure in compensated cirrhosis. In the model the injury is more fibrosis and a falling serum albumin over two weeks. Sinusoidal resistance rises, the same portal inflow meets it at a higher pressure, and with a lower oncotic pressure, fluid leaves the sinusoids and accumulates as ascites. The model does not distinguish a viral flare from alcohol-related or drug-induced injury.',
+      notes: 'Baveno VIII 3.7: a superimposed acute liver injury (alcohol-associated hepatitis, acute viral hepatitis, an HBV flare, autoimmune hepatitis or drug-induced liver injury) can precipitate decompensation or acute-on-chronic liver failure in compensated cirrhosis. In the model the injury is more fibrosis and a falling serum albumin over two weeks. Sinusoidal resistance rises, the same portal inflow meets it at a higher pressure, and with a lower oncotic pressure, fluid leaves the sinusoids and accumulates as ascites. The model does not distinguish a viral flare from alcohol-associated or drug-induced injury.',
       ask: ['A compensated man with CSPH has a flare of hepatitis B. Why can he develop ascites within weeks?', 'The injury raises sinusoidal resistance and lowers the serum albumin, so the portal pressure rises and ascites accumulates.'],
     },
     {
       id: 'injury-card', cam: 'fit', terms: ['sin'], tool: { kind: 'criteria', title: 'A second liver injury', short: 'Second injury', ticks: false, lead: 'Any one of these.', rule: 'Baveno VIII 3.7',
-        rows: ['**Alcohol-related hepatitis**', '**Acute viral hepatitis** (HEV, HAV, HBV) or an **HBV flare**', '**Autoimmune hepatitis**', '**Drug-induced** liver injury'],
+        rows: ['**Alcohol-associated hepatitis**', '**Acute viral hepatitis** (HEV, HAV, HBV) or an **HBV flare**', '**Autoimmune hepatitis**', '**Drug-induced** liver injury'],
         verdict: 'Each can precipitate decompensation or ACLF.' }, data: 'tiles', tiles: TILES, key: ['hvpg'], delta: 'stable',
       kicker: 'Second hit', site: 'sin', title: 'A second liver injury can precipitate decompensation in compensated cirrhosis',
       line: 'Any one of these injuries can precipitate decompensation or ACLF in a man with compensated cirrhosis.',
-      notes: 'Baveno VIII 3.7. The same man as the slide before, two weeks after the flare. The card lists the second injuries the guideline names: alcohol-related hepatitis, acute viral hepatitis or an HBV flare, autoimmune hepatitis and drug-induced liver injury.',
-      ask: ['Name two second liver injuries that can precipitate decompensation in compensated cirrhosis.', 'Two of these: alcohol-related hepatitis, acute viral hepatitis or an HBV flare, autoimmune hepatitis, drug-induced liver injury (Baveno VIII 3.7).'],
+      notes: 'Baveno VIII 3.7. The same man as the slide before, two weeks after the flare. The card lists the second injuries the guideline names: alcohol-associated hepatitis, acute viral hepatitis or an HBV flare, autoimmune hepatitis and drug-induced liver injury.',
+      ask: ['Name two second liver injuries that can precipitate decompensation in compensated cirrhosis.', 'Two of these: alcohol-associated hepatitis, acute viral hepatitis or an HBV flare, autoimmune hepatitis, drug-induced liver injury (Baveno VIII 3.7).'],
     },
     {
       id: 'infection', preset: 'csph', params: { splanchnicTone: 0.6, systemicTone: 0.6 }, cam: 'fit', tool: VITALS, data: 'tiles', tiles: ['hvpg', 'map'], key: ['map'], delta: 'stable',

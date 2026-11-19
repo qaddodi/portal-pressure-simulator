@@ -858,7 +858,7 @@ function doAction(a) {
     const placed = Math.round(fr?.bands || 0);
     const quiet = !!store.get().presenting;   // (a slide's own bands say nothing: the talk says it)
     if (placed >= BANDS_MAX) { if (!quiet) toast(`${BANDS_MAX} bands are already on the varices.`); return; }
-    if (!quiet) toast(`Band (EVL) placed: ${placed + 1} of ${BANDS_MAX}.`);
+    if (!quiet) toast(`${procLabel('band')} placed: ${placed + 1} of ${BANDS_MAX}.`);
   }
   host.send({ type: 'action', action: a });
   logAction('action', a.kind);
