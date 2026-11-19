@@ -40,3 +40,9 @@ test('on a phone on its side, lettering a fit zooms down is set at the size the 
   for (const k of ['.pz-ab-cap', '.pz-side-who', '.pz-side-p', '.pz-step', '.pz-cell-t', '.pz-rail-liver span', '.pz-cite', '.pze-src']) assert.ok(m[0].includes(k), `${k} keeps 12 px under a fit`);
   assert.equal((m[0].match(/var\(--pz-min\)/g) || []).length >= 5, true);
 });
+
+test('on a phone on its side the rail tilts its names, as a narrow card does, at 12 px on the screen (flat they were sized by the column to 9.9 px)', () => {
+  const css = src('styles/guideline-sides.css');
+  assert.match(css, /\.pz \.pz-rail \.n \{[^}]*rotate: -60deg/);
+  assert.match(css, /\.pz \.pz-rail li \{[^}]*font-size: max\(var\(--s-cap\), var\(--pz-min\)\); min-height: 7\.8em/);
+});

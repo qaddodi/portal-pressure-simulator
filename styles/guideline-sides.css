@@ -14,5 +14,11 @@
   .pz .pz-step { font-size: max(var(--pz-min), .68em); }
   .pz .pz-cell-t { font-size: max(var(--s-body), var(--pz-min)); }
   .pz .pz-rail-liver span { font-size: max(1em, var(--pz-min)); }
+  /* (The rail's six names, flat, are sized by the column's width, 9.9 px once the fit zooms the card; so on a phone on its side they tilt 60° up from under their bars, as in a narrow card
+     (the container rule above, which counts the card's own pixels and so misses a zoomed one), at 12 px on the screen.) */
+  .pz .pz-rail { --rp: .45em; }   /* (side room: the first name tilts down and to the left of its bar, and must stay inside the card) */
+  .pz .pz-rail ol { --s-cap: calc(var(--t-cap) * var(--ts, 1)); }
+  .pz .pz-rail li { position: relative; font-size: max(var(--s-cap), var(--pz-min)); min-height: 7.8em; }   /* (the names' size, so the room under the bars is counted in it) */
+  .pz .pz-rail .n { position: absolute; top: 1.1em; right: 50%; font-size: 1em; transform-origin: 100% 0; rotate: -60deg; }
   .pz .pz-cite, .pz .pze-src { font-size: max(var(--s-cap), var(--pz-min)); }
 }
