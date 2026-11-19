@@ -10,6 +10,7 @@ import { devicePps } from './sweep-probes.js';
 import { readMetric } from '../layout-snap.js';
 import { fadeShown } from '../util.js';
 import { keepAwake } from '../wake-lock.js';
+import { searchNow } from '../flags.js';
 
 const LOOK_NAMES = { light: 'Light', soft: 'Soft', dark: 'Dark', navy: 'Navy', black: 'Black' };
 const MAX_RESUMES = 6;
@@ -75,7 +76,7 @@ function mount(host, ctx) {
   host.append(box);
 
   const getApi = () => ctx.api || pps?.gallery;   // (api.js: list, open, check ...; page.js makes it before the panels mount)
-  const ids = linkIds(location.search);
+  const ids = linkIds(searchNow());
   const fillScope = () => {
     const choices = scopeChoices(getApi().list({}), ids);
     scopeSel.replaceChildren();

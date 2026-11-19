@@ -2,7 +2,8 @@
 // GL call refused, storage full, a deck that would not read): each now names itself here. Nothing is shown to the person; under ?perf
 // the first of each kind is written to the console, and pps.caught() lists them all (counts and the last message) for a device report.
 
-const PERF = typeof location !== 'undefined' && /[?&]perf\b/.test(location.search || '');
+import { flagOn } from './flags.js';
+const PERF = flagOn('perf');
 const log = new Map();   // tag -> { n, last }
 
 /** Counts a caught error under `tag` (its file and place). Cheap: no stack, no allocation after the first of a tag. */

@@ -5,12 +5,16 @@
 // same history the same way (replay.js).
 //
 // A history ({ v, samples, events, traces, vb, env }; history.js) holds:
-//   samples  [{ t (ms), c: [zoom, x, y] | null, L: labels | null, K: cards | null }]   null = that source could not be read: unknown, not "none"
+//   samples  [{ t (ms), c: [zoom, x, y] | null, L: labels | null, K: cards | null, W: words | null }]   null = that source could not be read: unknown, not "none"
 //            label  [key, x, y, w, h, alpha, anchorX?, anchorY?]  (page px, as the GPU drew it; the anchor is the thing it names)
 //            card   [name, x, y, w, h, alpha]                      (as the glass drew it)
+//            words  [text, data, panel, prep]                       (1 when that slide card holds its words, from the presenter's own cards, no layout: the .pz-text, .pz-data and .pz-panel are built; prep: the slide is still being fitted unseen)
 //   events   [{ t, k: 'view' | 'hand' | 'num' | 'slide', ... }]      view: { to }; num: { id, text, w, cw, pt, pw, pcw } (a number changed: now and before, measured at rest)
 //   traces   the slide camera's runs, frame by frame (stage.cameraTraces), for judgeSlideMove
 // A finding is { rule, what, where, why, owner, at, t0, t1 } (the shape of the screen report's rules); `at` is the session clock, in seconds.
+//
+// The pop rules (card-pop, card-size-snap, glass-before-words, card-empty) were scripts/frame-step.mjs's card anomalies (opacity-jump, height-jump, glass-alone, bare-card, card-no-text), which only ran on
+// software GL pictures; they judge the samples the recorder already keeps, so the owner's first rule (nothing pops, 17 Nov) has a live judge on a device. Built from the code, never seen live yet (docs/watch.md).
 //
 // Every rule is a false-alarm risk: each has a unit test with a case that must not fire (tests/watch-motion-rules.test.js).
 import { judgeSlideMove } from '../slide-cam.js';
@@ -26,6 +30,17 @@ export const STUCK_MS = 1500;
 export const SLIDE_PX = 12, JUMP_PX = 48, SLIDE_MIN_MS = 60;
 /** A label that trails its anchor by more than this (px) while the camera moves, or sits further than the limit, is detached. */
 export const LAG_PX = 14;
+/** A card (or its glass) whose alpha changes by this much between two frames, with no frame missing, popped instead of fading. */
+export const POP_ALPHA = 0.5;
+/** Samples further apart than this are a page that was not drawing (a hidden tab, a stall): no step between them is a pop or a snap. */
+export const POP_GAP_MS = 50;
+/** A card's width or height that steps by this many px in one frame, and by 4 times either neighbouring step, snapped instead of gliding. */
+export const SNAP_PX = 10, SNAP_RATIO = 4;
+/** Glass or a card shown (alpha at least SHOWN_CARD) with no words for this long is an empty card. */
+export const SHOWN_CARD = 0.3, EMPTY_MS = 100, EMPTY_FRAMES = 3;
+/** The slide cards the words bit speaks for: the words index in a sample's W. */
+export const WORD_CARDS = { 'pz-text': 0, 'pz-data': 1, 'pz-panel': 2 };
+
 /** The camera segment after a view change: it begins within this long of the change and the hand must not touch it. */
 export const VIEW_LEAD_MS = 250, VIEW_SPAN_MS = 4000;
 /** A mid-move stop (a waypoint at the fit) of this long counts; the camera at rest for REST_MS has finished its move. */
@@ -39,6 +54,10 @@ export const RULE_INFO = {
   'label-detached': { why: 'A label must keep up with the thing it names while the figure moves', owner: 'src/ui/label-gl.js' },
   'label-dim-alpha': { why: 'A dimmed label rests at one alpha, DIM_ALPHA (label-explain.js), in one place', owner: 'src/ui/label-explain.js' },
   'number-width-jump': { why: 'A number that changes must not change width while its card holds still: figures are tabular', owner: 'src/ui/count-roll.js' },
+  'card-pop': { why: 'Nothing pops in or out: a card goes from gone to shown by a fade, never in one frame (17 Nov 22:01: appearance and disappearance of anything must never glitch)', owner: 'src/ui/glass-clock.js' },
+  'card-size-snap': { why: 'Cards size exactly to their content with a glide, never a snap (17 Nov)', owner: 'src/ui/card.js' },
+  'glass-before-words': { why: 'Never show a card before it is fully loaded and styled: the glass does not show before its words (17 Nov 22:01)', owner: 'src/ui/presenter-cards.js' },
+  'card-empty': { why: 'A card is never shown with nothing in it (17 Nov 22:01)', owner: 'src/ui/presenter-cards.js' },
   'camera-straight': { why: 'The camera zooms straight from any view to any view: one way, one line, no stop at the fit (18 Nov)', owner: 'src/ui/stage-glide.js' },
   'camera-slide': { why: 'A slide\'s camera move is one plan on one even path, judged by slide-cam.js judgeSlideMove', owner: 'src/ui/slide-cam.js' },
 };
@@ -148,7 +167,7 @@ export function labelSlide(h) {
 /** label-detached: a label that stands still against its moving anchor, for two frames running, or sits far from its anchor. */
 export function labelDetached(h) {
   const out = [], S = h.samples, vw = h.env?.vw || 1000;
-  const lim = Math.max(280, 0.36 * Math.min(vw, 1400));
+  const lim = labelLimit(vw);
   for (const r of alphaSeries(S, 'L', 5).values()) {
     let run = null; const flush = () => { if (run && run.n >= 2 && run.da - run.dl >= LAG_PX) out.push(finding('label-detached', `label "${r.key}"`, `does not keep up with its anchor (moved ${Math.round(run.dl)} px while the anchor moved ${Math.round(run.da)} px over ${run.n} frames)`, S[run.i0].t, S[run.i1].t)); run = null; };
     let far = false;
@@ -172,6 +191,75 @@ export function numberWidthJump(h) {
   for (const e of h.events || []) {
     if (e.k !== 'num' || e.pt == null || e.pt === e.text || e.pt.length !== e.text.length) continue;
     if (Math.abs(e.w - e.pw) >= 1 && Math.abs(e.cw - e.pcw) < 0.5) out.push(finding('number-width-jump', `number "${e.pt}" to "${e.text}" (${e.id})`, `${e.pw} to ${e.w} px wide while its card held ${e.cw} px`, e.t));
+  }
+  return out;
+}
+
+/** The label's limit from its anchor (px): the one number label-detached and the retired glitch sweep judge by. */
+export const labelLimit = (vw) => Math.max(280, 0.36 * Math.min(vw || 1000, 1400));
+
+const gapOk = (S, i) => S[i].t - S[i - 1].t <= POP_GAP_MS;
+
+/** card-pop: a card (its glass) goes from gone to shown, or shown to gone, in one frame: it popped instead of fading (opacity-jump of frame-step.mjs). */
+export function cardPop(h) {
+  const out = [], S = h.samples;
+  for (const r of alphaSeries(S, 'K', 5).values()) {
+    for (let i = 1; i < S.length; i++) {
+      if (!gapOk(S, i) || !(r.a[i] >= 0) || !(r.a[i - 1] >= 0)) continue;
+      const d = r.a[i] - r.a[i - 1];
+      if (Math.abs(d) >= POP_ALPHA) out.push(finding('card-pop', `card "${r.key}"`, `${d > 0 ? 'appeared' : 'vanished'} in one frame (alpha ${r1(r.a[i - 1])} to ${r1(r.a[i])} in ${Math.round(S[i].t - S[i - 1].t)} ms), not a fade`, S[i - 1].t, S[i].t));
+    }
+  }
+  return out;
+}
+
+/** card-size-snap: a shown card's width or height jumps in one frame, far more than the frames either side of it: it snapped to its content instead of gliding (height-jump, width-jump). */
+export function cardSizeSnap(h) {
+  const out = [], S = h.samples, N = S.length;
+  const byKey = new Map();
+  S.forEach((s, i) => { if (s.K) for (const e of s.K) { let m = byKey.get(e[0]); if (!m) byKey.set(e[0], (m = new Array(N).fill(null))); m[i] = e; } });
+  for (const [key, at] of byKey) {
+    for (const [idx, what] of [[4, 'height'], [3, 'width']]) {
+      const step = (i) => (i >= 1 && i < N && at[i] && at[i - 1] && gapOk(S, i) && at[i][5] > 0.05 && at[i - 1][5] > 0.05 ? Math.abs(at[i][idx] - at[i - 1][idx]) : 0);
+      for (let i = 2; i < N - 1; i++) {
+        const d = step(i);
+        if (d >= SNAP_PX && d >= SNAP_RATIO * Math.max(step(i - 1), step(i + 1), 1)) out.push(finding('card-size-snap', `card "${key}"`, `${what} ${Math.round(at[i - 1][idx])} to ${Math.round(at[i][idx])} px in one frame (${Math.round(S[i].t - S[i - 1].t)} ms), not a glide`, S[i - 1].t, S[i].t));
+      }
+    }
+  }
+  return out;
+}
+
+/** The runs of samples where `bad(sample)` holds that last EMPTY_FRAMES samples and EMPTY_MS: [{ i0, i1 }]. */
+function runs(S, bad) {
+  const out = [];
+  let i = 0;
+  while (i < S.length) {
+    if (!bad(S[i])) { i++; continue; }
+    let j = i; while (j + 1 < S.length && bad(S[j + 1])) j++;
+    if (j - i + 1 >= EMPTY_FRAMES && S[j].t - S[i].t >= EMPTY_MS) out.push({ i0: i, i1: j });
+    i = j + 1;
+  }
+  return out;
+}
+const alphaOf = (s, name) => { const e = s.K && s.K.find((k) => k[0] === name); return e ? e[5] : 0; };
+
+/** glass-before-words: the teaching card's glass (pz-shade) is shown while none of the slide's cards holds words and the slide is not being fitted unseen: glass alone, the frost with nothing on it (glass-alone, bare-card). */
+export function glassBeforeWords(h) {
+  const out = [], S = h.samples;
+  for (const { i0, i1 } of runs(S, (s) => s.K && s.W && !s.W[3] && s.W[0] === 0 && s.W[1] === 0 && s.W[2] === 0 && alphaOf(s, 'pz-shade') >= SHOWN_CARD)) {
+    out.push(finding('glass-before-words', 'the teaching card\'s glass', `shown (alpha ${r1(alphaOf(S[i1], 'pz-shade'))}) for ${Math.round(S[i1].t - S[i0].t)} ms with no words in any card: the glass before its words`, S[i0].t, S[i1].t));
+  }
+  return out;
+}
+
+/** card-empty: a slide card (words, data or top card) is shown with no words in it (card-no-text). */
+export function cardEmpty(h) {
+  const out = [], S = h.samples;
+  for (const [name, at] of Object.entries(WORD_CARDS)) {
+    for (const { i0, i1 } of runs(S, (s) => s.K && s.W && !s.W[3] && s.W[at] === 0 && alphaOf(s, name) >= SHOWN_CARD)) {
+      out.push(finding('card-empty', `card "${name}"`, `shown (alpha ${r1(alphaOf(S[i1], name))}) for ${Math.round(S[i1].t - S[i0].t)} ms with nothing in it`, S[i0].t, S[i1].t));
+    }
   }
   return out;
 }
@@ -248,6 +336,10 @@ export const MOTION_RULES = [
   { id: 'label-detached', kind: 'series', judge: labelDetached },
   { id: 'label-dim-alpha', kind: 'series', judge: labelDimAlpha },
   { id: 'number-width-jump', kind: 'series', judge: numberWidthJump },
+  { id: 'card-pop', kind: 'series', judge: cardPop },
+  { id: 'card-size-snap', kind: 'series', judge: cardSizeSnap },
+  { id: 'glass-before-words', kind: 'series', judge: glassBeforeWords },
+  { id: 'card-empty', kind: 'series', judge: cardEmpty },
   { id: 'camera-straight', kind: 'series', judge: cameraStraight },
   { id: 'camera-slide', kind: 'series', judge: cameraSlide },
 ].map((r) => ({ ...r, ...RULE_INFO[r.id] }));
