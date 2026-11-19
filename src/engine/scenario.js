@@ -147,7 +147,7 @@ export const PRESETS = [
     note: 'Isolated fundal varices (IGV1) drain through a gastrorenal shunt into the left renal vein: the BRTO target.' },
   // Compensated cirrhosis with small varices before pregnancy (HVPG about 12); `now` makes her pregnant once the disease
   // clock has run, so moving the gestation back to 0 shows her before pregnancy.
-  { id: 'pregnancy', facts: { decompensated: false }, group: 'Sinusoidal', label: 'Cirrhosis in pregnancy', apply: P({ cirrhosis: 0.62 }), days: 365, now: { gestation: 24 },
+  { id: 'pregnancy', facts: { decompensated: false }, group: 'Sinusoidal', label: 'Cirrhosis in pregnancy', apply: P({ cirrhosis: 0.65 }), days: 365, now: { gestation: 24 },
     summary: 'Compensated cirrhosis at 24 weeks of pregnancy. A larger blood volume, a higher cardiac output and splanchnic vasodilation raise portal inflow, so small varices grow large. Move the weeks on the heart card.',
     note: 'Compensated cirrhosis at 24 weeks. Higher blood volume and portal inflow enlarge small varices.' },
   // (Central-vein resistance 34, not 32: at 32 SOS rested at HVPG 10.2 and PPG 12.1 at the bedside, on both red lines, and read amber or red with
