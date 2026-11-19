@@ -1,5 +1,5 @@
 // Time-lapse trails, calmed where they are made (worker-core.js sequence). Pure: loads in node for the unit tests.
-import { clamp } from '../ui/num.js';
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));   // (the engine imports nothing from src/ui: scripts/source-shapes/engine-no-ui-19nov.mjs)
 // The model's day-by-day readings are taken in quiet steps, whatever the beat's and the breath's phase is at that moment, so each carries a
 // ripple of a few tenths of a mmHg that is no part of a slow trend: drawn as they come, a line zigzags and steps (the Carvedilol slide's HVPG,
 // Mohammad, 16 Nov 2026; until then only the one slide that asked for it, view.smooth, was calmed). Every time-lapse of CALM_MIN days or more

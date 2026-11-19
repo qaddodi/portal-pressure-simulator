@@ -87,8 +87,8 @@ export const RATE = {
   pvFlow: (v) => (v < 0 ? T_hi_Hepatofugal : v === 0 ? T_hi_No_flow : T_null_Hepatopetal),
   // Main portal vein velocity on Doppler: 15 cm/s or more normal, slower is slow, under 9 either way stasis (as the Doppler tool's judgeFlow), backward past -9 reversed.
   pvVel: (v) => (v <= -FLOW_CUTS.stasis ? T_hi_Reversed : v < FLOW_CUTS.stasis ? T_hi_Stasis : v < 15 ? T_mid_Slow : T_ok_Normal),
-  liver: (v) => (v <= 55 ? T_hi_Severe : v <= 75 ? T_mid_Low : T_ok_Normal),
-  shunt: (v) => (v >= 0.3 ? T_hi_Large : v >= 0.1 ? T_mid_Moderate : T_ok_Small),
+  liver: (v) => (v <= FLOW_CUTS.liverSevere ? T_hi_Severe : v <= FLOW_CUTS.liverLow ? T_mid_Low : T_ok_Normal),
+  shunt: (v) => (v >= FLOW_CUTS.shuntLarge ? T_hi_Large : v >= FLOW_CUTS.shuntModerate ? T_mid_Moderate : T_ok_Small),
   // (The blood pressure: low at a mean <65 or a systolic <90 mmHg, Baveno VIII 4.6's two limits for carvedilol.)
   map: (v, f) => (v < KIDNEY_CUTS.mapBeta || f?.sbp < KIDNEY_CUTS.sbpBeta ? T_hi_Low : T_ok_Normal),
   sbp: (v) => (v < KIDNEY_CUTS.sbpBeta ? T_hi_Low : T_ok_Normal),
@@ -234,7 +234,7 @@ export const SCALE = {
   hvpg: [0, 25, [HVPG_CUTS.amber, HVPG_CUTS.red]], eus: [0, 25, [HVPG_CUTS.amber, HVPG_CUTS.red]], ppg: [0, 25, [PPG_CUTS.amber, PPG_CUTS.red]], pv: [0, 30, [10, 15]], sin: [0, 20, [9, 12]], whvp: [0, 30, [10, 15]], fhvp: [0, 20, [8]],
   saag: [0, 3, [SAAG_PORTAL]], tp: [0, 5, [TP_SBP, TP_HIGH]], asc: [0, 8, [0.15, 1.5, 5]],
   varix: [0, 10, [2.5, 5]], gv: [0, 10, [2.5, 5]], spleen: [8, 22, [13, 16]], plt: [0, 300, [100, 150]],
-  pvFlow: [-0.6, 2, [0]], pvVel: [0, 50, [FLOW_CUTS.stasis, 15]], liver: [0, 125, [55, 75]], shunt: [0, 100, [10, 30]], map: [40, 120, [KIDNEY_CUTS.mapBeta]], sbp: [60, 160, [KIDNEY_CUTS.sbpBeta]], rpp: [30, 100, []],
+  pvFlow: [-0.6, 2, [0]], pvVel: [0, 50, [FLOW_CUTS.stasis, 15]], liver: [0, 125, [FLOW_CUTS.liverSevere, FLOW_CUTS.liverLow]], shunt: [0, 100, [Math.round(FLOW_CUTS.shuntModerate * 100), Math.round(FLOW_CUTS.shuntLarge * 100)]], map: [40, 120, [KIDNEY_CUTS.mapBeta]], sbp: [60, 160, [KIDNEY_CUTS.sbpBeta]], rpp: [30, 100, []],
   tipsFlow: [0, 3, []], dipsFlow: [0, 3, []], tipsBench: [0, 3, []], dipsBench: [0, 3, []], tipsDp: [0, 16, []], dipsDp: [0, 16, []], tipsVel: [0, 400, STENT_RANGE], dipsVel: [0, 400, STENT_RANGE], tipsLumen: [0, 12, []], dipsLumen: [0, 12, []], tipsLocalPct: [0, 100, []], dipsLocalPct: [0, 100, []],
   lsm: [0, 35, [LSM_CUTS.unlikely, LSM_CUTS.likely, LSM_CUTS.ruleIn]], ssm: [0, 100, [SSM_CUTS.resolved, SSM_CUTS.spareScope, SSM_CUTS.ruleIn]], clot: [0, 100, [5, 50]], ra: [0, 20, [8]], ivc: [0, 20, [8]], salb: [1.5, 5.5, [3.5]], hb: [4, 18, [TRANSFUSE.lo, 12]], hbTo: [4, 18, [TRANSFUSE.lo, 12]], hr: [30, 200, [60, 100]],
   // (Volume and output were a plain bar until 22 Oct. The model's patients run from 3.0 to 8.4 L/min, which the output's scale holds. The volume's

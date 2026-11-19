@@ -12,6 +12,10 @@ import assert from 'node:assert/strict';
 import { journeyRig } from './gpu-journey.js';
 
 const TAB = ['profile', 'hvpg', 'doppler', 'endoscopy', 'abdomen', 'fibroscan', 'trials', 'readouts', 'scope', 'hvpg', 'doppler'];
+// (The charts' pool comes in size classes, each a context of its own: the cards' pictures', the screen-size layer's (the lobule's leaders) and the readouts' (GPU-1, 19 Nov 2026). Every picture a canvas
+// holds is the whole buffer of its pool, so a readout in the card pool held 9.4 MB and a slide has twenty; in a pool of its own it holds at most 2 MB. A third context is well inside what a page
+// may hold (WebKit keeps about 16; the figure's and these three are four) and is what that memory costs. tests/gl-contexts.test.js fails a fourth kind of pool.)
+const CHART_CTX = 3;
 let rig, env;
 const share = (mb) => mb / env;
 const said = (r) => `${JSON.stringify(r)}`;
@@ -22,7 +26,7 @@ test('boot', { timeout: 280000 }, async () => {
   const r = rig.report();
   assert.ok(r.nowMB > 20, `the registry sees the page (${r.nowMB} MB)`);
   assert.ok(share(r.nowMB) <= 0.6, `at rest the figure holds ${r.nowMB} MB, ${Math.round(100 * share(r.nowMB))}% of a phone's ${env} MB: ${r.owners.join(', ')}`);
-  assert.ok(r.ownContexts <= 1 && r.chartContexts <= 2, `contexts: ${said(r)}`);
+  assert.ok(r.ownContexts <= 1 && r.chartContexts <= CHART_CTX, `contexts: ${said(r)}`);
 });
 
 test('the Tests card, pane to pane in the Anatomy (IR to Doppler and the rest), holds the level it started at', { timeout: 280000 }, async () => {
@@ -74,7 +78,7 @@ test('the HVPG deck from slide 4 to slide 6: the tip, the lobule and its wash, t
     assert.ok(share(r.peakMB) <= 0.95, `round ${round}: the peak was ${r.peakMB} MB (${Math.round(100 * share(r.peakMB))}%) at ${r.peakAt}`);
     assert.equal(r.unmetMB, 0, `round ${round}: ${said(r)}`);
     assert.ok(share(r.nowMB) <= 0.75, `round ${round}: back at the tip the page holds ${r.nowMB} MB: ${r.owners.join(', ')}`);
-    assert.ok(r.ownContexts <= 1 && r.chartContexts <= 2, `contexts: ${said(r)}`);
+    assert.ok(r.ownContexts <= 1 && r.chartContexts <= CHART_CTX, `contexts: ${said(r)}`);
     rig.st.setCamera({ k: 1, x: 0, y: 0 }, 300); await rig.run(250, `round ${round} fit`);
   }
 });

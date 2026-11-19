@@ -117,7 +117,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
     const ta = getComputedStyle(timeEl).textAlign, align = /right|end/.test(ta) ? 'end' : ta === 'center' ? 'middle' : 'start';
     const asc = -textBox('0', 0, 0, { weight, size, k }).y;   // (the baseline under the box's top, rounded as the browser rounds it)
     dayAt = { size, weight, y: r.top - b.top + asc, x: align === 'end' ? r.right - b.left : align === 'middle' ? (r.left + r.right) / 2 - b.left : r.left - b.left, align };
-    if (!dayGL) { dayGL = createSvgGL(timeEl, { host: 'dock' }); dayGL.cv.setAttribute('aria-hidden', 'true'); dayGL.cv.removeAttribute('role'); }
+    if (!dayGL) { dayGL = createSvgGL(timeEl, { host: 'dock', small: true }); dayGL.cv.setAttribute('aria-hidden', 'true'); dayGL.cv.removeAttribute('role'); }
     dayGL.setCtx({ view: timeEl.closest('.stage-wrap.cmap') ? 'circuit' : 'anatomic' });   // (the Circuit view's dark tokens, as the page's clock has them)
     dayPath = svgModel('path', { class: 'tl-day-gl', 'data-look': 'small.day', d: dayD(t) });
     dayGL.show(svgModel('svg', { 'data-look': 'small.root', viewBox: `0 0 ${b.width} ${b.height}`, preserveAspectRatio: 'none' }, dayPath), false);

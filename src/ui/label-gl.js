@@ -877,6 +877,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   let ghosts = [], xfOld = 1, xfNew = 1;
   // (Host mode: whether a picture with the labels is owed to the host's canvas; whether the SVG was given every label back.)
   let owed = false, released = true;   // (at first the SVG shows every label: none is marked yet)
+  let drewStill = false;   // (the last draw left nothing moving, fading or easing: steady())
   // (Host mode: the labels and marks the SVG still draws, as of the last picture: what lies between the figure's canvas and the callouts'
   // glass, which is drawn into that canvas only where it crosses none of them; svgLeft.)
   const svgLeft = new Set();
@@ -1100,7 +1101,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (A new look is built whole, not in REBUILD_MS chunks: the crossfade holds the page until the labels have it (busy, label-theme.js labelsBusy), so no
   // label shows the old colours beside another that has the new, and the leaders' and dots' new colours are never ahead of the words'.)
   let lookHoldUntil = 0;
-  const themeNow = () => { if (disposed) return; lookHoldUntil = performance.now() + 800; all(); pReadSoon(); };   // (the Doppler probe's look follows the theme too)
+  // (GPU-9, 19 Nov 2026: the leaders' and dots' default inks (the pinned labels' own look where they have none: drawPins) were taken once, from the first look seen or the page's tokens,
+  // and never again, so after a change of look (Light to Dark) a leader or dot that falls back to the default kept the old ink, a pale ring on a dark stage. A look change drops all four.)
+  let defLine = null, defDot = null, PIN_LINE0 = null, PIN_DOT0 = null;
+  const themeNow = () => { if (disposed) return; defLine = defDot = PIN_LINE0 = PIN_DOT0 = null; lookHoldUntil = performance.now() + 800; all(); pReadSoon(); };   // (the Doppler probe's look follows the theme too)
   const unlayer = addLabelLayer({ busy: () => !disposed && host.active() && !!(dirty.size || unread.size || waiting.size || todo.size || pending.size || markDirty.size || mtodo.size || fillT), theme: themeNow, ride: () => { if (!disposed) rideSeen(); }, dirty: told });
   darkMQ.addEventListener?.('change', themeNow);
   addEventListener('pps:labelscale', themeNow);   // (the text size: --label-k on the page)
@@ -1796,6 +1800,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (settleBoxes()) { try { onBoxes?.(); } catch (e) { caught('label-gl:1031', e); /* (a listener's failure is not the labels') */ } }
     if (nb && coverOpen) { coverOpen(); coverOpen = null; }
     // (What waits for the labels to stand drawn: run once a draw has left nothing owed, the pictures all built.)
+    drewStill = !moving;
     if (moving) ask();
   }
   // A mark's look, read again while it may be changing: a frame draws the look it has kept and, when it may have changed, owes it to the
@@ -2065,7 +2070,6 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (A record's own want bits where its writer gave them (pos.want, stage-label-layer.js paintLeaders), else the ones read from the leaders' layer at sync.)
   const wantOf = (s, key) => (typeof s.want === 'number' ? s.want : pinWant.get(key) | 0);
   const PG = new Float64Array(4);
-  let defLine = null, defDot = null, PIN_LINE0 = null, PIN_DOT0 = null;
   function pinMark(st, geo, isPath, a) {
     if (!st || !(a > 0.001) || (!st.stroke && !st.fill)) return false;
     const w = st.stroke ? st.w * dpr : 0, m = w / 2 + 2, box = MBOX;
@@ -2659,6 +2663,13 @@ void main() { o = texture(uT, vUV) * uA; }`;
     check() { check(); },
     /** Host mode: whether the host's canvas owes a picture with the labels. */
     get owed() { return owed; },
+    /** Host mode: whether a present that lays only a box of the picture (veins-gl restBox) may leave the labels as the last present drew them: nothing is owed, moving,
+     *  fading, easing, waiting to be built or crossing, and the last draw left it so. Asked before the present, so it reads the state as it is now, not as the draw left it. */
+    steady() {
+      if (lost || drawing || owed || released || !drewStill) return released && !lost && !drawing && !owed;   // (given back to the SVG: nothing of theirs is on the canvas)
+      return todo.size === 0 && pending.size === 0 && dirty.size === 0 && live.size === 0 && exact.size === 0 && ghosts.length === 0 && !rideM && !rp && !needRepack
+        && mtodo.size === 0 && markDirty.size === 0 && markLive.size === 0 && xfNew === 1 && xfOld === 1 && !la?.moving;
+    },
     /** The label groups and marks the SVG drew itself at the last picture (in host mode, none while it draws them all). */
     svgLeft: () => { SVGL.length = 0; for (const el of svgLeft) SVGL.push(el); return SVGL; },
     /** The ?perf surfaces list (gpu-surfaces.js): the labels laid out at the last picture, and how many of them the SVG drew itself. */

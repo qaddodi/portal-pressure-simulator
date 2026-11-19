@@ -37,7 +37,7 @@ import { viewTapAgain } from './view-tap.js';
 import { YOURS_NOTE } from '../engine/yours.js';
 import { caption } from './a11y.js';
 import { sharpMoving, setSharpMoving } from './adapt-tier.js';
-import { UPDATED, RELEASE, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js';
+import { UPDATED, RELEASE, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js';
 import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js';
 import { EDGES, PORTAL_TERRITORY, tiedOff } from '../engine/topology.js';
@@ -2345,7 +2345,7 @@ function wirePanel() {
 // The presenter's keys (src/ui/presenter.js, onKey), for the Guide's "While presenting" block.
 const PRESENT_KEYS = [
   ['→ · Space · Enter', 'Next slide (during a time-lapse, run it to its end)'], ['← · Backspace', 'Previous slide'],
-  ['Home · End', 'First / last slide'], ['Number, then Enter', 'Jump to that slide'], ['G', 'The slide list'], ['P', 'Presenter view: notes, next slide and clocks in a second window'],
+  ['↑ · ↓', 'Change the card (where the two cards share one place: a phone on its side, a short window)'], ['Home · End', 'First / last slide'], ['Number, then Enter', 'Jump to that slide'], ['G', 'The slide list'], ['P', 'Presenter view: notes, next slide and clocks in a second window'],
   ['B or .', 'Black screen'], ['F', 'Full screen'], ['L', 'Laser pointer on / off (iPad: press and hold)'], ['?', 'This guide'], ['Esc', 'Put an enlarged card back, then stop presenting'],
 ];
 function openHelp(section) {
@@ -2392,7 +2392,7 @@ const CUT_HEADS = ['Readout', 'Normal', 'Borderline', 'Past a threshold', 'High 
 function openAbout(section) {
   openModal('About the model', h('div', {},
     h('p', {}, 'Created by ', h('b', {}, AUTHOR), '. ', h('a', { href: AUTHOR_URL, target: '_blank', rel: 'noopener' }, 'See all of the author’s teaching\u00a0tools'), '.'),
-    h('p', {}, `The model, patients and presentations are dated ${CONTENT_UPDATED} and change only when that date does, so a class taught on them behaves the same all term.`),
+    h('p', {}, 'The model, patients and presentations change as the app is updated. If a class is taught on them across a term, note the build date shown under the title and check it before each session.'),
     h('h3', {}, 'The model'),
     h('p', {}, 'A lumped-parameter hemodynamic network of the splanchnic, portal, hepatic and systemic veins with the heart, arterial inflow and the hepatic arterial buffer; collateral recruitment and remodeling on a disease clock; Starling filtration and lymph for ascites; Laplace wall stress for varices; blood volume, bleeding and transfusion. Every number on screen comes out of it; nothing is scripted.'),
     h('h3', {}, 'Validation targets'),

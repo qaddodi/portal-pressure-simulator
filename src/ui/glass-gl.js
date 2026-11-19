@@ -9,7 +9,7 @@
 // transparency, or a browser without backdrop blur (whose solid card stays).
 
 import { BLOOD_BLUR_MS, shareFor, sharePrep, sharePlan, shareKeep, shareForget, shareShift, shareTurn, shareUse, shareRelease, shareBytes } from './blur-share.js';
-import { glCap, fbComplete } from './gl-state.js';
+import { glCap, glOn, fbComplete } from './gl-state.js';
 import { glassCover, stackOf, stackCmp } from './glass-cover.js';
 import { flagOn } from './flags.js';
 import { hold } from './gpu-budget.js';
@@ -491,7 +491,7 @@ function fillMask(G, m, d, ss, mw, mh) {
   G.framebufferTexture2D(G.FRAMEBUFFER, G.COLOR_ATTACHMENT0, G.TEXTURE_2D, m.tex, 0);
   G.viewport(0, 0, mw, mh);
   G.disable(G.SCISSOR_TEST); G.disable(G.STENCIL_TEST);
-  const depth = G.isEnabled(G.DEPTH_TEST), cull = G.isEnabled(G.CULL_FACE);
+  const depth = glOn(G, G.DEPTH_TEST), cull = glOn(G, G.CULL_FACE);   // (from the context's record: gl.isEnabled is a synchronous driver query, GPU-6)
   if (depth) G.disable(G.DEPTH_TEST);
   if (cull) G.disable(G.CULL_FACE);
   G.clearColor(0, 0, 0, 0); G.clear(G.COLOR_BUFFER_BIT);
@@ -1356,6 +1356,16 @@ export function createGlassGL(wrap, source, layers, { markHold = true, software 
     G.bindFramebuffer(G.READ_FRAMEBUFFER, null); G.bindFramebuffer(G.DRAW_FRAMEBUFFER, null);
     return true;
   }
+  // Whether a present that lays only a box of the picture (veins-gl restBox, GPU-4) may leave this glass as the last present drew it: it is asleep (two
+  // frames of the page in a row changed nothing, and nothing is moving, fading or asked for), and the blur it draws from is kept. Not drawn in the
+  // figure's canvas: it lays nothing there. Asked before the present.
+  function glassSteady() {
+    if (lost || dead) return false;
+    if (!hostOn || !hf || !hk) return !raf;
+    if (raf || inPrep || quiet < 2 || !SHARED || performance.now() < liveUntil || moving()) return false;
+    const S = hk.share;
+    return !!S && !!S.t && S.snapOk && S.ok;
+  }
   // The glass over the picture the figure has just laid (veins-gl top), into its canvas: first (prepInto, before any glass is drawn on
   // that picture) the region behind the glasses blurred from it, then each glass (drawInto) in its turn among the page's layers: the
   // pane under the labels, the teaching card's shade ('low'), the callouts, the other cards ('high'). The cards' two turns share one
@@ -1505,6 +1515,10 @@ export function createGlassGL(wrap, source, layers, { markHold = true, software 
   let cr0 = null;
   function runShare(S, cr) {
     cr0 = cr;
+    // (A rest present laid in part (veins-gl restBox, GPU-4): the screen outside its box still holds the glasses of the last present, which a blur taken
+    // from it would soak up. It blurs in a whole present, which comes at least every 200 ms: the glass is drawn from the blur it has, as it is between
+    // two of the blood's blurs (BLOOD_BLUR_MS) anyway.)
+    if (host?.clipped?.() && S.t && S.snapOk && S.ok) { shareTurn(S); S.usedIn = frameCount(); return true; }
     if (!shareTurn(S)) return S.ok;
     const G = hk.G, W2 = host.canvas.width, H2 = host.canvas.height, k = hk.k;
     S.ok = false;
@@ -2139,8 +2153,18 @@ export function createGlassGL(wrap, source, layers, { markHold = true, software 
   document.fonts?.addEventListener?.('loadingdone', again);
   // (A CSS transition or animation starting anywhere: followed if it moves a glass or what holds it (its keyframes taken now, once); one
   // ending, anywhere: the page read again for where it ended.)
-  const docStart = (e) => { pollReset(); trackSoon(e?.target); wake(); };
-  const docEnd = () => measureEarly('transitionEnd');
+  // (GPU-13, 19 Nov 2026: any transition anywhere, a hover on a menu button, woke the glass and, as it ended, read every glass's boxes and styles again (about 18 direct reads, twice, as two
+  // renderers listen). A transition of a property that only repaints (a colour, a shadow, an opacity, a transform), on an element that is not a glass and holds none, cannot move or resize
+  // one, so it asks for nothing: the filter is by what moved and where, never by a list of pages. A property that can change a box, a custom property included, wakes as before.)
+  const PAINT_ONLY = /^(opacity|color|background-color|background-image|border-(top-|right-|bottom-|left-)?color|outline(-color|-offset)?|box-shadow|text-shadow|filter|fill|stroke|stroke-opacity|fill-opacity|transform|translate|scale|rotate|caret-color|text-decoration-color)$/;
+  const paintOnly = (e) => {
+    const p = e?.propertyName, t = e?.target, list = geo?.list;
+    if (!p || !t || !list?.length || !PAINT_ONLY.test(p)) return false;
+    for (let i = 0; i < list.length; i++) { const g = list[i]; if (g === t || t.contains?.(g)) return false; }
+    return true;
+  };
+  const docStart = (e) => { if (paintOnly(e)) return; pollReset(); trackSoon(e?.target); wake(); };
+  const docEnd = (e) => { if (paintOnly(e)) return; measureEarly('transitionEnd'); };
   const DOC_START = ['transitionrun', 'animationstart'], DOC_END = ['transitionend', 'transitioncancel', 'animationend', 'animationcancel'];
   for (const t of DOC_START) document.addEventListener?.(t, docStart, true);
   for (const t of DOC_END) document.addEventListener?.(t, docEnd, true);
@@ -2201,8 +2225,8 @@ export function createGlassGL(wrap, source, layers, { markHold = true, software 
       warmPrograms(h.gl, false); if (SHADER_WARM) h.warmIn?.(warmTask(h.gl));   // (started now, published when done: see warmPrograms, warmTask)
       host.canvas.addEventListener('webglcontextlost', onHostLost);
       hostTops = cards && !co
-        ? [host.add({ order: h.order?.low ?? 1, prep: prepInto, draw: () => drawInto('low') }), host.add({ order: h.order?.high ?? 3, draw: () => drawInto('high') })]
-        : [host.add({ order: h.order ?? 2, prep: prepInto, draw: () => drawInto('all') })];
+        ? [host.add({ order: h.order?.low ?? 1, prep: prepInto, draw: () => drawInto('low'), steady: glassSteady }), host.add({ order: h.order?.high ?? 3, draw: () => drawInto('high'), steady: glassSteady })]
+        : [host.add({ order: h.order ?? 2, prep: prepInto, draw: () => drawInto('all'), steady: glassSteady })];
       // (The figure's canvas faded, hidden or moved by a style of its own (a resolution's fade, a sub-pixel rest): looked at again.)
       hostMo = new MutationObserver((recs) => { if (!recs?.length || changed(recs)) measureEarly('canvasWrites'); else wake(); });
       hostMo.observe(host.canvas, { attributes: true, attributeOldValue: true, attributeFilter: ['style', 'class', 'hidden'] });

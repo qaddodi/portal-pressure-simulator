@@ -691,7 +691,7 @@
    screen, the one behind waiting at its foot with its top 48 px showing. Each is moved by a paused animation the script scrubs (a translateY added to its own transform, the opacity of its
    words, the opacity of its strip's name). The strip holds the card's grab bar (::before) and its name (::after, from data-strip); the card's own words and numbers are taken out while it is behind.
    The card coming forward stands above the other for the whole change: .pz-shuf-data (set on the page while the instrument is the one coming or in front) puts it there. */
-.pz.pz-shuf .pz-data::before, .pz-shade.pz-shuf::before { content: ''; position: absolute; left: 50%; top: 10px; width: 36px; height: 4px; margin-left: -18px; border-radius: 2px; background: color-mix(in srgb, var(--text) 38%, transparent); pointer-events: none; }
+.pz.pz-shuf .pz-data::before, .pz-shade.pz-shuf::before { content: ''; position: absolute; left: 50%; top: 5px; width: 36px; height: 4px; margin-left: -18px; border-radius: 2px; background: color-mix(in srgb, var(--text) 38%, transparent); pointer-events: none; }
 .pz.pz-shuf .pz-data::after, .pz-shade.pz-shuf::after { content: attr(data-strip); position: absolute; left: var(--pz-cp, 18px); right: 44px; top: 22px; font: var(--caps-w, 700) 12px/1 var(--font-ui); letter-spacing: var(--caps-ls, .07em); text-transform: uppercase; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0; pointer-events: none; }
 .pz.pz-shuf .pz-text { z-index: 2; }
 .pz.pz-shuf .pz-data { z-index: 1; }

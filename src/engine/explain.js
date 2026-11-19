@@ -3,6 +3,7 @@
 // its contribution is (current − reverted). Contributions are approximate: they need not sum exactly.
 
 import { lcFirst } from './lc-first.js';
+import { HVPG_CUTS, PPG_CUTS } from './pressure-cuts.js';
 import { Engine } from './engine.js';
 import { computeMetrics } from './metrics.js';
 import { defaultParams, DRUGS } from './scenario.js';
@@ -228,9 +229,9 @@ export function formula(eng, id, m = null, h = null) {
     // (The figure's sinusoid label less its hepatic vein label can read a few tenths above the HVPG in a liver with open sinusoids: the wedged catheter also reads the central
     // vein that drains them, which sits lower. Said where the two meet, not left as a mismatch: play-test A9, 16 Nov 2026.)
     const d = P[ni.SIN_R] - P[ni.RHV];
-    return `HVPG = WHVP − FHVP = ${m.whvp.toFixed(1)} − ${m.fhvp.toFixed(1)} = ${m.hvpg.toFixed(1)} mmHg  (normal ≤5)${d - m.hvpg >= 0.2 ? `. The sinusoid label minus the hepatic vein label reads ${d.toFixed(1)}: the wedged catheter also reads the central vein that drains the sinusoids, so with open sinusoids the HVPG sits a little under that difference.` : ''}`;
+    return `HVPG = WHVP − FHVP = ${m.whvp.toFixed(1)} − ${m.fhvp.toFixed(1)} = ${m.hvpg.toFixed(1)} mmHg  (normal ≤${HVPG_CUTS.amber})${d - m.hvpg >= 0.2 ? `. The sinusoid label minus the hepatic vein label reads ${d.toFixed(1)}: the wedged catheter also reads the central vein that drains the sinusoids, so with open sinusoids the HVPG sits a little under that difference.` : ''}`;
   }
-  if (m && id === 'ppg') return `PPG = portal vein − IVC = ${m.pv.toFixed(1)} − ${m.ivc.toFixed(1)} = ${m.ppg.toFixed(1)} mmHg  (normal <6)`;
+  if (m && id === 'ppg') return `PPG = portal vein − IVC = ${m.pv.toFixed(1)} − ${m.ivc.toFixed(1)} = ${m.ppg.toFixed(1)} mmHg  (normal <${PPG_CUTS.amber})`;
   if (id === 'pv' || id === 'hvpg' || id === 'ppg') {
     const q = Q[ei.SIN_RR] + Q[ei.SIN_LL];
     const dp = P[ni.CONF] - P[ni.RHV];

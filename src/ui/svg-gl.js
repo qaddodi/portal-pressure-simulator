@@ -813,6 +813,15 @@ export function viewMap(vb, par, w, h) {
   return VM;
 }
 
+// (Whether a drawing has anything to paint: a piece that is not a path, or a path with a shape, or a group holding either. An empty path, and a group of them, paint nothing. Walked in place: nothing is made.)
+export function inked(root) {
+  for (let c = root.firstElementChild; c; c = c.nextElementSibling) {
+    const tag = c.localName;
+    if (tag === 'path') { if (geoOf(c, 'd')) return true; } else if (tag === 'g') { if (inked(c)) return true; } else return true;
+  }
+  return false;
+}
+
 // ── The picture ──
 const finalFrame = finalFrameFor('svg-gl');
 // (A picture that does not ride the figure (opts.follows false: a card's chart, a readout's words, the dock's values) is drawn and handed over
@@ -910,10 +919,13 @@ export function createSvgGL(box, opts = null) {
   // (Nothing in the box to draw, and the last picture drawn was empty too: the canvas is already clear, so nothing is sized, drawn or
   // handed over. A full-screen layer with no drawing in it (the lobule's leaders, while the lobule is shut) took a whole-screen
   // clear and transfer, ~100-350 ms on a phone, again and again through a change between the views.)
+  // (GPU-1, 19 Nov 2026: a model whose pieces are all empty paths (a readout handed back to the page's words: gl-words.js release) has no ink either. It
+  // used to count as ink because it has children, so each emptied readout still drew an empty frame and handed the canvas a transparent copy of the
+  // pool's whole buffer, megapixels it held until the page let go of the canvas.)
   const hasInk = () => {
-    for (let c = box.firstElementChild; c; c = c.nextElementSibling) if (c.hasAttribute('data-svg-model') && c.firstElementChild) return true;
+    for (let c = box.firstElementChild; c; c = c.nextElementSibling) if (c.hasAttribute('data-svg-model') && inked(c)) return true;
     const p = g.pending;
-    return !!p && !p.isConnected && !!p.firstElementChild;
+    return !!p && !p.isConnected && inked(p);
   };
   function draw() {
     g.ask = 0;
@@ -927,6 +939,13 @@ export function createSvgGL(box, opts = null) {
     // (Nothing to show: the picture on show is cleared where it stands, with no frame drawn. Drawn as an empty frame, a full-screen layer
     // (the lobule's leaders) sized the charts' one shared buffer to the whole screen for every chart after it.)
     if (skip && g.gpu?.clearShown?.()) { g.blank = true; g.eased = false; return; }
+    // (Nothing in the box has ink: the picture on show is cleared where it stands and given back, never an empty frame drawn and handed over. It counts as
+    // drawn for the owner that asked for the clear, gl-words.js, which hands the page's words back in the frame that clears.)
+    if (!skip && !g.blank && !g.ins.size && !hasInk() && g.gpu?.clearShown?.()) {
+      g.blank = true; g.eased = false; g.drawnOk = true;
+      if (framePhase() === 'read') { if (!g.drawnAsk) g.drawnAsk = finalFrameAsk(g.drawnFn, 'svg-gl'); } else g.drawn?.(true);
+      return;
+    }
     const pen = framePart('svg-gl: begin (size, context)', fitPen, cv, g.gpu), { ctx, w, h } = pen;   // (named, so a long frame says whether the drawing's time went in the shared canvas's size, the pieces or the hand-over)
     const now = easeNow();
     easing = false;
@@ -955,7 +974,7 @@ export function createSvgGL(box, opts = null) {
     else if (easing) { if (g.seen === false) g.loopWait = true; else g.ask = askDraw(g); }
   }
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
-  g.gpu = createTraceGL(cv, { redraw: () => draw(), name: 'svg:' + (opts?.host || (box.getAttribute?.('class') || '').split(' ')[0] || '?'), big: !!opts?.big });   // (big: a layer the size of the screen draws in a pool of its own: trace-gl.js sharedGL)
+  g.gpu = createTraceGL(cv, { redraw: () => draw(), name: 'svg:' + (opts?.host || (box.getAttribute?.('class') || '').split(' ')[0] || '?'), big: !!opts?.big, small: !!opts?.small });   // (big: a layer the size of the screen draws in a pool of its own; small: a readout, in a pool whose buffer is a readout's size, so its picture is not a card's: trace-gl.js sharedGL)
   // (Drawn again as its box first gets a size, or a new one: a chart built before its card was on the page drew nothing then.)
   // (A box that changes size may take another type size or scale from the stylesheet: its roots' shared looks are read again.)
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)

@@ -222,6 +222,7 @@ Address flags, where each works (live site, preview, or preview and local only),
 | `?swblur` | everywhere | Compare | Leaves the blur effect on a software renderer (it is dropped by default there). |
 | `?stageover` | everywhere | Compare | Draws the figure's overlays on the GPU (off by default; on a software renderer only when asked for). |
 | `?gpuorgans` | everywhere | Compare | Organs on the GPU on the software renderer too, for the browser check of the plate layers. |
+| `?partial` | everywhere | Compare | A figure at rest lays only the blood's box again each frame (GPU-4). ?partial=off lays the whole picture every frame, for comparing; ?partial=check lays each partial frame again whole and compares the two (pps.partial). |
 | `?lumen` | everywhere | Compare | No lumen pass and no blood drawn by the Tube renderer (a device A/B that proves or clears the lumen pass). |
 | `?lumenscale` | everywhere | Compare | The lumen layer's size as a share of the vessel layer (0.25 to 1) for every instance. |
 | `?debug` | preview and local run | Pages | The debug page (the card gallery, with Report and Full check on its bar; the motion recorder is on by default). ?debug=check is the Phone check, ?debug=full its long walk, ?debug=frame the device frame. |

@@ -159,6 +159,9 @@ export function createRes(st, live) {
     // them again in the same task. A pinch or a layout change can land after this frame's draw
     // (Safari delivers touches outside the frame loop), and the figure would vanish for a frame.
     if (live.resizeReady && live.F && !live.inUpdate && !(live.lz?.isOpen() || live.lz?.covers())) { live.veinsDirty = true; drawVeins(false, 'resize'); live.veins?.showNow?.(); }
+    // (Not drawn again in this task (the lobule or the sinusoid open, a figure not yet whole, a resize inside an update): the screen the renderer keeps takes the new size with its last picture
+    // stretched over it, and the canvas shows that, never a cleared one: GPU-5, the lobule's one blank frame on a turn, a Shuffle or a card changing the stage box.)
+    else live.veins?.screenResized?.();
     // (The renderer keeps the canvas itself and copies it onto the shown surface once a frame, at the frame's end (keep-screen.js). This runs from the
     // resize observer, after that copy and before the paint: the width assigned above has cleared the shown surface, and the picture just drawn again
     // would reach it only at the next frame's end, so the paint between showed the figure gone for one frame (Mohammad's iPhone, 12 Nov 2026, the Doppler

@@ -399,7 +399,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   ]);
 
   // Readouts and the glass at rest (15 Nov 2026, app review WORDS-1): source shapes moved out of tests (PR-02), each with its reason.
-  need('src/ui/gl-words.js', [[/createSvgGL\(host, \{ still: true \}\)/, 'a GPU readout\'s picture follows no class or child writes on its own element (the page\'s words landing and the glw-on mark), or each new number drew three times']]);
+  need('src/ui/gl-words.js', [[/createSvgGL\(host, \{ still: true(, small: true)? \}\)/, 'a GPU readout\'s picture follows no class or child writes on its own element (the page\'s words landing and the glw-on mark), or each new number drew three times']]);
   need('src/ui/svg-gl.js', [[/if \(!opts\?\.still && typeof MutationObserver === 'function'\) g\.mo = new MutationObserver\(g\.relook\);/, 'a still picture (a readout) makes no observer of its looks']]);
 
   // The sinusoid view's reads (15 Nov 2026, app review OG-3): the ends' fades are read while a fade runs and four times a second, not on every drawn frame, and

@@ -591,7 +591,7 @@ export function createLadders(st, live) {
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       // (The wallet's instrument stands centred by its own height, held the same way while only its readings change.)
       if (shuf) {
-        const hd = readMetric(dd, 'offsetHeight') * k; let ddTop = Math.max(4 * k, (H - hd) / 2);
+        const hd = (parseFloat(dd.style.getPropertyValue('--ft-card')) || readMetric(dd, 'offsetHeight')) * k; let ddTop = Math.max(4 * k, (H - hd) / 2);
         if (lockKey && topLock?.key === lockKey && readingsOnly()) ddTop = topLock.v; else if (lockKey) topLock = { key: lockKey, v: ddTop };
         dd.style.top = `${(ddTop / k).toFixed(1)}px`;
       }

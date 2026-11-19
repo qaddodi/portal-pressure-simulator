@@ -12,6 +12,13 @@
 // does. Once a frame, at its very end (the scheduler's frame end, right before the browser shows the canvas), the screen is copied whole
 // onto the canvas in one blit: the only write the shown surface gets, and a whole one. A write outside a frame asks for one (ask), so it is
 // shown at that frame's end. All on the GPU: nothing is read back.
+//
+// A clip (19 Nov 2026, bible review GPU-4): the screen keeps its picture between frames, so a present that changes only a box of it (the blood's, at
+// rest) need not lay the whole figure again. clip(x, y, w, h) cuts every pass that draws on the screen to that box, whatever scissor the pass sets or
+// switches off for itself (the glass cuts one of its own, the overlays another, the blur turns it off): the scissor the context really has, while a
+// clip stands, is the pass's own scissor inside the box. A pass on a framebuffer of its own (the blur's targets, the labels' atlas) is not cut. The
+// frame's end copy is never cut: the canvas the browser shows is cleared after each show, so it is written whole, from the screen, every frame.
+// `writes` counts the calls that drew on the screen: a renderer that finds it as it left it knows nobody else wrote there since.
 
 import { glOn } from './gl-state.js';
 
@@ -34,16 +41,38 @@ export function keepScreen(gl, canvas, hooks = {}) {
 function install(gl, canvas) {
   const bind = gl.bindFramebuffer.bind(gl);
   const blit = gl.blitFramebuffer.bind(gl);
-  const st = { tex: null, fb: null, w: 0, h: 0, dirty: false, flushes: 0 };
+  const st = { tex: null, fb: null, w: 0, h: 0, dirty: false, flushes: 0, carried: 0, writes: 0 };
   const cb = { ask: null, copied: null };   // (the renderer that holds the screen now: replaced when a new one takes it over)
   let owner = null, off = null;   // (owner: the handle that holds the frame-end hook; off: that hook's removal)
   let boundR = null, boundD = null;   // (what the context really has bound: the screen's fb where the code bound the canvas)
+  // (The scissor the code asked for (vOn, vBox: what it set and switched on or off), and the box a clip cuts it to. The context's own scissor is the
+  // code's, until a clip stands and the screen is where it draws: then the code's, inside the box.)
+  const en = gl.enable.bind(gl), dis = gl.disable.bind(gl), sci = gl.scissor.bind(gl);
+  let clip = null, vOn = false;
+  const vBox = [0, 0, Math.max(1, canvas.width | 0), Math.max(1, canvas.height | 0)];
+  function apply() {
+    if (clip && boundD === st.fb) {
+      let x0 = clip[0], y0 = clip[1], x1 = clip[0] + clip[2], y1 = clip[1] + clip[3];
+      if (vOn) { x0 = Math.max(x0, vBox[0]); y0 = Math.max(y0, vBox[1]); x1 = Math.min(x1, vBox[0] + vBox[2]); y1 = Math.min(y1, vBox[1] + vBox[3]); }
+      sci(x0, y0, Math.max(0, x1 - x0), Math.max(0, y1 - y0));
+      en(gl.SCISSOR_TEST);
+    } else {
+      sci(vBox[0], vBox[1], vBox[2], vBox[3]);
+      if (vOn) en(gl.SCISSOR_TEST); else dis(gl.SCISSOR_TEST);
+    }
+  }
+  gl.enable = function enable(c) { if (c !== gl.SCISSOR_TEST) return en(c); vOn = true; if (clip) apply(); else en(c); };
+  gl.disable = function disable(c) { if (c !== gl.SCISSOR_TEST) return dis(c); vOn = false; if (clip) apply(); else dis(c); };
+  gl.scissor = function scissor(x, y, w, h) { vBox[0] = x; vBox[1] = y; vBox[2] = w; vBox[3] = h; if (clip) apply(); else sci(x, y, w, h); };
   function size() {
     const w = Math.max(1, canvas.width | 0), h = Math.max(1, canvas.height | 0);
     if (st.fb && st.w === w && st.h === h) return st.fb;
-    // alloc-rare: the screen is made once, and its storage again only when the canvas is resized (which clears the canvas as well)
-    if (!st.tex) st.tex = gl.createTexture();
-    if (!st.fb) st.fb = gl.createFramebuffer();
+    // alloc-rare: the screen is made once, and made again only when the canvas is resized (which clears the canvas as well)
+    // (GPU-5, 19 Nov 2026: a screen of the new size used to be made empty, so a canvas resized while nothing drew into it (the lobule or the sinusoid open, an iPhone turned, a card
+    // changing the stage box) showed a cleared figure for the paint between the resize and the next draw, the 4 Nov, 12 Nov and now the lobule's one-frame black. The old screen is
+    // carried over into the new one, stretched in one blit, before it is let go: whoever draws next, and whenever, the canvas has never shown nothing.)
+    const oldTex = st.tex, oldFb = st.fb, ow = st.w, oh = st.h;
+    st.tex = gl.createTexture(); st.fb = gl.createFramebuffer();
     gl.bindTexture(gl.TEXTURE_2D, st.tex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
@@ -51,6 +80,18 @@ function install(gl, canvas) {
     gl.bindTexture(gl.TEXTURE_2D, null);
     bind(gl.DRAW_FRAMEBUFFER, st.fb);
     gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, st.tex, 0);
+    if (oldFb && ow > 0 && oh > 0 && !(gl.isContextLost && gl.isContextLost())) {
+      const sc = glOn(gl, gl.SCISSOR_TEST);
+      if (sc) gl.disable(gl.SCISSOR_TEST);
+      bind(gl.READ_FRAMEBUFFER, oldFb);
+      blit(0, 0, ow, oh, 0, 0, w, h, gl.COLOR_BUFFER_BIT, gl.LINEAR);
+      if (sc) gl.enable(gl.SCISSOR_TEST);
+      st.carried++;
+    }
+    if (oldFb) { if (boundR === oldFb) boundR = st.fb; if (boundD === oldFb) boundD = st.fb; }
+    if (oldTex) gl.deleteTexture(oldTex);
+    if (oldFb) gl.deleteFramebuffer(oldFb);
+    bind(gl.READ_FRAMEBUFFER, boundR);
     bind(gl.DRAW_FRAMEBUFFER, boundD);
     st.w = w; st.h = h;
     return st.fb;
@@ -60,6 +101,7 @@ function install(gl, canvas) {
     if (t === gl.FRAMEBUFFER || t === gl.READ_FRAMEBUFFER) boundR = real;
     if (t === gl.FRAMEBUFFER || t === gl.DRAW_FRAMEBUFFER) boundD = real;
     bind(t, real);
+    if (clip && t !== gl.READ_FRAMEBUFFER) apply();
   };
   // (The canvas's own name for its colour (COLOR) means the screen's attachment while the screen stands in for it.)
   const inv = gl.invalidateFramebuffer ? gl.invalidateFramebuffer.bind(gl) : null;
@@ -76,7 +118,7 @@ function install(gl, canvas) {
     if (typeof f !== 'function') return;
     const call = f.bind(gl);
     gl[name] = function written(a, b, c, d, e, g, h, i, j, k) {
-      if (!st.dirty && st.fb && boundD === st.fb) { st.dirty = true; if (cb.ask) cb.ask(); }
+      if (st.fb && boundD === st.fb) { st.writes++; if (!st.dirty) { st.dirty = true; if (cb.ask) cb.ask(); } }
       switch (arguments.length) {   // (the call with exactly its own arguments: no array made in a frame)
         case 0: return call();
         case 1: return call(a);
@@ -95,6 +137,7 @@ function install(gl, canvas) {
     if (!st.dirty || !st.fb) return;
     st.dirty = false;
     if (gl.isContextLost && gl.isContextLost()) return;
+    if (clip) unclip();   // (a clip left standing is lifted: the copy onto the canvas is always whole)
     if (st.w !== canvas.width || st.h !== canvas.height) size();   // (resized since: the canvas is cleared, the screen made again with it)
     // (From the context's own record (gl-state.js glOn), never gl.isEnabled: in Safari a state query is a synchronous trip that waits for
     // the GPU to work through everything the frame queued. 8 Nov 2026, Mohammad's Safari recording: 7.6 of 10.9 s of sampled script sat in
@@ -112,10 +155,27 @@ function install(gl, canvas) {
     st.flushes++;
     if (cb.copied) cb.copied();   // (?perf: the copy's GPU wait, timed on a sampled frame)
   }
-  const reset = () => { st.tex = st.fb = null; st.w = st.h = 0; st.dirty = false; boundR = boundD = null; };
+  /** The canvas was just resized (its shown surface is cleared): the screen takes the new size with its picture stretched over it, and the canvas is given that picture now, in this task, so the paint
+   *  before the next draw shows the figure as it was, never a cleared canvas. Nothing to do before a first screen exists, or when the size is the one it has. */
+  function resized() {
+    if (!st.fb || (gl.isContextLost && gl.isContextLost())) return;
+    const w = Math.max(1, canvas.width | 0), h = Math.max(1, canvas.height | 0);
+    if (st.w === w && st.h === h) return;
+    size();
+    st.dirty = true;
+    flush();
+  }
+  /** Cuts every pass that draws on the screen to the box x, y, w, h (device px, y up, as GL's own), until unclip. */
+  function setClip(x, y, w, h) {
+    if (!clip) clip = [0, 0, 0, 0];   // alloc-rare: once per context, the clip's record is kept
+    clip[0] = x; clip[1] = y; clip[2] = w; clip[3] = h;
+    apply();
+  }
+  function unclip() { if (!clip) return; clip = null; apply(); }
+  const reset = () => { st.tex = st.fb = null; st.w = st.h = 0; st.dirty = false; boundR = boundD = null; clip = null; vOn = false; vBox[0] = vBox[1] = 0; vBox[2] = Math.max(1, canvas.width | 0); vBox[3] = Math.max(1, canvas.height | 0); };
   if (canvas && canvas.addEventListener) { canvas.addEventListener('webglcontextlost', reset); canvas.addEventListener('webglcontextrestored', reset); }
   return {   // alloc-rare: once per context
-    flush,
+    flush, resized, clip: setClip, unclip,
     /** A renderer takes the screen: its hooks replace the last one's. The handle's dispose lets go only what this renderer still holds. */
     attach({ onEnd = null, ask = null, copied = null } = {}) {
       // (A restore's own event resets the screen first, ahead of the stage's listener; if a renderer came before it did, the screen's objects
@@ -124,9 +184,13 @@ function install(gl, canvas) {
       if (off) { off(); off = null; }
       cb.ask = ask; cb.copied = copied;
       const me = {   // alloc-rare: once per renderer
-        flush,
+        flush, resized,
+        clip: setClip, unclip,
+        get clipped() { return !!clip; },
         get fb() { return st.fb; },
         get flushes() { return st.flushes; },
+        get carried() { return st.carried; },
+        get writes() { return st.writes; },
         dispose() { if (owner !== me) return; owner = null; cb.ask = cb.copied = null; if (off) { off(); off = null; } },
       };
       owner = me;

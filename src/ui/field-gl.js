@@ -14,6 +14,7 @@
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone, compileDone, SHADER_WARM } from './gl-compile.js';
 import { isTileCopy, createTileCopier } from './tile-gl.js';
 import { uniformCache } from './uniform-cache.js';
+import { glGen } from './gl-state.js';
 
 const VS = `#version 300 es
 in vec2 p;
@@ -130,9 +131,12 @@ export function createFieldGL(canvas, { host = null } = {}) {
   // given back (width 0: forget, sweep).
   const texs = new Map(), copier = createTileCopier(gl);
   // (A 1 px clear texture, made when first wanted and again after a lost context: complete (no mipmap filter), so it reads clear.)
-  let clear = null;
+  // (GPU-6, 19 Nov 2026: kept for the context's generation, never asked of the driver: gl.isTexture is a synchronous round trip in Safari, once for each tile that missed.)
+  let clear = null, clearGen = -1;
   function clearTex() {
-    if (clear && gl.isTexture(clear)) return clear;
+    const g = glGen(gl);
+    if (clear && clearGen === g) return clear;
+    clearGen = g;
     clear = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, clear);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));

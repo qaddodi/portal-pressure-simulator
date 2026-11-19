@@ -31,7 +31,7 @@ test('the talk\'s key handler asks the rule, and leaves Esc to an open menu', ()
   const fn = p.slice(p.indexOf('function onKey(e)'), p.indexOf("addEventListener('keydown', onKey, true)"));
   assert.match(fn, /if \(controlOwnsKey\(e\.target, k, digits\)\) return;/);
   assert.match(fn, /if \(k === 'Escape' && popoverOpen\(\)\) return;/);
-  assert.match(p, /import \{ controlOwnsKey \} from '\.\/key-owner\.js/);
+  assert.match(p, /import \{ controlOwnsKey(?:, arrowsOwnKey)? \} from '\.\/key-owner\.js/);
 });
 
 test('a menu: named, focused from the keyboard, focus handed back; a dialog traps the page and returns to its first opener', () => {
