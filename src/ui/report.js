@@ -19,13 +19,29 @@ const read = (kind, k) => { try { return store(kind)?.getItem(k) ?? null; } catc
 const write = (kind, k, v) => { try { store(kind)?.setItem(k, v); } catch (e) { caught('report:write', e); /* storage full or blocked */ } };
 const flush = () => write('session', RING_KEY, JSON.stringify(ring));
 
+/** The place an error was thrown, as the lines a person can read back to a source line with the release's map: `chunk-AB12.js:1:48213` (the file, the line and the column), then
+ * up to two more frames from the stack. A minified chunk is one long line, so the column is what says where; the old text ("chunk-AB12.js:1") named only the file. */
+export function whereFrom(e) {
+  try {
+    const own = e && typeof e === 'object' ? e : null;
+    const stack = own && typeof own.stack === 'string' ? own.stack : '';
+    const frames = [];
+    for (const l of stack.split('\n')) {
+      const m = /([^\s()/@]+\.(?:js|mjs))(?:\?[^:\s)]*)?:(\d+):(\d+)\)?\s*$/.exec(l.trim());
+      if (m) frames.push(`${m[1]}:${m[2]}:${m[3]}`);
+      if (frames.length >= 3) break;
+    }
+    return frames.join(' < ');
+  } catch { return ''; }
+}
+
 /** Adds one event to the ring. `what`: a short kind ('error', 'rejection', 'ctx-lost', 'ctx-back', 'over-budget', 'reload'); `msg`: its text. */
 export function note(what, msg = '') {
   let view = '';
   try { view = where() || ''; } catch { /* a view name is a nicety */ }
   let ctx = '';
   try { const c = contextCount(); ctx = `${c.own}+${c.charts}`; } catch { /* the registry is not up yet */ }
-  ring.push({ t: Math.round(((typeof performance !== 'undefined' ? performance.now() : 0) - t0) / 1000), what, msg: String(msg).slice(0, 160), view: String(view).slice(0, 80), ctx, over: overBudget() ? 1 : 0 });
+  ring.push({ t: Math.round(((typeof performance !== 'undefined' ? performance.now() : 0) - t0) / 1000), what, msg: String(msg).slice(0, 240), view: String(view).slice(0, 80), ctx, over: overBudget() ? 1 : 0 });
   if (ring.length > MAX) ring.splice(0, ring.length - MAX);
   flush();
 }
@@ -60,8 +76,10 @@ export function startReport(getWhere) {
     write('session', LAST_KEY, JSON.stringify({ where: String(w).slice(0, 80), mb, peak: Math.round(peakMB()), env: `${ENVELOPES[deviceClass()].mb} MB (${deviceClass()})`, s: Math.round((f.now - t0) / 1000) }));
   });
   write('session', ALIVE_KEY, '1');
-  addEventListener('error', (e) => { errors++; caught('window:error', e.error || e.message); note('error', `${e.message || ''} ${e.filename ? e.filename.split('/').pop() : ''}:${e.lineno || 0}`); });
-  addEventListener('unhandledrejection', (e) => { errors++; caught('window:rejection', e.reason); note('rejection', e.reason?.message ?? e.reason); });
+  // (What the page's own boot script saw before this ran: errors from the first seconds, which the ring used to miss.)
+  try { for (const m of window.ppsBootErrors || []) note('boot-error', m); } catch { /* a boot note is a nicety */ }
+  addEventListener('error', (e) => { errors++; caught('window:error', e.error || e.message); note('error', `${e.message || ''} ${whereFrom(e.error) || `${e.filename ? e.filename.split('/').pop().split('?')[0] : ''}:${e.lineno || 0}:${e.colno || 0}`}`); });
+  addEventListener('unhandledrejection', (e) => { errors++; caught('window:rejection', e.reason); note('rejection', `${e.reason?.message ?? e.reason} ${whereFrom(e.reason)}`.trim()); });
   // (WebGL context events do not bubble; the capture phase on window sees every canvas's, whichever renderer owns it.)
   addEventListener('webglcontextlost', (e) => { lost++; note('ctx-lost', e.target?.id || e.target?.className || e.target?.tagName || ''); }, true);
   addEventListener('webglcontextrestored', (e) => note('ctx-back', e.target?.id || e.target?.className || e.target?.tagName || ''), true);
@@ -69,7 +87,7 @@ export function startReport(getWhere) {
   addEventListener('pagehide', end);
   addEventListener('pageshow', () => write('session', ALIVE_KEY, '1'));   // (back from the page cache: this page is alive again)
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
-  window.pps = window.pps || {}; window.pps.report = reportLines;
+  window.pps ||= {}; window.pps.report = reportLines;
 }
 
 /** The report as lines for the feedback draft. Never throws. */

@@ -17,6 +17,7 @@
 
 import { build as esbuild } from 'esbuild';
 import { fatalWarnings, refusal } from './build-warnings.mjs';
+import { releaseName } from './release-name.mjs';
 import { readFileSync, writeFileSync, rmSync, mkdirSync, cpSync, readdirSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, dirname, resolve, relative, basename, sep } from 'node:path';
@@ -62,14 +63,8 @@ const build = async (opts) => {
 };
 // Release identity (PR-04): the newest v2026.11.N tag (when the checkout has tags) plus the short commit, so a tester's "which version?"
 // has an answer and a bad merge has a rollback target. PPS_RELEASE overrides it; a checkout with no git says "build".
-const RELEASE = (() => {
-  if (process.env.PPS_RELEASE) return process.env.PPS_RELEASE;
-  const git = (a) => { try { return execSync('git ' + a, { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return ''; } };
-  const tag = git('describe --tags --abbrev=0 --match "v20*"');
-  const hash = (process.env.GITHUB_SHA || git('rev-parse HEAD')).slice(0, 8);
-  return [tag, hash].filter(Boolean).join(' · ') || 'build';
-})();
-const common = { define: { __PPS_RELEASE__: JSON.stringify(RELEASE) }, bundle: true, format: 'esm', minify: true, target: ['es2022'], legalComments: 'none', logLevel: 'warning', plugins: [stripStamps] };
+const RELEASE = releaseName((a) => { try { return execSync('git ' + a, { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return ''; } });   // (scripts/release-name.mjs: this checkout's tag and commit, never GITHUB_SHA)
+const common = { define: { __PPS_RELEASE__: JSON.stringify(RELEASE) }, bundle: true, format: 'esm', minify: true, sourcemap: 'external', target: ['es2022'], legalComments: 'none', logLevel: 'warning', plugins: [stripStamps] };
 
 // 1. The engine worker, as one self-contained module.
 const worker = await build({ ...common, entryPoints: [join(ROOT, 'src/worker.js')], outdir: ASSETS, entryNames: 'worker-[hash]', write: true, metafile: true });
@@ -255,6 +250,18 @@ const head = [
 html = html.replace('</head>', `${head}\n</head>`);
 writeFileSync(join(OUT, 'index.html'), withCsp(html));   // (the policy hashes the page's inline scripts, so it is added last)
 writeFileSync(join(OUT, 'release.txt'), RELEASE + '\n');
+
+// Source maps (SHL-3): written next to each file by esbuild, then moved OUT of dist into dist-maps/ (never published, never precached; the deploy keeps them per release
+// as an artifact), so a stack from the field ("chunk-ab12.js:1:48213") can be turned back into a source line by release. Nothing in dist names them.
+const MAPS = join(ROOT, 'dist-maps');
+rmSync(MAPS, { recursive: true, force: true });
+mkdirSync(MAPS, { recursive: true });
+for (const f of readdirSync(ASSETS).filter((n) => n.endsWith('.map'))) {
+  const js = join(ASSETS, f.slice(0, -4));
+  if (statSync(js, { throwIfNoEntry: false })) cpSync(join(ASSETS, f), join(MAPS, f));
+  rmSync(join(ASSETS, f), { force: true });
+}
+writeFileSync(join(MAPS, 'release.txt'), RELEASE + '\n');
 
 // 6. Service worker: precache everything; hashed assets never change, so cache-first is safe.
 const walk = (p) => (statSync(p).isDirectory() ? readdirSync(p).flatMap((f) => walk(join(p, f))) : [p]);

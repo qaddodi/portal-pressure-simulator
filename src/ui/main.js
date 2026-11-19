@@ -96,7 +96,8 @@ import { createScope } from './scope.js';
 import { classSoon, runSoon } from './class-soon.js';
 import { sizeOf, watchSize, rectsSoon, restTask } from './geom.js';
 import { feedbackDiagnostics } from './feedback-diag.js';
-import { startReport, reportLines } from './report.js';
+import { startReport, reportLines, note as noteEvent } from './report.js';
+import { extendHandle } from './pps-handle.js';
 import { noteJump } from './display-state.js';
 import { createIdleRest, REST_AFTER_MS } from './idle-rest.js';
 import { pillState, foldPill, stopFold } from './pill-motion.js';
@@ -350,6 +351,7 @@ async function main() {
   renderPaintHint();
   buildHud();
   wireTopbar();
+  window.ppsWired = true;   // (the buttons answer from here: a later start-up failure is a toast, not a cover over a working app; index.html's ppsBootFail)
   initTopbarMotion();
   wireThumbBar();
   wireFloating();
@@ -367,6 +369,7 @@ async function main() {
   let crashCard = null;
   host.on('crash', (m) => {
     console.error(m.message);
+    noteEvent('engine-crash', m.message);   // (the report's ring: a crash card used to leave no line of it, SHL-3)
     if (crashCard) return;
     // alloc-rare: the engine crashed (once, until Reload or Restart patient), never in a frame
     crashCard = toast('The model stopped. Reload, or restart this patient.', 'bad', { sticky: true, onClose: () => { crashCard = null; },
@@ -464,7 +467,7 @@ async function main() {
   for (const k of ['focus', 'labelLevel', 'selection']) { let was = store.get()[k]; store.on(k, (v) => { if (v === was) return; was = v; redraw(); }); }
 
   // Console handle for educators preparing a class (and for automated screenshots).
-  window.pps = { resumeUrl, loadPreset, store, updateParams, setTool, dock, details: (sel) => { store.set({ details: sel }); openPanel(); }, stage, host, card, timeline, menu: mainMenu, palette, presenter, get perf() { return framePerf(); }, motionBudget, budget: gpuBudget, get credit() { return creditPlacer; }, caught: caughtNow };   // (caught: the app's counted errors; the assignment above had replaced the one caught.js puts on window.pps, so no device report could read them)
+  extendHandle(window.pps ||= {}, { resumeUrl, loadPreset, store, updateParams, setTool, dock, details: (sel) => { store.set({ details: sel }); openPanel(); }, stage, host, card, timeline, menu: mainMenu, palette, presenter, get perf() { return framePerf(); }, motionBudget, budget: gpuBudget, get credit() { return creditPlacer; }, caught: caughtNow });   // (keeps pps.report and pps.contexts, which report.js and gl-contexts.js put there first, and leaves the getters (perf, credit) lazy; caught: the app's counted errors; the assignment above had replaced the one caught.js puts on window.pps, so no device report could read them)
   // (The slide camera's gate on this device: every deck, Next and Back, each move judged from its own frames. cam-gate.js; loaded when asked.)
   // (The test clock: the page's time on a clock a window that is not in front does not throttle. test-mode.js; ?testclock starts it at boot, the camera gate turns it on for its run.)
   window.pps.testClock = async (o) => (await import('./test-mode.js')).testClock(o);
@@ -1520,7 +1523,8 @@ function helpRows(titled = false) {
 // nothing, so the Privacy page stays true.
 function sendFeedback() {
   try { localStorage.setItem(ASK_KEY, 'done'); } catch (e) { caught('main:1120', e); /* storage unavailable */ }   // (sent once: the timed ask never comes)
-  const build = document.getElementById('preview-badge')?.textContent.trim() || 'Live site';
+  const pill = document.getElementById('preview-badge')?.textContent.trim();
+  const build = `${pill || 'Live site'} · ${RELEASE}`;   // (the release too: the tag and commit this page was built from, so a report from the live site names its build, SHL-3)
   const theme = currentLook() || (darkMQ.matches ? 'dark' : 'light');
   const body = ['What happened, and what did you expect to happen?', '', '', '',
     'Please keep these details:', `Build: ${build}`, `Device: ${navigator.userAgent}`,
@@ -2632,9 +2636,13 @@ function armFeedbackAsk() {
 }
 (/[?&]presenter-view(?:[=&]|$)/.test(location.search) ? import('./presenter-view-page.js').then((m) => m.run()) : /[?&]gallery=frame(?:&|$)/.test(location.search) && /\/preview\//.test(location.pathname) ? import('./gallery/device-frame.js').then((m) => { document.getElementById('boot')?.remove(); document.documentElement.removeAttribute('data-boot'); document.body.replaceChildren(); m.bootFrame(); }) : main()).catch((err) => {   // (N1: ?presenter-view is the presenter's second window, text only)
   // (Told to the page's own boot card too, so a failed start shows "couldn't start / Reload" at once, not a pulsing logo for 15 s and then an empty shell.)
-  const fail = () => { (window.ppsBootErrors ||= []).push(String(err?.message || err).slice(0, 300)); window.ppsBootFail?.(); };
+  const fail = () => { (window.ppsBootErrors ||= []).push(String(err?.message || err).slice(0, 300)); window.ppsBootFail?.({ force: !window.ppsWired }); noteEvent('boot-fail', String(err?.stack || err?.message || err)); };
   // (A chunk that will not load is most often a page older than the site: a deploy replaced the hashed files it names. The page's
   // boot script (index.html, ppsStale) then reloads once with a fresh index instead of stopping on "couldn't start".)
   console.error(err);
   if (/dynamically imported module|importing a module script failed|error loading dynamically/i.test(String(err?.message || err)) && window.ppsStale?.('', fail)) return;
-  fail(); document.body.append(h('pre', { style: { position: 'fixed', bottom: 0, left: 0, background: 'var(--white)', color: 'var(--critical)', padding: '8px', zIndex: 'var(--z-diag)' } }, String(err.stack || err))); });
+  fail();
+  // (The card above is what a person sees. The raw stack stays for ?perf, where a tester wants it; once the buttons answer, a late failure is one calm toast, not a cover.)
+  if (/[?&]perf\b/.test(location.search)) document.body.append(h('pre', { style: { position: 'fixed', bottom: 0, left: 0, background: 'var(--white)', color: 'var(--critical)', padding: '8px', zIndex: 'var(--z-diag)' } }, String(err.stack || err)));
+  else if (window.ppsWired) { try { toast('Part of the app did not finish loading. If something does not respond, reload.', 'bad', { actions: [['Reload', () => location.reload()]] }); } catch (e) { caught('main:boot-toast', e); /* the page has no toast host yet */ } }
+});
