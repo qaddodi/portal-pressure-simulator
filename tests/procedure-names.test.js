@@ -45,3 +45,12 @@ test('nothing the learner reads calls the distal splenorenal shunt the Warren sh
     assert.ok(!/Warren/.test(t), `${f} still says "Warren" in a string`);
   }
 });
+
+test('no button types a band label of its own: each reads procLabel (bible review 19 Nov, ENG-10)', () => {
+  const FILES = ['src/ui/actions.js', 'src/ui/instruments.js', 'src/ui/inspector.js', 'src/ui/stage-hover.js', 'src/ui/chart.js', 'src/ui/palette.js'];
+  for (const f of FILES) {
+    const t = code(read(f));
+    assert.ok(!/label: '(?:Band|Band \(EVL\))'/.test(t), `${f} types the band label instead of procLabel`);
+    assert.ok(!/icon\('band'\), '/.test(t), `${f} types the band button's words instead of procLabel('band')`);
+  }
+});

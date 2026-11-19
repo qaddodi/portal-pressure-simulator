@@ -22,7 +22,7 @@ export const VALIDATION = [
   'Right heart failure: high RAP and WHVP, normal HVPG, pulsatile portal vein, protein-rich ascites',
   'Splenic vein thrombosis: normal portal pressure, high splenic vein pressure, flow through the short gastric veins',
   'Splenorenal shunt in decompensated cirrhosis: the splenic vein reverses',
-  'End-stage cirrhosis with arterioportal shunting: hepatofugal portal flow',
+  'Cirrhosis with arterioportal shunting: hepatofugal portal flow',
   'TIPS 10 mm at HVPG ≈20 mmHg: PPG <12 mmHg, shunt fraction and hepatic perfusion change as expected',
   'Model calibration: no variceal rupture at an HVPG <12 mmHg (a simplification: real varices can bleed <12)',
   'Hemorrhage lowers portal pressure; over-transfusion raises it above the pre-bleed level',

@@ -20,7 +20,7 @@ export const PREGNANCY_DECK = {
   slides: [
     {
       id: 'before', preset: 'pregnancy', params: { gestation: 0 }, cam: 'varices', labels: ['VAR'],
-      vignette: 'A 31-year-old woman with cirrhosis from autoimmune hepatitis wants to become pregnant. Her platelets are 87,000/µL, and her last EGD, 3 years ago, showed small varices.',
+      vignette: 'A 31-year-old woman with cirrhosis from autoimmune hepatitis wants to become pregnant. Her platelets are 82,000/µL, and her last EGD, 3 years ago, showed small varices.',
       caseQ: 'What will pregnancy do to her varices?',
       data: 'tiles', tiles: ['hvpg', 'varix', 'plt'], key: ['hvpg'],
       kicker: 'Before pregnancy', site: 'sin', title: 'Compensated cirrhosis before pregnancy',

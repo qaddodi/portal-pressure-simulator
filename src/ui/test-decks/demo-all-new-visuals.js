@@ -1159,7 +1159,7 @@ export const DEMO_ALL = {
       ],
       "kicker": "V23 · A source line on a panel",
       "title": "Stiffness and platelets rule CSPH in or out",
-      "line": "≥25 kPa means CSPH in viral, alcohol-related and non-obese MASLD cirrhosis; ≤15 with platelets ≥150 rules it out.",
+      "line": "≥25 kPa means CSPH in viral, alcohol-associated and non-obese MASLD cirrhosis; ≤15 with platelets ≥150 rules it out.",
       "cite": "Baveno VIII 1.15, 1.16",
       "notes": "A panel slide prints its source line under its words too."
     },
