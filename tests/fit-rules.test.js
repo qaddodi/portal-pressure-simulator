@@ -103,6 +103,11 @@ test('the slide title must be at least 1.4 times the words', () => {
   assert.equal(bad[0].kind, 'ratio');
   assert.match(bad[0].text, /22\.4 px over words of 18 px \(1\.24x; at least 1\.4x\)/);
   assert.equal(judgeCards(mk(22.4, 18), { oldRules: true }).length, 0);
+  // (A phone's slide: 23.2 over 17.4 is 1.33, which Mohammad accepted on 19 Nov; 22.4 over 18 (1.24) still fails there.)
+  const ph = (t, b) => page(`<div class="pz stack"><section class="pz-text" data-box="40,40,440,400"><h1 class="pz-h" style="font-size:${t}px" data-box="50,50,400,100">T</h1><p class="pz-line" style="font-size:${b}px" data-box="50,110,400,160">B</p></section></div>`).run(readCards, {});
+  assert.equal(judgeCards(ph(23.2, 17.4)).length, 0, '1.33 on a phone passes');
+  assert.match(judgeCards(ph(22.4, 18))[0].text, /\(1\.24x; at least 1\.3x on a phone\)/);
+  assert.equal(judgeCards(mk(23.2, 17.4)).length, 1, 'the same sizes on a wide screen still fail');
   // (No words under the title: nothing to compare.)
   assert.equal(judgeCards({ title: 30, body: 0 }).length, 0);
 });
@@ -160,6 +165,10 @@ test('a structure card: blank glass, a cut line, a scroller while the words fit,
   assert.equal(blank[0].text, '60px above, 90px below (card 300px)');
   const cut = judgeStructureCard(page(html(kid(14, 100) + kid(120, 200))).run(readStructureCard, null, {}));
   assert.deepEqual(cut.map((x) => x.text), ['a line runs 20px past the card']);
+  // (At its largest height a card whose body scrolls has its lower rows to scroll to: not cut. 18 Nov sweep: the TIPS card on a phone sideways, 38 px past 280.)
+  const scrolls = page(html(kid(14, 100) + kid(120, 200)).replace('max-height:600px', 'max-height:300px').replace('overflow-y:hidden', 'overflow-y:auto')).run(readStructureCard, null, {});
+  assert.deepEqual(judgeStructureCard(scrolls).map((x) => x.kind), []);
+  assert.deepEqual(judgeStructureCard(page(html(kid(14, 100) + kid(120, 200)).replace('max-height:600px', 'max-height:300px')).run(readStructureCard, null, {})).map((x) => x.kind), ['cut'], 'at its largest with its body not scrolling it is cut');
   const scroller = judgeStructureCard(page(html(kid(14, 100) + kid(120, 160)).replace('class="action-card docked"', 'class="action-card docked ac-scroll"')).run(readStructureCard, null, {}));
   assert.deepEqual(scroller.map((x) => x.kind), ['tall']);
   // (At its largest height a card is let to scroll.)

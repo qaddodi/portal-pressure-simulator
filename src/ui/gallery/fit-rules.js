@@ -8,7 +8,7 @@
 //   enlarged  a card already enlarged when nothing asked for it
 //   zoomed    an enlarged card that did not grow or stands off the screen
 //   small     lettering under 12 px on the screen (17 Nov, "data-card text >= 12 px", WORDS_MIN_PX)
-//   ratio     a slide title under 1.4 times the words under it (17 Nov, TITLE_RATIO)
+//   ratio     a slide title under 1.4 times the words under it (17 Nov, TITLE_RATIO); 1.3 on a phone's slide (19 Nov, PHONE_TITLE_RATIO)
 //   sideways  anything inside a card that scrolls sideways (a phone's swipe would open the next card instead)
 //   styled    a card shown before it was whole: still being laid out, words standing before their backing, fonts still loading, a card with a tag and no words
 //   blank, cut, tall   (a structure card on a phone) empty glass above or below its words, a line past its box, a scroller while the words fit
@@ -170,7 +170,7 @@ export function readCards(io, env) {
   const te = document.querySelector('.pz-text .pz-h'), be = document.querySelector('.pz-text .pz-line');
   if (te && be && vis(te) && vis(be)) { title = Math.round(screenPx(te) * 10) / 10; body = Math.round(screenPx(be) * 10) / 10; ratioEl = te; }
   if (ratioEl) seen('ratio', ratioEl);
-  return { n: document.querySelector('.pzb-n')?.textContent || '', vw, vh, enlarged, clipped: clipped.slice(0, 12), off: off.slice(0, 12), scroll, small: small.slice(0, 12).map((s) => s[1]), sideways: sideways.slice(0, 12), styled, title, body, fonts, shown };
+  return { n: document.querySelector('.pzb-n')?.textContent || '', vw, vh, enlarged, clipped: clipped.slice(0, 12), off: off.slice(0, 12), scroll, small: small.slice(0, 12).map((s) => s[1]), sideways: sideways.slice(0, 12), styled, title, body, fonts, shown, phone: !!document.querySelector('.pz.stack, .pz.low') };
 }
 
 /** Where the two cards really are with one enlarged (getClientRects: the zoom pins getBoundingClientRect to the resting box). */
@@ -239,6 +239,8 @@ const P = (kind, text) => ({ kind, text, line: `${kind}: ${text}` });
 
 /** The least ratio of title to words that passes (a hair under TITLE_RATIO: sizes are measured to a tenth of a pixel). */
 export const RATIO_TOLERANCE = 0.02;
+/** A phone's stacked or sideways slide (1.45 and 1.4 times the role sizes: a 23.2 px title over a 17.4 px body, 1.33) may stand at 1.3: Mohammad, 19 Nov 2026, "1.33 is OK if text needs more space". */
+export const PHONE_TITLE_RATIO = 1.3;
 
 /** The problems of a readCards result, as { kind, text, line }. */
 export function judgeCards(r, opts = {}) {
@@ -249,7 +251,7 @@ export function judgeCards(r, opts = {}) {
   for (const t of r.off || []) out.push(P('off', t));
   if (!old) {
     for (const t of r.small || []) out.push(P('small', t));
-    if (r.title > 0 && r.body > 0 && r.title < TITLE_RATIO * r.body * (1 - RATIO_TOLERANCE)) out.push(P('ratio', `the title is ${r.title} px over words of ${r.body} px (${(r.title / r.body).toFixed(2)}x; at least ${TITLE_RATIO}x)`));
+    { const least = r.phone ? PHONE_TITLE_RATIO : TITLE_RATIO; if (r.title > 0 && r.body > 0 && r.title < least * r.body * (1 - RATIO_TOLERANCE)) out.push(P('ratio', `the title is ${r.title} px over words of ${r.body} px (${(r.title / r.body).toFixed(2)}x; at least ${least}x${r.phone ? ' on a phone' : ''})`)); }
     for (const t of r.sideways || []) out.push(P('sideways', t));
     for (const t of r.styled || []) out.push(P('styled', t));
   }
@@ -275,7 +277,8 @@ export function judgeStructureCard(m, opts = {}) {
   if (!m) return [];
   const out = [];
   if (m.gapTop > BLANK_MAX || m.gapBot > BLANK_MAX) out.push(P('blank', `${m.gapTop}px above, ${m.gapBot}px below (card ${m.h}px)`));
-  if (m.cut > 1) out.push(P('cut', `a line runs ${m.cut}px past the card`));
+  // (A card at its tallest whose body scrolls (ac-scroll, overflow auto: the phone sideways, 280 px of room for a TIPS card's 318) has its lower rows to scroll to, not cut.)
+  if (m.cut > 1 && !(m.atMax && m.ovf !== 'hidden')) out.push(P('cut', `a line runs ${m.cut}px past the card`));
   // (`docked` and `detail` are absent from a read made before they existed: judged as a docked face then, as it always was.)
   const tallNow = m.detail ? m.scroll && m.detFits : m.scroll || m.ovf !== 'hidden';
   if (m.docked !== false && !m.atMax && tallNow) out.push(P('tall', `scrolls (ac-scroll ${m.scroll}, overflow ${m.ovf}) though it fits the space`));

@@ -58,7 +58,8 @@ export function probeBusy(pps, doc = document, anims = () => []) {
     if (pps?.stage?.viewChanging?.() || pps?.stage?.gliding?.()) return true;
     if (doc.querySelector(held ? '.pz-load.on, .pz-cover, .action-card.ac-prep' : '.pz-load.on, .pz-cover, .pz.pz-prep, .pz-text[aria-busy="true"], .pz-data[aria-busy="true"], .action-card.ac-prep')) return true;
     if (doc.fonts && doc.fonts.status === 'loading') return true;
-    const running = anims(doc)?.some((a) => a.playState === 'running' && Number.isFinite(a.effect?.getTiming?.().iterations) && !a.effect?.target?.closest?.('[data-gallery]'));
+    // (The Doppler pane's marker glides to each new reading of the live model, always: a gallery page's own chrome and that marker are not motion to wait for.)
+    const running = anims(doc)?.some((a) => a.playState === 'running' && Number.isFinite(a.effect?.getTiming?.().iterations) && !a.effect?.target?.closest?.('[data-gallery], .dop-mark'));
     if (running) return true;
   } catch { /* (a page that cannot be asked is not held up) */ }
   return false;
