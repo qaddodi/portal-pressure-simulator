@@ -65,8 +65,17 @@ const OPACITY = new Array(1001);
 const opacityText = (o) => { const i = o > 0 ? (o < 1 ? Math.round(o * 1000) : 1000) : 0; return OPACITY[i] ?? (OPACITY[i] = (i / 1000).toFixed(3)); };   // alloc-rare: fills each of the 1001 table entries once, ever
 // (A property is written only when its text changes: a card whose opacity has settled at 1 or 0 (in whole by 40 % of its way, out gone by
 // 85 %) or whose x holds still makes no style write for it in the frames left, so a move's last third restyles nothing but the transform.)
+// (CRD-3, bible review 19 Nov 2026: one mover for `transform`. The throw writes it inline with !important, and an important author declaration outranks an animation, so a Shuffle card's
+// pose (its lift, its scale, which the shuffle holds by a paused animation added to the card's transform) was dropped for the whole throw and came back in one step when the throw let go.
+// The throw now writes the pose into its own text: translateX(x) then the shuffle's pose for this card, what the animation would give. The pose is a function of the shuffle's position
+// only, set by card-shuffle.js, and '' for a card the shuffle does not hold.)
+let poseOf = null;
+/** The shuffle's pose for a card (el) as a CSS transform text, composed after the throw's own translate. */
+export function setThrowPose(fn) { poseOf = typeof fn === 'function' ? fn : null; }
+/** The inline transform text for a card thrown to x: its translate, then the shuffle's pose for it. Exported for the tests. */
+export function throwTransform(el, x) { const pose = poseOf ? poseOf(el) : ''; return pose ? `translateX(${x.toFixed(2)}px) ${pose}` : `translateX(${x.toFixed(2)}px)`; }
 const write = (el, x, o) => {
-  const st = el.style, tx = `translateX(${x.toFixed(2)}px)`, ot = opacityText(o);
+  const st = el.style, tx = throwTransform(el, x), ot = opacityText(o);
   if (st.transform !== tx) st.setProperty('transform', tx, 'important');
   if (st.opacity !== ot || st.getPropertyPriority('opacity') !== 'important') st.setProperty('opacity', ot, 'important');
 };
@@ -162,7 +171,21 @@ export const throwGuard = guard;
 // (R20: the throws are one transition the page's deferrable work waits out, from the first card moving to the last one landing.)
 let endMove = null;
 const settle = () => { if (!runs.size) { if (guardT) clearTimeout(guardT); guardT = 0; guardAt = Infinity; if (endMove) { endMove(); endMove = null; } } };
+// (CRD-4, bible review 19 Nov 2026: a card's entrance waits for its widgets and fonts (enterWhenReady, up to 450 ms, held at its start). Whatever the card is given in that wait (a Next that
+// throws it out, a finger, a second way in) must end the wait: a stale hold fired later used to run an 'in' over the 'out', so the old card slid back in with its old words. One pending entrance
+// per card, kept here and cancelled by every other move: start(), throwBack, throwStop, throwRelease.)
+const entering = new WeakMap();
+function cancelEntry(el) { const c = entering.get(el); if (c) { entering.delete(el); c(); } }
+/** Whether el's entrance is waiting for its widgets and fonts (held at its start, not yet moving). */
+export const throwEntering = (el) => entering.has(el);
+function enterLater(el, go) {
+  cancelEntry(el);   // (a second way in replaces the first wait: one hold per card)
+  let cancel, ran = false;
+  cancel = enterWhenReady(el, () => { ran = true; if (entering.get(el) === cancel) entering.delete(el); go(); }, undefined, false);
+  if (!ran) entering.set(el, cancel);   // (a wait that went at once has already run go(): nothing is pending)
+}
 function start(el, kind, to, ms, delay, done) {
+  cancelEntry(el);   // (CRD-4: any move of the card ends a wait to show it)
   endMove ||= beginMotion('card throw', ms + delay + 2000);
   cardMoveFor(ms + delay + 120);   // (the work made for the rest after, the other view's labels solved ahead, waits for the landing: card-motion.js)
   const from = here(el);
@@ -240,7 +263,7 @@ export function throwIn(el, dir, delay = 0) {
   if (!was) { el.style.setProperty('transition', 'none', 'important'); write(el, s * THROW_IN, 0); runs.delete(el); }
   // (A card with a widget not yet drawn comes in when it is, held at its start meanwhile: no deck card is seen in the page's fallback look, widget-ready.js.)
   const d = was?.kind === 'in' ? 0 : delay;
-  if (was) start(el, 'in', { x: 0, o: 1 }, RAIL_MS, d); else enterWhenReady(el, () => start(el, 'in', { x: 0, o: 1 }, RAIL_MS, d), undefined, false);
+  if (was) start(el, 'in', { x: 0, o: 1 }, RAIL_MS, d); else enterLater(el, () => start(el, 'in', { x: 0, o: 1 }, RAIL_MS, d));
 }
 
 /** Brings el in where it stands, from nothing to whole, over ms after delay ms, on this clock: no slide, only the fade. For a card that comes
@@ -258,7 +281,7 @@ export function throwFade(el, delay = FADE_DELAY, ms = FADE_MS) {
   const was = runs.get(el);
   releaseHeld(el);
   if (!was) { el.style.setProperty('transition', 'none', 'important'); write(el, 0, 0); }
-  if (was) start(el, 'back', { x: 0, o: 1 }, ms, 0); else enterWhenReady(el, () => start(el, 'back', { x: 0, o: 1 }, ms, delay), undefined, false);
+  if (was) start(el, 'back', { x: 0, o: 1 }, ms, 0); else enterLater(el, () => start(el, 'back', { x: 0, o: 1 }, ms, delay));
 }
 
 /** A card let go short of a swipe (or one the swipe took along that the next slide keeps) eases back to its place from where the finger left it
@@ -267,7 +290,7 @@ export function throwFade(el, delay = FADE_DELAY, ms = FADE_MS) {
  *  trails (or leads) the card by that frame. */
 export function throwBack(el, x, o) {
   if (!el) return;
-  releaseHeld(el); pinned.delete(el);
+  cancelEntry(el); releaseHeld(el); pinned.delete(el);
   if (runs.get(el)?.kind === 'out') settleLands(el, false);
   runs.delete(el);   // The finger's supplied position supersedes any older throw (a waiter for an arrival keeps waiting for the card's return).
   write(el, x, o);
@@ -298,7 +321,7 @@ function outCheck() {
 export const throwing = (el) => runs.has(el);
 
 /** Stops el's move where it is (a finger takes it), its inline values kept for whoever takes it next. */
-export function throwStop(el) { classSoon(el, THROWING, false); runs.delete(el); settleLands(el, false); releaseHeld(el); pinned.delete(el); if (!runs.size && ask) { cancelFrame(ask); ask = 0; } settle(); outCheck(); }
+export function throwStop(el) { cancelEntry(el); classSoon(el, THROWING, false); runs.delete(el); settleLands(el, false); releaseHeld(el); pinned.delete(el); if (!runs.size && ask) { cancelFrame(ask); ask = 0; } settle(); outCheck(); }
 
 
 // ── Out on the tap, while the slide before is still settling (Mohammad, 2 Nov 2026: "when i hit next it takes time to move out of the
@@ -319,7 +342,7 @@ export function throwOutNow(el, dir, dist) {
 /** Whether el was sent out on the tap and waits, out of sight, for the new slide's change to take it. */
 export const throwPinned = (el) => pinned.has(el);
 /** Lets go of a pinned card: to its class's look (a leave class keeps it out). */
-export function throwRelease(el) { if (pinned.delete(el)) hold(el); }
+export function throwRelease(el) { cancelEntry(el); if (pinned.delete(el)) hold(el); }
 
 // ── Motion state (R01): what a card's throw is doing now, read by the presenter instead of guessing from the browser's animations ──
 /** Where el's throw stands, or null when it owns none: { run (the id of the last start for el), kind ('in', 'out', 'back'), x, o (as last

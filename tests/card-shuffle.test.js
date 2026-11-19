@@ -42,15 +42,16 @@ test('the top edge of a scaled card is held where the pose says: its translate m
 });
 
 test('the keyframes run from offset 0 to 1 in even steps, and are smooth at their ends (the front card is whole, nothing cut)', () => {
-  const k = shufKeyframes('data', 340);
+  const k = shufKeyframes('data');
   for (const list of [k.tf, k.clip, k.dim]) {
     assert.equal(list.length, SHUF.steps + 1);
     assert.equal(list[0].offset, 0); assert.equal(list.at(-1).offset, 1);
   }
   assert.match(k.tf[0].transform, /scale\(0\.92/); assert.match(k.tf.at(-1).transform, /scale\(1\.0000\)/);
   // (in front, the clip reaches past the box so the shadow is whole; behind, it leaves the strip)
-  assert.match(k.clip.at(-1).clipPath, /^inset\(-40\.0px -40\.0px -40\.0px -40\.0px round 18px\)$/);
-  assert.match(k.clip[0].clipPath, new RegExp(`^inset\\(0\\.0px 0\\.0px ${(340 - SHUF.strip).toFixed(1)}px 0\\.0px round 18px\\)$`));
+  // (the foot is a share of the card's own height: 100%, never a length measured when the shuffle was built, CRD-3)
+  assert.match(k.clip.at(-1).clipPath, /^inset\(-40\.0px -40\.0px calc\(\(100% - 24px\) \* 0\.0000 - 40\.0px\) -40\.0px round 18px\)$/);
+  assert.match(k.clip[0].clipPath, /^inset\(0\.0px 0\.0px calc\(\(100% - 24px\) \* 1\.0000 - 0\.0px\) 0\.0px round 18px\)$/);
   assert.equal(+k.dim.at(-1).opacity, 0); assert.ok(+k.dim[0].opacity > 0.2);
 });
 
@@ -185,7 +186,7 @@ test('the handle is whole while the card is behind and gone before it is half fo
 
 test('every card carries keyframes for its contents (added to their own opacity) and its handle, from behind (offset 0) to in front (offset 1)', () => {
   for (const [card, h] of [['data', 340], ['words', 300]]) {
-    const k = shufKeyframes(card, h, card === 'words' ? 2 : 1);
+    const k = shufKeyframes(card, card === 'words' ? 2 : 1);
     for (const list of [k.ink, k.tab]) { assert.equal(list.length, SHUF.steps + 1); assert.equal(list[0].offset, 0); assert.equal(list.at(-1).offset, 1); }
     const behind = card === 'data' ? 0 : 1, front = 1 - behind;   // (the words are behind at p = 1)
     const at = (list, p) => +list[Math.round(p * SHUF.steps)].opacity;
