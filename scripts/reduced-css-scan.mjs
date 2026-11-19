@@ -13,7 +13,6 @@ export const MOVES_ONLY = new Map([
   ['.ac-info', 'the info chevron turning'],
   ['.pal-glide', 'the palette highlight gliding between rows'],
   ['.halo circle, .halo text', 'a halo ring that grows (skipped, not faded: an attention cue)'],
-  ['.mon.bad .mv', 'a blinking alarm (underlined instead)'],
   ['.workspace-divider span', 'the divider grip moving'],
   ['.scan-probe.tap .sp-tip, .scan-probe.tap2 .sp-tip', 'the probe tapping'],
   ['.instrument-workspace.float-ui.fit', 'the card resizing to fit'],

@@ -16,7 +16,9 @@
 // while nobody watches. perf().inputToPaint is the input-to-first-change measure (input-latency.js, premium-feel recs R2), made on
 // its first read, so a page nobody measures has no listener for it.
 
+import { prefs } from './prefs.js';
 import { gpuProbe } from './gpu-probe.js';
+import { flagOn, flagNumber } from './flags.js';
 import { createFrameRecorder } from './frame-stats.js';
 import { createInputLatency, describeTarget } from './input-latency.js';
 import { caught } from './caught.js';
@@ -188,7 +190,7 @@ function flush(now) {
 // make no performance.now() pair per callback.)
 export const TIME_EVERY = 30;
 const FRAME_END = 'frame end';   // (the surface name of the frame-end hooks' time: the figure's present and the ink)
-const TIME_ALL = typeof location !== 'undefined' && /[?&](perf|fps)(?=[=&#]|$)/.test(location.search || '');
+const TIME_ALL = flagOn('perf') || flagOn('fps');
 let timeFrame = false;
 /** Whether this frame's callbacks are each timed (every frame while watched or under ?perf/?fps, else one in TIME_EVERY). */
 export const framesTimed = () => timeFrame;
@@ -510,10 +512,10 @@ function runMay(now) {
 // ── ?fps=120 (recs, quick win 1): frames asked for every refresh while the page shows, and every overrun logged ──
 // The scheduler keeps its chain alive (no idle stop), and each frame whose interval passed 1.5 refreshes, or whose script passed the
 // budget, is written to the console with the surfaces that ran in it (largest first). A measuring aid: it keeps the page drawing.
-const FPS_Q = typeof location !== 'undefined' ? /[?&]fps=(\d+)\b/.exec(location.search || '') : null;
-export const FPS_FORCE = !!FPS_Q;
-const FPS_LOG = !!FPS_Q;
-const FPS_HZ = FPS_Q ? +FPS_Q[1] || 120 : 0;
+const FPS_ON = flagOn('fps');   // (?fps=N: digits only)
+export const FPS_FORCE = FPS_ON;
+const FPS_LOG = FPS_ON;
+const FPS_HZ = FPS_ON ? flagNumber('fps') || 120 : 0;
 let fpsUnwatch = null, fpsPrev = 0;
 if (FPS_LOG) fpsUnwatch = watchFrames(() => {});   // (a watcher on, so every frame's surfaces are timed for the log)
 function logOverrun(now, script, list) {
@@ -729,7 +731,7 @@ function inputMeasure() {
 
 // (Asked for in the address, ?perf or ?inputs, it is made now, at load, before the presenter and the rest add their own window key
 // listeners: a key one of them uses stops at its listener (stopImmediatePropagation), and a tracker made later never sees it.)
-if (typeof location !== 'undefined' && /[?&](perf|inputs|lap)(?=[=&#]|$)/.test(location.search || '')) inputMeasure();
+if (flagOn('perf') || flagOn('inputs') || flagOn('lap')) inputMeasure();
 
 // Frame recording (recs R5): perf().frames.start() records every frame the scheduler runs; .stop() returns the recording's raw
 // numbers (frame-stats.js: intervals, script times, each surface's ms in each frame it ran in, each phase's) and the long frames.
@@ -747,7 +749,7 @@ const frameRecording = {
 // sweep or speckle) is drawn on every frame the screen offers, 60, 120 or more a second. Motion follows elapsed time,
 // never the number of frames, so a faster screen shows the same speeds in more steps.
 // (No longer a Setting, 20 Oct: always off. A value an older build stored is dropped.)
-try { localStorage.removeItem('pps.saver'); } catch (e) { caught('frame:564', e); /* storage unavailable */ }
+try { prefs.removeItem('pps.saver'); } catch (e) { caught('frame:564', e); /* storage unavailable */ }
 let saverOn = false;
 export const saver = () => saverOn;
 export function setSaver(on) { saverOn = !!on; }
@@ -762,7 +764,7 @@ export const SAVER_MS = 1000 / 15 - 4;
 export const RENDER_SCALES = ['auto', 1, 0.75, 0.5, 0.25];
 /** @type {number | 'auto'} */
 let renderK = 1;
-try { const t = localStorage.getItem('pps.renderScale'), v = t === 'auto' ? t : +t; if (RENDER_SCALES.includes(v)) renderK = v; } catch (e) { caught('frame:577', e); /* storage unavailable */ }
+try { const t = prefs.getItem('pps.renderScale'), v = t === 'auto' ? t : +t; if (RENDER_SCALES.includes(v)) renderK = v; } catch (e) { caught('frame:577', e); /* storage unavailable */ }
 const renderSubs = new Set();
 /** The chosen setting: 'auto' or a fixed share. */
 export const renderSetting = () => renderK;
@@ -771,7 +773,7 @@ export const renderScale = () => (renderK === 'auto' ? 1 : renderK);
 export function setRenderScale(k) {
   if (!RENDER_SCALES.includes(k) || k === renderK) return;
   renderK = k;
-  try { if (k === 1) localStorage.removeItem('pps.renderScale'); else localStorage.setItem('pps.renderScale', String(k)); } catch (e) { caught('frame:586', e); /* storage unavailable */ }
+  try { if (k === 1) prefs.removeItem('pps.renderScale'); else prefs.setItem('pps.renderScale', String(k)); } catch (e) { caught('frame:586', e); /* storage unavailable */ }
   for (const f of renderSubs) f(k);
 }
 /** Called with the new scale each time Settings changes it (and each time one of the options below changes). */
@@ -795,13 +797,13 @@ const capDefault = 1.5;
 export const figDefault = (k) => (k === 'cap' ? capDefault : FIG_OPTS[k][0]);
 const figOpts = { move: 1, glow: 1, cap: capDefault, adapt: false, floor: 0.1 };
 for (const k of Object.keys(figOpts)) {
-  try { const t = localStorage.getItem(`pps.fig.${k}`), v = t === 'true' ? true : +t; if (t != null && FIG_OPTS[k].includes(v)) figOpts[k] = v; } catch (e) { caught('frame:602', e); /* storage unavailable */ }
+  try { const t = prefs.getItem(`pps.fig.${k}`), v = t === 'true' ? true : +t; if (t != null && FIG_OPTS[k].includes(v)) figOpts[k] = v; } catch (e) { caught('frame:602', e); /* storage unavailable */ }
 }
 export const figOpt = (k) => figOpts[k];
 export function setFigOpt(k, v) {
   if (!FIG_OPTS[k]?.includes(v) || figOpts[k] === v) return;
   figOpts[k] = v;
-  try { if (v === figDefault(k)) localStorage.removeItem(`pps.fig.${k}`); else localStorage.setItem(`pps.fig.${k}`, String(v)); } catch (e) { caught('frame:608', e); /* storage unavailable */ }
+  try { if (v === figDefault(k)) prefs.removeItem(`pps.fig.${k}`); else prefs.setItem(`pps.fig.${k}`, String(v)); } catch (e) { caught('frame:608', e); /* storage unavailable */ }
   for (const f of renderSubs) f(renderK);
 }
 // Figure performance (30 Oct, Round 3 of the review, each off until chosen; Settings › Figure performance). Unlike the options above,
@@ -822,21 +824,21 @@ export const FIG_LAB = { motion60: [true, false], glassCache: [false, true], cre
 /** @type {Record<string, number | boolean>} */
 const figLabs = Object.fromEntries(Object.entries(FIG_LAB).map(([k, v]) => [k, v[0]]));
 for (const k of Object.keys(figLabs)) {
-  try { const t = localStorage.getItem(`pps.fig.${k}`), v = t === 'true' ? true : t === 'false' ? false : +t; if (t != null && FIG_LAB[k].includes(v)) figLabs[k] = v; } catch (e) { caught('frame:631', e); /* storage unavailable */ }
+  try { const t = prefs.getItem(`pps.fig.${k}`), v = t === 'true' ? true : t === 'false' ? false : +t; if (t != null && FIG_LAB[k].includes(v)) figLabs[k] = v; } catch (e) { caught('frame:631', e); /* storage unavailable */ }
 }
 const labSubs = new Set();
 export const figLab = (k) => figLabs[k];
 export function setFigLab(k, v) {
   if (!FIG_LAB[k]?.includes(v) || figLabs[k] === v) return;
   figLabs[k] = v;
-  try { if (v === FIG_LAB[k][0]) localStorage.removeItem(`pps.fig.${k}`); else localStorage.setItem(`pps.fig.${k}`, String(v)); } catch (e) { caught('frame:638', e); /* storage unavailable */ }
+  try { if (v === FIG_LAB[k][0]) prefs.removeItem(`pps.fig.${k}`); else prefs.setItem(`pps.fig.${k}`, String(v)); } catch (e) { caught('frame:638', e); /* storage unavailable */ }
   for (const f of labSubs) f(k, v);
 }
 /** Called with (key, value) each time one of the Figure performance switches changes. */
 export function onFigLab(f) { labSubs.add(f); return () => labSubs.delete(f); }
 // Vessel renderer: the Tube is the only one (owner, 11 Nov 2026), so there is nothing to choose and nothing kept. Classic and Mesh are shelved on the
 // branch shelf/classic-mesh-renderers. A tester's earlier choice (pps.vesselRenderer, and the two switches it replaced) is dropped once.
-try { for (const k of ['pps.vesselRenderer', 'pps.vesselTube', 'pps.vesselMesh']) localStorage.removeItem(k); } catch (e) { caught('frame:vrend-x', e); /* storage unavailable */ }
+try { for (const k of ['pps.vesselRenderer', 'pps.vesselTube', 'pps.vesselMesh']) prefs.removeItem(k); } catch (e) { caught('frame:vrend-x', e); /* storage unavailable */ }
 // (Motion at 60: a frame of steady motion is skipped when the last was drawn under 10 ms ago. A 120 Hz screen's frames come 8.3 ms
 // apart, so every other one is drawn; a 60 Hz screen's 16.7 ms, so all of them, as before; a 90 Hz screen's 11.1 ms, all of them.)
 export const MOTION60_MS = 10;
@@ -906,7 +908,7 @@ export function calmFlowRule(cheapBlood = false) {
 // any input brings the full rate back on the next frame. ?rest=off turns it off for comparing.
 export const REST_AFTER_MS = 4000, REST_MS = 28, IDLE_AFTER_MS = 30000, IDLE_MS = 46, TALK_IDLE_MS = IDLE_MS;
 let restTouch = true, restOff = false, restTalk = null;   // (restTouch: rest pacing on; every device since 12 Nov 2026, the name kept for the tests' hook)
-try { restOff = typeof location !== 'undefined' && new URLSearchParams(location.search).get('rest') === 'off'; } catch (e) { caught('frame:rest-o', e); /* no address */ }   // (?rest=off: for comparing)
+try { restOff = flagOn('rest'); } catch (e) { caught('frame:rest-o', e); /* no address */ }   // (?rest=off: for comparing)
 let restInputAt = wall(), restMotionAt = 0, restRuleNow = '', restRuleAt = -1e9;
 /** Turns rest pacing on or off for this page (on for every device since 12 Nov 2026; tests set it). */
 export function setRestTouch(on) { restTouch = !!on; }

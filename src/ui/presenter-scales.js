@@ -9,6 +9,8 @@ import { slideCount, slideCountLabel, slideSaid, slideSay } from './slide-say.js
 import { store } from './store.js';
 import { dataSoon } from './class-soon.js';
 import { clamp, h, icon } from './util.js';
+import { lineText } from './handout.js';
+import { plain as plainText } from './presenter-view.js';
 import { animRunning } from './glass-clock.js';   // (a fade held on the glass's clock is still under way)
 
 export function createScales(st, live) {
@@ -366,7 +368,9 @@ export function createScales(st, live) {
   function paintChrome() {
     if (!live.ui) return;
     const n = live.slides.length, i = live.want;
-    pview.publish(live.deck, live.slides, i, live.beat, lastBeat(i) + 1);
+    // (The notes window's words with the slide's own values in them, as the handout prints them: a slide whose numbers are not ready prints a dash.)
+    const at = (id) => { const j = live.slides.findIndex((x) => x.id === id); return j < 0 ? null : live.states[live.stateOf[j]]?.fp ?? null; };
+    pview.publish(live.deck, live.slides, i, live.beat, lastBeat(i) + 1, (j) => (t) => plainText(lineText(t, live.states[live.stateOf[j]]?.fp ?? null, at)));
     live.ui.prog.style.setProperty('--p', String((i + 1) / n));
     announce();
     const views = lastBeat(i) + 1;

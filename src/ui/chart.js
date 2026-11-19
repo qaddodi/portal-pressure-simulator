@@ -5,6 +5,7 @@
 //   Changes                              Treat card, closed until opened: what has been set, with values
 //   Advanced physiology                  side panel, from Settings
 
+import { prefs } from './prefs.js';
 import { store, updateParams } from './store.js';
 import { h, icon, svgIcon, toast, reconcile } from './util.js';
 import { fold } from './fold.js';
@@ -31,8 +32,8 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
   const open = new Set((() => { try { const v = JSON.parse(safeGet('pps.chartOpen3') || '[]'); return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []; } catch { return []; } })());
   let live = [];
 
-  function safeGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
-  function remember() { try { localStorage.setItem('pps.chartOpen3', JSON.stringify([...open])); } catch (e) { caught('chart:25', e); /* storage unavailable */ } }
+  function safeGet(k) { try { return prefs.getItem(k); } catch { return null; } }
+  function remember() { try { prefs.setItem('pps.chartOpen3', JSON.stringify([...open])); } catch (e) { caught('chart:25', e); /* storage unavailable */ } }
 
   function section(id, title, ic, badge, ...kids) {
     const d = h('details', { class: 'section chart-sec', 'data-id': id },

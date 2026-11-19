@@ -36,7 +36,7 @@ export const roleOf = (key) => ROLE_OF_LOOK[key] || 'other';
 export const OWNER_OF_GROUP = Object.freeze({
   plane: 'src/ui/visual-plane.js', card: 'src/ui/presenter-visuals.js', talk: 'src/ui/talk-trace.js', plot: 'src/ui/talk-trace.js', time: 'src/ui/flow-time.js',
   cv: 'src/ui/tool-curve.js', ft: 'src/ui/flow-time.js', tf: 'src/ui/tips-figure.js', shift: 'src/ui/tool-shift.js', flows: 'src/ui/tool-flows.js',
-  stent: 'src/ui/stent-outputs-pic.js', crit: 'src/ui/baveno-zones.js', prof: 'src/ui/tool-profile.js',
+  stent: 'src/ui/chart-looks/stent.js', crit: 'src/ui/baveno-zones.js', prof: 'src/ui/tool-profile.js',
 });
 /** The owner of a piece by its look key, or the chart-reader's own file where the family is not listed. */
 export const ownerOf = (key) => OWNER_OF_GROUP[String(key || '').split('.')[0]] || 'src/ui/svg-gl.js';

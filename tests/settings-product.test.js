@@ -55,11 +55,11 @@ test('R14 what a build stored for the experiments is cleared before the app read
     getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k),
   };
   const el = { setAttribute() {}, style: {} };
-  vm.runInNewContext(code, { localStorage, document: { documentElement: el }, matchMedia: () => ({ matches: false }) });
+  vm.runInNewContext(code, { localStorage, location: { pathname: '/' }, document: { documentElement: el }, matchMedia: () => ({ matches: false }) });
   assert.deepEqual([...store.keys()].sort(), ['pps.figV', 'pps.labelScale', 'pps.noGlass', 'pps.showHvpg', 'pps.theme'], 'only the experiments\' keys go');
   // (Once only, since 1 Nov 2026 (the GPU move, step 4): a choice stored after it is kept at the next load.)
   store.set('pps.renderScale', '0.75'); store.set('pps.fig.cap', '0');
-  vm.runInNewContext(code, { localStorage, document: { documentElement: el }, matchMedia: () => ({ matches: false }) });
+  vm.runInNewContext(code, { localStorage, location: { pathname: '/' }, document: { documentElement: el }, matchMedia: () => ({ matches: false }) });
   assert.equal(store.get('pps.renderScale'), '0.75');
   assert.equal(store.get('pps.fig.cap'), '0');
 });

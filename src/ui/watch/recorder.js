@@ -7,7 +7,8 @@
 //
 // Pure of the page: the clock, the frame hook, the rest pass and the sources are handed in, so tests/watch-recorder.test.js runs it in Node.
 //   sources: { cam(): [k, x, y] | null, labels(): [[key, x, y, w, h, alpha, ax?, ay?]] | null, cards(): [[name, x, y, w, h, alpha]] | null,
-//              traces(): slide camera traces (closed or open) | null, vb(): view units | null }
+//              traces(): slide camera traces (closed or open) | null, vb(): view units | null,
+//              words(): [text, data, panel, prep] 0/1 bits | null (does each slide card hold its words: the presenter's cards, no layout) }
 // judgeWith(history) -> findings: the registry's series rules when start.js hands it in (every series rule anyone registered), else the motion rules.
 import { exportHistory } from './history.js';
 import { judgeMotion, MOTION_RULES } from './motion-rules.js';
@@ -21,7 +22,7 @@ export function createWatch({ now = () => performance.now(), onFrames, rest = (f
   const read = (fn) => { try { const v = fn ? fn() : null; return v === undefined ? null : v; } catch { return null; } };   // (an unreadable source is null: unknown, not none)
 
   function sample(t) {
-    samples.push({ t: t - t0, c: read(sources.cam), L: read(sources.labels), K: read(sources.cards) });
+    samples.push({ t: t - t0, c: read(sources.cam), L: read(sources.labels), K: read(sources.cards), W: read(sources.words) });
     const cut = t - t0 - keepMs;
     if (samples[0].t < cut) { let i = 0; while (i < samples.length && samples[i].t < cut) i++; samples = samples.slice(i); events = events.filter((e) => e.t >= cut); traces = traces.filter((x) => x.at >= cut); }
   }

@@ -182,7 +182,7 @@ test('a card has one name in every part of a report, and the case card is a card
 test('window.pps is merged at boot, never replaced: pps.report, pps.contexts and pps.caught (put there at import) survive, getters stay getters', () => {
   const main = src('main.js');
   assert.ok(!/window\.pps\s*=\s*\{/.test(main), 'main.js assigns window.pps = { ... } and drops what modules put there first');
-  assert.match(main, /Object\.defineProperties\(window\.pps \|\|= \{\}, Object\.getOwnPropertyDescriptors\(/);
+  assert.match(main, /(?:extendHandle|Object\.defineProperties)\(window\.pps \|\|= \{\}, /);   // (extendHandle, pps-handle.js, is that merge with the descriptors: tests/release-identity.test.js runs it)
   // the same merge on a plain object
   const early = { report: () => 'r', contexts: () => 'c' };
   const lit = { store: 1, get perf() { return 'live'; } };

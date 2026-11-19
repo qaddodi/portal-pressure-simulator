@@ -61,7 +61,7 @@ GitHub workflows:
 | `quick.yml` | pushes to the preview branch | lint, unit tests and the static checks beside the deploy, as a warning |
 | `ci.yml` | pull requests and `main` | lint, tests, the static checks, a strict build and the smoke on the build |
 | `checks.yml` | on request (Actions tab, dispatch only) | the smoke on the production build: `scripts/smoke-lite.mjs` |
-| `tag-release.yml` | pushes to `main` | tags the merge as `v<year>.<month>.<n>` so a bad merge has a rollback target |
+| (in `pages.yml`) | main deploy | after a successful gated deploy, tags the release as `v<year>.<month>.<n>` so a bad merge has a rollback target (no separate workflow: a refused build is never tagged)
 
 The preview workflow and the merge rules are in [AGENTS.md](AGENTS.md).
 

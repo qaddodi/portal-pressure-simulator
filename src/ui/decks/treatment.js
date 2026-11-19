@@ -74,9 +74,10 @@ export const TREATMENT = {
     },
     {
       // (Ohm's law on a plane, C1 of docs/recommendations/new-features-recs.md: this patient before treatment (ring) and on each drug and the TIPS (dot),
-      // portal flow across and the PPG up. A line from the origin is one resistance, PPG ÷ flow.)
+      // portal flow across and the PPG up. A line from the origin is one resistance, PPG ÷ flow. 19 Nov: the PPG axis stops at 18, not 20: the untreated patient now
+      // rests at 17.1, and on a phone the 0.6 mmHg between Propranolol and Octreotide needs the room for both names.)
       id: 'flowres', cam: 'liver', visual: 'plane',
-      plane: { base: 'flow-ppg', x: { key: 'pvFlow', min: 0, max: 1.6, ticks: [0, 0.4, 0.8, 1.2, 1.6], name: 'Portal flow, L/min', short: 'Flow, L/min', abbr: 'Flow' }, iso: { rays: [5, 10, 20, 30, 40] } },
+      plane: { base: 'flow-ppg', x: { key: 'pvFlow', min: 0, max: 1.6, ticks: [0, 0.4, 0.8, 1.2, 1.6], name: 'Portal flow, L/min', short: 'Flow, L/min', abbr: 'Flow' }, y: { key: 'ppg', min: 0, max: 18, ticks: [0, 6, 12, 18], name: 'PPG (PV − IVC), mmHg', short: 'PPG, mmHg', abbr: 'PPG' }, iso: { rays: [5, 10, 20, 30, 40] } },
       of: [{ id: 'target', name: 'No treatment', short: 'Before' }, { id: 'prop', from: 'target', name: 'Propranolol', short: 'Prop.' }, { id: 'carv', from: 'target', name: 'Carvedilol', short: 'Carv.' }, { id: 'oct', from: 'target', name: 'Octreotide', short: 'Oct.' },
         { id: 'terli', from: 'target', name: 'Terlipressin', short: 'Terli.' }, { id: 'vs', from: 'target', name: 'TIPS' }],
       kicker: 'Compared', title: 'Each treatment moves the patient along flow or resistance',

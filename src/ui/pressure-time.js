@@ -10,7 +10,8 @@ import { h, fmt, cssVar, cssAlpha, cssInk, clamp } from './util.js';
 import { FONT as FONT0, FONT } from './charts.js';
 import { frameFor, cancelFrame, paceMs, restGapFor, restPark, noteDraw, frameAnimating, pageRest, onPageWake } from './frame.js';
 import { tenthGap } from '../engine/gap.js';
-import { calmed, calmRadius, CALM_MIN } from '../engine/trail-calm.js';
+import { calmedDays, recordDay } from '../engine/trail-calm.js';
+import { treatmentKey } from '../engine/change-events.js';
 import { HVPG_CUTS, hvpgSev, HVPG_WORDS, BLEED_WORD, TOKEN_OF_SEV, NOT_SHOWN } from '../engine/pressure-cuts.js';
 import { firstAtOrAbove, firstAbove } from './sorted.js';
 import { limitLabelX as labelX } from './limit-label.js';
@@ -180,6 +181,8 @@ export function createPressureTime({ marks = () => [], stillLayer = true, smooth
   // (The columns of the fine buffer in the order of KEYS, and the sources of the frame being recorded: nothing is looked up by name for every sample.)
   const FINE_COLS = KEYS.map((k) => fine[k]), ALL_COLS = [fine.t, fine.ph, ...FINE_COLS], SRC = KEYS.map(() => null);
   let days = [];
+  const dayV = {};   // (today's readings, one scratch record: recordDay copies it into a point only when one is added)
+  let treatKey = null, bandsNow = null, stepNext = false;   // (the last treatment and band count seen, and a change waiting for its day's point)
   let clock = 'hemo', dayNow = 0, lastT = -Infinity, frame = null, wallAt = 0;
   // off: the model's time plus off is the trace's (the model's clock was set while the trace went on: a state restored, a time-lapse ended).
   let off = 0;
@@ -303,18 +306,14 @@ export function createPressureTime({ marks = () => [], stillLayer = true, smooth
     stripDays = f.clock === 'disease' && range === 'days' && userRange === 'beats' && (onSlide() ? cfg.ekg : showEkg);
     sweepLapse = f.clock === 'disease' && (range === 'beats' || stripDays);
     const m = f.metrics;
-    const last = days[days.length - 1];
-    if (last && f.day < last.day) { days = []; calmDays(); }
-    if (!days.length || days[days.length - 1].day !== f.day) {
-      days.push({ day: f.day, v: { hvpg: m.hvpg, ...Object.fromEntries(TRACES.filter((t) => t.day).map((t) => [t.id, t.day(m)])) } });
-      if (days.length > 1500) days.shift();
-      calmDays();
-    } else {
-      // Keep today's point current (a treatment changes it without a new day).
-      const d = days[days.length - 1];
-      d.v.hvpg = m.hvpg;
-      for (const t of TRACES) if (t.day) d.v[t.id] = t.day(m);
-    }
+    // (A treatment or a procedure is a step: the days list cuts its trend there, and keeps both readings of the day it happened on, trail-calm.js recordDay.)
+    if (f.params) { const k = treatmentKey(f.params); if (k !== treatKey) { stepNext = treatKey != null; treatKey = k; } }
+    if (f.bands !== bandsNow) { stepNext = stepNext || bandsNow != null; bandsNow = f.bands; }
+    dayV.hvpg = m.hvpg;
+    for (const t of TRACES) if (t.day) dayV[t.id] = t.day(m);
+    const grew = recordDay(days, f.day, dayV, stepNext);
+    stepNext = false;
+    if (grew) calmDays();
   }
 
   // ── Series for the current range ──────────────────
@@ -394,9 +393,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true, smooth
     if (c && c.ver === calmVer) return c;
     // alloc-rare: once for each trace drawn and each change of the days, never in a frame that drew the same days
     if (!days.length || !(key in days[days.length - 1].v)) { calmKept.delete(key); return null; }
-    const x = [], v = [];
-    for (const d of days) if (d.v[key] != null) { x.push(d.day); v.push(d.v[key]); }
-    const e = { x, mid: v.length >= CALM_MIN ? calmed(v, calmRadius(v.length)) : v, ver: calmVer };
+    const e = { ...calmedDays(days, key), ver: calmVer };
     calmKept.set(key, e);
     return e;
   }

@@ -4045,7 +4045,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       }
     },
     /**
-     * A plate raster on its way in (plate-upload.js): a W × H texture of its own, filled by plateRows and shown by setPlate.
+     * A plate raster on its way in: a W × H texture of its own, filled by plateRows and shown by setPlate.
      * The texture shown meanwhile stays as it was.
      */
     plateJob(W, H) {

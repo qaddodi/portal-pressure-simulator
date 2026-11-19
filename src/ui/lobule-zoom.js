@@ -70,6 +70,7 @@ import { diveMapInto } from './dive-map.js';
 import { createWheelGlide, isPadWheel } from './wheel-glide.js';
 import { createCaptions, composeView } from './label-captions.js';
 import { readBox as boxOf } from './layout-snap.js';
+import { blockerRects } from './blockers.js';
 import { hitLabel } from './label-explain.js';
 import { reduceMotionMQ, createReversible, smooth01, VIEW_STALL_MAX } from './motion.js';
 import { darkMQ } from './look.js';
@@ -390,10 +391,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // Open cards over the figure (a presenter slide's numbers, notices), in the lobule's own coordinates, 6 px wider all round.
   function readCards() {
     const hr = el.getBoundingClientRect(), cards = [];
-    for (const c of document.querySelectorAll('.stage-blocker:not([hidden])')) {
-      const r = c.getBoundingClientRect();
-      if (r.width && getComputedStyle(c).visibility !== 'hidden') cards.push({ l: r.left - hr.left - 6, r: r.right - hr.left + 6, t: r.top - hr.top - 6, b: r.bottom - hr.top + 6 });
-    }
+    // (What covers the figure: src/ui/blockers.js, the one list the stage and the sinusoid read too: the teaching card's glass and the clock count here as well.)
+    for (const r of blockerRects(boxOf)) cards.push({ l: r.left - hr.left - 6, r: r.right - hr.left + 6, t: r.top - hr.top - 6, b: r.bottom - hr.top + 6 });
     const key = cards.map((c) => `${c.l},${c.t},${c.r},${c.b}`).join(';');
     if (key === snap.cardKey) return false;
     snap.cards = cards; snap.cardKey = key;
@@ -1481,7 +1480,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // written and cleared by its own owner, so ending a pan never erases the dive.
   let panOn = false;   // (the pan's shift is the PAN record: x, y)
     let sinU = 0, sinTo = 0, sinRaf = 0, sinDive = null, sinPick = null, quietSin = false, sinPending = false;
-  const { CORE, DESIGN, LAB_KEYS, LAY_ORDER, LIT_OF, anchorOf, callOutMain, callRingAt, cvKeep, explainSet, fadeIn, fadeOut, fillBase, followEnd, follows, freezeLabelGlides, dimmed, gone, handOn, hexOf, hitKind, isHid, keepDiscs, labGliding, labKey, labWH, labelLayerOff, labs, leadOff, leadOn, measQ, measureNow, measureRun: measureRun$, measureShown: measureShown$, mirrorAll, mirrorNow, mirrorRelease, mkCallOut, named, noteAt, panel: panel$, pick, pickAnchors, placeCall, placeZones, put, ride, rideList, rimFrac, ringDepth, sameBase, seenAt, setHid, setLayFade, callFade, shiftGeo, sinAt, sinTube, sizeEnv, spot, syncDim, tlNow, trClear, unglide } = createLobuleLabels({ V, atInto, callEl, callLine, callParts, callRing, cap, centreOn, cssN, el, freeRect, host, labels, leadGL, leadPaint, leaders, onOcc, pc, reduce, relayout, sX, sY, select, tissue, touches, viewChanged, wheelQuiet }, live);
+  const { CORE, DESIGN, LAB_KEYS, LAY_ORDER, LIT_OF, anchorOf, callOutMain, callRingAt, commitCall, cvKeep, explainSet, fadeIn, fadeOut, fillBase, followEnd, follows, freezeLabelGlides, dimmed, gone, handOn, hexOf, hitKind, isHid, keepDiscs, labGliding, labKey, labWH, labelLayerOff, labs, leadOff, leadOn, measQ, measureNow, measureRun: measureRun$, measureShown: measureShown$, mirrorAll, mirrorNow, mirrorRelease, mkCallOut, named, noteAt, panel: panel$, pick, pickAnchors, placeCall, placeZones, put, ride, rideList, rimFrac, ringDepth, sameBase, seenAt, setHid, setLayFade, callFade, shiftGeo, sinAt, sinTube, sizeEnv, spot, syncDim, tlNow, trClear, unglide } = createLobuleLabels({ V, atInto, callEl, callLine, callParts, callRing, cap, centreOn, cssN, el, freeRect, host, labels, leadGL, leadPaint, leaders, onOcc, pc, reduce, relayout, sX, sY, select, tissue, touches, viewChanged, wheelQuiet }, live);
   function panel(...a) { return panel$(...a); }   // <stage-split stub>
   function measureRun(...a) { return measureRun$(...a); }   // <stage-split stub>
   function measureShown(...a) { return measureShown$(...a); }   // <stage-split stub>
@@ -1506,7 +1505,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     return moved;
   }
     let layoutN = 0;   // (layoutN, for the checks: how many times the labels have been placed in full)
-  const { LC, VIEW, applyView, layoutLabels, lettersInto, setDive } = createLobuleRecords({ CARD, CORE, DESIGN, DIVE, LAY_ORDER, LIT_OF, PAN, V, anchorOf, bakeRides, callEl, callLine, callOutMain, callRing, callRingAt, cap, cvKeep, dimmed, fadeIn, fadeOut, fillBase, followEnd, follows, freeRect, freezeLabelGlides, handOn, hexOf, isHid, keepDiscs, labKey, labelLayerOff, labels, labs, leadGL, leadOff, leadOn, leadTo, leaders, lzLoop, measureRun, mirrorAll, mkCallOut, named, nextFrame, noteAt, pick, pickAnchors, placeCall, placeZones, put, relayout, ride, ringDepth, sX, sY, sameBase, setHid, setLayFade, callFade, shiftGeo, sinAt, sizeEnv, snap, spot, trClear, unglide, wantLabels }, live);
+  const { LC, VIEW, applyView, layoutLabels, lettersInto, setDive } = createLobuleRecords({ CARD, CORE, DESIGN, DIVE, LAY_ORDER, LIT_OF, PAN, V, anchorOf, bakeRides, callEl, callLine, callOutMain, callRing, callRingAt, cap, commitCall, cvKeep, dimmed, fadeIn, fadeOut, fillBase, followEnd, follows, freeRect, freezeLabelGlides, handOn, hexOf, isHid, keepDiscs, labKey, labelLayerOff, labels, labs, leadGL, leadOff, leadOn, leadTo, leaders, lzLoop, measureRun, mirrorAll, mkCallOut, named, nextFrame, noteAt, pick, pickAnchors, placeCall, placeZones, put, relayout, ride, ringDepth, sX, sY, sameBase, setHid, setLayFade, callFade, shiftGeo, sinAt, sizeEnv, snap, spot, trClear, unglide, wantLabels }, live);
   // Before a dive (stage(), lobule-zoom-field.js) the names are measured, laid out for the landing and read for the GPU, unseen, in the task that asks for the dive: the dive scales
   // the layer, and a name is measured and read only in the layer's own px (measHeld, mirHeld), so they waited for the landing and then ran three rest passes in a row, 1 to 2 s with
   // the lobule bare before every name arrived at once. Placed ahead, they are drawn from the first frame the view fades in and come in with it (--lz-chrome).

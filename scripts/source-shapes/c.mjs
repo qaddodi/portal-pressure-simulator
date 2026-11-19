@@ -41,7 +41,7 @@ export default [
   { file: 'src/ui/stage*', need: [/else if \(diveWait && morphTarget !== 0\) \{ diveWait = 0; diveGen\+\+; if \(store\.get\(\)\.lobule\) store\.setSoon\(LOBULE_OFF\); \}/, 'bug (b): a turn to the circuit during the dive paint wait ends the wait and the store stops saying lobule'] },
   { file: 'src/ui/stage*', need: [/live\.diveWait === gen && !live\.lobuleOn && live\.diveT === 0/, 'bug (b): the paint-ahead continuation re-checks diveWait === gen, so the called-off wait never dives'] },
   { file: 'src/ui/main.js', need: [/setViewKey\(b\.dataset\.view === 'circuit' \? 'circuit' : 'anatomy'\)/, 'the view buttons write the view through setViewKey'] },
-  { file: 'src/ui/main.js', need: [/setViewKey\(viewKey\(\) === 'circuit' \? 'anatomy' : 'circuit'\)/, 'the A key writes the view through setViewKey'] },
+  { file: 'src/ui/keyboard.js', need: [/setViewKey\(viewKey\(\) === 'circuit' \? 'anatomy' : 'circuit'\)/, 'the A key writes the view through setViewKey'] },
   { file: 'src/ui/main.js', need: [/function zoomLobule\(\) \{ stage\.askSinusoid\(false\); stage\.diveToLobule\(\); \}/, 'zoomLobule asks the stage, which writes the view through setViewKey (diveToLobule: from the Circuit it turns to the anatomy first)'] },
   { file: 'src/ui/palette.js', need: [/setViewKey\('anatomy'\)/, 'the palette writes the view through setViewKey'] },
   { file: 'src/ui/palette.js', need: [/setViewKey\('circuit'\)/, 'the palette writes the view through setViewKey'] },

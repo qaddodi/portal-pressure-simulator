@@ -45,7 +45,7 @@ export default [
   { file: 'src/ui/credit.js', need: [/b: Math\.ceil\(q\.b \/ GRID\) \* GRID, chrome: true/, 'The corner credit stood on the catheter\'s shaft (HVPG 2, an iPhone held sideways'] },
   // deck-review-bugs
   { file: 'src/ui/presenter*', need: [/liveSettled\(now - t0, now - still\)/, 'Three bugs from the external deck review (18 Oct)'] },   // (was a slice of the file)
-  { file: 'src/ui/stage*', need: [/stepSpray\(dt\);/, 'Three bugs from the external deck review (18 Oct)'] },
+  { file: 'src/ui/stage*', need: [/framePart\('stage: spray', stepSpray, dt\);/, 'Three bugs from the external deck review (18 Oct)'] },
   { file: 'src/ui/stage*', need: [/!plateEasing\(\) && !sprayFading\(\)/, 'Three bugs from the external deck review (18 Oct)'] },
   { file: 'src/ui/stage*', need: [/fadeBleedShapes\(bleedShapes\((?:live\.)?sprayLast\.bleed/, 'Three bugs from the external deck review (18 Oct)'] },
   // engine-crash
@@ -142,7 +142,7 @@ export default [
   { file: 'src/ui/tool-profile.js', need: [/const brk = null;\n\s*const g = profileGeo\(w, hh, f, tw, false, spans\), s = numberSides\(g, tw, goal\), pl = placePills\(g, tw, goal, hl, bf, s\);/, 'The Gut to heart ladder\'s two pills, HVPG and PPG, in the plot\'s top right (Mohammad, 22 Oct'] },
   // lesion-ease
   { file: 'src/ui/stage*', need: [/const pRaw = f\.viewParams \|\| st\.params, p = lesions\.view\(pRaw, dtW, reduceMotion\.matches\);/, 'A narrowing and a clot are drawn as they follow the params in a moment, not whole in one frame (src/ui/lesion-ease.js'] },
-  { file: 'src/ui/stage*', need: [/if \(lesions\.differs\(pRaw\)\) (?:live\.)?(?:live\.)?widthEasing = true;/, 'A narrowing and a clot are drawn as they follow the params in a moment, not whole in one frame (src/ui/lesion-ease.js'] },
+  { file: 'src/ui/stage*', need: [/if \(lesions\.differs\(pRaw\)\) \{ (?:live\.)?widthEasing = true;/, 'A narrowing and a clot are drawn as they follow the params in a moment, not whole in one frame (src/ui/lesion-ease.js'] },
   { file: 'src/ui/stage*', need: [/(?:live\.)?catchUp \|\| bandsMoving\(\) \|\| lesionsMoving\(\)\) return false;/, 'A narrowing and a clot are drawn as they follow the params in a moment, not whole in one frame (src/ui/lesion-ease.js'] },
   { file: 'src/ui/stage*', need: [/bandsMoving\(\) \|\| lesionsMoving\(\) \|\| anyReveal\(\) \|\| visWidthMoving\(\)\) return false;/, 'A narrowing and a clot are drawn as they follow the params in a moment, not whole in one frame (src/ui/lesion-ease.js'] },
   // lobule-dive-rim
@@ -224,7 +224,7 @@ export default [
   { file: 'src/ui/stage*', forbid: [/let inputAt|const pressed = new Set/, 'one clock of input for deferred work (quiet.js): no second listener set (no second set of listeners)'] },
   { file: 'src/ui/veins-gl.js', need: [/if \(!leftAlone\(PUBLISH_QUIET_MS\)\) return;/, 'one clock of input for deferred work (quiet.js): no second listener set (prepare() publishes the optional builds after a gesture)'] },
   { file: 'src/ui/gl-compile.js', need: [/import \{ leftAlone \} from '\.\/quiet\.js/, 'one clock of input for deferred work (quiet.js): no second listener set'] },
-  { file: 'src/ui/main.js', need: [/const warmUp = \[\(\) => paletteL\.warm\(\), \(\) => presenterL\.warm\(\), \(\) => dock\.load\(\)\];/, 'one clock of input for deferred work (quiet.js): no second listener set'] },
+  { file: 'src/ui/main.js', need: [/const warmUp = \[\(\) => warmGlWords\(\), \(\) => paletteL\.warm\(\), \(\) => presenterL\.warm\(\), \(\) => dock\.load\(\)\];/, 'one clock of input for deferred work (quiet.js): no second listener set'] },
   { file: 'src/ui/main.js', need: [/whenQuiet\(\(\) => idle\(\(\) => \{ step\(\); warmNext\(\); \}\)\)/, 'one clock of input for deferred work (quiet.js): no second listener set (one module per quiet idle moment)'] },
   // reverse-arrows-colour
   { file: 'src/ui/stage*', need: [/revHolder\.step\(revFlag, t, jump\)/, 'The reversed colour and the way the blood and its chevrons run turn on one signal (isReversed), so a vein neve'] },
@@ -307,7 +307,7 @@ export default [
   { file: 'src/ui/stage*', need: [/sp = glow \? Math\.min\(GLOW_SPAN, \(n - 1\) >> 1\) : 1/, 'The after-meal gut glow lights only the loop edges that show (Mohammad, 20 Oct, Circulation 10/13'] },
   // lobule-callout-ring
   { file: 'styles/app-*.css', forbid: [/\.lz-call-[lr]/, 'the lobule callout ring and leader keep a bold fixed weight: no sheet rule is left to thin it'] },
-  { file: 'src/ui/lobule-zoom*', need: [/setGeo\(callLine, 'x1', a\[0\] \+ \(bx - a\[0\]\) \* e0\)/, 'the lesion leader starts on the ring edge, not its centre'] },
+  { file: 'src/ui/lobule-zoom*', need: [/ln\[0\] = a\[0\] \+ \(bx - a\[0\]\) \* e0;/, 'the lesion leader starts on the ring edge, not its centre'] },
   { file: 'src/ui/lobule-zoom*', forbid: [/callLine\.setAttribute\('x1', a\[0\]\); callLine/, 'the lesion leader no longer starts at the ring centre'] },
   { file: 'src/ui/lobule-zoom*', need: [/const rd = ringDepth\(ring, cb\);[\s\S]*?\(rd > 0 \? 1e6 \+ rd \* 1e3 : 0\)/, 'labels pay the full clash cost for touching the ring'] },
   { file: 'src/ui/lobule-zoom*', need: [/\(rd0 > 0 \? 1e6 \+ rd0 \* 1e4 : 0\)/, 'the pointer pill pays the full clash cost for touching the ring too'] },

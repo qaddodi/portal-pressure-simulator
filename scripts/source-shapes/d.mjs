@@ -56,7 +56,7 @@ export default [
   { file: STAGE, forbid: [/if \(OVER_ON && veins\?\.overlay\?\.stale && !veins\.lost\) veins\.present\(\);/, 'A3: no present of the overlays ahead of the draw'] },
   { file: STAGE, need: [/const overAt = OVER_ON && veins\?\.top \? veins\.top\.presents : -1;/, 'A3: the stage notes how many pictures were laid before its draw'] },
   { file: STAGE, need: [inStageFn('overAlone', /veins\?\.overlay\?\.stale && !veins\.lost && veins\.top\.presents === at\) veins\.present\(\)/), 'A3: the stage lays the overlays alone after its draw, and only if the draw laid no picture'] },
-  { file: STAGE, need: [/veins\.composite\(vLook, bloodLook\(\), fluidMoved\) !== false\) \{[^\n]*\n\s+overAlone\(overAt\);\n\s+drawnView = viewVersion;/, 'A3: the overlays are laid alone after the draw and before the still key is copied'] },
+  { file: STAGE, need: [/(?:veins\.composite\(vLook, bloodLook\(\), fluidMoved\)|framePart\('stage: composite', compositeNow, vLook, bloodLook\(\), fluidMoved\)) !== false\) \{[^\n]*\n\s+framePart\('stage: overlays present', overAlone, overAt\);\n\s+drawnView = viewVersion;/, 'A3: the overlays are laid alone after the draw and before the still key is copied'] },
   { file: STAGE, need: [/!anyReveal\(\)\) \{ overAlone\(overAt\); sleep\(\); return; \}/, 'A3: and where a still figure goes to sleep'] },
 
   // ── A5 ──

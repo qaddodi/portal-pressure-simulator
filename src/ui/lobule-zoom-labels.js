@@ -1,6 +1,10 @@
 // Station labels, their sizes, the glide and the names on the GPU
 // (moved out of lobule-zoom.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { createCallGeoFade } from './call-geo-fade.js';
+import { badgeOff, badgeOn } from './change-badge.js';
+import { newRoll, rollStep } from './count-roll.js';
+import { frameFor } from './frame.js';
+import { padDigits } from './reading-text.js';
 import { zoneSpot } from './lobule-zone-spot.js';
 import { caught } from './caught.js';
 import { classHas, classSoon, runSoon } from './class-soon.js';
@@ -45,6 +49,9 @@ export function createLobuleLabels(st, live) {
   const stV = { triad: mkSlot(), sin: mkSlot(), cv: mkSlot() }, stD = { triad: mkSlot(), sin: mkSlot(), cv: mkSlot() };
   const stFlow = mkSlot(), stO = [mkSlot(), mkSlot(), mkSlot()], stP = [mkSlot(), mkSlot(), mkSlot()];
   const OXY_AT = { triad: 0, sin: 1, cv: 2 };
+  const rolls = { triad: newRoll(), sin: newRoll(), cv: newRoll() };
+  let rollAsked = false;
+  const rollAsk = () => { if (!rollAsked) { rollAsked = true; frameFor('lobule-labels')(() => { rollAsked = false; if (live.model) panel(); }); } };   // (a count in flight asks for the next frame, as the figure's labels do)
   // What the station card has to say: the number, its unit, the change and its colour, in one kept record (never an array made for it).
   const reading = { v: '', u: '', d: '', col: null };
   // The panel's words for the tissue canvas, as last said (what they were made from, to know when they have changed).
@@ -54,11 +61,14 @@ export function createLobuleLabels(st, live) {
     if (m.hide) { reading.v = '?'; reading.u = ''; reading.d = ''; reading.col = null; return; }
     // (Colored by oxygen: the station's oxygen saturation, the value the lens colours it by.)
     if (m.mode === 'oxygen' && m.oxy) { const sat = m.oxy[OXY_AT[key]]; badges[key] = null; reading.v = shown(stV[key], sat * 100, 0); reading.u = '% O₂'; reading.d = ''; reading.col = oxygenColor(sat); return; }
-    const d = r != null ? v - r : 0, on = m.cmp ? 1 : 5, off = m.cmp ? 0.7 : 4;
+    const d = r != null ? v - r : 0, on = badgeOn(m.cmp), off = badgeOff(m.cmp);
     const showD = Math.abs(d) >= on || (badges[key] === m.cmp && Math.abs(d) >= off);
     badges[key] = showD ? m.cmp : null;
     // (The unit is said once, in the pressure legend, as the anatomy's labels have it; looks review L2, 31 Oct.)
-    reading.v = shown(stV[key], v, 1); reading.u = ''; reading.d = showD ? shownDelta(stD[key], d) : '';
+    // (The number counts to a new value over COUNT_MS, as the figure's station labels, the data card's tiles and the sites do: count-roll.js. The badge and the colour read the model's own.)
+    const rl = rolls[key], vr = rollStep(rl, v, 0.5, performance.now(), reduce.matches);
+    if (rl.on) rollAsk();
+    reading.v = shown(stV[key], vr, 1); reading.u = ''; reading.d = showD ? shownDelta(stD[key], d) : '';
     reading.col = m.mode === 'delta' || m.mode === 'since' ? deltaColor(live.qP(d)) : pc(v);
   }
   function panel() {
@@ -122,11 +132,12 @@ export function createLobuleLabels(st, live) {
   // they are tabular; the pill's width limit), and kept. That frame leaves the labels as they are seen; the next one lays them out.
   const measQ = new Set();
   // (A label's key is made again only when the look (env), its classes or its content (L.ver, counted as pageRun writes it) changed.)
+  // (A label's key pads its digits (reading-text.js padDigits): a station ticking from 9.9 to 10.0 keeps its key, so its box is not measured and the labels not laid out again for it.)
   const labKey = (e, L) => {
     const cls = L.el.className;
     if (L.kEnv === e && L.kCls === cls && L.kVer === L.ver && L.kKey !== undefined) return L.kKey;
     L.kEnv = e; L.kCls = cls; L.kVer = L.ver;
-    L.kKey = `${e}|${cls.replace(/(^| )(stack|lz-off)(?= |$)/g, '')}|${L.el.innerHTML.replace(/\d/g, '0')}`;
+    L.kKey = `${e}|${cls.replace(/(^| )(stack|lz-off)(?= |$)/g, '')}|${padDigits(L.el.innerHTML)}`;
     return L.kKey;
   };
   // (Whether a label shows is held on the label (_hid) the moment it changes, and written as the `hidden` attribute between frames
@@ -183,10 +194,12 @@ export function createLobuleLabels(st, live) {
         L.rows = inkRows(L.el, L.rows);   // (each line's own box: a leader stops on the line it runs to, not on the corner a longer line makes)
       }
       shown.forEach((L, i) => {
-        const was = L.sz, k = stack[i] ? 's1' : 's0', key = labKey(env, L);
-        if (!was || was.w0 !== w0[i] || was.u2 !== u2[i] || `${was[k]}` !== `${sizes[i]}` || `${was.pad}` !== `${L.pad}`) moved = true;
-        const sz = was?.key === key ? was : (L.sz = { key, w0: w0[i], u2: u2[i] });
-        sz.w0 = w0[i]; sz.u2 = u2[i]; sz[k] = sizes[i]; sz.pad = L.pad;
+        const was = L.sz, k = stack[i] ? 's1' : 's0', key = labKey(env, L), same = was?.key === key;
+        // (The box keeps the widest the key has been: 9.9 then 10.0 widens it once, 10.0 then 9.9 leaves it, and neither lays the labels out again.)
+        const wd = same ? Math.max(was.w0 || 0, w0[i]) : w0[i], sw = same && was[k] ? [Math.max(was[k][0], sizes[i][0]), sizes[i][1]] : sizes[i];
+        if (!was || was.w0 !== wd || was.u2 !== u2[i] || `${was[k]}` !== `${sw}` || `${was.pad}` !== `${L.pad}`) moved = true;
+        const sz = same ? was : (L.sz = { key, w0: wd, u2: u2[i] });
+        sz.w0 = wd; sz.u2 = u2[i]; sz[k] = sw; sz.pad = L.pad;
       });
       shown.forEach((L, i) => { L.el.hidden = peek[i]; L.el.classList.toggle('stack', had[i]); });
     }
@@ -546,11 +559,22 @@ export function createLobuleLabels(st, live) {
   const boxOv = overlapLRTB;
   // (placeCall's answer, the pill's box and its leader's two ends, written into the record it is handed: the layout's own, kept and written
   // again each time, or a fresh one in the settled re-layout that still has a clash, where the first answer must outlive the second.)
-  const mkCallOut = () => ({ box: { l: 0, r: 0, t: 0, b: 0 }, lead: [[0, 0], [0, 0]] });   // alloc-rare: once at setup (callOutMain), else only in the settled clash retry (coreFirst), never a frame of a hand's move
+  // (The pill's own place and leader are kept in the record too (ax, ay, line, ring), so a layout can place it without writing the page, `dry`, and the page
+  // is written once, commitCall, when the layout lands: a search that spans frames never moves the pill early, and a trial never shows. The lead array
+  // carries its record (lead.rec) so the pill's state can be read back from it.)
+  const mkCallOut = () => { const o = { box: { l: 0, r: 0, t: 0, b: 0 }, lead: [[0, 0], [0, 0]], has: false, ax: 0, ay: 0, line: [0, 0, 0, 0], ring: [0, 0, 0] }; o.lead.rec = o; return o; };   // alloc-rare: once at setup (callOutMain), else only in the settled clash retry (coreFirst), never a frame of a hand's move
   const callOutMain = mkCallOut();
   const CALL_GAP = 7, CALL_PAD = [10, 10, 4, 5];   // (the leader's gap to the letters, px; the pill's left, right, top and bottom padding, app.css .lz-call)
   const callInk = { x0: 0, y0: 0, x1: 0, y1: 0, r: 0 };   // (the letters' box, grown by the gap: written again at each placement)
-  function placeCall(fr, placed, cards, leads, crosses, ring, hex, keep, into, out) {
+  // The pill, its leader and its ring written to the page as placeCall's record has them (the one place a layout moves them).
+  function commitCall(o) {
+    put(callEl, o.ax, o.ay);
+    setGeo(callLine, 'x1', o.line[0]); setGeo(callLine, 'y1', o.line[1]); setGeo(callLine, 'x2', o.line[2]); setGeo(callLine, 'y2', o.line[3]);
+    setGeo(callRing, 'cx', o.ring[0]); setGeo(callRing, 'cy', o.ring[1]); setGeo(callRing, 'r', o.ring[2]);
+    leadGL.paint();
+  }
+  function placeCall(fr, placed, cards, leads, crosses, ring, hex, keep, into, out, dry = false) {
+    out.has = false;
     if (!callEl.isConnected) { mount(labels, callEl); mount(leaders, callLine, callRing); }
     // (Not shown until its size is known for its words: placed at a guessed size, it slid sideways once measured, seconds in on a slow renderer.)
     const on = !!ring && callEl._lzSz?.txt === callEl.textContent;
@@ -598,7 +622,7 @@ export function createLobuleLabels(st, live) {
     const ob = out.box;
     ob.l = bl; ob.r = br; ob.t = bt; ob.b = bb; placed.push(ob);
     live.cpOn = true; live.cpAt = live.call.at; live.cpDx = bx - a[0]; live.cpDy = by - a[1]; live.callCost = bcost;   // (where it sat, kept as numbers: callState saves and puts them back)
-    put(callEl, bx - w / 2, by - hh / 2);
+    out.has = true; out.ax = bx - w / 2; out.ay = by - hh / 2;
     // The leader starts on the ring's edge (not at its centre) and runs to the pill.
     const dl = Math.hypot(bx - a[0], by - a[1]) || 1, e0 = rr / dl;
     // The leader stops CALL_GAP short of the word's letters (the pill's padding is not letters), on the side facing the ring, so the line never
@@ -608,9 +632,10 @@ export function createLobuleLabels(st, live) {
     const le = leaderEnd(ink, a[0], a[1]);
     let ex = bx, ey = by;
     if (le) { const k = Math.max(Math.hypot(le.x - a[0], le.y - a[1]), rr) / dl; ex = a[0] + (bx - a[0]) * k; ey = a[1] + (by - a[1]) * k; }
-    setGeo(callLine, 'x1', a[0] + (bx - a[0]) * e0); setGeo(callLine, 'y1', a[1] + (by - a[1]) * e0); setGeo(callLine, 'x2', ex); setGeo(callLine, 'y2', ey);
-    setGeo(callRing, 'cx', a[0]); setGeo(callRing, 'cy', a[1]); setGeo(callRing, 'r', rr);
-    leadGL.paint();
+    const ln = out.line, rg = out.ring;
+    ln[0] = a[0] + (bx - a[0]) * e0; ln[1] = a[1] + (by - a[1]) * e0; ln[2] = ex; ln[3] = ey;
+    rg[0] = a[0]; rg[1] = a[1]; rg[2] = rr;
+    if (!dry) commitCall(out);
     const ld = out.lead;
     ld[0][0] = a[0] + (bx - a[0]) * e0; ld[0][1] = a[1] + (by - a[1]) * e0; ld[1][0] = ex; ld[1][1] = ey;
     return ld;
@@ -940,5 +965,5 @@ export function createLobuleLabels(st, live) {
       L.gl = null;
     }
   }
-  return { CORE, DESIGN, LAB_KEYS, LAY_ORDER, LIT_OF, anchorOf, callOutMain, callRingAt, cvKeep, explainSet, fadeIn, fadeOut, fillBase, followEnd, follows, freezeLabelGlides, gone, handOn, hexOf, hitKind, isHid, dimmed, keepDiscs, labGliding, labKey, labWH, labelLayerOff, labs, leadOff, leadOn, measQ, measureNow, measureRun, measureShown, mirrorAll, mirrorNow, mirrorRelease, mkCallOut, named, noteAt, panel, pick, pickAnchors, placeCall, placeZones, put, ride, rideList, rimFrac, ringDepth, sameBase, seenAt, setHid, setLayFade, callFade, shiftGeo, sinAt, sinTube, sizeEnv, spot, syncDim, tlNow, trClear, unglide };
+  return { CORE, DESIGN, LAB_KEYS, LAY_ORDER, LIT_OF, anchorOf, callOutMain, commitCall, callRingAt, cvKeep, explainSet, fadeIn, fadeOut, fillBase, followEnd, follows, freezeLabelGlides, gone, handOn, hexOf, hitKind, isHid, dimmed, keepDiscs, labGliding, labKey, labWH, labelLayerOff, labs, leadOff, leadOn, measQ, measureNow, measureRun, measureShown, mirrorAll, mirrorNow, mirrorRelease, mkCallOut, named, noteAt, panel, pick, pickAnchors, placeCall, placeZones, put, ride, rideList, rimFrac, ringDepth, sameBase, seenAt, setHid, setLayFade, callFade, shiftGeo, sinAt, sinTube, sizeEnv, spot, syncDim, tlNow, trClear, unglide };
 }

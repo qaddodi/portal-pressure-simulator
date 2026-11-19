@@ -154,6 +154,6 @@ test('the catheter fade-out drives the GPU draws and the SVG group from one valu
   assert.match(body, /alpha: d\.alpha \* a/);
   assert.doesNotMatch(stage.slice(stage.indexOf('function cathFadeOut'), at), /\.animate\(/, 'no second clock on the SVG group');
   assert.doesNotMatch(body, /\(1 - k\) \* \(1 - k\)/);
-  assert.match(stage, /animateVT\(\{ k, x: \(fr\.x0 \+ fr\.x1\) \/ 2 - cx \* k, y: \(fr\.y0 \+ fr\.y1\) \/ 2 - cy \* k \}, ms, \{ arc, steady, scale \}\);/);
-  assert.match(stage, /animateVT\(cath\.saved, ms, \{ arc, scale \}\)/);
+  assert.match(stage, /animateVT\(\{ k, x: \(fr\.x0 \+ fr\.x1\) \/ 2 - cx \* k, y: \(fr\.y0 \+ fr\.y1\) \/ 2 - cy \* k \}, ms, \{ steady, scale \}\);/);
+  assert.match(stage, /animateVT\(cath\.saved, ms, \{ scale \}\)/);
 });

@@ -24,6 +24,7 @@
 // changed in a way the card shows, builds the card again between frames (rest-pass.js). The HVPG in the head line is drawn on the GPU as it
 // changes (gl-words.js), so a value that eases writes nothing into the page.
 
+import { prefs } from './prefs.js';
 import { store, hiddenNow } from './store.js';
 import { h, fmt, reconcile, swapFade, swapText, foldHidden, countTo } from './util.js';
 import { host } from './host.js';
@@ -167,7 +168,7 @@ export function today531(hvpg, bleeding) {
 
 export function createTrialsPane() {
   let mode = 'list';
-  try { if (localStorage.getItem('pps.trialsView') === 'forest') mode = 'forest'; } catch (e) { caught('trials:mode', e); }
+  try { if (prefs.getItem('pps.trialsView') === 'forest') mode = 'forest'; } catch (e) { caught('trials:mode', e); }
   const el = h('div', { class: 'instrument-view trials-view', 'data-pane': 'trials', 'data-mode': mode });
   const sw = h('div', { class: 'pressure-switch', role: 'group', 'aria-label': 'Trials view' },
     [['list', 'List'], ['forest', 'Forest']].map(([v, label]) => h('button', { type: 'button', class: 'ps-btn', 'data-view': v, 'aria-pressed': String(v === mode), onclick: () => setMode(v) }, label)));
@@ -218,7 +219,7 @@ export function createTrialsPane() {
     if (v === mode) return;
     mode = v;
     for (const b of sw.children) b.setAttribute('aria-pressed', String(b.dataset.view === v));
-    try { localStorage.setItem('pps.trialsView', v); } catch (e) { caught('trials:mode', e); }
+    try { prefs.setItem('pps.trialsView', v); } catch (e) { caught('trials:mode', e); }
     // (TC-M2: the two views cross-fade, never a one-frame swap.)
     swapFade(body, () => { el.dataset.mode = mode; if (built) configureForest(built); });
   }

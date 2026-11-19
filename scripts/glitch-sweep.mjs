@@ -33,6 +33,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { serve } from './serve.mjs';
 import { CHROMIUM_ARGS, assertGpuLive } from './shoot.mjs';
+import { contextOptions } from '../src/ui/devices.js';
 import { findAnomalies, STEPPER, RECORD } from './frame-step.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -40,11 +41,11 @@ const argv = process.argv.slice(2);
 const flag = (n) => argv.includes(`--${n}`);
 const opt = (n, d) => { const i = argv.indexOf(`--${n}`); return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : d; };
 
-export const SIZES = {
-  desktop: { viewport: { width: 1440, height: 900 } },
-  phone: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
-  sideways: { viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
-  ipad: { viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
+export const SIZES = {   // (src/ui/devices.js is the one list; desktop, phone and sideways are this tool's old names, and "ipad" is landscape like everywhere else, the portrait one is "ipad-portrait")
+  desktop: contextOptions('mac'),
+  phone: contextOptions('iphone', 2),
+  sideways: contextOptions('iphone-landscape', 2),
+  ...Object.fromEntries(['ipad', 'ipad-portrait'].map((id) => [id, contextOptions(id, 2)])),
 };
 const EXE = process.env.CHROMIUM || (existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : '');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -1,7 +1,7 @@
 name: Pages (live site + preview)
 
 # Publishes two production builds (npm run build) to GitHub Pages:
-#   /          the tip of main (the live site)
+#   /          the last GATED main build (the live site): built from the commit the gate tested on main, and kept as published on gh-pages on a preview push (never rebuilt there)
 #   /preview/  the preview branch's head. A push to it deploys that commit. A main run (slow: it waits for lint and the unit tests) deploys the branch's head too while the
 #              branch has commits main does not, so a main deploy that lands after a newer branch deploy never puts an older build over it (Mohammad, 13 Nov 2026: "Keep preview
 #              on the branch head"); once the branch is merged, /preview/ is main, badged "PREVIEW · main <commit>".
@@ -103,46 +103,69 @@ jobs:
           echo "branch=$pv_branch" >> "$GITHUB_OUTPUT"
           echo "sha=$pv_sha" >> "$GITHUB_OUTPUT"
           echo "Preview built from $pv_branch @ $pv_sha"
+      # The live site (/) is only ever a copy of a GATED build (SHL-1, 19 Nov 2026):
+      #   - on main: the commit the gate tested (github.sha), never "main's tip at run time" (a commit that landed while the gate ran has not been gated yet);
+      #   - on the preview branch: the `/` already published on gh-pages (the last gated main deploy). It is never rebuilt here, not even on a cache miss.
+      # Full history (fetch-depth 0) so the build can name the newest release tag (PPS_RELEASE, SHL-3).
       - uses: actions/checkout@v5
+        if: github.ref_name == 'main'
         with:
-          ref: main
+          ref: ${{ github.sha }}
           path: live
+          fetch-depth: 0
       - uses: actions/checkout@v5
         with:
           ref: ${{ steps.pv.outputs.sha }}
           path: preview
-
-      # Main's build is kept per main commit, so a preview deploy rebuilds only the preview.
-      - name: Main's commit
-        id: live
-        run: echo "sha=$(git -C live rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-      - name: Main's build from an earlier deploy
-        id: live-dist
-        uses: actions/cache@v5
-        continue-on-error: true
+          fetch-depth: 0
+      - name: The live site as last published (preview pushes only)
+        if: github.ref_name != 'main'
+        uses: actions/checkout@v5
         with:
-          path: live/dist
-          key: live-dist-${{ steps.live.outputs.sha }}
+          ref: gh-pages
+          path: kept
+
+      # Main's release name, decided before the build so the site names the tag it will carry (v<year>.<month>.<n>, PR-04; SHL-3). The tag itself is made
+      # after the deploy succeeded (the last step), so a refused build never gets one.
+      - name: Name this release (main)
+        id: rel
+        if: github.ref_name == 'main'
+        run: |
+          cd live
+          P="v$(date -u +%Y.%m)"
+          N=$(git tag -l "$P.*" | sed "s/^$P\.//" | sort -n | tail -1)
+          T="$P.$(( ${N:-0} + 1 ))"
+          echo "tag=$T" >> "$GITHUB_OUTPUT"
+          echo "release=$T · $(git rev-parse --short=8 HEAD)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: |
-            live/package-lock.json
-            preview/package-lock.json
+          cache-dependency-path: preview/package-lock.json
 
       # A copy whose build script has no "pages-build" marker is served as its source.
       - name: Build
         env:
-          LIVE_KEPT: ${{ steps.live-dist.outputs.cache-hit }}
           STRICT: ${{ steps.pv.outputs.branch == 'main' && '1' || '' }}
-          LIVE_STRICT: ${{ github.ref_name == 'main' && '1' || '' }}   # (a main run's own build is strict, whatever /preview/ is built from)
+          LIVE_RELEASE: ${{ steps.rel.outputs.release }}
         run: |
           ready() { grep -q 'pages-build' "$1/scripts/build.mjs" 2>/dev/null; }
           build() { (cd "$1" && npm ci --no-audit --no-fund && npm run build); }
-          if [ "$LIVE_KEPT" != 'true' ] && ready live; then BUILD_STRICT="$LIVE_STRICT" build live; fi
+          # Main only: the live copy, strict (the gate built the same commit). A preview push never builds `live`.
+          if [ "$GITHUB_REF_NAME" = 'main' ] && ready live; then PPS_RELEASE="$LIVE_RELEASE" BUILD_STRICT=1 build live; fi
           if ready preview; then BUILD_STRICT="$STRICT" build preview; fi
+
+      # The source maps of main's build, one artifact per release (about 6 MB zipped, 30 days), so a field stack can be read back to a line (SHL-3).
+      # They are not in the site (build.mjs moves them to dist-maps/).
+      - name: Keep this release's source maps
+        if: github.ref_name == 'main'
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: maps-${{ steps.rel.outputs.tag }}
+          path: live/dist-maps
+          retention-days: 30
 
       - name: Assemble the site
         env:
@@ -151,7 +174,13 @@ jobs:
         run: |
           copy() { if [ -f "$1/dist/index.html" ]; then rsync -a "$1/dist/" "$2/"; else rsync -a --exclude .git --exclude .github --exclude node_modules "$1/" "$2/"; fi; }
           mkdir site
-          copy live site
+          if [ "$GITHUB_REF_NAME" = 'main' ]; then
+            copy live site
+          else
+            # Everything but the previous preview, as published: the live site is never rebuilt from an ungated commit.
+            test -f kept/index.html || { echo "::error::gh-pages holds no live site to keep; run the main deploy first"; exit 1; }
+            rsync -a --exclude .git --exclude preview kept/ site/
+          fi
           mkdir site/preview
           copy preview site/preview
           # Keep the preview out of search engines and record what it was built from.
@@ -164,7 +193,7 @@ jobs:
           # One small page per case under c/, so shared links preview with the case title (scripts/share-pages.mjs).
           # (The public address goes in too, for the pictures' absolute URLs.)
           SITE="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}"
-          if [ -f live/scripts/share-pages.mjs ]; then node live/scripts/share-pages.mjs site "$SITE"; fi
+          if [ "$GITHUB_REF_NAME" = 'main' ] && [ -f live/scripts/share-pages.mjs ]; then node live/scripts/share-pages.mjs site "$SITE"; fi
           if [ -f preview/scripts/share-pages.mjs ]; then node preview/scripts/share-pages.mjs site/preview "$SITE/preview"; fi
           touch site/.nojekyll
 
@@ -220,3 +249,15 @@ jobs:
             for (const a of data.artifacts.filter((a) => a.name === 'github-pages')) {
               await github.rest.actions.deleteArtifact({ ...context.repo, artifact_id: a.id });
             }
+      # The release tag, after the deploy succeeded and only on main (SHL-1: tag-release.yml tagged every main push, gated or not, and is gone).
+      - name: Tag this release
+        if: github.ref_name == 'main' && success()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.rel.outputs.tag }}
+        run: |
+          cd live
+          git tag "$TAG" "$GITHUB_SHA"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$TAG"
+          echo "Tagged $TAG" >> "$GITHUB_STEP_SUMMARY"

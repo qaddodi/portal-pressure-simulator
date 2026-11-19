@@ -12,7 +12,8 @@ test('every localStorage and sessionStorage access in src/ is inside a try', () 
   for (const p of files(root)) {
     const L = readFileSync(p, 'utf8').split('\n');
     L.forEach((l, i) => {
-      if (!/\b(?:local|session)Storage\b\s*(?:\.\s*(?:getItem|setItem|removeItem|clear|key)\b|\[)/.test(l)) return;
+      if (/prefs\.js$/.test(p)) return;   // (the door itself: its writes throw on purpose, for the callers' try)
+      if (!/\b(?:(?:local|session)Storage|prefs)\b\s*(?:\.\s*(?:getItem|setItem|removeItem|clear|key)\b|\[)/.test(l)) return;
       if (/^\s*(?:\/\/|\*)/.test(l)) return;
       const ctx = L.slice(Math.max(0, i - 6), i + 1).join('\n');
       if (!/\btry\b/.test(ctx) && !l.includes('.catch(')) bad.push(`${p.slice(root.length - 3)}:${i + 1}: ${l.trim().slice(0, 100)}`);
@@ -23,6 +24,6 @@ test('every localStorage and sessionStorage access in src/ is inside a try', () 
 
 test('the scan itself sees accesses (it is not passing because it matches nothing)', () => {
   let n = 0;
-  for (const p of files(root)) n += (readFileSync(p, 'utf8').match(/\b(?:local|session)Storage\b\s*\.\s*(?:getItem|setItem)\b/g) || []).length;
+  for (const p of files(root)) n += (readFileSync(p, 'utf8').match(/\b(?:local|session|prefs)(?:Storage)?\b\s*\.\s*(?:getItem|setItem)\b/g) || []).length;
   assert.ok(n >= 20, `found ${n} accesses`);
 });

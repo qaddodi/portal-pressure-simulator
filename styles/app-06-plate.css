@@ -28,7 +28,7 @@
 .hp-chip.low b { color: var(--caution-ink); }
 .hp-chip.mid b, .hp-chip.high b { color: var(--danger-ink); }
 .hp-chip.high { background: color-mix(in srgb, var(--danger) 10%, var(--surface)); }
-.hp-chip.rev { color: color-mix(in srgb, var(--flow-reversed) 80%, var(--text)); background: color-mix(in srgb, var(--flow-reversed) 12%, var(--surface)); font-weight: 600; }
+.hp-chip.rev { color: var(--flow-reversed-ink); background: color-mix(in srgb, var(--flow-reversed) 12%, var(--surface)); font-weight: 600; }
 
 /* Phones: the figure fits the width with a 12 px margin, centered between the top bar and the
    transport; the readouts are a carousel of whole cards that snaps card by card, with the next
@@ -198,7 +198,6 @@
 .cmp-table,
 .cut-table,
 .hp-chip,
-.mon,
 .ctl-val,
 #labels text,
 .tl-pop .when { font-variant-numeric: tabular-nums; }
@@ -264,6 +263,9 @@
    The fades run on the label's children, not the label: a faded ancestor would stop the glass seeing the figure behind it. */
 .cath-label > * { opacity: var(--lo); transition: opacity var(--d-surface) var(--ease); }
 .cl-glass { position: absolute; z-index: -1; pointer-events: none; background: var(--glass-tint); }
+/* The callouts keep no drop (19 Nov 2026, the card shadow is for cards): the one glass's lift (--glass-shadow) is cleared here for the label, its glass and its ::before, so a small
+   reading is not smudged by a 24 px lift. Remove this rule to give the callouts the lift too. */
+.cath-label { --glass-shadow: none; }
 .cl-glass path { fill: none; stroke: var(--rg); stroke-width: 4; stroke-linejoin: miter; }
 /* The printed tag (callout.js): the path is stroked 2 px and clipped to its inside, so 1 px shows; the border
    colour carries a fifth of the reading's colour, enough to tell a free tag from a wedged one at the edge without a ring. */
@@ -286,12 +288,12 @@
 /* (The HVPG catheter's own readings: their side of the point is in their transform, placed and eased with their glass (stage.js
    cathLabels, cath-pill.js), so a flip glides instead of switching here.) */
 .cath-label.cath-js, .cath-label.cath-js[data-at="ahead"], .cath-label.cath-js[data-at="ahead"].above { translate: -50% var(--pre, 0px); }
-.cath-label small { color: var(--c); font-weight: 700; font-size: 12px; letter-spacing: .06em; }
-.cath-label b { font-size: 26px; line-height: 1.1; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--c); }
+.cath-label small { color: var(--c-ink, var(--c)); font-weight: 700; font-size: 12px; letter-spacing: .06em; }
+.cath-label b { font-size: 26px; line-height: 1.1; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--c-ink, var(--c)); }
 .cath-label b + span { color: var(--text-3); font-size: 12px; font-weight: 600; margin-top: -2px; }
-.cath-label.free { --c: var(--tr-hv); }
-.cath-label.wedge { --c: var(--tr-wedge); } .cath-label.pv { --c: var(--tr-pv); }   /* (pv: EUS-PPG's portal vein reading) */
-.cath-label.ivc { --c: var(--tr-ivc); }   /* (ivc: the TIPS gradient's IVC reading) */
+.cath-label.free { --c: var(--tr-hv); --c-ink: var(--tr-hv-ink); }   /* (--c-ink: the colour of the words; --c stays the trace's, for rings and glows) */
+.cath-label.wedge { --c: var(--tr-wedge); --c-ink: var(--tr-wedge-ink); } .cath-label.pv { --c: var(--tr-pv); --c-ink: var(--tr-pv-ink); }   /* (pv: EUS-PPG's portal vein reading) */
+.cath-label.ivc { --c: var(--tr-ivc); --c-ink: var(--tr-ivc-ink); }   /* (ivc: the TIPS gradient's IVC reading) */
 .cath-label.ghost { --lo: .5; }
 /* The presenter's measuring sites (PPG: portal vein and IVC), in the tracing colours; one off the free space waits hidden. */
 .cath-label.site { transition: scale var(--d-surface) var(--ease) .35s, translate var(--d-surface) var(--ease); } .cath-label.site::before, .cath-label.site > * { transition: opacity var(--d-surface) var(--ease) .35s; }
@@ -300,7 +302,7 @@
 .cath-label.site.cath-leave { --lo: 0; } .cath-label.site.cath-leave::before { opacity: 0; }
 .cath-label.site.cath-leave, .cath-label.site.cath-leave::before, .cath-label.site.cath-leave > * { transition-delay: 0s; transition-duration: var(--d-small); transition-timing-function: var(--ease-in); }   /* (a leave takes the step below its entrance, on the leaving curve; stage.js siteLeave waits D_SMALL + slack) */
 .cath-label.site.cath-leave > .cl-glass { visibility: hidden; transition: opacity var(--d-small) var(--ease-in), visibility 0s linear var(--d-small); }
-.cath-label.site.pv { --c: var(--tr-pv); } .cath-label.site.ivc { --c: var(--tr-ivc); }
+.cath-label.site.pv { --c: var(--tr-pv); --c-ink: var(--tr-pv-ink); } .cath-label.site.ivc { --c: var(--tr-ivc); --c-ink: var(--tr-ivc-ink); }
 /* The FibroScan probe on the skin over the liver; its shear wave eases out into the right lobe and fades. */
 .scan-probe { --scan: var(--fibroscan); /* the orange of the FibroScan card's readout (ORANGE in fibroscan.js) */ position: absolute; left: 0; top: 0; width: 220px; height: 96px; translate: 0 -50%; transition: opacity var(--d-surface) var(--ease); pointer-events: none; }
 .scan-probe.cath-pre, .scan-probe.off { opacity: 0; }
@@ -344,22 +346,22 @@
    (portal pink) and the shunts' (plain, amber from the shunt tile's moderate cut, red from its large one), each share
    named under its end. Fixed sizes (the headline reserves room for 100 %), so the callout never resizes; it stays stacked on phones. */
 .cath-label.site.split, .app.presenting .cath-label.site.split { --c: var(--tr-pv); --sp-c: var(--text-3); --sp-t: var(--text); --leader: var(--text-2); flex-direction: column; align-items: stretch; gap: 3px; padding: 0; border-radius: 0; }
-.cath-label.site.split[data-rate="mid"] { --sp-c: var(--caution); --sp-t: color-mix(in srgb, var(--caution) 80%, var(--text)); }
-.cath-label.site.split[data-rate="hi"] { --sp-c: var(--danger); --sp-t: var(--danger); }
+.cath-label.site.split[data-rate="mid"] { --sp-c: var(--caution); --sp-t: var(--caution-ink); }
+.cath-label.site.split[data-rate="hi"] { --sp-c: var(--danger); --sp-t: var(--danger-ink); }
 /* No card (Mohammad, 17 Nov 2026, "Build D"): the number, a caption and a hairline bar stand on the figure in its own label look (the theme's
    --label-halo under the words), with a 1 px leader to the vein. Its glass is only that leader (callout.js bare), never frosted (stage.js). */
 .cath-label.site.split::before { display: none; }
 .cath-label.site.split small { display: none; }
-.cath-label.site.split b, .app.presenting .cath-label.site.split b { display: flex; flex-direction: column; gap: 2px; font-size: calc(11.5px * min(var(--label-scale, 1), 1.7)); line-height: 1.2; color: var(--text); }
+.cath-label.site.split b, .app.presenting .cath-label.site.split b { display: flex; flex-direction: column; gap: 2px; font-size: calc(12px * min(var(--label-scale, 1), 1.7)); line-height: 1.2; color: var(--text); }
 .cath-label.site.split .sp-h { width: 12.6em; font-weight: 700; display: flex; align-items: baseline; }
 .cath-label.site.split em { font-style: normal; }
 .cath-label.site.split .sp-n, .cath-label.site.split .sp-pc { font-size: 1.5em; font-weight: 600; letter-spacing: -.02em; line-height: 1.1; }
 .cath-label.site.split .sp-n { color: var(--sp-t); transition: none; }
 .cath-label.site.split .sp-pc { color: var(--sp-t); -webkit-text-stroke: 4px var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; }
 .cath-label.site.split .sp-w { margin-left: 4px; font-size: 1em; font-weight: 500; color: var(--text-2); -webkit-text-stroke: 3px var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; }
-.cath-label.site.split .sp-cap { display: flex; align-items: baseline; gap: 6px; font-size: .88em; font-weight: 600; }
+.cath-label.site.split .sp-cap { display: flex; align-items: baseline; gap: 6px; font-size: 1em; font-weight: 600; }
 .cath-label.site.split .sp-k { font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); -webkit-text-stroke: 2px var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; }
-.cath-label.site.split .sp-lt { color: var(--tr-pv); } .cath-label.site.split .sp-st { display: none; }
+.cath-label.site.split .sp-lt { color: var(--tr-pv-ink); } .cath-label.site.split .sp-st { display: none; }
 .cath-label.site.split .sp-bar { display: flex; gap: 2px; height: 2px; width: 6.4em; margin: 1px 0 0; }
 .cath-label.site.split .sp-bar i { border-radius: 1px; flex-basis: 0; flex-shrink: 1; }
 .cath-label.site.split .sp-l { flex-grow: var(--sp-lf, .5); min-width: var(--sp-lm, 4px); background: var(--tr-pv); }
@@ -398,7 +400,7 @@
 /* A phone keeps each site to one line (name, value, unit) so two fit in the small figure. */
 @media (max-width: 600px) { .cath-label.site { flex-direction: row; align-items: baseline; gap: 5px; padding: 4px 10px; border-radius: 11px; } .cath-label.site b { font-size: 16px; } .cath-label.site b + span { margin-top: 0; } }
 .cath-label.result small { color: var(--text-3); letter-spacing: .02em; }
-.cath-label.ok { --c: var(--ok); } .cath-label.caution { --c: color-mix(in srgb, var(--caution) 80%, var(--text)); } .cath-label.danger { --c: var(--danger); }
+.cath-label.ok { --c: var(--ok); --c-ink: var(--ok-ink); } .cath-label.caution { --c: var(--caution); --c-ink: var(--caution-ink); } .cath-label.danger { --c: var(--danger); --c-ink: var(--danger-ink); }
 @media (max-width: 600px) { .cath-label { padding: 5px 12px 6px; } .cath-label b { font-size: 21px; } .cath-label small, .cath-label b + span { font-size: 12px; } }
 /* The result: both readings stacked, a bracket joining them and the difference worked out beside it. */
 .cath-sum { position: absolute; inset: 0; }
@@ -592,7 +594,7 @@
 /* (The unit on the name's own line, never wrapped: "FHVP ·" over "mmHg" read as a break, sweep batch 03, shot 30; a line of its
    own instead cost the monitor 19 px on an iPad and cut the words under it sideways, sweep 2 review items 6 and 7.) */
 .hvpg-kv dt { font-size: 12px; font-weight: 600; letter-spacing: .05em; color: var(--text-3); white-space: nowrap; }
-.hvpg-kv dd { margin: 0; font-size: 17px; line-height: 1.2; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; transition: none; }
+.hvpg-kv dd { margin: 0; font-size: 17px; line-height: 1.2; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; transition: none; }
 .hvpg-kv dt::after { content: '\00a0· mmHg'; font-weight: 500; letter-spacing: 0; }
 .hvpg-box { border-radius: var(--r-card); background: var(--mon-bg); }
 .hvpg-kv dd[data-sev="ok"] { color: var(--ok-ink); }

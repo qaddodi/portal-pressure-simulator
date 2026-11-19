@@ -2,11 +2,12 @@
 // One small record per deck on this device: { at, n } (the slide index, outline included, and the deck's slide count
 // then). A deck whose slide count has changed since, or a position past its end, starts from the beginning again.
 
+import { prefs } from './prefs.js';
 import { caught } from './caught.js';
 const KEY = 'pps.resume';   // { [id]: { at, n, w } }: w is when it was noted, so the oldest goes first whatever the id looks like (B8: an all-digit id sorts first in an object)
 const MAX = 40;   // (decks remembered; the oldest go first)
 
-const store = () => { try { return globalThis.localStorage ?? null; } catch { return null; } };
+const store = () => { try { return prefs; } catch { return null; } };
 function readAll() {
   try { const v = JSON.parse(store()?.getItem(KEY) || '{}'); return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; } catch { return {}; }
 }

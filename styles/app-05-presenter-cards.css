@@ -35,10 +35,8 @@
 /* Dark: the slide progress line was a 4 px bar of mid grey, the brightest line on a talk in a dark room; quieter ink keeps it readable without pulling the eye (dark sweep, 1 Nov). */
 :root[data-theme="dark"] .pz-prog i { background: color-mix(in srgb, var(--text) 30%, transparent); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-prog i { background: color-mix(in srgb, var(--text) 30%, transparent); } }
-.pz-bar { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: var(--glass-drop); position: absolute; left: 50%; bottom: 22px; translate: -50% 0; display: flex; align-items: center; gap: 4px; padding: 5px; max-width: calc(100% - 24px); overflow-x: auto; --gl-glass: 1; --gl-tint: var(--glass-tint); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: var(--r-card); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); pointer-events: auto; transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
+.pz-bar { position: absolute; left: 50%; bottom: 22px; translate: -50% 0; display: flex; align-items: center; gap: 4px; padding: 5px; max-width: calc(100% - 24px); overflow-x: auto; --gl-glass: 1; --gl-tint: var(--glass-tint); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: var(--r-card); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); pointer-events: auto; transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
 /* The presenter bar is the same frosted glass as the data card: quiet controls, a soft accent on Next, no solid blocks. */
-:root[data-theme="dark"] :is(.pz-bar, .pz-fk) { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) :is(.pz-bar, .pz-fk) { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); } }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-bar { --gl-glass: 0; background: var(--glass-tint); } }
 @media (prefers-reduced-transparency: reduce) { .pz-bar { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 .app.pz-hi .pz-bar { background: color-mix(in srgb, var(--surface) 92%, transparent); border-color: color-mix(in srgb, var(--text) 32%, transparent); }
@@ -71,7 +69,7 @@
 /* The scale switch (a slide's scales; presenter.js paintScales): Explore's three words on the bar's frosted glass, the slide's own scale in a
    soft inner pill that eases from word to word. Mac and iPad landscape: in the counter's row, 8 px left of the counter pill. A phone and an
    upright iPad (.stack): centred 8 px above the teaching card's glass. It comes in and leaves with the teaching card, in its fade. */
-.pz-scales { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: var(--glass-drop); position: absolute; right: calc(var(--pz-cm) + var(--pzs-r, 236px) + 8px); bottom: max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)); display: flex; align-items: stretch; height: 44px; box-sizing: border-box; padding: 4px; --gl-glass: 1; --gl-tint: var(--glass-tint); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: var(--r-sheet); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); pointer-events: auto; opacity: 1; transition: opacity var(--d-surface) var(--ease) .12s; }
+.pz-scales { position: absolute; right: calc(var(--pz-cm) + var(--pzs-r, 236px) + 8px); bottom: max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)); display: flex; align-items: stretch; height: 44px; box-sizing: border-box; padding: 4px; --gl-glass: 1; --gl-tint: var(--glass-tint); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: var(--r-sheet); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); pointer-events: auto; opacity: 1; transition: opacity var(--d-surface) var(--ease) .12s; }
 .pz-scales.pz-leave { opacity: 0; pointer-events: none; transition: opacity var(--d-small) var(--ease-in); }
 .pz-scales[hidden] { display: none; }
 .pz-scales > button { position: relative; z-index: 1; border: 0; background: none; padding: 0 14px; border-radius: calc(var(--r-sheet) - 4px); font: 500 14px/1 var(--font-ui); color: var(--text-2); white-space: nowrap; cursor: pointer; transition: none; -webkit-tap-highlight-color: transparent; }
@@ -82,8 +80,6 @@
 .pz-scales.pzs-new > .pzs-thumb { transition: none; }
 .pz.stack .pz-scales { right: auto; left: var(--pzs-cx, 50%); bottom: var(--pzs-b, 50%); translate: -50% 0; }
 @media (max-width: 340px) { .pz-scales > button { font-size: 12px; padding: 0 10px; } }
-:root[data-theme="dark"] .pz-scales { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-scales { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); } }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-scales { background: var(--glass-tint); } }
 @media (prefers-reduced-transparency: reduce) { .pz-scales { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 .app.pz-hi .pz-scales { background: color-mix(in srgb, var(--surface) 92%, transparent); border-color: color-mix(in srgb, var(--text) 32%, transparent); }
@@ -94,12 +90,10 @@
 /* An upright phone: the words sit in a teaching card at the bottom, the same glass, margin and corners as the data card at
    the top, so the figure shows between the two. presenter.js sets its top (16 px above the words); it never changes shape in
    view: it leaves and arrives like the data card (a fade with a short slide toward its own edge) and snaps its size while gone. */
-.pz-shade.stack { --pz-glass-drop: var(--glass-drop); --pz-r: 18px; width: auto !important; left: 8px; right: 8px; top: auto; bottom: calc(8px + var(--pz-sb)); height: auto; --gl-tint: var(--glass-tint); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 22%, transparent); border-radius: var(--pz-r) var(--pz-r) var(--pz-card-br) var(--pz-card-br); box-shadow: 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
+.pz-shade.stack { --pz-r: 18px; width: auto !important; left: 8px; right: 8px; top: auto; bottom: calc(8px + var(--pz-sb)); height: auto; --gl-tint: var(--glass-tint); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 22%, transparent); border-radius: var(--pz-r) var(--pz-r) var(--pz-card-br) var(--pz-card-br); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
 :root.iphone-app { --pz-sb: 0px; --pz-card-br: calc(var(--screen-r) - 8px); }   /* (8 px is the card's gap to the screen's edge: styles above) */
 .pz-shade.stack:not(.pz-leave) { transition-duration: var(--d-surface), var(--d-surface); transition-delay: .12s, .12s; }
 .pz-shade.stack.pz-leave { opacity: 0 !important; transform: translateY(18px); transition-delay: 0s; }
-:root[data-theme="dark"] .pz-shade.stack { --pz-glass-drop: rgb(var(--black-rgb) / .45); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-shade.stack { --pz-glass-drop: rgb(var(--black-rgb) / .45); } }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-shade.stack { background: var(--glass-tint); } }
 @media (prefers-reduced-transparency: reduce) { .pz-shade.stack { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 .pz.stack .pz-text.pz-leave, .pz.stack .pz-text > .pz-leave { transform: translateY(18px); }
@@ -249,7 +243,7 @@
 @media (max-width: 759px) { .pz.low .pz-grid { --pk: 1.15; gap: 4px; } .pz.low .pz-panel > .pz-grid { zoom: max(var(--pz-fit, 1), .87); } .pz.low .pz-cell { padding: 4px 10px 1px; line-height: 1.15; } .pz.low .pz-grid-head > .pz-pstrip { margin: 0 10px; } .pz.low .pz-cell-t { line-height: 1.15; } }   /* (an SE on its side has room only when the rows may step down too, to the same 12 px floor) */
 /* (A cell that turned strip at a large text size: the rows take the strips' own height instead of the card's, and on a
    narrower screen two to a row, so no reading, fall or bracket runs out of its cell or into its neighbour.) */
-.pz.stack .pz-bar { left: auto; right: 21px; top: auto; bottom: calc(21px + var(--pz-sb)); translate: none; max-width: none; height: 38px; gap: 0; padding: 0; overflow: visible; --gl-glass: 1; --gl-tint: var(--glass-tint); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: var(--r-sheet); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); transition: opacity var(--d-small) var(--ease); }
+.pz.stack .pz-bar { left: auto; right: 21px; top: auto; bottom: calc(21px + var(--pz-sb)); translate: none; max-width: none; height: 38px; gap: 0; padding: 0; overflow: visible; --gl-glass: 1; --gl-tint: var(--glass-tint); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: var(--r-sheet); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow); transition: opacity var(--d-small) var(--ease); }
 .app.pz-hi .pz.stack .pz-bar { --gl-tint: color-mix(in srgb, var(--surface) 92%, transparent); background: var(--gl-tint); border-color: color-mix(in srgb, var(--text) 32%, transparent); }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz.stack .pz-bar { --gl-glass: 0; background: var(--glass-tint); } }
 @media (prefers-reduced-transparency: reduce) { .pz.stack .pz-bar { --gl-glass: 0; background: color-mix(in srgb, var(--surface) 96%, transparent); } }
@@ -693,12 +687,12 @@
 [data-site="presin"] { --site: color-mix(in srgb, var(--tour-portal) 80%, var(--tour-sys)); }
 [data-site="sin"] { --site: color-mix(in srgb, var(--tour-portal) 60%, var(--tour-sys)); }
 [data-site="postsin"] { --site: color-mix(in srgb, var(--tour-portal) 40%, var(--tour-sys)); }
-/* Shuffle (19 Nov 2026, card-shuffle.js): the words' card and the data card share one place when a screen is too short for both. Each is moved by paused animations
-   the script scrubs (a transform added to its own, a clip that leaves its top strip while it is behind, and a veil, this ::after, that darkens it).
-   The one in front stands above the other: .pz-shuf-data (set on the page while the instrument is in front) flips the order as the two cross. */
-.pz.pz-shuf .pz-text::after, .pz-shade.pz-shuf::after, .pz.pz-shuf .pz-data::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--shade-ink); opacity: 0; pointer-events: none; }
-/* The strip of the card behind holds its edge and a handle, never a piece of a line (card-shuffle.js: the card's words and numbers are taken out while it is behind, its handle put in). */
-.pz.pz-shuf .pz-data::before, .pz-shade.pz-shuf::before { content: ''; position: absolute; left: 50%; top: 10px; width: 34px; height: 4px; margin-left: -17px; border-radius: 2px; background: color-mix(in srgb, var(--text) 38%, transparent); opacity: 0; pointer-events: none; }
+/* The wallet (19 Nov 2026, card-shuffle.js; it kept the Shuffle's class names): the words' card and the data card share one place when a screen is too short for both, each centred on the
+   screen, the one behind waiting at its foot with its top 48 px showing. Each is moved by a paused animation the script scrubs (a translateY added to its own transform, the opacity of its
+   words, the opacity of its strip's name). The strip holds the card's grab bar (::before) and its name (::after, from data-strip); the card's own words and numbers are taken out while it is behind.
+   The card coming forward stands above the other for the whole change: .pz-shuf-data (set on the page while the instrument is the one coming or in front) puts it there. */
+.pz.pz-shuf .pz-data::before, .pz-shade.pz-shuf::before { content: ''; position: absolute; left: 50%; top: 10px; width: 36px; height: 4px; margin-left: -18px; border-radius: 2px; background: color-mix(in srgb, var(--text) 38%, transparent); pointer-events: none; }
+.pz.pz-shuf .pz-data::after, .pz-shade.pz-shuf::after { content: attr(data-strip); position: absolute; left: var(--pz-cp, 18px); right: 44px; top: 22px; font: var(--caps-w, 700) 12px/1 var(--font-ui); letter-spacing: var(--caps-ls, .07em); text-transform: uppercase; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0; pointer-events: none; }
 .pz.pz-shuf .pz-text { z-index: 2; }
 .pz.pz-shuf .pz-data { z-index: 1; }
-.pz.pz-shuf.pz-shuf-data .pz-data { z-index: 3; }   /* (the words' card is 2: over the instrument while it leads, under it once it does) */
+.pz.pz-shuf.pz-shuf-data .pz-data { z-index: 3; }   /* (the words' card is 2: over the instrument while it comes, under it once the instrument does) */

@@ -21,7 +21,7 @@ export const FLUID = {
   'fluid.flow.t': { base: { font: [500, px(13)], fill: tok('text-2'), baseline: 'central' } },
   'fluid.flow.span': { base: {} },
   // 7449 .gf-tv: the number in it
-  'fluid.flow.tv': { base: { weight: 650, fill: tok('text') } },
+  'fluid.flow.tv': { base: { weight: 600, fill: tok('text') } },
   // 7450-7454 .gf-band, .gf-carried, .gf-back, .gf-build: a band as thick as its flow, in its fate's colour; its strength eases
   'fluid.band.carried': band(CARRIED),
   'fluid.band.back': band(tok('tour-sys')),

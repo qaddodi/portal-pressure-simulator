@@ -15,7 +15,7 @@ import { h } from './util.js';
 /** The cut-offs, in kPa and ×10³/µL. */
 export const BAVENO = { out: 15, in: 25, egd: 20, plt: 150 };
 /** The axis writing both charts share (and the ranges they draw, so 15 kPa stands at the same place on both): the numbers along the foot, the one up the left, the two axes' names. */
-export const BAVENO_AXES = { x: [5, 35], y: [50, 250], xTicks: [15, 20, 25], yTick: [BAVENO.plt, '150K'], xName: 'LSM kPa', yName: 'PLT' };
+export const BAVENO_AXES = { x: [5, 35], y: [50, 250], xTicks: [15, 20, 25], yTick: [BAVENO.plt, '150K'], xName: 'LSM, kPa', yName: 'PLT' };
 
 /** The zones as plain rectangles that never overlap, each out to the ends of the ranges x = [lo, hi] (kPa) and y = [lo, hi] (platelets):
  *  [{ rate: 'ok' | 'mid' | 'hi', x: [a, b], y: [c, d] }]. */

@@ -19,6 +19,8 @@ import { parsePacket, packetText, buildPacket } from '../src/ui/packet/packet.js
 import { stateLink, readStateLink } from '../src/ui/packet/state.js';
 import { resultLines, comparePackets, replayPacket } from '../src/ui/packet/replay.js';
 import { makeFixture } from '../src/ui/packet/test-from-packet.js';
+import { pointTo } from './debug-notice.mjs';
+pointTo('packet ...');
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);

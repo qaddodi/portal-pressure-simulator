@@ -346,7 +346,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 0 transpar
 .drug[aria-pressed="true"] .dot :is(svg, .ic) { opacity: 1; }
 .drug:disabled { opacity: .45; cursor: not-allowed; }
 .pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: var(--r-pill); font-size: var(--fs-12); font-weight: 600; background: var(--surface-2); color: var(--text-2); }
-.pill.rev { background: color-mix(in srgb, var(--flow-reversed) 14%, transparent); color: color-mix(in srgb, var(--flow-reversed) 85%, var(--text)); }
+.pill.rev { background: color-mix(in srgb, var(--flow-reversed) 14%, transparent); color: var(--flow-reversed-ink); }
 .pill.ok { background: color-mix(in srgb, var(--ok) 12%, transparent); color: color-mix(in srgb, var(--ok) 80%, var(--text)); }
 .pill.warn { background: color-mix(in srgb, var(--caution) 14%, transparent); color: color-mix(in srgb, var(--caution) 62%, var(--text)); }   /* (a little darker than the ink on the page: it sits on its own amber tint) */
 .pill.bad { background: color-mix(in srgb, var(--danger) 12%, transparent); color: color-mix(in srgb, var(--danger) 80%, var(--text)); }
@@ -357,7 +357,6 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 0 transpar
 .progress i { flex: 1; height: 3px; border-radius: 2px; background: var(--surface-3); }
 .progress i.on { background: var(--accent); }
 .progress i.cur { background: color-mix(in srgb, var(--accent) 55%, var(--surface-3)); }
-.mon.lab .mv::after { content: ' lab'; font-size: 12px; opacity: .7; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .card {
   border: 1px solid var(--border); border-radius: var(--r-card); padding: 16px; cursor: pointer; background: var(--surface); text-align: left;

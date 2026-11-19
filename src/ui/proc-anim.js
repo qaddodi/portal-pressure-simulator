@@ -83,7 +83,7 @@ const TIPS_COIL_STOPS = [TIPS_T.travel1 + 600, TIPS_T.over1 + 300, TIPS_T.inflat
 // camMs, 480 to 900 ms by how far it goes), this being the ceiling. The procedure waits for the glide to land, and a little more, at each new shot.
 const SHOT_MS = 1500;   // motion-scale: own pace (a shot's camera glide of a procedure)
 // (cathFocus's options, made once. A shot with no times of its own is timed by the camera, on an arc for a long move; BRTO's, BATO's and the glue's keep their own, straight.)
-const SHOT_CAM = { arc: true, scale: true }, SHOT_OWN = { arc: false, scale: false };
+const SHOT_CAM = { scale: true }, SHOT_OWN = { scale: false };   // (both go straight: no arcs since 19 Nov 2026, STG-4)
 // BRTO and BATO glide straight (no arc), each shot as long as its move needs: the way in, the short push in to the balloon, the fill (the
 // same framing: no move), the pull back to the result. Played step by step, their result stays framed when they end, until the slide
 // moves on (holdEnd: the old camera glided home while the catheter was still backing out). Mock B, his pick, 7 Nov 2026.
@@ -190,7 +190,6 @@ const IR_PV_T = (() => {
   return { travel0: 300, travel1, read0, read1, res0, back, end: back + 3000 };
 })();
 const GRAD_U_IVC = 0.4;   // (the IVC stretch's place on the route, u, when the stage has not given the route's stops)
-const GRAD_TARGET = 12;   // (mmHg: AASLD 2024, the gradient under which no beta-blocker is needed after a TIPS)
 const GRAD_PV = { key: 'w', at: 'tip', kicker: 'PORTAL VEIN', text: '', unit: 'mmHg', cls: 'pv' };
 const GRAD_IV = { key: 'f', at: 'tip', kicker: 'IVC', text: '', unit: 'mmHg', cls: 'ivc' };
 const GRAD_RES = { key: 'g', at: 'tip', kicker: 'GRADIENT', text: '', unit: 'mmHg', cls: 'result ok' };
@@ -271,7 +270,7 @@ export const MEASURES = {
       const T = GRAD_T, m = f?.metrics;
       if (t >= T.back) return out;
       if (t >= T.res0 && Number.isFinite(rd.ppg)) {
-        GRAD_RES.text = mmHg(rd.ppg); GRAD_RES.cls = rd.ppg < GRAD_TARGET ? 'result ok' : 'result caution'; out.push(GRAD_RES);
+        GRAD_RES.text = mmHg(rd.ppg); GRAD_RES.cls = IR_RESULT_CLS[ppgSev(rd.ppg)]; out.push(GRAD_RES);
       } else if (t >= T.ivRead0 && t < T.res0) { GRAD_IV.text = mmHg(m ? r1(m.ivc) : NaN); out.push(GRAD_IV); }
       else if (t >= T.pvRead0 && t < T.pull0) { GRAD_PV.text = mmHg(m ? r1(m.pv) : NaN); out.push(GRAD_PV); }
       return out;

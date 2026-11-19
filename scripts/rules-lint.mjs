@@ -40,12 +40,18 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // (lumen, lumenscale: the lumen layer's device A/B, brief PL 10 Nov 2026: ?lumen=off draws no lumen pass and no blood, ?lumenscale=<0.25..1> sets the lumen layer's share of the vessel layer's size.)
 // (rest: rest pacing on touch devices, brief H1 10 Nov 2026: ?rest=off turns the slow-down at rest off, to compare on a device.)
 // (gallery: the preview-only card gallery page and its device frames, ?gallery and ?gallery=frame, src/ui/gallery/, docs/card-gallery.md: loaded only on the preview copy.)
+// (r: ?r=<time> is the stale-page recovery's reload stamp (index.html ppsStale), not a switch; main.js takes it out of the address once booted, SHL-10.)
+// (sweep: ?sweep on the preview-only gallery page starts the card sweep instead of opening the rail, src/ui/gallery/page.js; the live site never loads that page, 19 Nov 2026.)
 // (embed: a deep link like script and preset, not a switch: ?embed is the app for an iframe on someone else's page, O1, 13 Nov 2026; src/ui/embed.js.)
-const KEEP = new Set(['perf', 'offgpu', 'fps', 'budget', 'inputs', 'lap', 'script', 'slide', 'preset', 'home', 'embed', 'back', 'presenter-view', 'v', 'lumen', 'lumenscale', 'rest', 'gallery', 'watch']);   // (watch: the motion recorder's red dot, a preview-only measuring aid like perf and offgpu; src/ui/watch)
+const KEEP = new Set(['perf', 'offgpu', 'fps', 'budget', 'inputs', 'lap', 'script', 'slide', 'preset', 'home', 'embed', 'back', 'presenter-view', 'v', 'lumen', 'lumenscale', 'rest', 'gallery', 'watch', 'sweep', 'r']);   // (watch: the motion recorder's red dot, a preview-only measuring aid like perf and offgpu; src/ui/watch)
 const walk = (p) => (statSync(p).isDirectory() ? readdirSync(p).flatMap((f) => walk(join(p, f))) : [p]);
-const files = [...walk(join(ROOT, 'src')).filter((f) => f.endsWith('.js')), join(ROOT, 'index.html'), join(ROOT, 'sw.js')];
+const files = [...walk(join(ROOT, 'src')).filter((f) => f.endsWith('.js')), join(ROOT, 'index.html')];
 
 const switches = new Map();   // name → [file:line]
+// (A flag the flag reader knows, src/ui/flags.js (FLAGS and EXTRA: each with its meaning and the gate that says where it is open), is a measuring or debug aid, not a runtime switch of the product: reading
+// it through flagOn / flagValue / flagNumber adds no switch. It still counts as read, so a name in scripts/switches-left.json that only the reader uses is not reported as gone.)
+const { knownFlags } = await import(pathToFileURL(join(ROOT, 'src/ui/flags.js')).href);
+const registeredFlags = new Set(knownFlags().map((f) => f.id)), flagReads = new Set();
 const lazy = [];              // 'file → specifier'
 for (const f of files) {
   const rel = relative(ROOT, f).split('\\').join('/');
@@ -54,6 +60,8 @@ for (const f of files) {
     const code = line.replace(/^\s*\/\/.*$/, '').replace(/\s\/\/ .*$/, '');
     for (const m of code.matchAll(/\[\?&\]\(?((?:[a-z0-9_-]+\|?)+)\)?/gi)) for (const n of m[1].split('|').filter(Boolean)) (switches.get(n) || switches.set(n, []).get(n)).push(at);
     for (const m of code.matchAll(/(?:searchParams|URLSearchParams\([^)]*\))\.(?:has|get)\('([a-z0-9_-]+)'\)/gi)) (switches.get(m[1]) || switches.set(m[1], []).get(m[1])).push(at);
+    // (The flag reader, src/ui/flags.js, is the one place a page's flags are read since the debug tools merge, 19 Nov 2026: flagOn('name'), flagValue('name'), flagNumber('name') are reads of the address like the two above.)
+    for (const m of code.matchAll(/\bflag(?:On|Value|Number)\('([a-z0-9_-]+)'/gi)) { if (registeredFlags.has(m[1])) flagReads.add(m[1]); else (switches.get(m[1]) || switches.set(m[1], []).get(m[1])).push(at); }
     for (const m of code.matchAll(/\bimport\(\s*(['"`])([^'"`]+)\1/g)) lazy.push(`${rel} → ${m[2].replace(/\?v=[0-9a-f]+$/, '')}`);
     if (/\bimport\(\s*[^'"`\s)]/.test(code)) lazy.push(`${rel} → (computed specifier, line ${i + 1})`);
   });
@@ -65,7 +73,13 @@ const left = leftDoc.left;
 const allowed = JSON.parse(readFileSync(join(ROOT, 'scripts/lazy-imports.json'), 'utf8')).imports;
 const errors = [];
 for (const [n, at] of switches) if (!KEEP.has(n) && !left.includes(n)) errors.push(`new runtime switch ?${n} (${at.join(', ')}): no new switches; build the one path`);
-for (const n of left) if (!switches.has(n)) errors.push(`?${n} is no longer read: take it out of scripts/switches-left.json`);
+for (const n of left) if (!switches.has(n) && !flagReads.has(n)) errors.push(`?${n} is no longer read: take it out of scripts/switches-left.json`);
+// The address is read through src/ui/flags.js only: two files reading location.search themselves let the same flag mean different things in two places (moved here from a test that
+// walked src/, 19 Nov 2026; the allowance is 0 and a new flag goes through the module).
+for (const f of files) {
+  if (!f.endsWith('.js') || f.endsWith('/ui/flags.js')) continue;
+  readFileSync(f, 'utf8').split('\n').forEach((l, i) => { if (/\blocation\??\.search\b/.test(l) && !/^\s*\/\//.test(l)) errors.push(`${f.slice(ROOT.length + 1)}:${i + 1} reads location.search itself: go through flagOn / flagValue / searchNow in src/ui/flags.js`); });
+}
 for (const l of new Set(lazy)) if (!(l in allowed)) errors.push(`dynamic import ${l} is not in scripts/lazy-imports.json: say what reads it in before a person can reach it`);
 for (const l of Object.keys(allowed)) if (!lazy.includes(l)) errors.push(`scripts/lazy-imports.json lists ${l}, which the source no longer has`);
 
@@ -246,7 +260,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     const vg = text('src/ui/veins-gl.js');
     const slice = (t, from, to) => t.slice(t.indexOf(from), t.indexOf(to, t.indexOf(from)));
     const lf = slice(vg, 'function lumenFrame(', '\n  }\n');
-    if (!/lumK = LK; \}/.test(lf) || !/eachPiece\(la\[0\], la\[1\], fboW, fboH\);\n\s+pMode = 0; lumK = null;/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: lumK is set only around the lumen pass\'s eachPiece and cleared straight after it');
+    if (!/lumK = LK; \}/.test(lf) || !/eachPiece\(la\[0\], la\[1\], fboW, fboH\)\)?;\n\s+pMode = 0; lumK = null;/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: lumK is set only around the lumen pass\'s eachPiece and cleared straight after it');
     if (!/pM = scaled \? lumenView\(m, LK\.sx, LK\.sy, LK\.ms\) : m;/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: the lumen pass is given the view in the target\'s pixels (lumenView) when the target is smaller than the layer');
     if (!/lumenDepth\.needs\(m, wo, la, lw0, lh0, bx\)/.test(lf) || !/lumenDepth\.drawn\(m, wo, la, lw0, lh0, bx\)/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: the depth stamp is told the target\'s size');
     if (!/const SW = size \? size\[0\] : lumK \? lumK\.w : fboW/.test(vg)) errors.push('src/ui/veins-gl.js vesselSet: the layer\'s size uniforms are the target\'s while lumK is set');
@@ -288,12 +302,13 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     const slice = (t, from, to) => t.slice(t.indexOf(from), t.indexOf(to, t.indexOf(from)));
     const mk = slice(vg, '    makeMorphSet(bins) {', '    prepareMorphSet(S) {');
     if (!/const keptVer = figVer, keptOK = fboOK, keptAll = movedAll;\n\s+useMorphSet\(null\);/.test(mk) || !/useMorphSet\(was\);\n\s+figVer = keptVer; fboOK = keptOK; movedAll = keptAll;\n\s+return S;/.test(mk) || /prepareSet\(/.test(mk)) errors.push('src/ui/veins-gl.js makeMorphSet: puts figVer, fboOK and movedAll back after the swap back (making a set never causes a whole redraw) and does not prepare the set (api.prepareMorphSet, a slice of its own)');
-    if (!/prepareMorphSet\(S\) \{ if \(S && S\.owner === api && morphSets\.has\(S\)\) prepareSet\(S\); \},/.test(vg) || !/if \(S && S\.prepKey === undefined\) prepareSet\(S\);\n\s+useMorphSet\(S\);/.test(vg)) errors.push('src/ui/veins-gl.js: api.prepareMorphSet(S) prepares a set of this renderer, and api.useMorphSet prepares a set never prepared at once, before the swap');
+    if (!/prepareMorphSet\(S\) \{ if \(S && S\.owner === api && morphSets\.has\(S\)\) prepareSet\(S\); \},/.test(vg) || !/if \(S && S\.prepared !== prepKey\(\)\) prepareSet\(S\);\n\s+useMorphSet\(S\);/.test(vg)) errors.push('src/ui/veins-gl.js: api.prepareMorphSet(S) prepares a set of this renderer, and api.useMorphSet prepares a set never prepared at once, before the swap');
     const meshGeoBody = slice(vg, '  function meshGeo() {', '  // A morph set\'s bundle, made');
     if (/pointsFromEntries\(|joinEntryList\(|patchGroups\(|stage2Prepare\(/.test(meshGeoBody) || !/deriveBundle\(B, entCPU/.test(meshGeoBody)) errors.push('src/ui/veins-gl.js meshGeo: derives through deriveBundle / deriveJoinPatches only, for the bundle in use');
     if ((vg.match(/patchGroups\(/g) || []).length !== 1 || (vg.match(/deriveJoinPatches\(B\)/g) || []).length !== 2) errors.push('src/ui/veins-gl.js: patchGroups is called once, in deriveJoinPatches (plus its import), and deriveJoinPatches is defined once and called from meshGeo and prepareSet only');
     if (!/if \(!B\.patchOk && patchesWanted\(\)\) deriveJoinPatches\(B\);/.test(meshGeoBody) || !/if \(patchesWanted\(\) && !B\.patchOk\) deriveJoinPatches\(B\);/.test(slice(vg, '  function prepareSetStep(S, step) {', '  // The sets made under another mode'))) errors.push('src/ui/veins-gl.js: the joins\' patches are built only where patchesWanted() (not for the Tube\'s web joins)');
-    if (!/if \(webJoins\(\)\) stage2Prepare\(B, tubeNow, nTubes, S\.morph\.joinBase\);/.test(vg) || (vg.match(/stage2Prepare\(/g) || []).length !== 1) errors.push('src/ui/veins-gl.js: the Tube\'s stage 2 record of a morph set is made by prepareSet, for web joins only (stage2Prepare is called there alone)');
+    const prepStep = slice(vg, '  function prepareSetStep(S, step) {', '  function prepareSet(S)');
+    if (!/if \(!webJoins\(\)\) \{ S\.prepared = S\.prepKey; return false; \}[\s\S]*stage2Prepare\(B, tubeNow, nTubes, S\.morph\.joinBase/.test(prepStep) || (vg.match(/stage2Prepare\(/g) || []).length !== (prepStep.match(/stage2Prepare\(/g) || []).length) errors.push('src/ui/veins-gl.js: the Tube\'s stage 2 record of a morph set is made by prepareSet, for web joins only (stage2Prepare is called there alone)');
     if (!/if \(!st \|\| st\.gen !== B\.gen \|\| !st\.R\.rows\) \{ st = stage2Prepare\(/.test(ts)) errors.push('src/ui/tube-stage2.js frame: bins only through stage2Prepare, and only for a bundle with no current record');
   }
   // The Tube's stage 3 (brief S3-D, 10 Nov 2026): the lumen layer. In stage 3 the compositor program is a Tube build and the lumen pass runs before it on every blood frame;
@@ -309,12 +324,13 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     if (!/const stage3 = !!tube3 && meshUse\(\) && tubePass\.stage\(\) === 3;/.test(vg)) errors.push('src/ui/veins-gl.js composite: stage 3 is the Tube chosen and drawing, tube3 ready and the pass at stage 3 (const stage3 = ...)');
     const prgLine = (vg.match(/\n[^\n]*const prg = [^\n]*/) || [''])[0];
     if (!/stage3 \? tube3\.compCell : compCell/.test(prgLine) || !/stage3 \? tube3\.plainCell : plainCell/.test(prgLine) || !/const cPlain = stage3 \? tube3\.plain : plain, cFull = stage3 \? tube3\.comp : comp;/.test(vg)) errors.push('src/ui/veins-gl.js composite: in stage 3 the compositor program is a Tube build (tube3.comp, compCell, plain, plainCell), and the old builds in stages 1 and 2');
-    const nUse = (vg.match(/tube3\.(comp|compCell|plain|plainCell)\b/g) || []).length, nGuard = (vg.match(/stage3 \? tube3\.(comp|compCell|plain|plainCell)\b/g) || []).length;
+    const vgDraw = vg.replace(/tube3 \? \[\[tube3\.plain[^\n]*/, '');   // (the compile warm-up lists the four builds to compile them: it draws nothing)
+    const nUse = (vgDraw.match(/tube3\.(comp|compCell|plain|plainCell)\b/g) || []).length, nGuard = (vgDraw.match(/stage3 \? tube3\.(comp|compCell|plain|plainCell)\b/g) || []).length;
     if (nUse !== nGuard) errors.push('src/ui/veins-gl.js: a Tube compositor build (tube3.comp, compCell, plain, plainCell) is named only after stage3 ?, so stages 1 and 2 never use one');
-    const lumIf = vg.indexOf("if (stage3 && (blood.on || (dyeAny && blood.dye !== false) || blood.origin)) {\n        fencePart('before lumen pass');   // (?perf: what was queued ahead of the lumen pass is a step of its own, so the next one is the pass alone)\n        gpuProbe.time(gl, 'lumen layer', lumenFrame, m, look, blood);");
+    const lumIf = vg.indexOf("if (stage3 && (blood.on || (dyeAny && blood.dye !== false) || blood.origin)) {\n        fencePart('before lumen pass');");
     const firstBind = vg.indexOf('compBind(U, layer, glow, warm, useStack);', lumIf);
     if (lumIf < 0 || firstBind < 0 || lumIf > firstBind) errors.push('src/ui/veins-gl.js composite: in stage 3 the lumen pass runs on every blood frame (blood, dye or origin), before the compositor binds its textures and draws (if (stage3 && (blood.on || ...)) { gpuProbe.time(gl, \'lumen layer\', lumenFrame, ...))');
-    if ((vg.match(/function lumenFrame\(/g) || []).length !== 1 || (vg.match(/lumenFrame, m, look/g) || []).length !== 1) errors.push('src/ui/veins-gl.js: lumenFrame is defined once and called once, in the composite, in stage 3');
+    if ((vg.match(/function lumenFrame\(/g) || []).length !== 1 || (vg.match(/=> lumenFrame\(m, look, blood\)/g) || []).length !== 1) errors.push('src/ui/veins-gl.js: lumenFrame is defined once and called once, in the composite, in stage 3');
     if (!/if \(pMode === 5\) \{ tubePass\.lumen\(pM, pLook, pRedo\); return; \}/.test(vg)) errors.push('src/ui/veins-gl.js pieceFn: the lumen layer\'s piece is the Tube pass\'s lumen pass alone (pMode 5)');
     if (!/if \(stageNow\(\)\.stage !== 3\) return false;/.test(slice(tp, 'function tubeLumenPass(', 'const D = FR.D'))) errors.push('src/ui/tube-pass.js tubeLumenPass: draws nothing outside stage 3');
     if (!/AT = choice\.stage === 3 \? A3 : ATTACH;/.test(tp)) errors.push('src/ui/tube-pass.js tubePass: the layer pass writes no second flow target in stage 3 only (AT = choice.stage === 3 ? A3 : ATTACH)');
@@ -402,14 +418,23 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     [/D\.lumBox\.on = !!C && joinBase < 0;/, "the lumen pass is scissored to the rows' box only at rest: between the views the rows' points move, and the bundle's points are the first sample's"],
   ]);
 
-  // The lobule's label search keeps to a deadline (15 Nov 2026, app review LZ2-1): source shapes moved out of tests (PR-02), each with its reason.
+  // The lobule's label search is a generator bounded by a count of solves (15 Nov 2026 LZ2-1; 19 Nov 2026 STG-1): source shapes moved out of tests (PR-02), each with its reason.
   need('src/ui/lobule-zoom*', [
-    [/searchBudget\.begin\(\);\n\s+do \{\n\s+const s2 = solve\(permOf\(items, idx, ord\), base, LC\.ld0, trial\);/, "the order search begins its budget and checks it between solves, so a crowded layout is never 0.6 s in one frame"],
-    [/if \(searchBudget\.over\(\)\) break;\n\s+\} while \(nextPerm\(idx, items\.length\)\);/, "the six-label order loop stops at its deadline"],
-    [/if \(sol\.total >= 1e5 && !searchBudget\.over\(\)\) sol = retryClash\(/, "the other-sinusoid retry (30 x 120 solves, 2 s) only starts inside the deadline"],
-    [/if \(searchBudget\.end\(\)\) nextFrame\(\(\) => \{ if \((?:live\.)?geo && (?:live\.)?fade > 0\) \{ (?:live\.)?layoutKey = ''; lzLoop\.want\(true\); \} \}\);/, "a cut search is run again, longer, in a later frame"],
+    [/searchBudget\.begin\(\);\n\s+do \{\n\s+const s2 = solve\(permOf\(items, idx, ord\), base, LC\.ld0, trial\);\n\s+searchBudget\.spend\(\);/, "the order search begins its budget and counts each solve, so a crowded layout is bounded by the same number of solves on every device"],
+    [/if \(searchBudget\.over\(\)\) break;\n\s+if \(sliceOver\(\)\) yield;\n\s+\} while \(nextPerm\(idx, items\.length\)\);/, "the six-label order loop stops at its budget and yields between solves once its frame's slice is spent"],
+    [/if \(sol\.total >= 1e5 && !searchBudget\.over\(\)\) sol = yield\* retryClash\(/, "the other-sinusoid retry only starts inside the budget, and goes on in later frames where it stopped"],
+    [/function\* layoutBody\(fr0, g, jb\)/, "the layout is a generator: a search that is not finished goes on in the next frame, the labels standing where they were seen until it lands (STG-1)"],
     [/cands\.length = Math\.min\(cands\.length, 8\);/, "eight other sinusoids at most"],
-    [/if \(searchBudget\.over\(\)\) break;\n\s+sinIt\.a\[0\] = a\[0\]; sinIt\.a\[1\] = a\[1\];/, "the candidate loop stops at its deadline"],
+    [/if \(searchBudget\.over\(\)\) break;\n\s+sinIt\.a\[0\] = a\[0\]; sinIt\.a\[1\] = a\[1\];/, "the candidate loop stops at its budget"],
+    [/if \(winSin != null\) pick\.sin = winSin;/, "the sinusoid that carries the label is set once, when the search has finished, never under a search that is cut"],
+    [/const callLead = placeCall\(fr, placed, cards, LC\.none, crosses, ring, hex, keep, into, callOutMain, true\);/, "the pill is placed dry (no write to the page) and written once, landCall, when the layout lands"],
+  ]);
+  forbid('src/ui/lobule-zoom*', /performance\.now\(\) > (?:live\.)?deadline|searchBudget\.end\(/, 'the label search is bounded by a count of solves, never a clock: the same lobule state must give the same layout on every device (STG-1)');
+  forbid('src/ui/lobule-zoom*', /pick\.sin = t\.id/, 'pick.sin is set once when the search has finished (STG-1)');
+  // What covers the figure is one list, src/ui/blockers.js (19 Nov 2026, bible review STG-2): source shapes moved out of tests (PR-02), each with its reason.
+  for (const f of ['src/ui/stage-label-items.js', 'src/ui/lobule-zoom.js', 'src/ui/sinusoid-view.js']) forbid(f, /querySelectorAll\(\s*['"`]\.stage-blocker:not\(\[hidden\]\)['"`]\s*\)|BLOCKER_SEL\s*=/, 'what covers the figure is read from src/ui/blockers.js (one list, one set of rules, rest boxes), never a copy: a label tucked under the teaching glass in the lobule and sinusoid when each kept its own');
+  need('src/ui/stage-fit.js', [
+    [/function cardSpaceFrom\(list\) \{[\s\S]{0,300}for \(const \{ el, rest: q,/, "the room the catheter's readings keep to counts each card at its rest box, so a card still sliding in does not move them twice (STG-2)"],
   ]);
 
   // The sinusoid view's cells pass is scissored to the cells' boxes (15 Nov 2026, app review OG-2): source shapes moved out of tests (PR-02), each with its reason.
@@ -520,7 +545,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     [/stage\.lobuleFocus\(part, \{ zoom, ms \}\)\) await waitCut\(ms \+ 300, \(\) => cut\(\) \|\| !stage\.lobuleGlide\?\.\(\)\);/, "the wait after a lobule focus is the lobule glide's landing (the focus times itself by reach), ms only its ceiling"],
     [/setViewKey\('sinusoid'\); if \(ms\) await waitCut\(1250 \+ 400, \(\) => cut\(\) \|\| !stage\.sinBusy\(\)\)/, 'into the sinusoid: until its zoom has landed'],
     [/setViewKey\('lobule'\); if \(ms\) await waitCut\(1000 \+ 400, \(\) => cut\(\) \|\| !stage\.sinBusy\(\)\)/, 'out of the sinusoid: until its zoom has landed'],
-    [/const switching = store\.get\(\)\.view !== v;\s*if \(switching\) setViewKey\(v === 'circuit' \? 'circuit' : 'anatomy'\);/, "a slide's switch of view sets off and its framing is asked of the running change at once (camera travels once)"],
+    [/const switching = viaRise \|\| store\.get\(\)\.view !== v;\s*if \(store\.get\(\)\.view !== v\) setViewKey\(v === 'circuit' \? 'circuit' : 'anatomy'\);/, "a slide's switch of view sets off and its framing is asked of the running change at once (camera travels once)"],
     [/\{ setViewKey\('anatomy'\); await viewSettled\(cut, stage\); if \(cut\(\)\) return; \}/, 'the dive after a switch to Anatomy waits for the change to land, not 700 ms'],
     [/if \(threw\) \{ thrownNow = true; return 0; \}/, 'every card that leaves is thrown: wordsOut asks for no fixed floor, throwsOut() ends when they are out of sight (about 170 ms, not 260)'],
     [/if \(outMs\) await waitCut\(Math\.max\(0, outMs - \(performance\.now\(\) - outAt\)\), cut\);\s*\n\s*if \(throwDir\) await throwsOut\(\);/, 'the old cards are waited for by their own end of sight'],
@@ -530,7 +555,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   {
     const pz = text('src/ui/presenter*'), c0 = pz.indexOf('  async function camera('), cam = pz.slice(c0, c0 + 1 + pz.slice(c0 + 1).search(/\n {2}(?:async )?function |\n {2}\/\/ \(left: only the entrances/));   // (the next function after it, or the note that used to follow it)
     if (/\bwait\(/.test(cam)) errors.push('src/ui/presenter.js camera(): a wait here is waitCut or until, so a newer press cuts it');
-    const at = cam.indexOf('const switching = store.get().view !== v;');
+    const at = cam.indexOf('const switching = ');
     if (!(at > 0 && cam.indexOf('frameTo(cam, s, gl, SLIDE_OPT);', at) > at && cam.indexOf('viewSettled(cut, stage)', at) > cam.indexOf('frameTo(cam, s, gl, SLIDE_OPT);', at))) errors.push('src/ui/presenter.js camera(): the framing is asked of the change before any wait for it to land');
   }
   {
@@ -563,14 +588,25 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   need('src/ui/stage-view.js', [[/vb0: \[vbBox\.x, vbBox\.y, vbBox\.width, vbBox\.height\]/, 'a change keeps the view box its camera was written for'], [/sameView\(live\.vt, to\), \[vbBox\.x/, 'a retarget keeps the box the camera it sets out from stands in']]);
   need('src/ui/stage-fit.js', [[/viewXfCameraInto\(g\.x, /, "the phone's turn glide is worked out on the screen too: the view box turns under the camera"]]);
   forbid('src/ui/stage-glide.js', /camMs\([^)]*VIEW\.w|springSlope\([^)]*VIEW\.w/, "a glide's time and carried speed count the screen's real width (stage-ride.js screenW), not the old 1400 plate");
-  need('src/ui/stage-glide.js', [[/else if \(opt\.slow\) animateVT\(to, ms, \{ arc: true, scale: true, floor: CAM_MS_MAX, slide \}\)/, "the move in from a case card takes the time the move out took (frameBox opt.slow)"]]);
+  need('src/ui/stage-glide.js', [[/else if \(opt\.slow\) animateVT\(to, ms, \{ scale: true, floor: CAM_MS_MAX, slide \}\)/, "the move in from a case card takes the time the move out took (frameBox opt.slow)"]]);
   need('src/ui/presenter.js', [
     [/prep = bare \? unseenFit\(cut\) : null, Promise\.resolve\(prep\)\.then\(\(ok\) => \(bare && !ok \? null : camera\(cam, fv, cut\)\)\)/, "the lead-in camera frames only after the unseen cards' last fitting (Carvedilol 3 to 4, 16 Nov 2026: a framing taken before it was undone by a second move)"],
     [/else if \(cam\) \{ if \(prepWith\) \{ prep \|\|= unseenFit\(cut\); if \(!await prep\) return; \} await camera\(cam, fv, cut, plate \? CARDS_AT : 0\); \}/, "the slide's camera frames only after the unseen cards' last fitting, for every kind of slide change over the plate (same patient, new patient, case card)"],
   ]);
   need('src/ui/presenter.js', [[/await caseLifted\(cut\); if \(cut\(\)\) return; caseExit = true;/, "the camera behind a case card is at the whole patient: its move in takes 900 ms (presenter-proc.js frameTo reads caseExit)"]]);
   need('src/ui/presenter-proc.js', [[/live\.caseExit && !opt\.drift \? \{ \.\.\.opt, slow: true \} : opt/, "frameTo asks the move in from a case card slow"]]);
-  need('src/ui/stage-glide.js', [[/arcRoom\(freeAsk\)/, "a framing's arc travels the middle of the room the cards left (cam-arc.js camWindow)"]]);
+  // A card zoom's callouts come back through their fade (19 Nov 2026, bible review STG-6): source shapes kept here (PR-02), each with its reason.
+  need('src/ui/stage-zoom.js', [
+    [/h\.el\.style\.transition = `opacity \$\{D_SMALL\}ms var\(--ease\)`; h\.el\.style\.opacity = h\.was; \}\n\s+stageScope\.timer\(\(\) => \{ for \(const h of back\) h\.el\.style\.transition = h\.tr; \}, D_SMALL \+ 40\);/, "the callouts hidden under a zoomed card return under the fade they left by, and drop the inline transition once it has run: opacity and transition written together popped them back in one frame"],
+  ]);
+  // The catheter stack's row flip is a soft dip and rise, and a crossing is marked (19 Nov 2026, bible review STG-9): source shapes kept here (PR-02).
+  need('src/ui/stage-cath.js', [[/t\.animate\(\[\{ opacity: 0\.25 \}, \{ opacity: 1 \}\], \{ duration: D_SMALL, easing: EASE_ARRIVE \}\)/, 'the order flip of the HVPG stack plays a dip-and-rise on the box and its leaders (the motion scale\'s time and curve, no keyframes of its own), never an instant swap'], [/el\.dataset\.leadsUnclean = '1'/, 'a stack whose leaders cross either way is marked on its root']]);
+  // One reading-text rule for the figure's labels and the lobule's stations (19 Nov 2026, bible review STG-5): source shapes kept here (PR-02).
+  need('src/ui/lobule-zoom-labels.js', [[/badgeOn\(m\.cmp\), off = badgeOff\(m\.cmp\)/, 'the lobule station badge reads the one rule (change-badge.js)'], [/rollStep\(rl, v, 0\.5, performance\.now\(\), reduce\.matches\)/, 'a lobule station number counts to its new value as every other reading does (count-roll.js)'], [/padDigits\(L\.el\.innerHTML\)/, 'a label key pads its digits: 9.9 and 10.0 are one key']]);
+  need('src/ui/stage-label-items.js', [[/badge\(\(cmp \? 'pc:' : 'p:'\) \+ id, Math\.abs\(P - ref\), badgeOn\(cmp\), badgeOff\(cmp\)\)/, 'the figure\'s change badge reads the one rule (change-badge.js)']]);
+  // The camera has one path, the straight one (19 Nov 2026, bible review STG-4; Mohammad, 18 Nov: "camera must zoom straight from any view to any view"): no pull-back arc, no blend of two paths, no arc option.
+  for (const f of ['src/ui/stage.js', 'src/ui/stage-glide.js', 'src/ui/stage-cath.js', 'src/ui/stage-ride.js', 'src/ui/stage-fit.js', 'src/ui/stage-view.js']) forbid(f, /\barcRoom\b|\bcamPath\b|\bblendPaths\b|\barcRun\b|\bviewsOverlap\b|\barc: true|\{ arc\b/, 'the camera goes straight from any view to any view: no pull-back arc, no blended refit, no arc option (cam-arc.js lerpInto)');
+  forbid('src/ui/proc-anim.js', /\barc:\s*(?:true|false)/, 'a procedure shot goes straight: no arc option (STG-4)');
   forbid('src/ui/stage-ride.js', /VIEW\./, 'the arcs read the stage\'s real view box (cam-arc.js camWindow), never the old 1400 x 1000 plate');
   need('src/ui/lobule-zoom*', [[/diveMapInto\(D\.p, D\.c, D\.rot, D\.Z, g, DM\)/, 'the lobule is carried by the dive map: turned and grown about its sinusoid, which goes straight to its place']]);
   forbid('src/ui/lobule-zoom*', /D\.q\b/, 'no fixed point: the zoom into a sinusoid spiralled about it (15 Nov 2026)');
@@ -627,7 +663,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     [/creditOff\(\); changeOff\(\);/, 'and ends it whatever ended the move'],
     [/shown = \{ i: to, gen: g \}; lastAt = to; shownBeat = b0; endChange\?\.\(\);/, "the hold is given back as the slide lands, before a time-lapse of minutes plays"],
   ]);
-  need('src/ui/stage-tubes.js', [[/sinceInput\(\) < 700 \|\| settling\(\)\) stageScope\.timer\(prepIdleGo/, "the lobule's pictures made ahead wait out a slide change (100 to 250 ms a piece, in the waits ahead of the camera)"]]);
+  need('src/ui/stage-tubes.js', [[/sinceInput\(\) < prepQuiet\(\) \|\| settling\(\)[^\n]*\) stageScope\.timer\(prepIdleGo/, "the lobule's pictures made ahead wait out a slide change (100 to 250 ms a piece, in the waits ahead of the camera)"]]);
   need('src/ui/stage-vessels.js', [
     [/if \(settling\(\) \|\| live\.coilEasing\) \{ envSoon\(\)/, "the vessels' envelope waits out a slide change"],
     [/\(settling\(\) \|\| sinceInput\(\) < 700\) && snaps\.length/, "the envelope's stretches wait out a slide change"],
@@ -709,8 +745,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   }
   need('src/ui/stage-glide.js', [
     [/const v0 = opt\.v0 \|\| \(!drift && live\.vtGliding \? vtTrack\.take\(performance\.now\(\)\) : null\);/, "a glide takes the hand's speed (opt.v0) or the glide's it replaces"],
-    [/if \(v0 && \(!live\.arcRun \|\| newArc\) && !sameView\(from, to\)\) \{/, 'a fresh arc carries the old speed on, as a plain glide does (item 14)'],
-    [/t0 = prev\.t0; ms = prev\.ms;\n\s+live\.arcRun = \{ from: prev\.from, to, t0, ms, at \};/, "a refit's blend of a running arc keeps its pace and end time"],
+    [/if \(v0 && !sameView\(from, to\)\) \{/, 'a glide carries the old speed on (item 14), on the straight path'],
   ]);
   need('src/ui/stage-ride.js', [[/lerpInto\(a, b, f, FOLLOW_V\)/, 'the card-room follow zooms in log space (item 14)']]);
   need('src/ui/card-zoom.js', [

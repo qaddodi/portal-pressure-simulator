@@ -13,7 +13,8 @@ import { openPacketSheet } from './sheet.js';
 import { packetText, parsePacket } from './packet.js';
 import { applyFromAddress, applyExtras } from './state.js';
 import { HOLD_MS, SLOP_PX, isPreview, isChord, longPress, BADGE_CSS } from './press.js';
-import { probeBusy } from '../gallery/api.js';
+import { pageBusy, waitQuiet, QUIET_LONG_MS, POLL_MS } from '../screen/settle.js';
+import { inChange } from '../frame.js';
 import { readAnims } from '../layout-snap.js';
 
 export { HOLD_MS, SLOP_PX, isPreview, isChord, longPress };
@@ -35,15 +36,5 @@ export function installPacketTrigger({ pps = window.pps, win = window, doc = doc
 
 /** Resolves { settled, ms } once nothing has been arriving for quietMs (the gallery's own probe: presenter, camera, cards still styling, fonts, running animations). One timer while waiting. */
 export function settled(pps, doc = document) {
-  return ({ timeoutMs = 60000, quietMs = 600, pollMs = 100 } = {}) => new Promise((done) => {
-    const t0 = performance.now();
-    let quiet = -1;
-    const tick = () => {
-      const t = performance.now();
-      if (!probeBusy(pps, doc, readAnims)) { if (quiet < 0) quiet = t; if (t - quiet >= quietMs) return done({ settled: true, ms: Math.round(t - t0) }); } else quiet = -1;
-      if (t - t0 >= timeoutMs) return done({ settled: false, ms: Math.round(t - t0) });
-      setTimeout(tick, pollMs);
-    };
-    tick();
-  });
+  return ({ timeoutMs = 60000, quietMs = QUIET_LONG_MS, pollMs = POLL_MS } = {}) => waitQuiet(() => pageBusy(pps, doc, { anims: readAnims, changing: inChange() }), { timeoutMs, quietMs, pollMs });
 }

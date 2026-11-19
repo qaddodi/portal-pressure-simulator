@@ -5,10 +5,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Engine } from '../src/engine/engine.js';
 import { detectEvents } from '../src/engine/events.js';
+import { atBedside } from '../src/worker-core.js';
 
 const patient = (id = 'cirr-decomp') => {
   const e = new Engine(); e.loadPreset(id); e.beat = true;
-  for (let i = 0; i < 1500; i++) e.step(0.008);   // (the worker's run-in, WARM_STEPS)
+  atBedside(e);   // (the worker's run-in, worker-core preset)
   e.evState = {}; e.evAvg = null; detectEvents(e, true); e.newEvents = []; e.eventLog = [];   // (and the starting state taken after it, worker-core preset)
   return e;
 };

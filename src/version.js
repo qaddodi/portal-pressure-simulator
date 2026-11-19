@@ -1,5 +1,4 @@
-// When the app and its model content were last updated, shown as a date (no version number is shown
-// anywhere). A class taught on content of one date
+// When the app and its model content were last updated, shown as a date (no version number; About also names the build, RELEASE below). A class taught on content of one date
 // behaves the same all term: the model, presets and decks only change when the content date does.
 // A no-break space keeps month and year on one line.
 export const UPDATED = 'November\u00a02026';
@@ -22,7 +21,7 @@ export const VALIDATION = [
   'Right heart failure: high RAP and WHVP, normal HVPG, pulsatile portal vein, protein-rich ascites',
   'Splenic vein thrombosis: normal portal pressure, high splenic vein pressure, flow through the short gastric veins',
   'Splenorenal shunt in decompensated cirrhosis: the splenic vein reverses',
-  'End-stage cirrhosis with arterioportal shunting: hepatofugal portal flow',
+  'Cirrhosis with arterioportal shunting: hepatofugal portal flow',
   'TIPS 10 mm at HVPG ≈20 mmHg: PPG <12 mmHg, shunt fraction and hepatic perfusion change as expected',
   'Model calibration: no variceal rupture at an HVPG <12 mmHg (a simplification: real varices can bleed <12)',
   'Hemorrhage lowers portal pressure; over-transfusion raises it above the pre-bleed level',

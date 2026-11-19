@@ -14,6 +14,7 @@
 // It reads the scheduler's own numbers and writes its words once a second, between frames (rest-pass.js), never in a frame. It adds no
 // frame loop of its own: an idle page stays idle (the panel then says so). The GPU numbers come from fences (gpu-fence.js): one frame in
 // thirty sampled, plus each whole vessel redraw (at most four a second); the waits are left out of the page's script numbers.
+import { prefs } from './prefs.js';
 import { counts } from './frame-counts.js';
 import { watchFrames, watchRender, perf, refreshHz, refreshMaxHz, frameBudget, targetHz, watchdogStats, mayStats, mayAgedTop, frameCount, cameraMoving, pageRest, calmRuleText, restRuleText } from './frame.js';
 import { restPass } from './rest-pass.js';
@@ -490,10 +491,10 @@ export function startFrameHud() {
   const body = document.createElement('div');
   el.append(bar, body);
   let folded = false;
-  try { folded = localStorage.getItem('pps.hudFold') === '1'; } catch { /* storage off: shown whole */ }
+  try { folded = prefs.getItem('pps.hudFold') === '1'; } catch { /* storage off: shown whole */ }
   let fullText = '', summary = '';
   const show = () => { body.textContent = folded ? summary : fullText; foldB.textContent = folded ? 'Show everything' : 'Summary only'; };
-  foldB.onclick = () => { folded = !folded; try { localStorage.setItem('pps.hudFold', folded ? '1' : '0'); } catch { /* not kept */ } show(); };
+  foldB.onclick = () => { folded = !folded; try { prefs.setItem('pps.hudFold', folded ? '1' : '0'); } catch { /* not kept */ } show(); };
   copyB.onclick = () => { navigator.clipboard?.writeText(fullText).then(() => { copyB.textContent = 'Copied'; }, () => { copyB.textContent = 'Copy failed'; }); };
   document.body.append(el);
   let evSeq = wholeSeq(), lastWrite = performance.now();

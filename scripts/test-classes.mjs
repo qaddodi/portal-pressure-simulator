@@ -14,7 +14,8 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const TESTS = join(ROOT, 'tests');
 const READS_SRC = /readFileSync\([^)]*(?:\.\.\/)?(?:src|styles)\/|readFileSync\([^)]*index\.html|readFileSync\(\s*new URL\(\s*['"`]\.\.\/(?:src|styles)\/|readFileSync\(\s*new URL\(\s*['"`]\.\.\/index\.html/;
-const READS_STAGE = /from\s*['"]\.\/stage-src\.js['"]/;
+// (The family readers are source readers too: stage-src.js (the stage) and split-src.js (the presenter, the lobule and the app's stylesheet, since 15 Nov 2026). The classifier missed split-src.js, which hid 167 tests, SHL-2.)
+const READS_STAGE = /from\s*['"]\.\/(?:stage|split)-src\.js['"]/;
 const IMPORTS_SRC = /^import[^;]*from\s*['"]\.\.\/src\//m;
 
 export function classify(text) {

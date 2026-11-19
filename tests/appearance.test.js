@@ -99,7 +99,7 @@ test('a saved palette paints its ground before the styles load, and every other 
     const el = { setAttribute: (k, v) => attrs.set(k, v), style };
     const store = new Map(t == null ? [] : [['pps.theme', t]]);
     const localStorage = { get length() { return store.size; }, key: (i) => [...store.keys()][i] ?? null, getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
-    vm.runInNewContext(src, { localStorage, document: { documentElement: el }, matchMedia: () => ({ matches: systemDark }) });
+    vm.runInNewContext(src, { localStorage, location: { pathname: '/' }, document: { documentElement: el }, matchMedia: () => ({ matches: systemDark }) });
     return { theme: attrs.get('data-theme') ?? null, palette: attrs.get('data-palette') ?? null, bg: style.background ?? null };
   };
   for (const l of PALETTES) {

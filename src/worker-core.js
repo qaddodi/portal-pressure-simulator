@@ -90,11 +90,22 @@ function* stepExtras(e, st) {
 // again, to a hair's difference each time) comes back with it, so the restored model is the loaded one; the events a load starts
 // over are cleared as a load clears them.
 const KEPT_MAX = 24;
-export const WARM_DT = 0.008, WARM_STEPS = 1500;   // (a loaded patient's run-in at the bedside clock: 12 s, the steps of the 4× clock, whose means differ by about 0.01 mmHg, see hemoStep)
-/** A settled model run at the bedside clock's own steps for WARM_STEPS (12 s): its beat and breath on, so the readings it gives are the shown means the live
+// A loaded patient's run-in at the bedside, 40 s: the time its slow means take to settle (the baroreflex's and the vitals' filters: a 12 s run left the live model
+// moving 0.1 to 0.4 mmHg for the next 40 s, and across a cut-off on three slides, ENG-1 of 19 Nov 2026). The first 24 s in 20 ms steps with the beat on, which land
+// within 0.01 mmHg of the 4 ms clock for the pressures and cost a quarter of the steps; the last 16 s in the 8 ms steps of the 4x clock, which flush the vitals'
+// two 4 s filters of the systolic peak the coarse steps under-read by 1 to 2 mmHg (an 8 ms run reads 0.5 under the 1x clock's 4 ms, hemoStep).
+export const WARM_RUNS = Object.freeze([[0.02, 1200], [0.008, 2000]]);
+export const WARM_STEPS = WARM_RUNS.reduce((n, r) => n + r[1], 0), WARM_SECS = WARM_RUNS.reduce((t, r) => t + r[0] * r[1], 0);
+/** The run-in as a generator that yields every `every` steps, for a job that must not hold the worker (the live load); atBedside runs it through. */
+export function* bedsideRun(e, every = 250) {
+  e.beat = true;
+  let k = 0;
+  for (const [dt, n] of WARM_RUNS) for (let i = 0; i < n; i++) { e.step(dt); if (++k % every === 0) yield; }
+}
+/** A settled model run at the bedside for WARM_SECS (40 s): its beat and breath on, so the readings it gives are the shown means the live
  *  figure holds. The quiet settle has neither, and its numbers sit 0.1 to 0.6 mmHg off (HVPG, PPG), MAP about 1: a slide's words said 7.7 where the live card
  *  settled at 7.5 or 8.0 after about 20 s (play-test B12, 16 Nov 2026). Every state the page is handed (a slide's, a patient menu's) is read from here. */
-export function atBedside(e) { e.beat = true; for (let i = 0; i < WARM_STEPS; i++) e.step(WARM_DT); }
+export function atBedside(e) { const g = bedsideRun(e); while (!g.next().done); }
 const REFS = ['refP', 'refQ', 'Vbase'];
 function* loadPresetKept(e, kept, id, opts) {
   const key = `${id}|${opts.days ?? ''}|${e.params.seed}`, k = kept.get(key);
@@ -336,10 +347,12 @@ export function createCore(post) {
   // posted 10 frames a second forever). The bands are under what any reading prints or any colour or width shows: half a printed tenth of
   // a mmHg, a percent of a flow, half a percent of a width. What is left at rest is smaller still or slower: the beat's length follows the
   // breath by a fifth of a beat a minute, so a beat-locked flow keeps a jitter of about 0.4%, and the arterial pressure wanders by
-  // about 0.07 mmHg over 20 s as the baroreflex hunts.)
+  // about 0.07 mmHg over 20 s as the baroreflex hunts. The bands are a printed tenth for a pressure and 2% for a flow (the dead band on the printed readings, holdShown, keeps what prints still
+  // inside them): the acute PVT's baroreflex hunts, its aortic mean by 0.08 and its caval flow by 1 to 2% from one second to the next, so the tighter bands posted it
+  // by chance, 9 to 18 frames in 10 s depending only on the length of the run-in.)
   let still = null;
   const HEARTBEAT_MS = 1000;
-  const NEAR_P = [0.05, 0], NEAR_Q = [0.01, 0.01], NEAR_D = [1e-3, 0.005];
+  const NEAR_P = [0.1, 0], NEAR_Q = [0.01, 0.02], NEAR_D = [1e-3, 0.005];
   const near = (a, b, /** @type {number[]} */ tol) => { const [abs, rel] = tol; if (!b || a.length !== b.length) return false; for (let i = 0; i < a.length; i++) if (Math.abs(a[i] - b[i]) > abs + rel * Math.abs(b[i])) return false; return true; };
   // (The figure's colours, widths and readouts follow the eased Pf, Qf and D; the beat-by-beat P, Q and ext ride the heartbeat frame and the samples.)
   // (The last posted state, kept in buffers made once and written in place: no arrays made a posted frame, rev 2 step 3.)
@@ -523,8 +536,8 @@ export function createCore(post) {
         yield* loadPresetKept(eng, keptPresets, id, days != null ? { days: days + (PRESETS.find((p) => p.id === id)?.days || 0) } : {});
         // The other patients open at their bedside rest too (play-test A1, 16 Nov 2026): the settle that made them runs without the breath and the pulse, and the
         // beating model's means sit a little off it (HVPG 0.1 to 0.6 mmHg, MAP about 1), so a patient picked drifted for 8 to 10 s (Decompensated 16.7, then 16.0).
-        // Twelve seconds of the live clock's own steps, before the page is told, start it there.
-        if (beat) { eng.beat = true; for (let i = 0; i < WARM_STEPS; i++) { eng.step(WARM_DT); if (i % 250 === 249) yield; } }
+        // Forty seconds of the bedside run-in (WARM_STEPS), before the page is told, start it there, and the slow means have converged.
+        if (beat) yield* bedsideRun(eng);
         // The patient's starting state, for the History's events (events.js), is taken from where the patient now stands, after the run-in: taken before it, a reading a
         // few tenths from its cut-off crossed it in the first seconds and "Ascites forming" fired on a patient that began with ascites (play-test, 16 Nov 2026).
         if (beat) { eng.evState = {}; eng.evAvg = null; detectEvents(eng, true); eng.newEvents = []; }
@@ -677,7 +690,7 @@ export function createCore(post) {
         // (The chart's two ends are what the slide's tiles read, i.e. the bedside readings; the days between are the quiet model's, moved by the gap to each end in proportion.)
         const gap0 = trail ? (() => { const c = new Engine(); c.restore(e.snapshot()); atBedside(c); const b = vals(computeMetrics(c), c); return b.map((v, j) => v - trail[0][j + 1]); })() : null;
         // start: a time-lapse with its own params plays from here (params set and settled, no day run yet), not from the slide before.
-        const start = st.fine && st.days && st.params ? (() => { const c = new Engine(); c.restore(e.snapshot()); atBedside(c); return { snap: c.snapshot(), params: structuredClone(e.params), fp: fingerprint(computeMetrics(c), c) }; })() : null;
+        const start = st.fine && st.days && st.params ? (() => { const c = new Engine(); c.restore(e.snapshot()); atBedside(c); return { snap: c.snapshot({ rest: true }), params: structuredClone(e.params), fp: fingerprint(computeMetrics(c), c) }; })() : null;
         for (let done = 0; done < (st.days || 0);) {
           const n = fine ? 1 : Math.min(30, st.days - done);
           if (ramp) e.setParams(deepMerge(e.params, rampAt(ramp, done + 1, st.days)));
@@ -685,7 +698,7 @@ export function createCore(post) {
           done += n;
           if (trail && done < st.days) trail.push(at(done, computeMetrics(e)));
         }
-        if (st.preset || st.params || st.action || st.days) e.settle();
+        if (st.preset || st.params || st.action || st.days) { e.settle(); e.finishInfusions(); }   // (a transfusion on the slide is done, not still dripping)
         // (What the page is handed is read from a copy run at the bedside; the chain goes on from the settled model, so a slide's state never depends on the warm-up of the one before.)
         const moved = !!(st.preset || st.params || st.action || st.days || st.relax || st.restart);
         if (moved || !w) { w = new Engine(); w.restore(e.snapshot()); atBedside(w); }   // (a slide that changes nothing is the one before)
@@ -701,9 +714,9 @@ export function createCore(post) {
         let before = null;
         if (st.before) {
           const b = new Engine(); b.restore(e.snapshot()); b.setParams(deepMerge(b.params, st.before)); b.settle(); atBedside(b);
-          before = { snap: b.snapshot(), params: structuredClone(b.params), fp: fingerprint(computeMetrics(b), b) };
+          before = { snap: b.snapshot({ rest: true }), params: structuredClone(b.params), fp: fingerprint(computeMetrics(b), b) };
         }
-        post({ type: 'seqStep', reqId, i, snap: w.snapshot(), base: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(m, w), trail: trail && calmTrail(trail, tk.length), start, before, ...(extra ? { extra } : {}) });
+        post({ type: 'seqStep', reqId, i, snap: w.snapshot({ rest: true }), base: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(m, w), trail: trail && calmTrail(trail, tk.length), start, before, ...(extra ? { extra } : {}) });
         yield;
       }
       post({ type: 'sequence', reqId });

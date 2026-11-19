@@ -1,5 +1,6 @@
 // Tiny observable store + parameter history (undo/redo, blueprint §3).
 
+import { prefs } from './prefs.js';
 import { defaultParams, deepMerge } from '../engine/scenario.js';
 import { runSoon } from './class-soon.js';
 import { hvBlocked } from '../engine/pressure-cuts.js';
@@ -18,7 +19,7 @@ const state = {
   details: null,              // a selection shown in full in the side panel ('Details ›')
   shunting: null,             // { src, only } while a shunt waits for its drop target
   layers: { chips: true, collaterals: false, organs: true, labels: true, grid: false },
-  labelLevel: (() => { try { const v = localStorage.getItem('pps.labels'); return ['key', 'all', 'none'].includes(v) ? v : 'key'; } catch { return 'key'; } })(),   // station labels: key | all | none (Blood menu)
+  labelLevel: (() => { try { const v = prefs.getItem('pps.labels'); return ['key', 'all', 'none'].includes(v) ? v : 'key'; } catch { return 'key'; } })(),   // station labels: key | all | none (Blood menu)
   lobuleLayers: { zones: false, lymph: true, bile: true },   // the Lobule view's own layers (toolbar Layers menu): zone bands, hepatic lymph, bile
   blood: { phasic: false, chevrons: false, keyChevrons: false },
   colorMode: 'pressure',      // pressure | delta | heat | drop | flow | velocity | direction | oxygen | origin | firstpass
@@ -42,7 +43,7 @@ const state = {
   hiddenReadouts: null,       // Set of hidden metrics
   hiddenEvents: null,         // Set of event ids kept out of the story (model-only knowledge)
   hvpgMeasured: false,        // Explore: the HVPG catheter procedure has run for this patient (the live HVPG shows)
-  showHvpg: (() => { try { localStorage.removeItem('pps.showHvpg'); } catch { /* storage unavailable */ } return true; })(),   // The HVPG always shows without measuring it (Settings switch removed 11 Nov 2026; an old saved choice is dropped)
+  showHvpg: (() => { try { prefs.removeItem('pps.showHvpg'); } catch { /* storage unavailable */ } return true; })(),   // The HVPG always shows without measuring it (Settings switch removed 11 Nov 2026; an old saved choice is dropped)
   presenting: false,          // a Presenter script or the tour is running
   sinusoidWash: false,        // a Presenter slide with `wash`: the sinusoid view washes the wedge's amber from the central vein along the vessel (sinusoid-wash.js)
   dopGate: 'mid',             // where along a stent the Doppler samples: proximal | mid | distal | site (its narrowing)

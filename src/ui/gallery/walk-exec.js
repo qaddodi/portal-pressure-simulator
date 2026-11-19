@@ -27,11 +27,11 @@ export function readDevice() {
 
 /** The executor for walk.js: exec(step) plays it and waits for rest. `api` is the gallery API (pps.gallery) when the page has one. */
 export function createExecutor({ pps, api, limitMs = STEP_LIMIT_MS }) {
-  const settler = createSettler(pps, { quietMs: 250 });
+  const settler = createSettler(pps);
   async function still() {
     const s = await settler.wait(limitMs);
     let more = { settled: true };
-    if (api?.settled) more = await api.settled({ timeoutMs: Math.max(2000, Math.round(limitMs / 2)), quietMs: 200 });
+    if (api?.settled) more = await api.settled({ timeoutMs: Math.max(2000, Math.round(limitMs / 2)) });
     return { settled: !!s.ok && !!more.settled };
   }
   const presenter = () => pps?.presenter || null;

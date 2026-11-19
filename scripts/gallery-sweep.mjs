@@ -25,12 +25,12 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from '
 import { execSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright';
-import { CHROMIUM_ARGS, openApp } from './shoot.mjs';
-import { serve } from './serve.mjs';
+import { launchLayout } from './headless.mjs';
 import { CATALOG, LOOK_IDS, sid } from '../src/ui/gallery/catalog.js';
 import { galleryDeck } from '../src/ui/gallery/deck.js';
 import { SIZES, unitsFor, keyOf, normBoxes, normWords, normProblems, diffReports, newTrouble, summaryText, makeBaseline, pickIds } from './gallery-sweep-lib.mjs';
+import { pointTo } from './debug-notice.mjs';
+pointTo('sweep specimens ...');
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);
@@ -49,12 +49,8 @@ const OUT = opt('out', '');
 const BASELINE = opt('baseline', '/mnt/project-files/gallery-baselines/layout-baseline.json');
 const VERBOSE = flag('verbose');
 const [SHARD_I, SHARD_N] = opt('shard', '1/1').split('/').map(Number);
-const EXE = process.env.CHROMIUM || (existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : '');
 
 if (flag('update-baseline') && !opt('why', '')) { console.error('--update-baseline needs --why "<what changed and why it is right>" (a baseline is only replaced by a thread that says why)'); process.exit(2); }
-
-// The GL draws do nothing: the page's state, layout and words are real, the picture is not (the same stub as card-fit.mjs).
-const STUB = `(() => { for (const C of [window.WebGL2RenderingContext]) { if (!C) continue; const P = C.prototype; for (const k of ['drawArrays', 'drawElements', 'drawArraysInstanced', 'drawElementsInstanced', 'drawRangeElements', 'clear', 'blitFramebuffer']) if (P[k]) P[k] = function () {}; } })();`;
 
 const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
 const withTimeout = (p, ms, what) => { let t; return Promise.race([p, new Promise((_, no) => { t = setTimeout(() => no(new Error(`${what} took more than ${Math.round(ms / 1000)} s`)), ms); })]).finally(() => clearTimeout(t)); };
@@ -102,8 +98,7 @@ function lookChanges(base, other) {
   return out;
 }
 
-const server = await serve(resolve(ROOT, DIR), 0, { prefix: '/preview' });
-const browser = await chromium.launch({ args: CHROMIUM_ARGS, ...(EXE ? { executablePath: EXE } : {}) });
+const L = await launchLayout({ dir: resolve(ROOT, DIR), prefix: '/preview' });   // (scripts/headless.mjs: the one layout-only opener, GL draws stubbed)
 const T0 = Date.now();
 
 const catalog = CATALOG.map(({ id, family, section, kind }) => ({ id, family, section, kind }));
@@ -111,12 +106,12 @@ const catalog = CATALOG.map(({ id, family, section, kind }) => ({ id, family, se
 const deckAt = Object.fromEntries(galleryDeck().slides.map((s, i) => [s.id, i]));
 const IDS = pickIds(catalog, { family: list('family'), section: list('section'), kind: list('kind'), ids: list('ids'), shard: [SHARD_I, SHARD_N] })
   .map((id, i) => [id, sid(id) in deckAt ? deckAt[sid(id)] : 1e6 + i]).sort((a, b) => a[1] - b[1]).map((x) => x[0]);
-if (!IDS.length) { console.error('no specimen matches'); await browser.close(); server.close(); process.exit(2); }
+if (!IDS.length) { console.error('no specimen matches'); await L.close(); process.exit(2); }
 
 const results = {};
 const bootFor = async (unit) => {
   const first = SIZES[unit.sizes[0]];
-  const app = await openApp({ device: unit.sizes[0], theme: 'light', query: `gallery&testclock=${RATE}&look=${LOOKS[0]}`, url: server.url, dir: DIR, browser, initScript: STUB, dpr: 1, timeout: 120000 });
+  const app = await L.open({ device: unit.sizes[0], query: `gallery&testclock=${RATE}&look=${LOOKS[0]}` });
   await app.page.setViewportSize({ width: first.w, height: first.h });
   await app.page.waitForFunction(() => !!window.pps?.gallery?.open, null, { timeout: 120000 });
   return app;
@@ -176,8 +171,7 @@ await Promise.all(Array.from({ length: Math.min(JOBS, units.length) }, async () 
     try { await runUnit(units[j]); } catch (e) { console.log(`${units[j].name}: the run stopped: ${String(e.message).split('\n')[0]}`); for (const device of units[j].sizes) for (const id of IDS) { const key = keyOf(id, device); if (!results[key]) results[key] = { id, device, ok: false, settled: false, problems: [], boxes: {}, words: {}, error: `the ${units[j].name} run stopped: ${String(e.message).split('\n')[0].slice(0, 200)}` }; } }
   }
 }));
-await browser.close();
-server.close();
+await L.close();
 
 let commit = '';
 try { commit = execSync('git rev-parse --short HEAD', { cwd: ROOT }).toString().trim(); } catch { /* (not a checkout) */ }

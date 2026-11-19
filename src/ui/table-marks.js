@@ -3,7 +3,7 @@
 // normal (dirAbs) or against a reference patient (dirRel), and the colour that goes with it.
 
 import { FLOW_CUTS } from '../engine/flow-cuts.js';
-import { PPG_CUTS, PV_CUTS, hvpgRate, ppgRate, RATE_OF_SEV, HVPG_WORDS, PPG_WORDS } from '../engine/pressure-cuts.js';
+import { HVPG_CUTS, PPG_CUTS, PV_CUTS, hvpgRate, ppgRate, RATE_OF_SEV, HVPG_WORDS, PPG_WORDS } from '../engine/pressure-cuts.js';
 import { SSM_CUTS } from '../engine/ssm-cuts.js';
 import { KIDNEY_CUTS } from '../engine/kidney-cuts.js';
 import { SAAG_PORTAL, TP_HIGH, TP_SBP } from '../engine/ascites-cuts.js';
@@ -231,7 +231,7 @@ export const rateShown = (k, f) => (f && f[k] != null ? rateOf(k, { ...f, [k]: t
 // Each tile's scale bar, in the units the tile shows: [from, to, the cut-offs between its coloured bands]. The bands take their
 // colour from the tile's own rating, so the bar and the status word always agree. (Every tile has its bands: a tile is left bare only where no normal exists.)
 export const SCALE = {
-  hvpg: [0, 25, [5, 10]], eus: [0, 25, [5, 10]], ppg: [0, 25, [6, 12]], pv: [0, 30, [10, 15]], sin: [0, 20, [9, 12]], whvp: [0, 30, [10, 15]], fhvp: [0, 20, [8]],
+  hvpg: [0, 25, [HVPG_CUTS.amber, HVPG_CUTS.red]], eus: [0, 25, [HVPG_CUTS.amber, HVPG_CUTS.red]], ppg: [0, 25, [PPG_CUTS.amber, PPG_CUTS.red]], pv: [0, 30, [10, 15]], sin: [0, 20, [9, 12]], whvp: [0, 30, [10, 15]], fhvp: [0, 20, [8]],
   saag: [0, 3, [SAAG_PORTAL]], tp: [0, 5, [TP_SBP, TP_HIGH]], asc: [0, 8, [0.15, 1.5, 5]],
   varix: [0, 10, [2.5, 5]], gv: [0, 10, [2.5, 5]], spleen: [8, 22, [13, 16]], plt: [0, 300, [100, 150]],
   pvFlow: [-0.6, 2, [0]], pvVel: [0, 50, [FLOW_CUTS.stasis, 15]], liver: [0, 125, [55, 75]], shunt: [0, 100, [10, 30]], map: [40, 120, [KIDNEY_CUTS.mapBeta]], sbp: [60, 160, [KIDNEY_CUTS.sbpBeta]], rpp: [30, 100, []],

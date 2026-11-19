@@ -6,8 +6,10 @@
 // adds only what they do not carry (the size of each line) and walks the page exactly as readWords does, so a test holds that its lines are readWords' lines.
 import { registerReader } from './registry.js';
 import { WORD_ROOTS, readWords, readBoxes } from '../gallery/readers.js';
-import { readCards, readStructureCard, WORDS_MIN_PX } from '../gallery/fit-rules.js';
+import { readCards, readStructureCard, readSheet, WORDS_MIN_PX } from '../gallery/fit-rules.js';
+import { readEdges, compactEdges } from '../gallery/edge-rules.js';
 import { box4, r1, r2, CARD_KINDS } from './util.js';
+import { SHUFFLE_MIN_PX } from '../selfcheck/limits.js';
 
 export { CARD_KINDS };
 
@@ -77,12 +79,34 @@ export function readCardsPart(ctx) {
     const h = doc.querySelector(`${sel} .pz-h`);
     return { sel, kind: CARD_KINDS[sel] || sel, box: c.box, opacity: r2(c.opacity), stage: stageOf(c, prep && sel.startsWith('.pz')), title: h ? h.textContent.replace(/\s+/g, ' ').trim() : title, lines: c.lines.map(([t, p]) => [t, r1(p)]), nums: [...new Set(c.lines.flatMap(([t]) => t.match(NUM) || []))].slice(0, 40) };
   });
-  const fit = readCards(io, { minPx });
-  let structure = null;
-  const el = pps?.card?.el;
-  if (el && !el.hidden) structure = readStructureCard(io, el, { minPx });
+  const judged = readCardsJudged({ io, pps, minPx });
   const layout = cards.some((c) => c.box);
-  return { layout, shown: fit.shown, n: fit.n, fonts: fit.fonts, cards, fit, structure };
+  return { layout, shown: judged.fit.shown, n: judged.fit.n, fonts: judged.fit.fonts, cards, fit: judged.fit, structure: judged.structure, sheet: judged.sheet, edges: layout ? judged.edges : null };
+}
+
+/**
+ * What the fit rules and the edge rules judge, read the way the Check always read it: the edges as the cards stand (the Shuffle's card behind showing only its strip), then with the Shuffle
+ * parked (its animations off, so each card is read at its own size and place, not scaled and clipped as the card behind: card-shuffle.js) the slide's cards and the open structure card.
+ * One read for every runner (the Check, the Sweep, the Phone check, the packet and the sweeps), so a card is judged in one state, not in two. Only the leaves that fail are kept in `edges`
+ * (compactEdges), so a report holds the evidence and not every line. io may carry `seen(key, el)`, which names the element of each problem (the Check's red outlines).
+ * Returns { fit, structure, edges, sheet } (the phone sheet on show, or null; edges null when the page cannot be walked). Sync, and never in a frame: it runs on a tap or a sweep's step.
+ */
+export function readCardsJudged({ io, pps, minPx = WORDS_MIN_PX }) {
+  let edges = null;
+  try { edges = compactEdges(readEdges(io)); } catch { /* (a page the edge reader cannot walk has no edges to judge) */ }
+  let sheet = null;
+  try { sheet = readSheet(io); } catch { /* (no sheet to read on a page that cannot be walked) */ }
+  let sh = null;
+  try { sh = pps?.presenter?.shuffle?.() || null; } catch { sh = null; }
+  let shared;
+  try { shared = !!sh?.active?.(); } catch { shared = false; }   // (the two cards share one place: the instrument card is the tall one that may go to SHUFFLE_MIN_PX)
+  sh?.park();
+  try {
+    const fit = readCards(io, { minPx, shuffleMinPx: shared ? SHUFFLE_MIN_PX : 0 });
+    const el = pps?.card?.el;
+    const structure = el && !el.hidden ? readStructureCard(io, el, { minPx }) : null;
+    return { fit, structure, edges, sheet };
+  } finally { sh?.resume(); }
 }
 
 registerReader({

@@ -31,7 +31,8 @@ async function chart(d, over = {}) {
   if (!swept.has(key)) swept.set(key, seq(curveSteps(t), null).then((states) => curveSeries(t, states)));
   const ser = await swept.get(key);
   const at = (id) => st[d.slides.findIndex((s) => s.id === id)];
-  const dot = (id) => { const f = at(id), xk = t.x; return { x: f[xk], f, on: curveAt(ser, f[xk]) }; };
+  // (A dot a hair past the end of the line, the bands' 17.6 against the line's last point at 17.5 since the slides' run-in grew to the live model's 40 s, is read at the line's end.)
+  const dot = (id) => { const f = at(id), xk = t.x, xs = ser.xs; return { x: f[xk], f, on: curveAt(ser, xs ? Math.min(Math.max(f[xk], xs[0]), xs.at(-1)) : f[xk]) }; };
   return { d, i, slide, t, st, ser, fp: st[i], at, dot, ring: ringAt(t, {}, st[i]) };
 }
 const near = (a, b, tol, what) => assert.ok(Math.abs(a - b) <= tol, `${what}: ${a} against ${b}`);

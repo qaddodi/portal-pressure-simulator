@@ -14,6 +14,9 @@ import { store, setViewKey } from './store.js';
 import { liveSettled, shownSig } from './table-marks.js';
 import { clamp, fmt, h, paintRange } from './util.js';
 
+// (A wait ahead of the camera, or the camera's own glide, is movement: under Reduce Motion it is skipped. One helper for the whole file, 19 Nov 2026.)
+const ms = (m) => (reduce.matches ? 0 : m);
+
 export function createLapse(st, live) {
   const { CC, NEVER, cath, cathFrame, cathStop, cathTrack, clearPill, dataTo, figureOut, host, liveSet, morphTo, nextFrame, paintChrome, procAtOf, procHeld, procKind, procRingOf, procStop, procTarget, procThen, pushEnd, stage, stateReady, toAnatomy, viewSettled, waitCut, xKey } = st;
   const procBack = () => { live.procQueued = false; if (!procHeld() || live.shown?.i !== live.want || !live.procRun.back()) return false; procTarget(); return true; };
@@ -93,7 +96,6 @@ export function createLapse(st, live) {
     if (resume) {
       // The way back out of the lobule: the view is on the figure again, the catheter fades in where it was, balloon up and the still column filled, its two readings on;
       // the camera glides to the tip, and only then, on the HVPG slide, the readings go into the subtraction (the monitor's tracing goes on to its result at the same moment).
-      const ms = (m) => (reduce.matches ? 0 : m);
       cath.tr = {}; Object.assign(cath.v, { u: 1, balloon: 1, column: 1, opacity: cath.on ? cath.v.opacity : 0 });
       cath.show = ['f', 'w']; cath.ring = CC.wedge; cath.follow = false; cath.fp = fp; cath.hold = mode === 'result';
       if (!cath.on) { cath.on = true; cath.t0 = performance.now(); cath.ostium = false; cathFrame(); }
@@ -114,7 +116,7 @@ export function createLapse(st, live) {
     }
     if (!cath.on) { cath.on = true; cath.t0 = performance.now(); cath.ostium = mode === 'blocked'; cathFrame(); }
     cath.fp = fp;
-    const v = cath.v, ms = (m) => (reduce.matches ? 0 : m);
+    const v = cath.v;
     if (instant) {
       if (!cath.on || v.opacity < 1) cathTrack('opacity', 1, 650);
       const leg = cathFirstShot(mode, { instant: true }).leg, at = ms(leg === 'route' ? 1300 : 1500);

@@ -13,6 +13,7 @@
 // Enter jumps, G the slide list, Home End, B or . black screen, F full screen, ? the Guide, Esc. (The Guide lists them: PRESENT_KEYS in
 // main.js.) On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
+import { prefs } from './prefs.js';
 import { store, replaceParams, setViewKey } from './store.js';
 import { freshPatient } from './slide-motion.js';
 import { controlOwnsKey } from './key-owner.js';
@@ -1346,7 +1347,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // at is the size they keep: keyed only once the slide was shown, the passes while the cards eased in measured afresh, and on a
   // tight iPad a reading settling or a chart lettered stepped the title or folded the ladder, so the card came in and then snapped.)
   // (While they fade in, the work that can wait does: frame.js holdMotion, the delay and the fade, app.css .pz-text.pz-enter.)
-  function cardsIn(at) { if (ui) { if (!reduce.matches) holdMotion(D_SURFACE + 220); if (at) { entering = at; layout(); } reFit(); if (!bare) { ui.text.classList.remove('pz-leave'); txn?.restore(); wordsTurnIn(); ui.scl.classList.remove('pz-leave'); delete ui.root.dataset.bare; } ui.root.classList.remove('pz-prep'); cardIn(ui.panel, 'pz-leave'); if (ui.data.dataset.prep && !('hold' in ui.data.dataset)) { const p = ui.data.dataset.prep; delete ui.data.dataset.prep; if (!cardIn(ui.data, 'pz-hide', THROW_STAGGER)) ui.data.dataset.prep = p; } if (!bare) { const dir = throwDir || 'next'; for (const el of [ui.text, ui.shade, ui.data, ui.panel]) if (throwPinned(el)) { if (!el.hidden && el.childElementCount !== 0 && !el.classList.contains('pz-leave') && !el.classList.contains('pz-hide')) throwIn(el, dir, 0, throwD); else throwRelease(el); } throwDir = ''; } } }   // (bare: the words come in later, thrown too)
+  function cardsIn(at) { if (ui) { if (!reduce.matches) holdMotion(D_SURFACE + 220); if (at) { entering = at; layout(); } reFit(); if (!bare) { ui.text.classList.remove('pz-leave'); txn?.restore(); wordsTurnIn(); ui.scl.classList.remove('pz-leave'); delete ui.root.dataset.bare; } ui.root.classList.remove('pz-prep'); if (!panelGoTok) cardIn(ui.panel, 'pz-leave');   // (a panel that is leaving for a words slide carries pz-leave too, and is not hidden until its fade is done: cardIn read that as a card waiting to come in and threw the old outline back in with the new words, 19 Nov 2026, outline to the first slide)
+    if (ui.data.dataset.prep && !('hold' in ui.data.dataset)) { const p = ui.data.dataset.prep; delete ui.data.dataset.prep; if (!cardIn(ui.data, 'pz-hide', THROW_STAGGER)) ui.data.dataset.prep = p; } if (!bare) { const dir = throwDir || 'next'; for (const el of [ui.text, ui.shade, ui.data, ui.panel]) if (throwPinned(el)) { if (!el.hidden && el.childElementCount !== 0 && !el.classList.contains('pz-leave') && !el.classList.contains('pz-hide')) throwIn(el, dir, 0, throwD); else throwRelease(el); } throwDir = ''; } } }   // (bare: the words come in later, thrown too)
   // (A data card or panel coming in: thrown in from the side the talk goes when the old cards were thrown, else as before.
   // Its way out is forgotten in the same style change, so the leave's place never runs back across the screen under the way in.)
   function cardIn(el, cls, delay = 0) {
@@ -1678,7 +1680,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   }
   function setContrast(on = !hiCon) {
     hiCon = !!on;
-    try { localStorage.setItem(PROJ, hiCon ? '1' : '0'); } catch (e) { caught('presenter:4957', e); /* storage unavailable */ }
+    try { prefs.setItem(PROJ, hiCon ? '1' : '0'); } catch (e) { caught('presenter:4957', e); /* storage unavailable */ }
     app.classList.toggle('pz-hi', hiCon);
     paintChrome();
   }
@@ -1691,7 +1693,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   function setPanelWidth(w) {
     if (!PW_K[w] || w === pzWidth) return;
     pzWidth = w;
-    try { localStorage.setItem(PW, w); } catch (e) { caught('presenter:4970', e); /* storage unavailable */ }
+    try { prefs.setItem(PW, w); } catch (e) { caught('presenter:4970', e); /* storage unavailable */ }
     if (!ui) { app.style.setProperty('--pz-wk', String(PW_K[w])); return; }
     // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const apply = () => { app.style.setProperty('--pz-wk', String(PW_K[pzWidth])); layout(); setLabels(); };

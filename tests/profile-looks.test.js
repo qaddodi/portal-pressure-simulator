@@ -3,8 +3,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { LOOKS } from '../src/ui/chart-looks/index.js';
-import { TOKENS } from '../src/ui/theme-tokens.js';
-import { makeCtx, withCtx, resolveProps, hostSizeFor } from '../src/ui/chart-looks/resolve.js';
+import { TOKENS, tokensOfLook } from '../src/ui/theme-tokens.js';
+import { makeCtx, withCtx, resolveProps, hostSizeFor, withVarsResolved } from '../src/ui/chart-looks/resolve.js';
 
 const base = (over = {}, local = {}) => withCtx(makeCtx({ host: 'prof', layout: 'wide', scale: { sm: 12.5, chCap: 12, lab: 13, cap: 14 }, ...local }), { theme: 'light', dark: false, palette: 'navy', ...over });
 const ctx = (over = {}, local = {}) => base({ hostPx: 16, ...over }, local);
@@ -47,7 +47,8 @@ test('readings, blocks and brackets: the outline, the ring and the rating\'s col
   assert.equal(P('prof.br.path', { rate: 'mid' }).stroke, P('prof.br.path', { rate: 'mid' }).stroke);
   assert.notEqual(P('prof.br.path', { rate: 'mid' }).stroke, P('prof.br.path', { rate: 'hi' }).stroke);
   assert.notEqual(P('prof.br.path', { rate: 'mid' }).stroke, P('prof.br.path').stroke);
-  assert.equal(P('prof.br.text', { rate: 'hi' }).fill, P('prof.br.path', { rate: 'hi' }).stroke, 'a bracket\'s words and bar share the rating\'s colour');
+  assert.equal(P('prof.br.text', { rate: 'hi' }).fill, withVarsResolved(tokensOfLook('light'))['danger-ink'], 'a bracket\'s words wear the rating\'s status ink (LOOK-1: the bar keeps the raw colour, a word needs 4.5:1)');
+  assert.equal(P('prof.br.path', { rate: 'hi' }).stroke, tokensOfLook('light').danger);
   assert.notEqual(P('prof.br.k', { rate: 'hi' }).fill, P('prof.br.text', { rate: 'hi' }).fill, 'the key keeps its own ink');
   assert.equal(P('prof.br.k').weight, 600);
 });

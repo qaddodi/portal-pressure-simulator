@@ -37,11 +37,20 @@ test('Treat › Procedures, the palette, the timeline and the circuit take the n
   assert.match(code(read('src/engine/topology.js')), new RegExp(`label: '${procLabel('dsrs').replace(/[()]/g, '\\$&')}'`), 'the circuit names the shunt as the table does');
 });
 
-test('nothing the learner reads calls the distal splenorenal shunt the Warren shunt, but the table and the About line that explain the alias', () => {
-  const allowed = new Set(['src/ui/procedure-names.js', 'src/ui/about.js']);
+test('nothing the learner reads calls the distal splenorenal shunt the Warren shunt, but the table that explains the alias', () => {
+  const allowed = new Set(['src/ui/procedure-names.js']);
   for (const f of [...walk('src').filter((p) => p.endsWith('.js'))].map((p) => p.replaceAll('\\', '/'))) {
     if (allowed.has(f) || f.startsWith('src/ui/snapshots')) continue;
     const t = code(read(f));
     assert.ok(!/Warren/.test(t), `${f} still says "Warren" in a string`);
+  }
+});
+
+test('no button types a band label of its own: each reads procLabel (bible review 19 Nov, ENG-10)', () => {
+  const FILES = ['src/ui/actions.js', 'src/ui/instruments.js', 'src/ui/inspector.js', 'src/ui/stage-hover.js', 'src/ui/chart.js', 'src/ui/palette.js'];
+  for (const f of FILES) {
+    const t = code(read(f));
+    assert.ok(!/label: '(?:Band|Band \(EVL\))'/.test(t), `${f} types the band label instead of procLabel`);
+    assert.ok(!/icon\('band'\), '/.test(t), `${f} types the band button's words instead of procLabel('band')`);
   }
 });
