@@ -20,7 +20,7 @@
 // the longest reading, so the card never changes size with the case; a score card, grid or ladder is sized for the slide's own patient
 // (it never changes while the card is up), so no room is kept for another patient's rows (tests/path-phone-height.test.js holds the height on a phone).
 
-import { h, PHONE_MQ } from './util.js';
+import { h, PHONE_MQ, SIDEWAYS_MQ } from './util.js';
 import { viewSize } from './layout-snap.js';
 import { TILE } from './table-marks.js';
 import { createSvgGL, svgModel } from './svg-gl.js';
@@ -28,7 +28,7 @@ import { chartCtx } from './chart-ctx.js';
 import { loadMetrics, layoutParagraph, textWidth } from './text-gl.js';
 import { PATHS, mapWordsOf, knownOf, OUTCOMES, WORST, isLive, litOf, outcomeOf, readingFor, chipsOf, patientFor } from './path-data.js';
 import { headKeys } from './card-tiles.js';
-import { cardCompact, isCardKind, layout as cardLayout, model as cardModel } from './path-cards.js';
+import { CARD_WIDE_MIN, cardCompact, isCardKind, layout as cardLayout, model as cardModel } from './path-cards.js';
 
 /** The smallest a figure's words may be drawn on screen, in px (7c, play-test 16 Nov 2026: the Stages figure was drawn at 60% and its 11-12 px words came out at about 8 px, unreadable on a projector). Every ROLE is at least 12 px (the small phone grid's answer 11), and a figure is never fitted below FIT_MIN of its size, so its smallest word is at least FIG_TEXT_MIN. */
 export const FIG_TEXT_MIN = 10, ROLE_MIN = 11, ROLE_SMALL = ['ctc', 'csc'], FIT_MIN = FIG_TEXT_MIN / ROLE_MIN;   // (ROLE_SMALL: the small layout's (a phone's) grid answers and their second line, 11 px, drawn whole on a phone, never fitted down)
@@ -189,7 +189,8 @@ export function createPath() {
   function layout(sc = 1, small = false) {
     if (!spec || !(W > 0) || !ready) return;
     const Wv = W / sc;   // (the width the picture is laid out in: wider than the card when it is drawn smaller to fit the card's height)
-    const phone = typeof matchMedia === 'function' && matchMedia(PHONE_MQ).matches;
+    // (A phone held sideways gives its cards a wider column when the pair does not fit the height (card-shuffle.js SHUF.wide): a card that wide is not the phone layout's small map but the card or chart a Mac draws.)
+    const phone = typeof matchMedia === 'function' && matchMedia(PHONE_MQ).matches && !(matchMedia(SIDEWAYS_MQ).matches && W >= CARD_WIDE_MIN);
     const compact = small || (card ? cardCompact(W, phone) : mapFor(spec.tree, W, phone));
     ctxFor();
     const L = { compact, y: {} }, worst = WORST[of], base = patient || worst;
