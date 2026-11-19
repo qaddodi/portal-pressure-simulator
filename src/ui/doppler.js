@@ -4,8 +4,8 @@
 // and the waveform pattern. The trace keeps recording while the instrument is closed, so it opens
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
-import { EDGES, dopplerK, stentReadsOf, stentGate, stentCourse } from '../engine/topology.js';
-import { gateKindsFromParams, reductionJet, kindOf } from '../engine/stent-geom.js';
+import { EDGES, dopplerK, stentReadsOf, stentGate, stentCourse } from '../engine/portal/topology.js';
+import { gateKindsFromParams, reductionJet, kindOf } from '../engine/portal/stent-geom.js';
 import { glWords, wordsRect } from './gl-words.js';
 import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js';
 import { FONT, textW } from './charts.js';
@@ -14,7 +14,7 @@ import { DOPPLER_MODES, THETA } from './dopplerColor.js';
 import { readFrameFor, noteDraw, paceMs, restGapFor, restPark, cancelFrame, frameAnimating, framePart } from './frame.js';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js';
 import { velNormal, dopplerVel, judgeFlow, PROBE_NORMAL } from './velNormal.js';
-import { stentStill } from '../engine/flow-cuts.js';
+import { stentStill } from '../engine/portal/flow-cuts.js';
 import { calloutCell } from './trace-callouts.js';
 import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP, pulsatility, riForms } from './doppler-marks.js';
 import { createDopplerGL } from './doppler-gl.js';

@@ -3,8 +3,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { selectionGone, watchSelection } from '../src/ui/selection-live.js';
-import { defaultParams } from '../src/engine/scenario.js';
-import { EDGES } from '../src/engine/topology.js';
+import { defaultParams } from '../src/engine/portal/scenario.js';
+import { EDGES } from '../src/engine/portal/topology.js';
 
 const edge = (id) => ({ type: 'edge', id });
 

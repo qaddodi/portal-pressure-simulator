@@ -5,8 +5,8 @@
 // a compare button or the days of anticoagulation, easing from one state to the next.
 
 import { h, clamp } from './util.js';
-import { EDGES, STENT_SITES as SITE_U, edgeById, tightSite } from '../engine/topology.js';
-import { endSiteOf, geomOf, kindOf, profileAt } from '../engine/stent-geom.js';
+import { EDGES, STENT_SITES as SITE_U, edgeById, tightSite } from '../engine/portal/topology.js';
+import { endSiteOf, geomOf, kindOf, profileAt } from '../engine/portal/stent-geom.js';
 import { store } from './store.js';
 import { frameFor, cancelFrame, frameAnimating, easeNow } from './frame.js';
 import { createSvgGL, svgModel, snapOp, setWords, wordsOf, setGeo, setPts } from './svg-gl.js';

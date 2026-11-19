@@ -11,10 +11,10 @@
 // docs/model-cli.md lists every option. Exit 0 on success, 2 on a bad option (the message says which).
 
 import { createCore } from '../src/worker-core.js';
-import { PRESETS, DRUGS, defaultParams, sanitizeParams, deepMerge } from '../src/engine/scenario.js';
-import { EDGES } from '../src/engine/topology.js';
-import { hvpgSev, ppgSev, hvpgWord, ppgWord, hvBlocked, HVPG_CUTS, PPG_CUTS, NOT_MEASURABLE, NOT_SHOWN } from '../src/engine/pressure-cuts.js';
-import { varixGrade, ascitesGrade } from '../src/engine/metrics.js';
+import { PRESETS, DRUGS, defaultParams, sanitizeParams, deepMerge } from '../src/engine/portal/scenario.js';
+import { EDGES } from '../src/engine/portal/topology.js';
+import { hvpgSev, ppgSev, hvpgWord, ppgWord, hvBlocked, HVPG_CUTS, PPG_CUTS, NOT_MEASURABLE, NOT_SHOWN } from '../src/engine/portal/pressure-cuts.js';
+import { varixGrade, ascitesGrade } from '../src/engine/portal/metrics.js';
 
 // ---- options ---------------------------------------------------------------------------------------------------------------
 const VALUE = new Set(['preset', 'preset-days', 'days', 'params', 'set', 'action', 'albumin', 'cirrhosis', 'meal', 'gestation', 'splenic-rx', 'nsbb-gain', 'paracentesis', 'deck', 'slide']);
@@ -104,7 +104,7 @@ function checkPatch(patch) {
       const at = [...path, k].join('.');
       const isDict = path.length === 1 && DICT_PARAMS.has(path[0]);
       if (isDict) { if (!EDGE_IDS.has(k)) fail(`${at}: "${k}" is not a vessel of the model.`); }
-      else if (!d || !Object.hasOwn(d, k)) fail(`${at}: the model has no parameter "${k}"${path.length ? '' : `. Close names: ${near(k, Object.keys(base)).join(', ') || 'none'}; see src/engine/scenario.js defaultParams()`}.`);
+      else if (!d || !Object.hasOwn(d, k)) fail(`${at}: the model has no parameter "${k}"${path.length ? '' : `. Close names: ${near(k, Object.keys(base)).join(', ') || 'none'}; see src/engine/portal/scenario.js defaultParams()`}.`);
       if (v && typeof v === 'object' && !Array.isArray(v)) { walk(v, d?.[k], c?.[k], [...path, k]); continue; }
       const kept = c?.[k];
       const same = typeof v === 'number' && typeof kept === 'number' ? Math.abs(v - kept) < 1e-9 : v === kept;
@@ -211,7 +211,7 @@ export function renderText(title, states) {
     lines.push('');
   }
   lines.splice(2, 0, `  ${' '.repeat(27)}${cols.map((c) => padL(c, 11)).join('')}${states.length === 2 ? `${' '.repeat(13)}${padL('change', 8)}` : ''}`, '');
-  lines.push(`Cut-offs: HVPG amber ${HVPG_CUTS.amber}, red ${HVPG_CUTS.red} mmHg; PPG amber ${PPG_CUTS.amber}, red ${PPG_CUTS.red} mmHg (src/engine/pressure-cuts.js).`);
+  lines.push(`Cut-offs: HVPG amber ${HVPG_CUTS.amber}, red ${HVPG_CUTS.red} mmHg; PPG amber ${PPG_CUTS.amber}, red ${PPG_CUTS.red} mmHg (src/engine/portal/pressure-cuts.js).`);
   return lines.join('\n');
 }
 
@@ -220,7 +220,7 @@ const SHORTCUTS = [
   ['--propranolol --carvedilol --terlipressin --octreotide', 'drugs on'], ['--tips [mm]  --dips [mm]', 'a TIPS or DIPS stent, default 8 mm (6 to 12)'],
   ['--diuretics  --anticoag  --splenectomy', 'switches'], ['--albumin g/dL  --cirrhosis 0..1  --meal 0..1  --gestation weeks  --splenic-rx 0|1|2  --nsbb-gain x', 'numbers (clamped ranges are refused, not clamped)'],
   ['--band  --paracentesis mL  --action \'{"kind":"infuse","fluid":"prbc"}\'', 'actions, run after the change and before the days'],
-  ['--set path=value (repeat)  --params \'<json>\'', 'any parameter in src/engine/scenario.js defaultParams(), for example fibrosis.R.sin=3'],
+  ['--set path=value (repeat)  --params \'<json>\'', 'any parameter in src/engine/portal/scenario.js defaultParams(), for example fibrosis.R.sin=3'],
 ];
 
 async function loadDecks() {

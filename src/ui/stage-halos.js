@@ -1,6 +1,6 @@
 // The Δ halos: after a change the three places whose pressure moved most get a brief ring and their change in mmHg, drawn as outlines on the overlay painter, and the vessels that moved glow.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { EDGES, NODES } from '../engine/topology.js';
+import { EDGES, NODES } from '../engine/portal/topology.js';
 import { HIDDEN_NODES, NODE_POS } from './anatomy.js';
 import { D_SURFACE, easeArrive } from './ease.js';
 import { cancelFrame } from './frame.js';

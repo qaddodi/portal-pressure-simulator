@@ -1,7 +1,7 @@
 // The Doppler probe on the figure: its stand-off, line of sight, sample bars, cards, monitor and paint.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { BLOCKER_SEL } from './blockers.js';
-import { STENT_SITES } from '../engine/topology.js';
+import { STENT_SITES } from '../engine/portal/topology.js';
 import { ORGANS } from './anatomy.js';
 import { NONE_MS, PROBE, PROBE_MODEL, SLACK, awayFromProbe, beamBoxes, createProbeMind, fitPoseInto, gateBoxes, gateFrac, probeFade, probeGeomInto, probeSwing, probeTurn, wedgeBoxes } from './dop-probe.js';
 import { readBox, readElAt } from './layout-snap.js';

@@ -3,7 +3,7 @@
 //          with the figure's own velocity colours (colormap.js velocityColor against the stent's 90 to 190 cm/s, scaled for a diameter outside 8 to 10 mm), the narrowing as a dimension line with its lumen in
 //          mm, the Doppler's three points with their peak velocity (the same numbers as the Doppler card and the peak tile), the flow as an arrow.
 //   trace  the reviewer's longitudinal view (stent-trace-pic.js): the lumen with five numbered pressure sites, and the static pressure, the energy lost so far and the mean
-//          velocity along it (tool.panels picks which); a schematic, the solver being lumped (src/engine/stent-trace.js).
+//          velocity along it (tool.panels picks which); a schematic, the solver being lumped (src/engine/portal/stent-trace.js).
 //   loss   where the pressure goes (stent-drop-pic.js, 17 Nov 2026): a staircase under the side view and on its x. The pressure left above the IVC starts at the PPG and falls to 0; where it
 //          falls it is drawn in the colour of what takes it (the veins outside the stent, its tract, its way in and out, the friction along it, the narrowing's jet), and a key of five columns
 //          gives each part's mmHg. With tool.to = 'ppg' it starts at the PPG and the veins outside take their share, so a student sees why the stent's drop is smaller than the PPG; 'stent'
@@ -28,12 +28,12 @@ import { easeArrive } from './ease.js';
 import { FOLLOW_JUMP, FOLLOW_LONE, FOLLOW_STREAM_MS, FOLLOW_MIN_MS, FOLLOW_MAX_MS, FOLLOW_GAP0, FOLLOW_GLIDE_MS } from './tool-lumen.js';
 import { velocityColor, pressureColor } from './colormap.js';
 import { stentNormal } from './velNormal.js';
-import { geomFix, geomOf, profileAt, waistSpan, endSpan, lumenShown } from '../engine/stent-geom.js';
-import { STENT_SITES, STENT_SPANS, stentGate, stentSite, dopplerK, edgeById } from '../engine/topology.js';
+import { geomFix, geomOf, profileAt, waistSpan, endSpan, lumenShown } from '../engine/portal/stent-geom.js';
+import { STENT_SITES, STENT_SPANS, stentGate, stentSite, dopplerK, edgeById } from '../engine/portal/topology.js';
 import { smooth01 } from './num.js';
 import { createTracePic, traceFor, gateIndex, xAt, PANELS } from './stent-trace-pic.js';
 import { createDropPic, dropLayout } from './stent-drop-pic.js';
-import { makeTrace, TRACE_N } from '../engine/stent-trace.js';
+import { makeTrace, TRACE_N } from '../engine/portal/stent-trace.js';
 import { readMetric, readBox } from './layout-snap.js';
 
 const nextFrame = frameFor('stent');

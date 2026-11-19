@@ -72,6 +72,12 @@ prints the engine's numbers (HVPG, PPG, portal flow, ascites, varices, stiffness
 app, takes about a second, and needs no browser (so it is allowed under the no-headless rule). Use it for "what does the model say",
 for checking a clinical claim, and for the number a test or a slide should expect. Options and output: `docs/model-cli.md`.
 
+## The engine is vendored from hales-engine
+
+`src/engine/` is a pinned copy of `qaddodi/hales-engine` (`core/` and `portal/`, manifest `src/engine/VENDORED.json`). Never edit it here:
+change the engine in hales-engine, tag it, then `node scripts/sync-engine.mjs --ref <tag>` and commit with the app change that goes with it.
+`tests/engine-vendored.test.js` (and `npm run check:engine`) fails on a hand edit. Why a copy, and what stays in the app: `docs/engine-vendoring.md`.
+
 ## Per-frame work (the GPU is the only per-frame painter)
 
 - No per-frame work on the main thread outside the scheduler: ask for a frame with `frameFor(tag)` from `src/ui/frame.js`,
@@ -86,7 +92,7 @@ for checking a clinical claim, and for the number a test or a slide should expec
 - Gradient stop colours the organ painter uses are a generated table (`src/ui/stop-tokens.js`, per look: `npm run gen:stops`), never a style read.
   `tests/stop-tokens.test.js` fails when a stop rule or a custom property it reads changes in `styles/`: run `npm run gen:stops` (it measures the app in
   headless Chromium) and commit the file; `npm run check:stops` compares the table with the live page. A new gradient stop in `stage.js` needs it too.
-- Pressure colours and cut-offs live once: HVPG amber 5, red 10; PPG amber 6, red 12, in `src/engine/pressure-cuts.js`.
+- Pressure colours and cut-offs live once: HVPG amber 5, red 10; PPG amber 6, red 12, in `src/engine/portal/pressure-cuts.js`.
   Read them from there and the colour tokens (`--ok`, `--caution`, `--danger`); `tests/pressure-vocabulary.test.js` fails on a
   second copy.
 

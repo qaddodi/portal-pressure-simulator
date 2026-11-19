@@ -23,7 +23,7 @@ npm run model -- --list                                               presets, d
 | `--diuretics` `--anticoag` `--splenectomy` | Switches |
 | `--albumin` `--cirrhosis` `--meal` `--gestation` `--splenic-rx` `--nsbb-gain` | Numbers |
 | `--band` `--paracentesis mL` `--action '{"kind":"infuse","fluid":"prbc"}'` | Actions (kinds: `applyAction` in `src/worker-core.js`), run after the change and before the days |
-| `--set path=value` (repeat), `--params '<json>'` | Any parameter of `defaultParams()` in `src/engine/scenario.js`, for example `--set fibrosis.R.sin=3` |
+| `--set path=value` (repeat), `--params '<json>'` | Any parameter of `defaultParams()` in `src/engine/portal/scenario.js`, for example `--set fibrosis.R.sin=3` |
 | `--days N` | Days that pass after the change |
 | `--compare` | Before (the preset as loaded) beside after (change plus days), with the change |
 | `--deck <id>` `--slide <n or slide id>` | A deck's own state, as the presenter numbers its slides |
@@ -38,11 +38,11 @@ dropped or clamped quietly: the engine would otherwise ignore a typo and print t
 Text, in groups: Pressures (portal vein, WHVP, FHVP, HVPG, PPG, right atrium, IVC, sinusoid), Flow (portal flow, velocity, liver
 perfusion %, shunted %), Ascites (volume, SAAG, protein), Varices and spleen (varix mm, wall stress as % of rupture, gastric varix,
 spleen, platelets), Stiffness (LSM, SSM), Circulation (MAP, BP, heart rate, cardiac output, HE index). HVPG and PPG carry the app's
-words and colours from `src/engine/pressure-cuts.js` (HVPG amber 5, red 10; PPG amber 6, red 12), and an HVPG with the hepatic vein
+words and colours from `src/engine/portal/pressure-cuts.js` (HVPG amber 5, red 10; PPG amber 6, red 12), and an HVPG with the hepatic vein
 clotted reads "Not measurable", as on the app's tiles.
 
 `--json` gives `{ input, before?, after, change? }`. Each state is `{ fingerprint, readout }`: `fingerprint` is every key of
-`fingerprintOf` (`src/engine/fingerprint.js`; pressures mmHg, `pvFlow` L/min, `asc` mL, `shunt` 0 to 1, `wall` 0 to 1 of rupture,
+`fingerprintOf` (`src/engine/portal/fingerprint.js`; pressures mmHg, `pvFlow` L/min, `asc` mL, `shunt` 0 to 1, `wall` 0 to 1 of rupture,
 `plt` ×10³/µL), and `readout` has the HVPG and PPG status (`ok`, `caution`, `danger`) and word, and the varix and ascites grades.
 `change` is after minus before for every numeric key.
 

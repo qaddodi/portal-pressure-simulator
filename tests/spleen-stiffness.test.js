@@ -2,10 +2,10 @@
 // wherever the block lies, and the tile, the FibroScan card and the decks read the one set of cut-offs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { deepMerge } from '../src/engine/scenario.js';
-import { SSM_CUTS, ssmOf, ssmZone } from '../src/engine/ssm-cuts.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { deepMerge } from '../src/engine/portal/scenario.js';
+import { SSM_CUTS, ssmOf, ssmZone } from '../src/engine/portal/ssm-cuts.js';
 import { RATE, TILE, SCALE } from '../src/ui/table-marks.js';
 
 const preset = (id) => { const e = new Engine(); e.loadPreset(id); return e; };

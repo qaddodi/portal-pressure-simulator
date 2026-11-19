@@ -1,13 +1,13 @@
 // Work backward: the search is honest. Readings that are not entered add nothing, a tie shows as a tie, a family that cannot give a reading says
-// so, the next reading named is one that splits the scenarios, and a few readings are not enough to run on (src/engine/inverse.js).
+// so, the next reading named is one that splits the scenarios, and a few readings are not enough to run on (src/engine/portal/inverse.js).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LIBRARY, LIBRARY_KEYS } from '../src/engine/inverse-library.js';
+import { LIBRARY, LIBRARY_KEYS } from '../src/engine/portal/inverse-library.js';
 import {
   modelText, numberText, rank, normalise, residual, pointsOf, statusOf, nextReading, refinePoints, fitMark, gapLine, rangeText, readingText, costOf, reasonsFor, bandsOf, lsmBand, hvpgBand, LESION_COST,
   READINGS, READING_KEYS, logSigma, MIN_READINGS, FEW_READINGS, TIE, POSSIBLE, MISS, SPLIT,
-} from '../src/engine/inverse.js';
-import { FAMILIES, FAMILY, LESION, keyOf, spanOf, settingText, settingsOf, patientOf } from '../src/engine/inverse-families.js';
+} from '../src/engine/portal/inverse.js';
+import { FAMILIES, FAMILY, LESION, keyOf, spanOf, settingText, settingsOf, patientOf } from '../src/engine/portal/inverse-families.js';
 
 const POINTS = pointsOf(LIBRARY);
 // A presinusoidal patient: normal HVPG, big spleen, low platelets, soft liver, stiff spleen, no fluid.

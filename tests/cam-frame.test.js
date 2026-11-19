@@ -4,7 +4,7 @@ import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { EDGES, NODES } from '../src/engine/topology.js';
+import { EDGES, NODES } from '../src/engine/portal/topology.js';
 import { DECKS, REGIONS } from '../src/ui/decks.js';
 import { CIRC_REGIONS } from '../src/ui/cam-frame.js';
 import { isCamOn, unionBox, regionBox, growBox, camNames, camProblems } from '../src/ui/cam-frame.js';

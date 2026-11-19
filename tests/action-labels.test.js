@@ -4,7 +4,7 @@
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { EDGES } from '../src/engine/topology.js';
+import { EDGES } from '../src/engine/portal/topology.js';
 import { cardFor } from '../src/ui/actions.js';
 import { appCss } from './split-src.js';
 

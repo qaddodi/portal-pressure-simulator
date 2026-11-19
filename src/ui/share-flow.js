@@ -2,7 +2,7 @@
 // page was (the preview pill's reload, a feedback report) and Copy link. createShare takes what they act on and the page's own location, history and clipboard (`env`), so
 // tests/share-flow.test.js runs them with a fake page.
 import { parseShare, cleanShare, encodeShare as encodeShareCode } from './share-link.js';
-import { deepMerge, sanitizeParamsReport } from '../engine/scenario.js';
+import { deepMerge, sanitizeParamsReport } from '../engine/portal/scenario.js';
 
 /**
  * @param { store: any, presenter: any, stage: any, timeline: any, loadPreset: Function, updateParams: Function, setViewKey: Function, toast: Function,

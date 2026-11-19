@@ -1,8 +1,8 @@
 // The question card, the held answer and the cards that stay
 // (moved out of presenter.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { lcFirst } from '../engine/lc-first.js';
-import { SAAG_PORTAL, TP_HIGH, saagPortal, tpHigh } from '../engine/ascites-cuts.js';
-import { NOT_MEASURABLE } from '../engine/pressure-cuts.js';
+import { lcFirst } from '../engine/portal/lc-first.js';
+import { SAAG_PORTAL, TP_HIGH, saagPortal, tpHigh } from '../engine/portal/ascites-cuts.js';
+import { NOT_MEASURABLE } from '../engine/portal/pressure-cuts.js';
 import { cardBack, cardChangedWhy, cardSnap, dataPlan, keepData, keepText, textPlan } from './card-keep.js';
 import { THROW_STAGGER, throwBusy, throwHeld, throwLanded, throwLeaving } from './card-throw.js';
 import { toolOnly } from './card-tiles.js';

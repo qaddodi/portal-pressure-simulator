@@ -4,10 +4,10 @@
 // when a round no longer moves the best score (EARLY_STOP). A reading's patient takes about a quarter of a second, so a round is a few seconds, and it is its own worker:
 // the engine worker runs the live figure and its jobs go one at a time, so a refinement there would hold the clock.
 // A new request ends the old one between two patients (the loop yields so the message can arrive).
-import { rank, refinePoints, pointsOf, rowOf, REFINE_ROUNDS as ROUNDS, REFINE_PER_ROUND as PER_ROUND } from '../engine/inverse.js';
-import { LIBRARY } from '../engine/inverse-library.js';
-import { runPatient } from '../engine/inverse-run.js';
-import { keyOf } from '../engine/inverse-families.js';
+import { rank, refinePoints, pointsOf, rowOf, REFINE_ROUNDS as ROUNDS, REFINE_PER_ROUND as PER_ROUND } from '../engine/portal/inverse.js';
+import { LIBRARY } from '../engine/portal/inverse-library.js';
+import { runPatient } from '../engine/portal/inverse-run.js';
+import { keyOf } from '../engine/portal/inverse-families.js';
 
 const known = new Map(pointsOf(LIBRARY).map((pt) => [keyOf(pt.f, pt.p), pt]));
 // The patients run but not yet sent: a request ended in the middle of a round (the typing went on, or "Show scenarios" asked again) leaves them

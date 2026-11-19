@@ -18,6 +18,8 @@
     "offgpu": "node scripts/off-gpu-scan.mjs --doc",
     "warm": "node --expose-gc --max-semi-space-size=128 scripts/warm-alloc.mjs",
     "stamp": "node scripts/stamp.mjs",
+    "engine:sync": "node scripts/sync-engine.mjs",
+    "check:engine": "node scripts/sync-engine.mjs --check",
     "gen:theme": "node scripts/gen-theme-css.mjs",
     "check:theme": "node scripts/gen-theme-css.mjs --check",
     "gen:stops": "node scripts/gen-stop-tokens.mjs",

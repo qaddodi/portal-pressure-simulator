@@ -6,9 +6,9 @@
 import { procSpecs } from '../src/ui/proc-routes.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { deepMerge } from '../src/engine/scenario.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { deepMerge } from '../src/engine/portal/scenario.js';
 import { LOOK_SITE, VARIX_REST_MM, VARIX_FULL_MM, varixSize, varixHold, varixMean, VARIX_MEAN_MS, VARIX_JUMP_MM, varixWidthK, varixSpreadK, varixOpacity } from '../src/ui/varix-look.js';
 
 // (A fall in the pressure shrinks the varix over weeks, not at once: VARIX.tauFall, doc 4.1, 8 Nov 2026. `weeks` is the time given to the patch; its rise would be at once.)

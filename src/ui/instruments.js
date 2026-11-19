@@ -1,9 +1,9 @@
 // Instruments (blueprint §8.3, §9.4, §9.5, §6.4): endoscopy,
 // varix cross-section, abdomen.
 
-import { NODES } from '../engine/topology.js';
-import { gastricUp } from '../engine/scenario.js';
-import { wallRead, wallShare, WALL_WORDS, WALL_MEANING } from '../engine/wall-read.js';
+import { NODES } from '../engine/portal/topology.js';
+import { gastricUp } from '../engine/portal/scenario.js';
+import { wallRead, wallShare, WALL_WORDS, WALL_MEANING } from '../engine/portal/wall-read.js';
 import { pressureColor } from './colormap.js';
 import { fmtG } from './num.js';
 import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js';
@@ -32,8 +32,8 @@ import { D_SURFACE, easeArrive } from './ease.js';
 import { inkBox } from './glyph-measure.js';
 import { createWallGeometry, BRACKET_A } from './wall-geometry.js';
 import { reduceMotionMQ } from './motion.js';
-import { TOKEN_OF_SEV } from '../engine/pressure-cuts.js';
-import { SAAG_PORTAL } from '../engine/ascites-cuts.js';
+import { TOKEN_OF_SEV } from '../engine/portal/pressure-cuts.js';
+import { SAAG_PORTAL } from '../engine/portal/ascites-cuts.js';
 import { darkMQ } from './look.js';
 import { createEusPpg } from './eus-ppg.js';
 import { DIAL_VB, dialTickRadius } from './dial-geometry.js';

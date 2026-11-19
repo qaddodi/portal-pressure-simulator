@@ -1,9 +1,9 @@
 // Tiny observable store + parameter history (undo/redo, blueprint §3).
 
 import { prefs } from './prefs.js';
-import { defaultParams, deepMerge } from '../engine/scenario.js';
+import { defaultParams, deepMerge } from '../engine/portal/scenario.js';
 import { runSoon } from './class-soon.js';
-import { hvBlocked } from '../engine/pressure-cuts.js';
+import { hvBlocked } from '../engine/portal/pressure-cuts.js';
 
 const listeners = new Map();
 const gone = new Map();   // (B9: key -> the listeners unsubscribed from it while a change is being told; that change skips them, only for that key. Emptied when the telling ends.)

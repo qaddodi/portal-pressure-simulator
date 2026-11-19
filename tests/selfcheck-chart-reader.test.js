@@ -18,10 +18,10 @@ before(async () => {
   ({ bigTiles, tileVal } = await import('../src/ui/presenter-cards.js'));
   ({ tileOf, tileShown } = await import('../src/ui/table-marks.js'));
   ({ valueText } = await import('../src/ui/callout-math.js'));
-  ({ fingerprintOf } = await import('../src/engine/fingerprint.js'));
-  ({ computeMetrics } = await import('../src/engine/metrics.js'));
-  ({ Engine } = await import('../src/engine/engine.js'));
-  ({ HVPG_CUTS, PPG_CUTS } = await import('../src/engine/pressure-cuts.js'));
+  ({ fingerprintOf } = await import('../src/engine/portal/fingerprint.js'));
+  ({ computeMetrics } = await import('../src/engine/portal/metrics.js'));
+  ({ Engine } = await import('../src/engine/portal/engine.js'));
+  ({ HVPG_CUTS, PPG_CUTS } = await import('../src/engine/portal/pressure-cuts.js'));
 }, { timeout: 60000 });
 
 const fpOf = (preset) => { const e = new Engine(); e.loadPreset(preset); for (let i = 0; i < 400; i++) e.step(0.004); return fingerprintOf(computeMetrics(e), { P: e.Pf || e.P, Q: e.Qf || e.Q, params: e.params }); };

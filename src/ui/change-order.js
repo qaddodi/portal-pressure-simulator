@@ -13,7 +13,7 @@
 // state is first drawn (the name leads that moment: the new state is asked for only once the new name is in, or NAME_LEAD_MS at
 // most). tests/change-order.test.js holds the order and the times to it.
 
-import { EDGES, JUNCTION_PIECES } from '../engine/topology.js';
+import { EDGES, JUNCTION_PIECES } from '../engine/portal/topology.js';
 import { piecesOf } from './part-names.js';
 
 /** The steps, in the order they start. */

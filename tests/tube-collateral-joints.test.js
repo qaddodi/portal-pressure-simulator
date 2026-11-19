@@ -9,7 +9,7 @@ import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { webInstances, websByTier, F_SHUNT } from '../src/ui/tube-data.js';
 import { webGeometry, WEB_FLOATS } from '../src/ui/tube-joint.js';
-import { EDGES } from '../src/engine/topology.js';
+import { EDGES } from '../src/engine/portal/topology.js';
 import { loadCapture } from './tube-web-helpers.js';
 
 const SCRIPT = fileURLToPath(new URL('./tube-web-capture.mjs', import.meta.url));

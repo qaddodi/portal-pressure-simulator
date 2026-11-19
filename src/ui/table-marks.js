@@ -2,14 +2,14 @@
 // each column's cut-offs (CUT, the same as the readouts' status colors), the direction a cell's arrow points against
 // normal (dirAbs) or against a reference patient (dirRel), and the colour that goes with it.
 
-import { FLOW_CUTS } from '../engine/flow-cuts.js';
-import { HVPG_CUTS, PPG_CUTS, PV_CUTS, hvpgRate, ppgRate, RATE_OF_SEV, HVPG_WORDS, PPG_WORDS } from '../engine/pressure-cuts.js';
-import { SSM_CUTS } from '../engine/ssm-cuts.js';
-import { KIDNEY_CUTS } from '../engine/kidney-cuts.js';
-import { SAAG_PORTAL, TP_HIGH, TP_SBP } from '../engine/ascites-cuts.js';
-import { LSM_CUTS, lsmContext } from '../engine/lsm-cuts.js';
-import { TRANSFUSE } from '../engine/transfusion-cuts.js';
-import { stentBand, gateKindsOf, reductionJet } from '../engine/stent-geom.js';
+import { FLOW_CUTS } from '../engine/portal/flow-cuts.js';
+import { HVPG_CUTS, PPG_CUTS, PV_CUTS, hvpgRate, ppgRate, RATE_OF_SEV, HVPG_WORDS, PPG_WORDS } from '../engine/portal/pressure-cuts.js';
+import { SSM_CUTS } from '../engine/portal/ssm-cuts.js';
+import { KIDNEY_CUTS } from '../engine/portal/kidney-cuts.js';
+import { SAAG_PORTAL, TP_HIGH, TP_SBP } from '../engine/portal/ascites-cuts.js';
+import { LSM_CUTS, lsmContext } from '../engine/portal/lsm-cuts.js';
+import { TRANSFUSE } from '../engine/portal/transfusion-cuts.js';
+import { stentBand, gateKindsOf, reductionJet } from '../engine/portal/stent-geom.js';
 
 export const NO_ASC = 150;
 export const ASC_G2 = 1500;   // mL: grade 2, the moderate belly, starts here   // mL: below it there is no ascites to tap (ultrasound grade 1 starts here)

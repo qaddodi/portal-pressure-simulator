@@ -23,7 +23,7 @@ const { st, page, frame } = await bootGL();
 }
 const { store } = await import('../src/ui/store.js');
 const { stepPlan } = await import('../src/ui/callout-math.js');
-const { EDGES } = await import('../src/engine/topology.js');
+const { EDGES } = await import('../src/engine/portal/topology.js');
 const EIDS = new Set(EDGES.map((e) => e.id)), SEQ = 550;
 const GLOW = [['V_INT', 'V_SPL', 'V_IMV'], ['SIN_RR', 'SIN_LL'], ['RHV_IVC', 'MHV_IVC', 'LHV_IVC']];   // (circulation "series", and a third group as sites.js has)
 const fans = (sn, k) => sn.marks.filter((m) => m.k === k && m.kind === 'line');

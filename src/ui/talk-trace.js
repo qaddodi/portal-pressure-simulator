@@ -10,7 +10,7 @@
 // HVPG lane. WHVP is violet (--s7), not --tr-wedge, the HVPG's own colour on this chart and the curves; its FHVP stays a dashed neutral reference because the chart stands still (the dashes are on a line that does not scroll). On the strips that scroll the three are solid: portal pink, wedged amber, free blue.
 
 import { h, fmt, clamp } from './util.js';
-import { hvpgRate } from '../engine/pressure-cuts.js';
+import { hvpgRate } from '../engine/portal/pressure-cuts.js';
 import { plotPanel } from './plot-look.js';
 import { bandKeys, bandRuns } from './rx-bands.js';
 import { createSvgGL, svgModel } from './svg-gl.js';

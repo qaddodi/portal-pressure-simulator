@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DOPPLER } from '../src/ui/decks/doppler.js';
 import { createCore } from '../src/worker-core.js';
-import { PRESETS, defaultParams } from '../src/engine/scenario.js';
+import { PRESETS, defaultParams } from '../src/engine/portal/scenario.js';
 import { CIRCUIT } from '../src/ui/decks/circuit.js';
 import { presenterSource } from './split-src.js';
 

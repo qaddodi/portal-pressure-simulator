@@ -5,9 +5,9 @@
 // vessels leaving that junction start with, so no vessel ends on a colour its junction does not have (blood.js ORIGIN_RAMP).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { deepMerge } from '../src/engine/scenario.js';
-import { EDGES, NODES } from '../src/engine/topology.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { deepMerge } from '../src/engine/portal/scenario.js';
+import { EDGES, NODES } from '../src/engine/portal/topology.js';
 import { originFractionsInto, oxygenSat, ORIGIN_N, FLOW_FLOOR } from '../src/ui/blood.js';
 
 const E = EDGES.length, N = ORIGIN_N, NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -123,8 +123,8 @@ test('the colours do not depend on the pressures: the same with every pressure e
 // reversed (under the passes' floor), the passes took such a flow for none, so the node it runs into had no inflow at all and read as systemic blood. A flow under the floor now carries its blood
 // on (its own weight: beside a real inflow it counts for nothing). Nothing on the portal side is systemic blood unless a vessel from outside it feeds it.
 test('origin and first pass: no portal-side vein or branch reads as systemic blood in any preset (a stagnant stretch carries its neighbours\' blood on)', async () => {
-  const { PRESETS } = await import('../src/engine/scenario.js');
-  const { PORTAL_TERRITORY } = await import('../src/engine/topology.js');
+  const { PRESETS } = await import('../src/engine/portal/scenario.js');
+  const { PORTAL_TERRITORY } = await import('../src/engine/portal/topology.js');
   const sets = PRESETS.map((p) => [p.id, null]).concat([['cirr-hepatofugal', { tips: { on: true, d: 8 } }], ['cirr-decomp', { dips: { on: true, d: 8 } }]]);
   let seen = 0;
   for (const [preset, params] of sets) {

@@ -30,7 +30,7 @@ import { restPass, cancelRest } from './rest-pass.js';
 import { runSoon, propSoon, attrSoon, classSoon, classNow, removeSoon } from './class-soon.js';
 import { readBox, readMetric, readStyle } from './layout-snap.js';
 import { gradientCss } from './colormap.js';
-import { hvpgSev, ppgSev } from '../engine/pressure-cuts.js';
+import { hvpgSev, ppgSev } from '../engine/portal/pressure-cuts.js';
 import { reduceMotionMQ } from './motion.js';
 import { handOver } from './hand-over.js';
 import { glideCard, GLIDE_EVENT } from './card-glide.js';

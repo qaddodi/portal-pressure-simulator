@@ -8,7 +8,7 @@
 // The worker builds one for each slide's state (worker-core.js), the presenter one for the live model while a time-lapse plays
 // (presenter.js liveFp): both here, so a tile or chart reads the same keys either way.
 import { NODES, EDGES } from './topology.js';
-import { tenthGap } from './gap.js';
+import { tenthGap } from '../core/gap.js';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

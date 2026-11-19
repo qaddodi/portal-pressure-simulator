@@ -4,12 +4,12 @@
 // like a built-in one, and its patch cannot carry a value no control can reach into the model.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LIBRARY } from '../src/engine/inverse-library.js';
-import { FAMILIES, FAMILY, keyOf } from '../src/engine/inverse-families.js';
-import { pointsOf, rowOf, READING_KEYS } from '../src/engine/inverse.js';
-import { runPatient } from '../src/engine/inverse-run.js';
-import { Engine } from '../src/engine/engine.js';
-import { PRESETS, presetFromPatch, registerPreset, forgetPreset, defaultParams } from '../src/engine/scenario.js';
+import { LIBRARY } from '../src/engine/portal/inverse-library.js';
+import { FAMILIES, FAMILY, keyOf } from '../src/engine/portal/inverse-families.js';
+import { pointsOf, rowOf, READING_KEYS } from '../src/engine/portal/inverse.js';
+import { runPatient } from '../src/engine/portal/inverse-run.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { PRESETS, presetFromPatch, registerPreset, forgetPreset, defaultParams } from '../src/engine/portal/scenario.js';
 
 test('the library lists the grid of every family, in order, once', () => {
   const grid = FAMILIES.flatMap((f) => f.grid.map((p) => keyOf(f.id, p)));

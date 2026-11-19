@@ -2,10 +2,10 @@
 // own. Both must read the same, over the presets, a catheter wedged or free, a bleed, no gastrorenal shunt and a removed spleen's drug.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { detectEvents } from '../src/engine/events.js';
-import { Engine } from '../src/engine/engine.js';
-import { PRESETS } from '../src/engine/scenario.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { detectEvents } from '../src/engine/portal/events.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { PRESETS } from '../src/engine/portal/scenario.js';
 
 const norm = (m) => JSON.parse(JSON.stringify(m, (k, v) => (v === undefined ? '__undefined' : Number.isNaN(v) ? '__nan' : v)));
 

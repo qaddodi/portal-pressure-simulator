@@ -12,7 +12,7 @@
 import { setGeo, setPts, setWords } from './svg-gl.js';
 import { clamp } from './util.js';
 import { smooth01 } from './num.js';
-import { TRACE_N } from '../engine/stent-trace.js';
+import { TRACE_N } from '../engine/portal/stent-trace.js';
 
 const N = TRACE_N;
 export const DROP = { w: 320, gutter: 6, dotR: 3.5, plotH: 50 };

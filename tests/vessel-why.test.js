@@ -8,12 +8,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { explain } from '../src/engine/explain.js';
-import { edgeWhy, nodeWhy, whyTarget } from '../src/engine/explain-ids.js';
-import { healthyAtBedside, restingEngine } from '../src/engine/bedside-rest.js';
-import { EDGES, NODES } from '../src/engine/topology.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { explain } from '../src/engine/portal/explain.js';
+import { edgeWhy, nodeWhy, whyTarget } from '../src/engine/portal/explain-ids.js';
+import { healthyAtBedside, restingEngine } from '../src/engine/portal/bedside-rest.js';
+import { EDGES, NODES } from '../src/engine/portal/topology.js';
 import { ARTERY_WALL, readArteryWall, writeArteryWall } from '../src/ui/artery-wall.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');

@@ -5,7 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DECKS } from '../src/ui/decks.js';
 import { runSteps, deckStates } from './deck-states.js';
-import { HVPG_CUTS } from '../src/engine/pressure-cuts.js';
+import { HVPG_CUTS } from '../src/engine/portal/pressure-cuts.js';
 
 const deck = DECKS.find((d) => d.id === 'two-lesions');
 const at = async () => { const st = await deckStates(deck); return Object.fromEntries(deck.slides.map((s, i) => [s.id, st[i].metrics ?? st[i]])); };

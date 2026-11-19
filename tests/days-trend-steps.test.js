@@ -3,9 +3,9 @@
 // (#12: the post-change reading used to overwrite today's point, so even without the calm the line fell from the day before.)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { calmed, calmedDays, calmedPieces, recordDay } from '../src/engine/trail-calm.js';
-import { treatmentKey } from '../src/engine/change-events.js';
-import { defaultParams } from '../src/engine/scenario.js';
+import { calmed, calmedDays, calmedPieces, recordDay } from '../src/engine/portal/trail-calm.js';
+import { treatmentKey } from '../src/engine/portal/change-events.js';
+import { defaultParams } from '../src/engine/portal/scenario.js';
 
 const noise = (d) => 0.25 * Math.sin(d * 2.3) + 0.15 * Math.sin(d * 0.9 + 1);   // (a quiet step's ripple, a few tenths)
 /** The Days list as the chart makes it: a frame before the change and one with it on the change day, then the days after. */

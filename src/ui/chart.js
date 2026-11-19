@@ -9,7 +9,7 @@ import { prefs } from './prefs.js';
 import { store, updateParams } from './store.js';
 import { h, icon, svgIcon, toast, reconcile } from './util.js';
 import { fold } from './fold.js';
-import { DRUGS } from '../engine/scenario.js';
+import { DRUGS } from '../engine/portal/scenario.js';
 import { activeInterventions } from './inspector.js';
 import { DRUG_NOTE } from './actions.js';
 import { factTarget } from './fact-target.js';

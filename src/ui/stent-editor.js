@@ -16,7 +16,7 @@ import { store, updateParams } from './store.js';
 import { frameFor } from './frame.js';
 import { runSoon, propSoon, attrSoon, dataSoon } from './class-soon.js';
 import { stentControls } from './actions.js';
-import { LUMEN_STEP, lumenShown, shareFor, waistShown } from '../engine/stent-geom.js';
+import { LUMEN_STEP, lumenShown, shareFor, waistShown } from '../engine/portal/stent-geom.js';
 import { readBox, readMetric } from './layout-snap.js';
 import { D_SURFACE, D_SMALL, EASE_ARRIVE } from './ease.js';
 import { reduced } from './motion.js';

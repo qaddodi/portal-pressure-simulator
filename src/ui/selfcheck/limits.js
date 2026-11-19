@@ -3,7 +3,7 @@
 // phone) and the owner's messages (the Shuffle's 10 px lived nowhere). A judge imports its number from here; the words in the Check's copy are made from the same numbers, so they
 // cannot disagree; `npm run debug -- limits` and the unified debug doc print the table. Pure: no DOM, no page.
 //
-// The app's own numbers stay where the app reads them (card-type.js owns the floor and the title ratio; the pressure cut-offs are src/engine/pressure-cuts.js); this file imports them, and a test
+// The app's own numbers stay where the app reads them (card-type.js owns the floor and the title ratio; the pressure cut-offs are src/engine/portal/pressure-cuts.js); this file imports them, and a test
 // ties each to what the app uses.
 import { WORDS_MIN_PX, TITLE_RATIO } from '../card-type.js';
 import { DIM_ALPHA } from '../label-explain.js';

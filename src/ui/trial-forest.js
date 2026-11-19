@@ -11,7 +11,7 @@
 // forestLayout and armsLayout are pure: the same trials at the same width and type size always give the same drawing. meas(text, font) → px
 // (glyph-measure.js). createForest draws forestLayout's pieces, again only when its width or what it shows changes.
 
-import { lcFirst } from '../engine/lc-first.js';
+import { lcFirst } from '../engine/portal/lc-first.js';
 import { h } from './util.js';
 import { createSvgGL, svgModel } from './svg-gl.js';
 import { fittedType } from './chart-ctx.js';

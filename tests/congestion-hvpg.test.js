@@ -3,8 +3,8 @@
 // a little with the lower inflow. The sinusoids used to dilate with the whole venous rise, so cirrhosis at 40% (HVPG 6.4) read 2 with the atrium at 24.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { runPatient } from '../src/engine/inverse-run.js';
-import { HVPG_CUTS } from '../src/engine/pressure-cuts.js';
+import { runPatient } from '../src/engine/portal/inverse-run.js';
+import { HVPG_CUTS } from '../src/engine/portal/pressure-cuts.js';
 
 const hv = (f, p) => runPatient(f, p);
 

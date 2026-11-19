@@ -9,7 +9,7 @@ import { bootGL } from './stage-gl-boot.js';
 const { st, page, frame } = await bootGL();
 const { store } = await import('../src/ui/store.js');
 const { stepPlan } = await import('../src/ui/callout-math.js');
-const { EDGES } = await import('../src/engine/topology.js');
+const { EDGES } = await import('../src/engine/portal/topology.js');
 const EIDS = new Set(EDGES.map((e) => e.id));
 const SEQ = 550;
 

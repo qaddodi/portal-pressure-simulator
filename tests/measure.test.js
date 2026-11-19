@@ -1,4 +1,4 @@
-// A hepatic vein's measurement, one policy (src/engine/pressure-cuts.js hvMeasure; §6.3 of the external production review, 15 Nov 2026): can the catheter pass,
+// A hepatic vein's measurement, one policy (src/engine/portal/pressure-cuts.js hvMeasure; §6.3 of the external production review, 15 Nov 2026): can the catheter pass,
 // can a reading be taken, can the gradient be read as the liver's. Until 15 Nov a second helper (src/ui/measure-model.js: thrombus 0.5 or stenosis 0.8, used by
 // no screen) disagreed with hvBlocked (thrombus 0.8) at thrombus 0.6.
 import { test } from 'node:test';
@@ -6,8 +6,8 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Engine } from '../src/engine/engine.js';
-import { hvMeasure, hvBlocked, HV_BLOCKED, HV_SUSPECT, HV_EDGE } from '../src/engine/pressure-cuts.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { hvMeasure, hvBlocked, HV_BLOCKED, HV_SUSPECT, HV_EDGE } from '../src/engine/portal/pressure-cuts.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const params = (id) => { const e = new Engine(); e.loadPreset(id); return e.params; };
@@ -55,5 +55,5 @@ test('there is one policy: no second blockage helper exists, and no file writes 
       if (/\b(?:RHV_IVC|MHV_IVC|LHV_IVC)\b[^;\n]{0,30}\)?\s*(?:\|\|\s*0\))?\s*(?:>=?|<=?)\s*0\.\d/.test(code)) stray.push(`${f}:${i + 1}: ${line.trim().slice(0, 100)}`);
     });
   }
-  assert.deepEqual(stray, [], 'read the vein\'s lines from hvMeasure (src/engine/pressure-cuts.js)');
+  assert.deepEqual(stray, [], 'read the vein\'s lines from hvMeasure (src/engine/portal/pressure-cuts.js)');
 });

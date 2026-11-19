@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { EDGES, stentCourse } from '../src/engine/topology.js';
+import { EDGES, stentCourse } from '../src/engine/portal/topology.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 

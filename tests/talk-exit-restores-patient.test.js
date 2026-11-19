@@ -4,8 +4,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 test('the engine snapshot a talk captures brings the same patient and clock back after the healthy preset was loaded', async () => {
-  const { Engine } = await import('../src/engine/engine.js');
-  const { computeMetrics } = await import('../src/engine/metrics.js');
+  const { Engine } = await import('../src/engine/portal/engine.js');
+  const { computeMetrics } = await import('../src/engine/portal/metrics.js');
   const e = new Engine(); e.loadPreset('cirr-decomp');
   for (let i = 0; i < 500; i++) e.step(0.02);
   const snap = e.snapshot(), t0 = e.t, hvpg0 = computeMetrics(e).hvpg;

@@ -3,9 +3,9 @@
 // else takes the parameter's default and is reported with its field path. Unknown nested keys never ride along to be read as a switch.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sanitizeParams, sanitizeParamsReport, defaultParams } from '../src/engine/scenario.js';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
+import { sanitizeParams, sanitizeParamsReport, defaultParams } from '../src/engine/portal/scenario.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
 
 const D = defaultParams();
 // Everything a hand-edit can put where a boolean belongs, other than a boolean.

@@ -3,9 +3,9 @@
 // TIPS, and Tapered moves the jet and the friction, not it (play-test, 17 Nov 2026: "Ends reads 0.0 at 60 %").
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { deepMerge, sanitizeParams } from '../src/engine/scenario.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { deepMerge, sanitizeParams } from '../src/engine/portal/scenario.js';
 
 // (The waist is stentGeom.red, mid stent, since the two narrowings, 17 Nov 2026: an end stenosis is always a short abrupt segment, so Tapered is the waist's.)
 

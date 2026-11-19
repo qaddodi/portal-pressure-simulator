@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createCore } from '../src/worker-core.js';
 import { OUTFLOW } from '../src/ui/decks/outflow.js';
-import { PRESETS } from '../src/engine/scenario.js';
+import { PRESETS } from '../src/engine/portal/scenario.js';
 import { deckStates } from './deck-states.js';
 import { presenterSource } from './split-src.js';
 

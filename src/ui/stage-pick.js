@@ -1,6 +1,6 @@
 // The pick, the figure's keyboard items and the action-card anchors.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { EDGES } from '../engine/topology.js';
+import { EDGES } from '../engine/portal/topology.js';
 import { SITES } from './anatomy.js';
 import { D_FLIP } from './ease.js';
 import { elBoxInto } from './shape-gl.js';

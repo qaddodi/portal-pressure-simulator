@@ -105,8 +105,8 @@ Every check the app runs on itself is a named rule with one owner file and one r
 | `chart-zone-names-with-legend` | the screen now | A chart that has a legend writes no zone names on its plot (17 Nov: "you have a legend already") | `src/ui/visual-plane.js` |
 | `chart-axes-fit-data` | the screen now | A chart that cuts its axes to its points leaves no more than 45% of an axis empty, and draws no point outside its frame (18 Nov, b52b29d1) | `src/ui/visual-plane.js` |
 | `number-agree` | the screen now | A reading is the same number in the tile, the header, the words, the chart and the figure label, and the model's | `src/ui/presenter-cards.js` |
-| `pressure-colour` | the screen now | A pressure wears the colour its cut-offs give the number shown: HVPG amber over 5, red 10; PPG amber 6, red 12 | `src/engine/pressure-cuts.js` |
-| `pressure-words` | the screen now | Words that name a cut-off of the HVPG or PPG name one of the app's (HVPG 5, 10, 12, 20; PPG 6, 12) | `src/engine/pressure-cuts.js` |
+| `pressure-colour` | the screen now | A pressure wears the colour its cut-offs give the number shown: HVPG amber over 5, red 10; PPG amber 6, red 12 | `src/engine/portal/pressure-cuts.js` |
+| `pressure-words` | the screen now | Words that name a cut-off of the HVPG or PPG name one of the app's (HVPG 5, 10, 12, 20; PPG 6, 12) | `src/engine/portal/pressure-cuts.js` |
 | `figure-colour-stale` | the screen now | Under the pressure lens a vessel end is the ramp colour of its pressure in 0.5 mmHg steps (colormap.js pressureColor, held 0.4 mmHg: stage-geohold.js qHold). A colour from a pressure more than a bin or two away is a stale paint. | `src/ui/stage-tubes.js` |
 | `figure-vessel-no-colour` | the screen now | A vein the GPU draws has its two end colours (setColPair); a shown vein with none draws black or not at all. Arteries take the artery colour and are left out. | `src/ui/stage-tubes.js` |
 | `figure-vessel-width` | the screen now | A shown vessel has a width: a width that is not a number, or nothing, is a vessel the GPU draws as a hairline or not at all. | `src/ui/stage-tubes.js` |

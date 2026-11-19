@@ -6,8 +6,8 @@ import assert from 'node:assert/strict';
 import './dom-shim.js';
 
 const settled = async (id, over = {}, s = 20) => {
-  const { Engine } = await import('../src/engine/engine.js');
-  const { computeMetrics } = await import('../src/engine/metrics.js');
+  const { Engine } = await import('../src/engine/portal/engine.js');
+  const { computeMetrics } = await import('../src/engine/portal/metrics.js');
   const e = new Engine(); e.loadPreset(id);
   if (Object.keys(over).length) e.setParams({ ...e.params, ...over });
   e.beat = true;
@@ -29,8 +29,8 @@ test('chronic PVT: the portal flow is the cavernoma\'s hepatopetal flow, the tru
 
 test('Budd–Chiari: the HVPG is hidden as not measurable in Explore whatever was measured, and others show it as before', async () => {
   const { store, hiddenNow } = await import('../src/ui/store.js');
-  const { hvBlocked } = await import('../src/engine/pressure-cuts.js');
-  const { defaultParams, PRESETS } = await import('../src/engine/scenario.js');
+  const { hvBlocked } = await import('../src/engine/portal/pressure-cuts.js');
+  const { defaultParams, PRESETS } = await import('../src/engine/portal/scenario.js');
   const bc = PRESETS.find((p) => p.id === 'budd-chiari').apply(defaultParams()), ch = PRESETS.find((p) => p.id === 'cirr-decomp').apply(defaultParams());
   assert.ok(hvBlocked(bc) && !hvBlocked(ch));
   const base = { mode: 'explore', presenting: false, hiddenReadouts: null };
@@ -81,7 +81,7 @@ test('Budd–Chiari: the esophageal varix is sized less by the gradient than in 
   assert.ok(v.ratio < 1, `wall stress ${(v.ratio * 100).toFixed(0)}% of the tear point`);
   assert.ok(v.r > 2, `still a varix, ${v.r.toFixed(1)} mm`);
   assert.ok(m.ppg > 18, 'the portal pressure itself is not touched');
-  const { NOT_MEASURABLE_WHY } = await import('../src/engine/pressure-cuts.js');
+  const { NOT_MEASURABLE_WHY } = await import('../src/engine/portal/pressure-cuts.js');
   assert.equal(NOT_MEASURABLE_WHY, 'Not measurable (hepatic vein outflow obstructed)');
   const { m: c, e: ce } = await settled('cirr-decomp', {}, 20);
   assert.ok(ce.varix('VAR', ce.Pf || ce.P).ratio > 1.2, 'cirrhosis keeps its own rule');

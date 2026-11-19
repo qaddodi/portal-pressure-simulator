@@ -9,7 +9,7 @@ import './dom-shim.js';
 import { createShownState, createFollow, FILL_SMALL, fillQ } from '../src/ui/display-state.js';
 import { createEaser } from '../src/ui/util.js';
 import { createCore } from '../src/worker-core.js';
-import { NODES } from '../src/engine/topology.js';
+import { NODES } from '../src/engine/portal/topology.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 function sched() {

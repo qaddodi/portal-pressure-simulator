@@ -3,10 +3,10 @@
 // the cut-off does not flip it (play-test 17 Nov 2026, 88 %: "Stasis" turning "Patent"; the Doppler said "No flow" beside a distal 23 cm/s).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { deepMerge, sanitizeParams } from '../src/engine/scenario.js';
-import { FLOW_CUTS, stentStill, stentStillHeld } from '../src/engine/flow-cuts.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { deepMerge, sanitizeParams } from '../src/engine/portal/scenario.js';
+import { FLOW_CUTS, stentStill, stentStillHeld } from '../src/engine/portal/flow-cuts.js';
 
 const at = (s) => { const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams(sanitizeParams(deepMerge(e.params, { tips: { on: true, d: 10 }, stenosis: { TIPS: s } }))); e.settle(3); return e; };
 

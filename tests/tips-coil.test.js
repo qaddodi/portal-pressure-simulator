@@ -10,9 +10,9 @@ import { ROUTE_LEN, legMs } from '../src/ui/hvpg-clock.js';
 import { lumenPath, layCoil, coilReach } from '../src/ui/eus-scope.js';
 import { EDGE_PATH } from '../src/ui/anatomy.js';
 import { BLEED } from '../src/ui/decks/variceal-bleed.js';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { deepMerge } from '../src/engine/scenario.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { deepMerge } from '../src/engine/portal/scenario.js';
 await import('./dom-shim.js');   // (the graph draws on the GPU, svg-gl.js, which loads only with a page)
 const { eventLines, EVENT_WORD } = await import('../src/ui/event-graph.js');
 

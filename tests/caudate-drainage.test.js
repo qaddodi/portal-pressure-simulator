@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ANAT_HIDDEN, CAUDATE, CIRCUIT_PATH, HIDDEN_EDGES, NODE_POS, metroPath } from '../src/ui/anatomy.js';
-import { EDGES } from '../src/engine/topology.js';
+import { EDGES } from '../src/engine/portal/topology.js';
 
 // A path (M L Q C) as a polyline.
 function flat(d) {

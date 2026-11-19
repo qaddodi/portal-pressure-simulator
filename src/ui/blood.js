@@ -15,7 +15,7 @@
 // and a dye bolus that travels the network, conserved along each vessel and mixed (flow-weighted)
 // only at junctions.
 
-import { FLOW_CUTS } from '../engine/flow-cuts.js';
+import { FLOW_CUTS } from '../engine/portal/flow-cuts.js';
 import { lumenSurface, lumenAt } from './stomach-lumen.js';
 import { D_SURFACE, smooth01 } from './motion.js';
 

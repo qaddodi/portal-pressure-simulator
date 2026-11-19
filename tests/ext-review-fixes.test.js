@@ -2,8 +2,8 @@
 // EXT-ASY-1 is audit-correctness-b.test.js).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
 import { createCore } from '../src/worker-core.js';
 
 function setup(t) {

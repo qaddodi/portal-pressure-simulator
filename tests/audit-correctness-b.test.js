@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { sanitizeParams, defaultParams } from '../src/engine/scenario.js';
+import { sanitizeParams, defaultParams } from '../src/engine/portal/scenario.js';
 import { store } from '../src/ui/store.js';
 
 const read = (p) => readFileSync(new URL(`../src/ui/${p}`, import.meta.url), 'utf8');

@@ -3,7 +3,7 @@
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { EDGES } from '../src/engine/topology.js';
+import { EDGES } from '../src/engine/portal/topology.js';
 import { NODE_POS, SPLEEN_CENTER, CIRCUIT_ZONES } from '../src/ui/anatomy.js';
 import { DECKS } from '../src/ui/decks.js';
 import { adopted } from './deck-adopted.js';

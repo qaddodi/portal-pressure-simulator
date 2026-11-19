@@ -22,11 +22,11 @@ import { reduceMotionMQ } from './motion.js';
 import { readMetric } from './layout-snap.js';
 import { pressureColor } from './colormap.js';
 import { stentNormal } from './velNormal.js';
-import { geomFix, geomOf, profileAt, waistSpan, endSpan, waistShown, lumenShown } from '../engine/stent-geom.js';
-import { STENT_SITES, stentSite } from '../engine/topology.js';
+import { geomFix, geomOf, profileAt, waistSpan, endSpan, waistShown, lumenShown } from '../engine/portal/stent-geom.js';
+import { STENT_SITES, stentSite } from '../engine/portal/topology.js';
 import { createFollowN, readStent, stentColour, localVelocity, openVelocity, scanK, stentOutline, ten, int, N_PROFILE } from './tool-stent.js';
 import { traceFor, gateIndex, TR } from './stent-trace-pic.js';
-import { makeTrace, TRACE_N } from '../engine/stent-trace.js';
+import { makeTrace, TRACE_N } from '../engine/portal/stent-trace.js';
 
 const nextFrame = frameFor('tips-figure');
 const sv = svgModel;

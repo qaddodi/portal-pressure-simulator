@@ -6,15 +6,15 @@ import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { EDGES, NODES, PORTAL_TERRITORY } from '../src/engine/topology.js';
+import { EDGES, NODES, PORTAL_TERRITORY } from '../src/engine/portal/topology.js';
 import { ORGANS } from '../src/ui/anatomy.js';
 import { DECKS, REGIONS } from '../src/ui/decks.js';
 import { adopted } from './deck-adopted.js';
 import { EXT, expandIds } from '../src/ui/slide-ext.js';
 import A from '../src/ui/ext-highlights.js';
 import { SETS, ORGAN_TARGETS, NEW_ORGANS, spotOf, liftEnd, nearPath, LIFT_EASE_SHARE, LIFT_EASE_MAX, bandRing, dashRings, normalShown, NORMAL_ON, NORMAL_OFF, rippleList, RIPPLE_MAX, systemOf, SYSTEM_COLOR } from '../src/ui/highlight-math.js';
-import { Engine } from '../src/engine/engine.js';
-import { deepMerge } from '../src/engine/scenario.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { deepMerge } from '../src/engine/portal/scenario.js';
 
 const VESSELS = new Set(EDGES.map((e) => e.id));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

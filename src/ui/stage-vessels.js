@@ -24,7 +24,7 @@ import { frontAlpha, frontKey, frontP, fronted } from './collateral-front.js';
 import { FRONT_MAX_MS, changeDrawn, easingFront, edgeHops, frontDelay } from './change-order.js';
 import { beadRadius } from './varix-bead.js';
 import { LOOK_SITE } from './varix-look.js';
-import { isStent } from '../engine/topology.js';
+import { isStent } from '../engine/portal/topology.js';
 import { JOIN_F_NOFADE } from './tube-join-glsl.js';
 import { newJoinStore, runOnSamples, smoothRunOn as smoothPass, veinJoins as joinsPass, veinJoinsStep as joinsPassStep } from './vein-joins.js';
 import { ARTERY_WALL, readArteryWall, writeArteryWall } from './artery-wall.js';

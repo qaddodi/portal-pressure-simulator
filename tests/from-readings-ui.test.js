@@ -16,7 +16,7 @@ globalThis.requestAnimationFrame ||= (f) => setTimeout(() => f(performance.now()
 globalThis.cancelAnimationFrame ||= (id) => clearTimeout(id);
 const { createFromReadings, STEPS } = await import('../src/ui/from-readings.js');
 const { closePopover } = await import('../src/ui/util.js');
-const { LESION_IDS } = await import('../src/engine/inverse-families.js');
+const { LESION_IDS } = await import('../src/engine/portal/inverse-families.js');
 
 const anchor = document.getElementById('btnMenu');
 const opened = [];
@@ -256,7 +256,7 @@ test('guess first: the readings with the lesions to pick, the name kept back unt
   body().querySelector('.fr-guessgo').click();
   Math.random = realRandom;
   assert.equal(fr.state.view, 'guess');
-  const { TRY_CASES } = await import('../src/engine/inverse-try-cases.js');
+  const { TRY_CASES } = await import('../src/engine/portal/inverse-try-cases.js');
   assert.ok(!body().textContent.includes(TRY_CASES.find((c) => c.id === fr.state.caseId).label), 'the case name is not shown');
   const reveal = body().querySelector('.fr-next');
   assert.equal(reveal.disabled, true, 'a guess is needed first');

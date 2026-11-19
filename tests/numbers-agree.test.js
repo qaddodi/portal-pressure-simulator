@@ -5,10 +5,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { detectEvents } from '../src/engine/events.js';
-import { PRESETS } from '../src/engine/scenario.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { detectEvents } from '../src/engine/portal/events.js';
+import { PRESETS } from '../src/engine/portal/scenario.js';
 import { meanVel, dopplerVel } from '../src/ui/velNormal.js';
 import { vitalReading } from '../src/ui/vital-read.js';
 
@@ -125,7 +125,7 @@ test('the right atrium is read over two breaths everywhere it is shown, and that
   assert.ok(hi - lo > 0.4, `the beat-by-beat RA swings (${lo.toFixed(2)}–${hi.toFixed(2)}), which is why it is not shown`);
   assert.ok(mhi - mlo < 0.1, `the RA reading holds within 0.1 mmHg (${mlo.toFixed(2)}–${mhi.toFixed(2)})`);
   assert.ok(vhi - vlo < 0.3, `RA over two breaths holds within 0.3 mmHg (${vlo.toFixed(2)}–${vhi.toFixed(2)})`);
-  // (The slide data card: the presenter's live fingerprint and the worker's slide states are one function, engine/fingerprint.js.)
+  // (The slide data card: the presenter's live fingerprint and the worker's slide states are one function, engine/portal/fingerprint.js.)
 });
 
 // Sweep batch 02, shot 14: the Doppler panel said −31 cm/s over a ±5 scale with the trace clipped into a block. The scale

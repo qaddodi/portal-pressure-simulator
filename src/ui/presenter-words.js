@@ -6,7 +6,7 @@ import { NODE_POS } from './anatomy.js';
 import { DISEASE_SRC, diseasePieces } from './diseases.js';
 import { nb } from './glue.js';
 import { valueText } from './callout-math.js';
-import { TOKEN_OF_RATE } from '../engine/pressure-cuts.js';
+import { TOKEN_OF_RATE } from '../engine/portal/pressure-cuts.js';
 import { cleanEq } from './import-safety.js';
 import { TILE, cutText, rateShown, tileShown, tipsGoal } from './table-marks.js';
 import { dropCss, flowCss, gradientCss, heatCss, oxygenCss } from './colormap.js';

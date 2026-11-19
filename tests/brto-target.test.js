@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PROCS, PROC_KINDS, PLUGS, specOf, procKindOf, procBlocked, procOffered, procFrame, stepMark, STEP_NUM } from '../src/ui/proc-anim.js';
 import { LABEL_VESSEL } from '../src/ui/anatomy.js';
-import { defaultParams } from '../src/engine/scenario.js';
+import { defaultParams } from '../src/engine/portal/scenario.js';
 import { runSteps } from './deck-states.js';
 await import('./dom-shim.js');   // (the graph draws on the GPU, svg-gl.js, which loads only with a page)
 const { eventLines, eventGraphOf, EVENT_WORD } = await import('../src/ui/event-graph.js');

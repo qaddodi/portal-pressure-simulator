@@ -18,7 +18,7 @@ globalThis.cancelAnimationFrame ||= (id) => clearTimeout(id);
 
 const { createChart } = await import('../src/ui/chart.js');
 const { store, replaceParams } = await import('../src/ui/store.js');
-const { defaultParams } = await import('../src/engine/scenario.js');
+const { defaultParams } = await import('../src/engine/portal/scenario.js');
 
 test('treatBody hands back a fit that puts the pane height on, and the observer then writes the same', () => {
   replaceParams(defaultParams());

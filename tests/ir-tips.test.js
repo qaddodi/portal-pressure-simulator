@@ -25,7 +25,7 @@ const { createIrTips, stentIds, stentLine, STENT_RANGE, peakBand, NO_STENT_WHY }
 const { store } = await import('../src/ui/store.js');
 const { curveToolOf, sweepMatters, SWEEPS, createIrCurves } = await import('../src/ui/ir-curves.js');
 const { curveSteps, curveSeries, drawnLines, curveXs } = await import('../src/ui/tool-curve.js');
-const { BENCH_DP } = await import('../src/engine/stent-geom.js');
+const { BENCH_DP } = await import('../src/engine/portal/stent-geom.js');
 const { createIrCompare, changeOf, NOTHING_PINNED } = await import('../src/ui/ir-compare.js');
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -255,8 +255,8 @@ test('Curves: the series carries the patient\'s line and the tube\'s from the wo
 });
 
 test('Curves: no engine key the view needs is missing: the engine\'s stent state carries .bench and the fingerprint passes it on', () => {
-  assert.match(read('src/engine/engine.js'), /o\.bench = benchFlow\(kind, d, this\.viscosity\(\), s, g, BENCH_DP, su\) \* 0\.06;/);
-  assert.match(read('src/engine/fingerprint.js'), /\[`\$\{k\}Bench`\]: t \? t\.bench : null/);
+  assert.match(read('src/engine/portal/engine.js'), /o\.bench = benchFlow\(kind, d, this\.viscosity\(\), s, g, BENCH_DP, su\) \* 0\.06;/);
+  assert.match(read('src/engine/portal/fingerprint.js'), /\[`\$\{k\}Bench`\]: t \? t\.bench : null/);
   assert.doesNotMatch(read('src/ui/ir-curves.js').replace(/\/\/.*$/gm, ''), /HVPG/i);
 });
 
@@ -274,10 +274,10 @@ test('Curves: the sub-switch opens the third view, and leaving the TIPS view sto
 });
 
 test('Curves, the engine\'s numbers: the tube alone is the same stent at a fixed 7 mmHg; narrowing it costs the tube more than it costs the patient', async () => {
-  const { Engine } = await import('../src/engine/engine.js');
-  const { computeMetrics } = await import('../src/engine/metrics.js');
-  const { deepMerge, sanitizeParams } = await import('../src/engine/scenario.js');
-  const { fingerprintOf } = await import('../src/engine/fingerprint.js');
+  const { Engine } = await import('../src/engine/portal/engine.js');
+  const { computeMetrics } = await import('../src/engine/portal/metrics.js');
+  const { deepMerge, sanitizeParams } = await import('../src/engine/portal/scenario.js');
+  const { fingerprintOf } = await import('../src/engine/portal/fingerprint.js');
   const at = (patch) => { const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams(sanitizeParams(deepMerge(e.params, patch))); e.settle(3); return fingerprintOf(computeMetrics(e)); };
   const open = at({ tips: { on: true, d: 10 } }), narrow = at({ tips: { on: true, d: 10 }, stenosis: { TIPS: 0.5 }, stentGeom: { TIPS: { waist: 4 } } });
   assert.ok(open.tipsBench > 0 && Number.isFinite(open.tipsBench), `bench ${open.tipsBench}`);
@@ -290,11 +290,11 @@ test('Curves, the engine\'s numbers: the tube alone is the same stent at a fixed
 });
 
 test('Stasis: a stent that has almost stopped reads 0 cm/s everywhere, from one rule (flow-cuts.js stentStill): tile, gates, Compare and the card\'s own word', async () => {
-  const { Engine } = await import('../src/engine/engine.js');
-  const { computeMetrics } = await import('../src/engine/metrics.js');
-  const { deepMerge, sanitizeParams } = await import('../src/engine/scenario.js');
-  const { fingerprintOf } = await import('../src/engine/fingerprint.js');
-  const { stentStill, FLOW_CUTS } = await import('../src/engine/flow-cuts.js');
+  const { Engine } = await import('../src/engine/portal/engine.js');
+  const { computeMetrics } = await import('../src/engine/portal/metrics.js');
+  const { deepMerge, sanitizeParams } = await import('../src/engine/portal/scenario.js');
+  const { fingerprintOf } = await import('../src/engine/portal/fingerprint.js');
+  const { stentStill, FLOW_CUTS } = await import('../src/engine/portal/flow-cuts.js');
   const at = (s) => { const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams(sanitizeParams(deepMerge(e.params, { tips: { on: true, d: 8 }, stenosis: { TIPS: s } }))); e.settle(3); return { e, m: computeMetrics(e) }; };
   assert.equal(stentStill(FLOW_CUTS.stillQ * 0.99), true); assert.equal(stentStill(-FLOW_CUTS.stillQ * 0.5), true); assert.equal(stentStill(FLOW_CUTS.stillQ * 1.01), false);
   const dead = at(0.99), live = at(0.5);
@@ -312,7 +312,7 @@ test('Stasis: a stent that has almost stopped reads 0 cm/s everywhere, from one 
   // the card's status word and the doppler read the same rule, not their own
   assert.match(read('src/ui/actions.js'), /if \(st \? st\.still : stentStill\(q\)\) return ST_STASIS;/);   // (a TIPS or DIPS: the engine's state)
   assert.match(read('src/ui/doppler.js'), /if \(!unit && stentStopped\(\)\)/); assert.match(read('src/ui/doppler.js'), /const none = ms !== undefined \? stentStopped\(\) : jsS\.none;/);
-  assert.match(read('src/engine/engine.js'), /o\.still = stentStillHeld\(q, o\.still === true\);/);
+  assert.match(read('src/engine/portal/engine.js'), /o\.still = stentStillHeld\(q, o\.still === true\);/);
 });
 
 test('The TIPS view fits the card without scrolling: the numbers are one line, the stent and its chart one picture of a fixed height per width, the rows under it', async () => {
@@ -809,7 +809,7 @@ test('The lumens step by 0.5 mm: the waist\'s and the end stenosis\'s, in both c
   }
   // Every other number that prints a lumen prints it on the step, a glide's too: the anatomy figure's label, the IR stent's, the deck stent card's.
   const { stentFacts, waistText, stenosisText } = await import('../src/ui/stent-waist.js');
-  const { edgeById } = await import('../src/engine/topology.js');
+  const { edgeById } = await import('../src/engine/portal/topology.js');
   const fx = stentFacts(edgeById('TIPS'), paramsOf({ tips: { on: true, d: 10 }, stenosis: { TIPS: 0.37 }, stentGeom: { TIPS: { red: 0.43, waist: 1 } } }));
   assert.equal(fx.waist, 5.5); assert.equal(fx.sten, 6.5);
   assert.match(waistText(edgeById('TIPS'), paramsOf({ tips: { on: true, d: 10 }, stentGeom: { TIPS: { red: 0.43, waist: 1 } } })), /to 5\.5 mm/);

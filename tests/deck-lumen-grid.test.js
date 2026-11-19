@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readdirSync } from 'node:fs';
 import './dom-shim.js';
 import { deckStates } from './deck-states.js';
-import { LUMEN_STEP } from '../src/engine/stent-geom.js';
+import { LUMEN_STEP } from '../src/engine/portal/stent-geom.js';
 
 const DIR = new URL('../src/ui/decks/', import.meta.url);
 const onStep = (mm) => Math.abs(mm / LUMEN_STEP - Math.round(mm / LUMEN_STEP)) < 1e-3;

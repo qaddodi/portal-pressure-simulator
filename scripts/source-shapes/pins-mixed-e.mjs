@@ -122,7 +122,7 @@ export default [
   { file: 'src/ui/live-readings.js', need: [/const Pof = \(f\) => f\.Pf \|\| f\.P, Qof = \(f\) => f\.Qf \|\| f\.Q;/, 'Patients numbers agree with each other (review 15 Oct, #6, #7, #8):'] },
   { file: 'src/ui/vital-read.js', need: [/v: \(m\) => m\.vitals\?\.co \?\? m\.co/, 'Patients numbers agree with each other (review 15 Oct, #6, #7, #8): (the vitals\' definitions (vital-read.js) read output over two breaths)'] },
   { file: 'src/ui/stage*', need: [/mk === 'ra' \? f\.metrics\?\.vitals\?\.ra/, 'Patients numbers agree with each other (review 15 Oct, #6, #7, #8): (the figure reads RA over two breaths)'] },
-  { file: 'src/engine/fingerprint.js', need: [/ra: m\.vitals\?\.ra \?\? m\.ra/, 'Patients numbers agree with each other (review 15 Oct, #6, #7, #8): (the slide data card reads RA over two breaths)'] },
+  { file: 'src/engine/portal/fingerprint.js', need: [/ra: m\.vitals\?\.ra \?\? m\.ra/, 'Patients numbers agree with each other (review 15 Oct, #6, #7, #8): (the slide data card reads RA over two breaths)'] },
   { file: 'src/ui/presenter*', need: [/const liveFp = \(fr\) => fingerprintOf\(/, 'Patients numbers agree with each other (review 15 Oct, #6, #7, #8): (the live slide data is that fingerprint)'] },
   { file: 'src/worker-core.js', need: [/fingerprintOf\(m,/, 'Patients numbers agree with each other (review 15 Oct, #6, #7, #8): (and so are the slide states)'] },
   { file: 'src/ui/vital-read.js', need: [/m\.vitals\?\.ra \?\? m\.ra/, 'Patients numbers agree with each other (review 15 Oct, #6, #7, #8): (the bar reads RA over two breaths)'] },

@@ -1,6 +1,6 @@
 // Moving blood, flow and dye: the streams and their ends, the rest ease, the chain rows, stepBlood, the dye bolus and the spray.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { EDGES, NODES, partOf } from '../engine/topology.js';
+import { EDGES, NODES, partOf } from '../engine/portal/topology.js';
 import { SITES } from './anatomy.js';
 import { DRIFT_PERIOD, DRIFT_RATE, DYE_BINS, HIDDEN_SECONDS, KAPPA, KEY_CHEV_LANES, MEAN_TAU, ORIGIN_N, PERIOD, STASIS_MIN_D, advanceStreamAt, bleedShapes, chevFlowLevel, createBreathMean, createStreamChain, displaySpeed, fadeBleedShapes, keyChevron, originFractionsInto, stepBleedFade } from './blood.js';
 import { createDyeRemote } from './dye-remote.js';

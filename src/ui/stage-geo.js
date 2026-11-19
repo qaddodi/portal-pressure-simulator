@@ -1,6 +1,6 @@
 // The vessel geometry tables: each edge's anatomic and circuit course sampled once, tributary and branch courses, fade and join tables, the custom shunt router, and the divided-vein length.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { EDGES, NODES } from '../engine/topology.js';
+import { EDGES, NODES } from '../engine/portal/topology.js';
 import { firstPiece } from './part-names.js';
 import { CIRCUIT_PATH, CIRCUIT_TREES, EDGE_PATH, FEEDERS, HIDDEN_NODES, IVC_EDGES, NODE_POS, SIN_EDGES, VB_CIRC, fanFeeders, metroPath, route as metroRoute } from './anatomy.js';
 import { createRouter } from './circuit-router.js';

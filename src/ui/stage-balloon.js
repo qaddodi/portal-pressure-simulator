@@ -1,6 +1,6 @@
 // The tamponade tube and its balloons: the tube sliding down the esophagus, the gastric and esophageal balloons filling in order, and their draw.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { gastricUp } from '../engine/scenario.js';
+import { gastricUp } from '../engine/portal/scenario.js';
 import { BALLOON, BALLOON_MS, balloonShape, esoAt, smoothPath } from './balloon-eso.js';
 import { GAS, gasShape, pathAt, pullArrow, sheath, sheathArcs, tubePath, tubeTip, tubeTo } from './balloon-gas.js';
 import { easeMove, reduceMotionMQ as reduceMotion } from './motion.js';

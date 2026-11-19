@@ -1,22 +1,22 @@
 // Simulation host: owns the Engine, runs the clocks, streams frames (blueprint §13.4).
 // Used inside a Web Worker (src/worker.js) or on the main thread as a fallback.
 
-import { Engine } from './engine/engine.js';
-import { stentMix } from './engine/stent-ease.js';
-import { easeMove } from './engine/ease-move.js';
-import { computeMetrics } from './engine/metrics.js';
-import { fingerprintOf } from './engine/fingerprint.js';
-import { detectEvents } from './engine/events.js';
-import { explain } from './engine/explain.js';
-import { healthyAtBedside, restingEngine } from './engine/bedside-rest.js';
-import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js';
-import { EDGES } from './engine/topology.js';
-import { setYours } from './engine/yours.js';
-import { calmTrail } from './engine/trail-calm.js';
+import { Engine } from './engine/portal/engine.js';
+import { stentMix } from './engine/portal/stent-ease.js';
+import { easeMove } from './engine/core/ease-move.js';
+import { computeMetrics } from './engine/portal/metrics.js';
+import { fingerprintOf } from './engine/portal/fingerprint.js';
+import { detectEvents } from './engine/portal/events.js';
+import { explain } from './engine/portal/explain.js';
+import { healthyAtBedside, restingEngine } from './engine/portal/bedside-rest.js';
+import { deepMerge, sanitizeParams, PRESETS } from './engine/portal/scenario.js';
+import { EDGES } from './engine/portal/topology.js';
+import { setYours } from './engine/portal/yours.js';
+import { calmTrail } from './engine/portal/trail-calm.js';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
 
-// A state's fingerprint (engine/fingerprint.js: the presenter builds the live model's from the same function).
+// A state's fingerprint (engine/portal/fingerprint.js: the presenter builds the live model's from the same function).
 const fingerprint = (m, e) => fingerprintOf(m, {
   P: e.Pf || e.P, Q: e.Qf || e.Q, D: Float32Array.from(e.edges, (/** @type {{ id: string }} */ ed) => e.diameterShown(ed.id)), copy: true,
   params: e.params, fluid: e.starling(true) });   // (the shown means, as the metrics read them: the card's made, drained and net are one set of numbers)
@@ -54,7 +54,7 @@ function morphAt(from, to, k) {
 const easeInOut = easeMove;   // (the patient's change: the app's one in-out curve, ui/ease.js)
 
 // A slide's extra work, asked for by a deck visuals package (slide-ext.js steps), on scratch engines so the chain is untouched:
-// explain: a metric id or a list (engine/explain.js METRICS), the Why? contributions at the slide's state;
+// explain: a metric id or a list (engine/portal/explain.js METRICS), the Why? contributions at the slide's state;
 // wave: a vessel id, { vessel, secs } or a list of them, the Doppler velocity (cm/s, signed) over secs (default 3) of beats
 // from the slide's state, a point every 20 ms after a second's run-in: { t: [s], v: [cm/s] }.
 const WAVE_DT = 0.004, WAVE_EVERY = 5, WAVE_RUNIN = 1;
@@ -736,7 +736,7 @@ export function createCore(post) {
       w.ticks = w.steps = w.busy = w.maxBusy = w.maxGap = w.late = w.dropped = w.frames = w.params = w.held = w.samples = w.days = w.jobMs = 0; w.jobs = {}; w.since = now;   // alloc-rare: once a second while the ?perf panel shows
     },
     presets({ reqId }) { post({ type: 'presets', reqId, presets: PRESETS.map(({ id, label, group, summary, note, days }) => ({ id, label, group, summary, note, days })) }); },
-    // The patients Work backward made ("Yours", src/engine/yours.js): the page sends the whole saved list, and the engine knows exactly those.
+    // The patients Work backward made ("Yours", src/engine/portal/yours.js): the page sends the whole saved list, and the engine knows exactly those.
     // The answer is the patient list, as 'presets' gives it, so the menu is made from one answer.
     yours({ list, reqId }) { setYours(list); handlers.presets({ reqId }); },
   };

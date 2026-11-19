@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { stentTrace as trace, makeTrace, TRACE_N, headOf, HEAD } from '../src/engine/stent-trace.js';
+import { stentTrace as trace, makeTrace, TRACE_N, headOf, HEAD } from '../src/engine/portal/stent-trace.js';
 
 const stentTrace = (inp) => trace(inp, makeTrace());
 const waist = (u) => 1 - 0.45 * Math.exp(-((u - 0.5) * (u - 0.5)) / 0.02);

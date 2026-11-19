@@ -6,7 +6,7 @@ import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DECKS } from '../src/ui/decks.js';
-import { EDGES, isStent } from '../src/engine/topology.js';
+import { EDGES, isStent } from '../src/engine/portal/topology.js';
 import { hasStent } from '../src/ui/tool-lumen.js';
 
 const marksOf = (s) => s.marks || (s.mark ? [s.mark] : []);

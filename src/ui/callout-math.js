@@ -4,7 +4,7 @@ import { TILE, rateShown, tileShown, tipsGoal } from './table-marks.js';
 import { plateletText } from './glue.js';
 import { bpText } from './vital-read.js';
 import { ORGANS, NODE_POS, SPLEEN_CENTER, CIRCUIT_ZONES, CAUDATE } from './anatomy.js';
-import { TOKEN_OF_RATE, NOT_SHOWN, VALUE_PENDING } from '../engine/pressure-cuts.js';
+import { TOKEN_OF_RATE, NOT_SHOWN, VALUE_PENDING } from '../engine/portal/pressure-cuts.js';
 
 // (util.js fmt, which needs the page to load: a value to d decimals, with a true minus and never "−0".)
 const fmt = (v, d = 1) => { if (v == null || !Number.isFinite(v)) return NOT_SHOWN; const t = v.toFixed(d); return /^-0(\.0+)?$/.test(t) ? t.slice(1) : t.replace('-', '−'); };

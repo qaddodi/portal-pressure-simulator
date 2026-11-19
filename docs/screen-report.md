@@ -67,7 +67,7 @@ Part: `{ charts: [chart], numbers: [shown] }`.
     A chart that cuts its axes to its points marks itself so; one with declared axes (the CSPH plane, the card's planes) is not judged.
   - `number-agree`: every place a reading is written reads what its tile reads (header the same text, a pill the same number or the whole one, a chart mark the same number), and, with a fingerprint,
     what the tile table prints for the model.
-  - `pressure-colour`: a pressure wears the rating the cut-offs of `src/engine/pressure-cuts.js` give the number as shown (HVPG amber over 5, red 10; PPG amber 6, red 12; portal vein over 10 and 15).
+  - `pressure-colour`: a pressure wears the rating the cut-offs of `src/engine/portal/pressure-cuts.js` give the number as shown (HVPG amber over 5, red 10; PPG amber 6, red 12; portal vein over 10 and 15).
   - `pressure-words`: words that name a cut-off of the HVPG or PPG name one of the app's (HVPG 5, 10, 12, 20; PPG 6, 12).
 - Not yet read: figure labels (the labels thread's records), numbers drawn only by a chart that carries no `data-k` (add the mark where a chart prints a model reading). A chart family
   with its own look keys adds them to `chart-roles.js` (`ROLE_OF_LOOK`, `OWNER_OF_GROUP`).

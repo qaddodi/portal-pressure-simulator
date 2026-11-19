@@ -3,8 +3,8 @@
 // that fired, cleared and is true again fires a second time only after a day of model time clear (events.js).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { detectEvents } from '../src/engine/events.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { detectEvents } from '../src/engine/portal/events.js';
 import { atBedside } from '../src/worker-core.js';
 
 const patient = (id = 'cirr-decomp') => {

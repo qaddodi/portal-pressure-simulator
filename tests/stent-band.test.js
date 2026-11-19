@@ -1,17 +1,17 @@
 // The Doppler's usual velocity range for a stent follows the stent's open diameter (17 Nov 2026: "the Doppler card flags TIPS velocities outside 90 to 190 cm/s, but that
 // range was set for 8 to 10 mm stents: a patent 6 mm stent reads 201 to 223 cm/s and is wrongly flagged"). Inside 8 to 10 mm the range is the reference array itself, so no
 // number that was read there moves; outside it, the ceiling (and, for a wider stent, the floor) is scaled by 1 / diameter², provisionally: no guideline gives a range for
-// any other diameter. The one function is engine/stent-geom.js stentBand; every reader asks it (velNormal.js stentNormal for the figure and the Doppler card, table-marks.js
+// any other diameter. The one function is engine/portal/stent-geom.js stentBand; every reader asks it (velNormal.js stentNormal for the figure and the Doppler card, table-marks.js
 // stentCuts for the tiles, the presenter's bar and the Tests view's IR tile, ir-tips.js peakBand for the stent peak tile).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { Engine } from '../src/engine/engine.js';
-import { deepMerge } from '../src/engine/scenario.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { fingerprintOf } from '../src/engine/fingerprint.js';
-import { stentBand, stentBandIsRef, STENT_BAND_D, STENT_BAND_MIN_D, gateKindsOf, gateKindsFromParams, reductionJet } from '../src/engine/stent-geom.js';
-import { EDGES } from '../src/engine/topology.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { deepMerge } from '../src/engine/portal/scenario.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { fingerprintOf } from '../src/engine/portal/fingerprint.js';
+import { stentBand, stentBandIsRef, STENT_BAND_D, STENT_BAND_MIN_D, gateKindsOf, gateKindsFromParams, reductionJet } from '../src/engine/portal/stent-geom.js';
+import { EDGES } from '../src/engine/portal/topology.js';
 import { PROBE_NORMAL, stentNormal, velNormal, STENT_PV_NORMAL } from '../src/ui/velNormal.js';
 import { rateOf, stentCuts, STENT_RANGE } from '../src/ui/table-marks.js';
 

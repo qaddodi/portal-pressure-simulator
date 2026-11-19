@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DECKS } from '../src/ui/decks.js';
 import { abChoice } from '../src/ui/presenter.js';
-import { SSM_CUTS } from '../src/engine/ssm-cuts.js';
+import { SSM_CUTS } from '../src/engine/portal/ssm-cuts.js';
 import { deckStates, runSteps } from './deck-states.js';
 import { SHIFT_KEYS } from '../src/ui/tool-shift.js';
 

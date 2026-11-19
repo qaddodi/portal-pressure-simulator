@@ -48,7 +48,7 @@
 import { fibroReading } from './clock.js';
 import { store } from './store.js';
 import { h } from './util.js';
-import { EDGES } from '../engine/topology.js';
+import { EDGES } from '../engine/portal/topology.js';
 import { createDoppler } from './doppler.js';
 import { createFibroScan } from './fibroscan.js';
 import { createPressureTime } from './pressure-time.js';

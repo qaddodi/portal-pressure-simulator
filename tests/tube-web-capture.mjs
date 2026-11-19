@@ -67,7 +67,7 @@ if (mode === 'lobule') {
   const { bootGL } = await import(ROOT + 'tests/stage-gl-boot.js');
   const { st, frame, params: loaded } = await bootGL({ w: 1200, h: 800, labels: 'none', params, preset });
   if (process.argv.includes('--collaterals')) { const { store } = await import(ROOT + 'src/ui/store.js'); store.set({ layers: { ...store.get().layers, collaterals: true } }); }   // (the collaterals layer on: every collateral that is present is drawn)
-  if (params || loaded) { const { replaceParams } = await import(ROOT + 'src/ui/store.js'); const { store } = await import(ROOT + 'src/ui/store.js'); const { deepMerge } = await import(ROOT + 'src/engine/scenario.js'); replaceParams(deepMerge(deepMerge(store.get().params, loaded || {}), params || {})); }   // (the page's own copy of the params, which decides what is drawn)
+  if (params || loaded) { const { replaceParams } = await import(ROOT + 'src/ui/store.js'); const { store } = await import(ROOT + 'src/ui/store.js'); const { deepMerge } = await import(ROOT + 'src/engine/portal/scenario.js'); replaceParams(deepMerge(deepMerge(store.get().params, loaded || {}), params || {})); }   // (the page's own copy of the params, which decides what is drawn)
   const outs = {};
   for (const view of ['anatomy', 'circuit']) {
     if (view === 'circuit') st.setView('circuit');

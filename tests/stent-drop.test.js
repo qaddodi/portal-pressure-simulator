@@ -5,10 +5,10 @@
 import './dom-shim.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { fingerprintOf } from '../src/engine/fingerprint.js';
-import { deepMerge, sanitizeParams } from '../src/engine/scenario.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { fingerprintOf } from '../src/engine/portal/fingerprint.js';
+import { deepMerge, sanitizeParams } from '../src/engine/portal/scenario.js';
 import { DROP, COLS, DROP_NAMES, keyCols, dropLayout } from '../src/ui/stent-drop-pic.js';
 import { stentSpan, dropTop, BAR, VW } from '../src/ui/tool-stent.js';
 

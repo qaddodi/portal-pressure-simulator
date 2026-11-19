@@ -6,8 +6,8 @@
 // 3. Partial splenic embolization shrinks the spleen and raises the platelets (on the disease clock).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
 
 const settled = (id) => { const e = new Engine(); e.loadPreset(id); e.beat = true; for (let i = 0; i < 3000; i++) e.step(0.004); return e; };
 const run = (e, s, each) => { for (let t = 0; t < s; t += 0.1) { for (let i = 0; i < 25; i++) e.step(0.004); each?.(t); } };

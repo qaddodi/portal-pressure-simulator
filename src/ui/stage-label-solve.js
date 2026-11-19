@@ -1,6 +1,6 @@
 // The label solver: the clamp-label probes and layoutLabels / layoutLabelsGen, which lay every label out against the figure.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { EDGES, NODES, STENT_SITES, isStent, stentGate, stentSite } from '../engine/topology.js';
+import { EDGES, NODES, STENT_SITES, isStent, stentGate, stentSite } from '../engine/portal/topology.js';
 import { ATLAS_COLUMNS, ATLAS_LABELS, CHIP_NODES, CIRCUIT_LABELS, CIRCUIT_ZONES, LABEL_VESSEL, LANE_CAPTIONS, LIVER_INNER, NODE_POS, ORGAN_LABELS, TIP_FADE } from './anatomy.js';
 import { SPAN_TICK, besideLine, clearOf, insideBy, organAnchor, spanOf, stepGroups } from './callout-math.js';
 import { bareDots } from './circuit-nodes.js';

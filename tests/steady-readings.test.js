@@ -5,8 +5,8 @@
 // rests within a quarter of a mmHg of a line its tiles colour by, settled or at the bedside, and the worker stops posting frames once nothing moves.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DisplayMean, holdAt, BREATH_S } from '../src/engine/display-mean.js';
-import { HVPG_CUTS, PPG_CUTS } from '../src/engine/pressure-cuts.js';
+import { DisplayMean, holdAt, BREATH_S } from '../src/engine/portal/display-mean.js';
+import { HVPG_CUTS, PPG_CUTS } from '../src/engine/portal/pressure-cuts.js';
 
 test('one breath, then one beat: a breathing, beating signal leaves its mean and nothing else', () => {
   const m = new DisplayMean(1), v = new Float64Array(1), beatS = 0.8;
@@ -43,9 +43,9 @@ const cutsOf = { hvpg: [HVPG_CUTS.amber, HVPG_CUTS.red], ppg: [PPG_CUTS.amber, P
 const MARGIN = 0.25;   // (a quarter of a mmHg: past the rounding and the bedside model's drift after a load; the meal's PPG rests at 5.7)
 
 test('every preset at the bedside: HVPG, PPG, RPP and portal velocity print one value breath after breath, off the lines they are coloured by', async () => {
-  const { Engine } = await import('../src/engine/engine.js');
-  const { computeMetrics } = await import('../src/engine/metrics.js');
-  const { PRESETS } = await import('../src/engine/scenario.js');
+  const { Engine } = await import('../src/engine/portal/engine.js');
+  const { computeMetrics } = await import('../src/engine/portal/metrics.js');
+  const { PRESETS } = await import('../src/engine/portal/scenario.js');
   const bad = [];
   for (const pr of PRESETS) {
     const e = new Engine(); e.loadPreset(pr.id); e.beat = true;
@@ -100,7 +100,7 @@ test('a settled patient posts the heartbeat frame only, and ten a second while a
     await core.handle({ type: 'run', running: true });
     // (Every preset, not two: the acute PVT's collateral shown diameters swung 8% with the beat, so its worker posted 6 states a second for ever, and
     // every state is a redraw of the figure, the readouts and the labels' signature on the page. 17 Nov 2026, Mohammad's Safari ?perf at rest.)
-    const { PRESETS } = await import('../src/engine/scenario.js');
+    const { PRESETS } = await import('../src/engine/portal/scenario.js');
     const loud = [];
     for (const { id } of PRESETS) {
       await core.handle({ type: 'preset', id });
@@ -123,8 +123,8 @@ test('a settled patient posts the heartbeat frame only, and ten a second while a
 // Play-test 16 Nov 2026 (issues 2 and 6): the hepatic lymph, its protein and the cardiac output read off the instant's pressures and swung at rest
 // (healthy: lymph 0.5 to 1.1 mL/min, protein 86 to 91 %, output 3.9 to 5.6 L/min). They read the shown means now, like the pressures.
 test('at the bedside the hepatic lymph, its protein share, the splanchnic lymph and the cardiac output hold still', async () => {
-  const { Engine } = await import('../src/engine/engine.js');
-  const { computeMetrics } = await import('../src/engine/metrics.js');
+  const { Engine } = await import('../src/engine/portal/engine.js');
+  const { computeMetrics } = await import('../src/engine/portal/metrics.js');
   const bad = [];
   for (const id of ['healthy', 'csph', 'cirr-comp', 'cirr-decomp']) {
     const e = new Engine(); e.loadPreset(id); e.beat = true;

@@ -5,7 +5,7 @@ import { glWords } from './gl-words.js';
 import { clamp, fadeShown, fmt, h, odoOn } from './util.js';
 import { createSvgGL, svgModel, viewMap } from './svg-gl.js';
 import { chartCtx } from './chart-ctx.js';
-import { fingerprintOf } from '../engine/fingerprint.js';
+import { fingerprintOf } from '../engine/portal/fingerprint.js';
 import { bpText } from './vital-read.js';
 import { NO_ASC, SCALE, TILE, bandsOf, cutDp, rateOf, tileOf, tileShown, tipsGoal, stentCuts } from './table-marks.js';
 import { cancelFrame } from './frame.js';

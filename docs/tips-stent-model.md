@@ -1,6 +1,6 @@
 # The TIPS and DIPS stent model: what is calibrated, and how much it matters
 
-This note is for reviewers. The code is `src/engine/stent-geom.js` (the stent's parts), `engine.js stentState` (one moment's descriptor) and
+This note is for reviewers. The code is `src/engine/portal/stent-geom.js` (the stent's parts), `engine.js stentState` (one moment's descriptor) and
 `stent-geom.js benchFlow` (the bench line). The numbers below come from the model in `cirr-decomp` with a uniform stent, settled. They are
 model outputs, not predictions for a patient.
 

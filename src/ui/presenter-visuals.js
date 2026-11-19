@@ -2,8 +2,8 @@
 import { h, fmt, clamp } from './util.js';
 import { noteLoop } from './svg-gl.js';
 import { NO_ASC, TILE, atShown, numName } from './table-marks.js';
-import { SAAG_PORTAL, TP_HIGH } from '../engine/ascites-cuts.js';
-import { hvpgRate, ppgRate } from '../engine/pressure-cuts.js';
+import { SAAG_PORTAL, TP_HIGH } from '../engine/portal/ascites-cuts.js';
+import { hvpgRate, ppgRate } from '../engine/portal/pressure-cuts.js';
 import { restPass } from './rest-pass.js';
 import { EASE_ARRIVE, EASE_MOVE, cssCurve } from './ease.js';
 import { reduceMotionMQ as reduce } from './motion.js';

@@ -1,7 +1,7 @@
 // Controls panel (blueprint §4.1, §8.4): the patient chart and the advanced physiology. (A vessel's or an organ's details are in its own card since 17 Nov 2026: card-details.js.)
 
-import { EDGES } from '../engine/topology.js';
-import { DRUGS, PREGNANCY_INFO } from '../engine/scenario.js';
+import { EDGES } from '../engine/portal/topology.js';
+import { DRUGS, PREGNANCY_INFO } from '../engine/portal/scenario.js';
 import { store, updateParams } from './store.js';
 import { h, tooltipFor, infoButton, icon, paintRange, releaseWords, fadeShown } from './util.js';
 import { frameFor, cancelFrame } from './frame.js';

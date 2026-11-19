@@ -1,6 +1,6 @@
 // What a label says and where it attaches: change references, pressure runs, node, velocity and scan items, blockers and the label anchor.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { EDGES, NODES, dopplerK, stentReadsOf, tiedOff } from '../engine/topology.js';
+import { EDGES, NODES, dopplerK, stentReadsOf, tiedOff } from '../engine/portal/topology.js';
 import { stentFacts } from './stent-waist.js';
 import { ABBR, ATLAS_LABELS, LABEL_VESSEL, SHORT } from './anatomy.js';
 import { oxygenFor } from './blood.js';

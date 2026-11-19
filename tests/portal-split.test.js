@@ -22,9 +22,9 @@ test('the tint follows the shunt tile: plain, amber, red', () => {
 
 
 test('a DIPS counts only the portal blood it takes, like a TIPS (review #36: it read 100%)', async () => {
-  const { Engine } = await import('../src/engine/engine.js');
-  const { computeMetrics } = await import('../src/engine/metrics.js');
-  const { deepMerge } = await import('../src/engine/scenario.js');
+  const { Engine } = await import('../src/engine/portal/engine.js');
+  const { computeMetrics } = await import('../src/engine/portal/metrics.js');
+  const { deepMerge } = await import('../src/engine/portal/scenario.js');
   const share = (stent) => { const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams(deepMerge(e.params, { [stent]: { on: true } })); e.settle(); return computeMetrics(e).shuntFraction; };
   const tips = share('tips'), dips = share('dips');
   assert.ok(dips < 0.97, `DIPS shunts ${(dips * 100).toFixed(1)}% (arterial blood counted as portal)`);

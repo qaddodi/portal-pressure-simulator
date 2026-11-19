@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import './dom-shim.js';
-import { CONGESTION_FHVP, SCAR_MIN, congestedLiver, lsmContext, csphVerdict } from '../src/engine/lsm-cuts.js';
+import { CONGESTION_FHVP, SCAR_MIN, congestedLiver, lsmContext, csphVerdict } from '../src/engine/portal/lsm-cuts.js';
 import { stiffLayout, stiffWords, verdictOf, spleenVerdictOf, VERDICT, CONGESTION_NOTE, VASCULAR_NOTE, ctxFor } from '../src/ui/stiff-bar.js';
 import { RATE } from '../src/ui/table-marks.js';
 
@@ -78,9 +78,9 @@ test('the bar: a congested liver shows its reading with no zone words and no ver
 });
 
 test('every patient: the context follows the state alone, and every congested or vascular preset gets no CSPH verdict', async () => {
-  const { Engine } = await import('../src/engine/engine.js');
-  const { computeMetrics } = await import('../src/engine/metrics.js');
-  const { PRESETS } = await import('../src/engine/scenario.js');
+  const { Engine } = await import('../src/engine/portal/engine.js');
+  const { computeMetrics } = await import('../src/engine/portal/metrics.js');
+  const { PRESETS } = await import('../src/engine/portal/scenario.js');
   const bad = [], seen = { congested: [], vascular: [] };
   const outside = new Set(['Cardiac', 'Post-hepatic']);
   for (const pr of PRESETS) {
@@ -101,8 +101,8 @@ test('every patient: the context follows the state alone, and every congested or
 });
 
 test('a patient built by hand: cirrhosis with a failing heart is congested too, so no scenario can show a verdict the rule does not allow', async () => {
-  const { Engine } = await import('../src/engine/engine.js');
-  const { computeMetrics } = await import('../src/engine/metrics.js');
+  const { Engine } = await import('../src/engine/portal/engine.js');
+  const { computeMetrics } = await import('../src/engine/portal/metrics.js');
   const e = new Engine(); e.loadPreset('cirr-decomp');
   e.setParams({ ...e.params, contractility: 0.25, tr: 0.9 }); e.settle();
   const m = computeMetrics(e);

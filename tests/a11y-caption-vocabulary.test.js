@@ -1,9 +1,9 @@
 // R09 (external production review, 15 Nov 2026): the figure's accessible caption used to rate the portal pressure with its own copy of the lines
 // ("(raised)" past 10, "(high)" from 15) while the tile and the heat tables used another. It now reads the absolute portal pressure as a number and the HVPG
-// with the band word of the one table (src/engine/pressure-cuts.js), the same word the HVPG tile prints.
+// with the band word of the one table (src/engine/portal/pressure-cuts.js), the same word the HVPG tile prints.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { HVPG_WORDS, hvpgSev } from '../src/engine/pressure-cuts.js';
+import { HVPG_WORDS, hvpgSev } from '../src/engine/portal/pressure-cuts.js';
 
 globalThis.ResizeObserver ??= class { observe() {} };
 globalThis.MutationObserver ??= class { observe() {} disconnect() {} };

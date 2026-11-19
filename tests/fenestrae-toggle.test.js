@@ -5,9 +5,9 @@
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { deepMerge, defaultParams, sanitizeParams } from '../src/engine/scenario.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { deepMerge, defaultParams, sanitizeParams } from '../src/engine/portal/scenario.js';
 import { sinusoidTargets } from '../src/ui/sinusoid-model.js';
 import { abChoice } from '../src/ui/presenter.js';
 import { LOBULE } from '../src/ui/decks/lobule.js';

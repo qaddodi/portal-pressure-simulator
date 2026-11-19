@@ -1,5 +1,5 @@
 // "From readings" (the patient menu's top row): the readings a person has, entered step by step, and the model scenarios that could give them
-// (src/engine/inverse.js: a search over the engine's own lesion families, never a diagnosis). A sheet on a phone and a popover under the menu's
+// (src/engine/portal/inverse.js: a search over the engine's own lesion families, never a diagnosis). A sheet on a phone and a popover under the menu's
 // button elsewhere, built by util.js popover so it is the same glass, the same sheet over the dock and the same Esc and outside tap as every menu.
 //
 // Four short steps (pressures; stiffness; spleen, blood and varices; fluid and flow), each with a "3 of 8 lesions still fit" strip under the progress
@@ -17,11 +17,11 @@ import { h, svgIcon, popover, closePopover, swapFade, swapText, announce } from 
 import { slideFold } from './fold-slide.js';
 import { D_SMALL } from './ease.js';
 import { createInverseRemote } from './inverse-remote.js';
-import { FAMILIES, FAMILY, AXES, LESION, LESION_IDS, settingsOf } from '../engine/inverse-families.js';
-import { TRY_CASES } from '../engine/inverse-try-cases.js';
+import { FAMILIES, FAMILY, AXES, LESION, LESION_IDS, settingsOf } from '../engine/portal/inverse-families.js';
+import { TRY_CASES } from '../engine/portal/inverse-try-cases.js';
 import {
   READINGS, READING_KEYS, MIN_READINGS, FEW_READINGS, OUTSIDE, readingText, chipText, modelText, numberText, gapLine, rangeText, reasonsFor, bandsOf,
-} from '../engine/inverse.js';
+} from '../engine/portal/inverse.js';
 
 export const STEPS = Object.freeze([
   { id: 'pressures', name: 'Pressures', q: 'Do you have pressures?', sub: 'From a hepatic vein catheter, an EUS or a right heart study. Enter any you have.', keys: ['whvp', 'fhvp', 'hvpg', 'pv', 'ppg', 'ivc', 'ra'] },

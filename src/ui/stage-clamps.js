@@ -1,7 +1,7 @@
 // The clamp labels and overlays: where each clamp's label sits, the overlay paint and its commit.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { isOccluded } from '../engine/topology.js';
-import { stentOpen } from '../engine/stent-ease.js';
+import { isOccluded } from '../engine/portal/topology.js';
+import { stentOpen } from '../engine/portal/stent-ease.js';
 import { firstPiece, piecesOf } from './part-names.js';
 import { SPLEEN_CENTER, SPLEEN_PSE_BADGE } from './anatomy.js';
 import { CLOT_EDGE, clotLayers, clotRadius, clotShift, clotSide, clotStretch, hashSeed } from './clot-shape.js';

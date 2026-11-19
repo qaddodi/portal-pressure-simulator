@@ -13,9 +13,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { bandStep, bandStepFor, BAND_LONG_MS } from '../src/ui/band-settle.js';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { fingerprintOf } from '../src/engine/fingerprint.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { fingerprintOf } from '../src/engine/portal/fingerprint.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const CSS = readdirSync(new URL('../styles/', import.meta.url)).filter((f) => f.endsWith('.css')).map((f) => read(`styles/${f}`)).join('\n');

@@ -14,8 +14,8 @@ globalThis.requestAnimationFrame ||= (f) => setTimeout(() => f(performance.now()
 globalThis.cancelAnimationFrame ||= (id) => clearTimeout(id);
 try { Object.defineProperty(globalThis, 'localStorage', { value: dom.window.localStorage, configurable: true }); } catch { /* (already there) */ }
 
-const { Engine } = await import('../src/engine/engine.js');
-const { computeMetrics } = await import('../src/engine/metrics.js');
+const { Engine } = await import('../src/engine/portal/engine.js');
+const { computeMetrics } = await import('../src/engine/portal/metrics.js');
 const { store } = await import('../src/ui/store.js');
 const { createTrialsPane } = await import('../src/ui/trials-pane.js');
 

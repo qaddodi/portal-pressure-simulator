@@ -23,7 +23,7 @@
 //    open"), the seconds after it empty. Going back before the step clears what was drawn; coming back to the slide played through shows it
 //    whole again.
 // Drawn on the GPU (svg-gl.js), never painted by the browser; no list or string is made in a frame (the points live in one typed array).
-import { lcFirst } from '../engine/lc-first.js';
+import { lcFirst } from '../engine/portal/lc-first.js';
 import { frameFor, cancelFrame } from './frame.js';
 import { attrSoon, dataSoon } from './class-soon.js';
 import { plotPanel } from './plot-look.js';
@@ -37,7 +37,7 @@ import { fittedType, tokName } from './chart-ctx.js';
 import { readMetric } from './layout-snap.js';
 import { LINE, withUnit, headLeft, END_APART, STRETCH_MAX } from './flow-time.js';
 import { SCALE, RATE, PRESS } from './table-marks.js';
-import { PPG_CUTS } from '../engine/pressure-cuts.js';
+import { PPG_CUTS } from '../engine/portal/pressure-cuts.js';
 const nextFrame = frameFor('event-graph');
 
 // (The clock: seconds before the change, seconds after it, the step between the clock's numbers.)

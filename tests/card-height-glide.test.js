@@ -110,10 +110,10 @@ test('the glass reads the scaled plate again in every frame of the glide: its ke
 });
 
 test('a waist length is printed on the slider\'s 0.5 cm step, a glide\'s too: the figures\' labels never count 3.1, 3.2, 3.3 (Mohammad, 17 Nov: "Waist cm in 0.5 increments")', async () => {
-  const { WAIST_STEP, waistShown } = await import('../src/engine/stent-geom.js');
+  const { WAIST_STEP, waistShown } = await import('../src/engine/portal/stent-geom.js');
   const { stentControls } = await import('../src/ui/actions.js');
   const { stentFacts } = await import('../src/ui/stent-waist.js');
-  const { EDGES } = await import('../src/engine/topology.js');
+  const { EDGES } = await import('../src/engine/portal/topology.js');
   assert.equal(WAIST_STEP, 0.5);
   assert.equal(stentControls('TIPS').find((c) => c.id === 'waist').step, WAIST_STEP, 'the slider steps by it');
   assert.deepEqual([3, 3.1, 3.24, 3.26, 3.4, 3.5].map(waistShown), [3, 3, 3, 3.5, 3.5, 3.5]);

@@ -10,13 +10,13 @@ import { frame, cancelFrame } from './frame.js';
 import { createSvgGL, svgModel } from './svg-gl.js';
 import { chartCtx } from './chart-ctx.js';
 import { h, fmt, clamp } from './util.js';
-import { NODES } from '../engine/topology.js';
+import { NODES } from '../engine/portal/topology.js';
 import { store } from './store.js';
 import { measure } from './glyph-measure.js';
 import { setGeo, setPts, setWords, setHidden } from './svg-gl.js';
 import { onFontsLoaded } from './font-arrival.js';
 import { lymphDay, LYMPH_UNIT } from './lymph-day.js';
-import { tissueP, sinusoidPull, pushOfHepLymph } from '../engine/lymph.js';
+import { tissueP, sinusoidPull, pushOfHepLymph } from '../engine/portal/lymph.js';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const num = (x) => (Number.isFinite(+x) ? +x : null);

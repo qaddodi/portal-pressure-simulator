@@ -63,9 +63,9 @@ test('the Carvedilol check that names her pressure after the bleed prints the hy
 });
 
 test('the fall the Variceal bleeding deck gives octreotide is the fall the model gives (play-test B11: "about 2 mmHg" over a model that gives 1.5)', async () => {
-  const { Engine } = await import('../src/engine/engine.js');
-  const { computeMetrics } = await import('../src/engine/metrics.js');
-  const { deepMerge } = await import('../src/engine/scenario.js');
+  const { Engine } = await import('../src/engine/portal/engine.js');
+  const { computeMetrics } = await import('../src/engine/portal/metrics.js');
+  const { deepMerge } = await import('../src/engine/portal/scenario.js');
   const e = new Engine(); e.loadPreset('cirr-decomp'); e.settle();
   const a = computeMetrics(e);
   e.setParams(deepMerge(e.params, { drugs: { octreotide: true } })); e.settle();

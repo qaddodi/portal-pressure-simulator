@@ -3,7 +3,7 @@
 
 import './test-boot.js';   // (very first: ?testclock puts the page's clocks on the test clock before any other module reads the time)
 import { prefs, clearAll } from './prefs.js';
-import { lcFirst } from '../engine/lc-first.js';
+import { lcFirst } from '../engine/portal/lc-first.js';
 import { shortName, COMPACT } from './scenario-names.js';
 import { motionBudget } from './motion-budget.js';   // (first: counts from the start when ?perf or ?budget=1 asks)
 import { flagOn, flagValue, searchNow } from './flags.js';
@@ -13,7 +13,7 @@ import { startHost, host, hostFailed, restartHost } from './host.js';
 import { createLease } from './slide-txn.js';
 import { watchSelection } from './selection-live.js';
 import { store, viewKey, setViewKey, updateParams, replaceParams, bindParamSender, clearHistory, saveHistory, loadHistory, logAction, varicesPresent, hiddenNow } from './store.js';
-import { hvBlocked } from '../engine/pressure-cuts.js';
+import { hvBlocked } from '../engine/portal/pressure-cuts.js';
 import { fibroReading } from './clock.js';
 import { createStage } from './stage.js';
 import { cardsOnly, voidStage } from './cards-only.js';
@@ -34,13 +34,13 @@ import { createChart } from './chart.js';
 import { createMenu } from './menu.js';
 import { readYours, saveYours, removeYours } from './yours-store.js';
 import { viewTapAgain } from './view-tap.js';
-import { YOURS_NOTE } from '../engine/yours.js';
+import { YOURS_NOTE } from '../engine/portal/yours.js';
 import { caption } from './a11y.js';
 import { sharpMoving, setSharpMoving } from './adapt-tier.js';
 import { UPDATED, RELEASE, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js';
 import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js';
-import { EDGES, PORTAL_TERRITORY, tiedOff } from '../engine/topology.js';
+import { EDGES, PORTAL_TERRITORY, tiedOff } from '../engine/portal/topology.js';
 import { dopplerVel } from './velNormal.js';
 import { controlOwnsKey } from './key-owner.js';
 import { onTheme, onThemeBusy, themeSettled, settledSurfaces } from './theme-epoch.js';
@@ -715,7 +715,7 @@ async function openInExplore(id) {
   if (store.get().mode !== 'explore') store.set({ mode: 'explore' });
   await loadPreset(id);
 }
-// Work backward's "Open as patient": the scenario is saved on this device as "Yours", the engine is told the whole saved list (engine/yours.js), and
+// Work backward's "Open as patient": the scenario is saved on this device as "Yours", the engine is told the whole saved list (engine/portal/yours.js), and
 // the patient is opened in Explore like any other. forgetYours takes one out of the list; a patient already loaded stays as it is.
 async function syncYours(list) {
   const { presets } = await host.request('yours', { list });

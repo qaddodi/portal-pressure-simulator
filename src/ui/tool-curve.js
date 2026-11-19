@@ -72,7 +72,7 @@
 //                     a soft band in the ok colour under y = max(under, x less fall %), dashed along its top and named in it.
 
 import { TILE, SCALE, RATE, numName } from './table-marks.js';
-import { HVPG_CUTS, HVPG_WORDS, PV_CUTS, PV_WORDS } from '../engine/pressure-cuts.js';
+import { HVPG_CUTS, HVPG_WORDS, PV_CUTS, PV_WORDS } from '../engine/portal/pressure-cuts.js';
 import { READING_COLOUR } from './reading-colours.js';
 import { frameFor } from './frame.js';
 import { minusFixed as fmt, clamp } from './num.js';   // (a true minus; −0.0 and toFixed's NaN kept as this chart has always printed them)
@@ -81,7 +81,7 @@ import { fittedType, tokName } from './chart-ctx.js';
 import { plotPanel } from './plot-look.js';
 import { createSvgGL, svgModel, setWords, wordsOf, setGeo } from './svg-gl.js';
 import { airRatio } from './endo-size.js';
-import { NODES } from '../engine/topology.js';
+import { NODES } from '../engine/portal/topology.js';
 import { safeParamPath, pathOf, getAt, patchOf, mergeOf } from './import-safety.js';
 import { reduceMotionMQ } from './motion.js';
 const nextFrame = frameFor('tool-curve');

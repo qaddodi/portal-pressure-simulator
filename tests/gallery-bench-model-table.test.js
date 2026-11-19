@@ -5,8 +5,8 @@ import assert from 'node:assert/strict';
 import bench, { TOLERANCE, NUMBERS, snapshotRows, missingSnapshots, orphanSnapshots, compareSnapshot, liveReading, limitOf, limitText, fmtNumber, tableText, overviewText } from '../src/ui/gallery/benches/model-table.js';
 import { BENCHES } from '../src/ui/gallery/benches/index.js';
 import { SNAPSHOTS, PATH } from '../src/ui/snapshots.js';
-import { PRESETS } from '../src/engine/scenario.js';
-import { NODES } from '../src/engine/topology.js';
+import { PRESETS } from '../src/engine/portal/scenario.js';
+import { NODES } from '../src/engine/portal/topology.js';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 /** A live frame that has exactly the snapshot's numbers (what a freshly loaded, settled patient reports). */

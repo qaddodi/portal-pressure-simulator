@@ -9,7 +9,7 @@
 // B: pts(list, id, f, name) loose points (a lead-in from outside the plate); vessel(id, { rev, a, b, until, near, name, r }) a vessel, whole or in
 //   part, the way the catheter travels it.
 import { lerp } from './num.js';
-import { JUNCTION_PIECES } from '../engine/topology.js';
+import { JUNCTION_PIECES } from '../engine/portal/topology.js';
 import { expandPieces } from './part-names.js';
 
 const TIPS_IDS = ['SVC_RA', 'IVCS_RA', 'IVC_IS', 'RHV_IVC', 'TIPS', 'PVH_R', 'PV_TRUNK'];

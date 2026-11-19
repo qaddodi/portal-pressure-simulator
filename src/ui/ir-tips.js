@@ -21,7 +21,7 @@ import { h, fmt, swapText, toast, svgIcon } from './util.js';
 import { store, hiddenNow } from './store.js';
 import { classSoon, attrSoon, dataSoon } from './class-soon.js';
 import { STENT_RANGE as RANGE } from './table-marks.js';
-import { stentBand, gateKindsOf, reductionJet, lumenShown } from '../engine/stent-geom.js';
+import { stentBand, gateKindsOf, reductionJet, lumenShown } from '../engine/portal/stent-geom.js';
 import { createTipsFigure } from './tips-figure.js';
 import { createIrCompare } from './ir-compare.js';
 import { createIrCurves } from './ir-curves.js';

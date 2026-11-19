@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { openApp, CHROMIUM_ARGS } from './shoot.mjs';
 import { chromium } from 'playwright';
 import { serve } from './serve.mjs';
-import { PRESETS } from '../src/engine/scenario.js';
+import { PRESETS } from '../src/engine/portal/scenario.js';
 import { DECKS } from '../src/ui/decks.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');

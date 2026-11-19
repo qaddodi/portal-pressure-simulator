@@ -1,6 +1,6 @@
 // A slide's procedure and the HVPG catheter
 // (moved out of presenter.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { hvpgSev } from '../engine/pressure-cuts.js';
+import { hvpgSev } from '../engine/portal/pressure-cuts.js';
 import { CIRC_REGIONS, growBox, isCamOn, regionBox, unionBox } from './cam-frame.js';
 import { anchorsOf, roomFor } from './cam-room.js';
 import { focusRun } from './cam-room.js';

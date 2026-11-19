@@ -2,10 +2,10 @@
 // the laser's long press is armed by one finger only, and the sinusoid, laser and pen are made again after a lost context.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { EDGES, dopplerK } from '../src/engine/topology.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { deepMerge } from '../src/engine/scenario.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { EDGES, dopplerK } from '../src/engine/portal/topology.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { deepMerge } from '../src/engine/portal/scenario.js';
 
 const vel = (e, id) => { const k = e.ei[id], d = e.diameter(id) / 10; return (e.Q[k] / (Math.PI * d * d / 4)) * dopplerK(EDGES[k]); };
 

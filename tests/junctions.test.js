@@ -8,10 +8,10 @@
 // without a junction, but those listed below with the reason they stay), and the readings (the vein's own name and numbers).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { EDGES, NODES, JUNCTIONS, JUNCTION_CHAINS, JUNCTION_PIECES, JUNCTION_HOST_ENDS, partOf } from '../src/engine/topology.js';
+import { EDGES, NODES, JUNCTIONS, JUNCTION_CHAINS, JUNCTION_PIECES, JUNCTION_HOST_ENDS, partOf } from '../src/engine/portal/topology.js';
 import { EDGE_PATH, CIRCUIT_PATH, NODE_POS, HIDDEN_NODES, splitPathAt, pathFractionNear } from '../src/ui/anatomy.js';
-import { Engine } from '../src/engine/engine.js';
-import { deepMerge } from '../src/engine/scenario.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { deepMerge } from '../src/engine/portal/scenario.js';
 
 const edge = (id) => EDGES.find((e) => e.id === id);
 const run = (preset, params) => { const e = new Engine(); e.loadPreset(preset); if (params) { e.setParams(deepMerge(e.params, params)); e.settle(); } return e; };

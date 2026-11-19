@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DECKS } from '../src/ui/decks.js';
 import { EXT } from '../src/ui/slide-ext.js';
-import { EDGES } from '../src/engine/topology.js';
+import { EDGES } from '../src/engine/portal/topology.js';
 import { flowParts } from '../src/ui/tool-flows.js';
 import { beatView } from '../src/ui/slide-beats.js';
 import { deckStates } from './deck-states.js';

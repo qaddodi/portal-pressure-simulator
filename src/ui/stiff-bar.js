@@ -13,8 +13,8 @@ import { measure } from './glyph-measure.js';
 import { readMetric } from './layout-snap.js';
 import { wrapWords } from './tool-trial.js';
 import { TYPE } from './chart-looks/stiff.js';
-import { LSM_CUTS, LSM_STEPS, csphVerdict } from '../engine/lsm-cuts.js';
-import { SSM_CUTS, SSM_STEPS, ssmZone } from '../engine/ssm-cuts.js';
+import { LSM_CUTS, LSM_STEPS, csphVerdict } from '../engine/portal/lsm-cuts.js';
+import { SSM_CUTS, SSM_STEPS, ssmZone } from '../engine/portal/ssm-cuts.js';
 import { TILE } from './table-marks.js';
 import { cardShow } from './card-show.js';
 

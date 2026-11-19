@@ -5,10 +5,10 @@
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { fingerprintOf } from '../src/engine/fingerprint.js';
-import { NODES } from '../src/engine/topology.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { fingerprintOf } from '../src/engine/portal/fingerprint.js';
+import { NODES } from '../src/engine/portal/topology.js';
 import { lobuleState, LOBE } from '../src/ui/lobule-model.js';
 import { breath, readAt } from '../src/ui/slide-read.js';
 import { lymphDay, lymphText, LYMPH_UNIT } from '../src/ui/lymph-day.js';

@@ -4,9 +4,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createCore } from '../src/worker-core.js';
-import { Engine } from '../src/engine/engine.js';
-import { STENT_CLOSED_D, stentMix } from '../src/engine/stent-ease.js';
-import { deepMerge } from '../src/engine/scenario.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { STENT_CLOSED_D, stentMix } from '../src/engine/portal/stent-ease.js';
+import { deepMerge } from '../src/engine/portal/scenario.js';
 
 const stateOf = (patch) => { const e = new Engine(); e.setParams(deepMerge(e.params, patch)); e.settle(); return e.snapshot(); };
 const STENTS = [['tips', 'TIPS'], ['dips', 'DIPS']];

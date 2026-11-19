@@ -2,7 +2,7 @@
 // pill's two lines.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PRESETS } from '../src/engine/scenario.js';
+import { PRESETS } from '../src/engine/portal/scenario.js';
 import { shortName, linesOf } from '../src/ui/scenario-names.js';
 
 test('the names the play-test caught fit two lines of the pill (15 characters a line)', () => {

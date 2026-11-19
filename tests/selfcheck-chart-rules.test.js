@@ -6,7 +6,7 @@ import { zoneNamesWithLegend, axesFitData, judgeCharts } from '../src/ui/selfche
 import { pressureColour, pressureWords, leadNumber, NAMED_CUTS } from '../src/ui/selfcheck/pressure-rules.js';
 import { numbersAgree, wantNumbers } from '../src/ui/selfcheck/number-rules.js';
 import { roleOf, ownerOf } from '../src/ui/selfcheck/chart-roles.js';
-import { HVPG_CUTS, PPG_CUTS } from '../src/engine/pressure-cuts.js';
+import { HVPG_CUTS, PPG_CUTS } from '../src/engine/portal/pressure-cuts.js';
 
 const chart = (o = {}) => ({ id: 'plane#0', host: 'plane', aria: '', viewBox: [0, 0, 400, 200], size: null, fit: false, axes: false, keys: null, texts: [], lines: [], rects: [], dots: [], legend: { entries: [], where: 'none' }, ...o });
 const text = (t, o = {}) => ({ role: 'other', look: 'plane.zt', text: t, x: 10, y: 10, anchor: 'start', size: 13, op: 1, fill: 'rgba(0, 0, 0, 1)', ...o });

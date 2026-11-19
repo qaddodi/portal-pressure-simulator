@@ -2,9 +2,9 @@
 // Nothing may pop: a change of patient moved every vessel to its new blend in one frame. The figure shows the blends eased toward what the passes work out.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { deepMerge } from '../src/engine/scenario.js';
-import { EDGES, NODES } from '../src/engine/topology.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { deepMerge } from '../src/engine/portal/scenario.js';
+import { EDGES, NODES } from '../src/engine/portal/topology.js';
 import { originFractionsInto, ORIGIN_N } from '../src/ui/blood.js';
 import { easeOrigins, ORIGIN_EASE_S } from '../src/ui/origin-ease.js';
 

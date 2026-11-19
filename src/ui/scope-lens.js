@@ -19,7 +19,7 @@ import { frameFor } from './frame.js';
 import { readBox, stageBox, safeSides } from './layout-snap.js';
 import { placeLens, coneLines, ringHit, scopeLensFor, scopeGrows, lensFits, lensCentre, LENS_GAP } from './scope-lens-rule.js';
 import { varicesPresent } from './store.js';
-import { gastricUp } from '../engine/scenario.js';
+import { gastricUp } from '../engine/portal/scenario.js';
 
 // (The ring stands while the patient has varices and no balloon tamponade is in: with a tube's balloon up there is no scope to look
 // through; Mohammad 6 Nov 2026, "remove the scope view button when there is a balloon tamponade".)

@@ -1,15 +1,15 @@
-// "Yours" on this device (Work backward, src/engine/yours.js): the saved records live in this browser's storage and nowhere else, so a patient made from
+// "Yours" on this device (Work backward, src/engine/portal/yours.js): the saved records live in this browser's storage and nowhere else, so a patient made from
 // readings is not on another device and is not in a share link (the link carries the model's settings, which any device can open). Storage can be
 // refused (a private window, site data blocked, a full quota): reads then give nothing and a save keeps the list in memory for the page's life.
 
 import { prefs } from './prefs.js';
-import { cleanYours, yoursRecord, YOURS_MAX } from '../engine/yours.js';
+import { cleanYours, yoursRecord, YOURS_MAX } from '../engine/portal/yours.js';
 import { caught } from './caught.js';
 
 export const YOURS_KEY = 'pps.yours';
 let mem = null;   // (the list when storage will not take it)
 
-/** The saved records, made safe (engine/yours.js cleanYours). */
+/** The saved records, made safe (engine/portal/yours.js cleanYours). */
 export function readYours() {
   if (mem) return mem;
   try { return cleanYours(JSON.parse(prefs.getItem(YOURS_KEY) || '[]')); } catch (e) { caught('yours-store:read', e); return []; }

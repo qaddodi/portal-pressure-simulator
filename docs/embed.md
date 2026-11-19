@@ -9,7 +9,7 @@ Add `?embed` to any deep link. It is the same app with no top bar, no first-run 
 | One presentation | `https://qaddodi.github.io/portal-pressure-simulator/?embed&script=hvpg` |
 | A presentation from slide 5 | `https://qaddodi.github.io/portal-pressure-simulator/?embed&script=hvpg&slide=5` |
 
-Patient ids are the `id` values in `src/engine/scenario.js` (`PRESETS`); presentation ids are the `id` values in `src/ui/decks/*.js`.
+Patient ids are the `id` values in `src/engine/portal/scenario.js` (`PRESETS`); presentation ids are the `id` values in `src/ui/decks/*.js`.
 
 ```html
 <iframe src="https://qaddodi.github.io/portal-pressure-simulator/?embed&script=hvpg"

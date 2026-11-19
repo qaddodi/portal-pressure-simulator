@@ -1,12 +1,12 @@
 // Dock charts (blueprint §9.2): the pressure profile.
 
-import { NODES } from '../engine/topology.js';
+import { NODES } from '../engine/portal/topology.js';
 import { PROFILE_PATHS, SHORT } from './anatomy.js';
 import { pressureColor } from './colormap.js';
 import { store, hiddenNow } from './store.js';
 import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js';
 import { frameFor, cancelFrame, paceMs } from './frame.js';
-import { tenthGap } from '../engine/gap.js';
+import { tenthGap } from '../engine/core/gap.js';
 import { shownOr } from './shown.js';
 import { monotoneSegs, curveTester } from './curve-near.js';
 import { glideMoving } from './idle-keys.js';
@@ -18,7 +18,7 @@ import { measure } from './glyph-measure.js';
 import { glWords } from './gl-words.js';
 import { textSoon, dataSoon, attrSoon } from './class-soon.js';
 import { profileLabel } from './instrument-aria.js';
-import { hvpgSev, ppgSev, HVPG_WORDS, PPG_WORDS, NOT_SHOWN } from '../engine/pressure-cuts.js';
+import { hvpgSev, ppgSev, HVPG_WORDS, PPG_WORDS, NOT_SHOWN } from '../engine/portal/pressure-cuts.js';
 import { capture } from './pointer-capture.js';
 const nextFrame = frameFor('charts');
 

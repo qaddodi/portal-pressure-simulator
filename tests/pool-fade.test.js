@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { poolFade, POOL_MIN } from '../src/ui/fluid-step.js';
-import { ascitesGrade } from '../src/engine/metrics.js';
+import { ascitesGrade } from '../src/engine/portal/metrics.js';
 
 // The figure draws no ascites while the Ascites test grades the belly "None" (a belly refilling after a drain read
 // 0.0 L "None" under a drawn pool), and the pool then fades in without a jump.

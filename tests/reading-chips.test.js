@@ -2,8 +2,8 @@
 // every reading: no "24.0", no missing unit. The lesion names are the diagnoses, not shorthand.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { READINGS, READING_KEYS, chipText } from '../src/engine/inverse.js';
-import { LESION } from '../src/engine/inverse-families.js';
+import { READINGS, READING_KEYS, chipText } from '../src/engine/portal/inverse.js';
+import { LESION } from '../src/engine/portal/inverse-families.js';
 
 test('every numeric chip carries its unit and no trailing zero', () => {
   const sample = { whvp: 24, fhvp: 7, ra: 6, lsm: 45, spleen: 16, plt: 60, saag: 1.9, hvpg: 17.04 };

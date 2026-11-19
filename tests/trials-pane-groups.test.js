@@ -3,9 +3,9 @@
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { PRESETS } from '../src/engine/scenario.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { PRESETS } from '../src/engine/portal/scenario.js';
 import { TRIAL_IDS } from '../src/ui/trials.js';
 import { sortTrials, reasonOf, GROUPS } from '../src/ui/trials-pane.js';
 

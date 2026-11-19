@@ -5,7 +5,7 @@ import { NODES, EDGES, JUNCTIONS, JUNCTION_CHAINS, JUNCTION_HOST_ENDS, dopplerK,
 import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng, ARTERY, pulseOf,
-} from './physiology.js';
+} from '../core/physiology.js';
 import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT, gastricUp } from './scenario.js';
 import { detectEvents } from './events.js';
 import { STENT_CLOSED_D } from './stent-ease.js';
@@ -1851,7 +1851,7 @@ function solve(A, b, n) {
   // inline import to keep hot path monomorphic
   return solveInPlace(A, b, n);
 }
-import { solveInPlace } from './linalg.js';
+import { solveInPlace } from '../core/linalg.js';
 import { wallIndex } from './wall-read.js';
 
 export { SPLANCHNIC_ARTERIES, PORTOSYSTEMIC_EDGES };

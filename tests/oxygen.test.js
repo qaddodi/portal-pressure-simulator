@@ -4,8 +4,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { Engine } from '../src/engine/engine.js';
-import { EDGES, NODES } from '../src/engine/topology.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { EDGES, NODES } from '../src/engine/portal/topology.js';
 import { oxygenSat, oxygenFor, SAT, LIVER_EXTRACTION } from '../src/ui/blood.js';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

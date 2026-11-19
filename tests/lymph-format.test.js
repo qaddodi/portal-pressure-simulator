@@ -11,7 +11,7 @@ import { LOBULE_TILES, TILES } from '../src/ui/dock.js';
 import { fmtG } from '../src/ui/num.js';
 import { lymphText, lymphDay, LYMPH_UNIT } from '../src/ui/lymph-day.js';
 import { fluidWords } from '../src/ui/tool-fluid.js';
-import { LYMPH } from '../src/engine/lymph.js';
+import { LYMPH } from '../src/engine/portal/lymph.js';
 import { runSteps } from './deck-states.js';
 
 const tile = LOBULE_TILES.find((t) => t.id === 'lz-ly');

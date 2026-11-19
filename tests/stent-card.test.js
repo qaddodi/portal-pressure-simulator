@@ -4,17 +4,17 @@
 import './dom-shim.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { fingerprintOf } from '../src/engine/fingerprint.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { fingerprintOf } from '../src/engine/portal/fingerprint.js';
 import { PROBE_NORMAL, velNormal } from '../src/ui/velNormal.js';
-import { EDGES } from '../src/engine/topology.js';
+import { EDGES } from '../src/engine/portal/topology.js';
 import { LOOKS } from '../src/ui/chart-looks/index.js';
 import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
 import { EXT } from '../src/ui/slide-ext.js';
 import { stentOutline, VW, printedParts, readStent, createFollowN, openVelocity, localVelocity, stentTitle, N_PROFILE, SIDE, sideLayout } from '../src/ui/tool-stent.js';
-import { deepMerge, sanitizeParams } from '../src/engine/scenario.js';
-import { geomFix, profileAt, waistSpan } from '../src/engine/stent-geom.js';
+import { deepMerge, sanitizeParams } from '../src/engine/portal/scenario.js';
+import { geomFix, profileAt, waistSpan } from '../src/engine/portal/stent-geom.js';
 
 function settled(setup) {
   const e = new Engine();
@@ -377,8 +377,8 @@ test('the gate prints the number the tile prints, past 999 too (play-test F41: a
   assert.equal(int(-3), '0');
   assert.equal(int(1248), int(1248), 'the same word each time');
   // The tile and the gates read one source: the engine's stentState peaks (stentReadsOf), the tile their highest (vPeak).
-  const { Engine } = await import('../src/engine/engine.js');
-  const { deepMerge, sanitizeParams } = await import('../src/engine/scenario.js');
+  const { Engine } = await import('../src/engine/portal/engine.js');
+  const { deepMerge, sanitizeParams } = await import('../src/engine/portal/scenario.js');
   const e = new Engine(); e.loadPreset('cirr-decomp');
   e.setParams(sanitizeParams(deepMerge(e.params, { tips: { on: true, d: 10 }, stenosis: { TIPS: 0.8 }, stenosisSite: { TIPS: 'distal' } })));
   e.settle(3);

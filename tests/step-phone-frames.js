@@ -12,7 +12,7 @@ const painted = (el, geo) => !!el && !el.hasAttribute('data-gl') && !el.classLis
 export async function stepFrames({ st, page, frame, now, frames = 200, gpu = false, chipGpu = false }) {
   const { store } = await import('../src/ui/store.js');
   const { stepPlan } = await import('../src/ui/callout-math.js');
-  const { EDGES } = await import('../src/engine/topology.js');
+  const { EDGES } = await import('../src/engine/portal/topology.js');
   const EIDS = new Set(EDGES.map((e) => e.id)), doc = page.document;
   doc.querySelector('.app')?.style.setProperty('--pz-b', '260px');   // (the card docked under the figure, as the presenter sets it on a phone)
   store.set({ presenting: true, presentLabels: [], presentTerms: null });

@@ -3,13 +3,13 @@
 // the settings it reports must give those readings back from the model, and Open as patient must load exactly those settings.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LIBRARY } from '../src/engine/inverse-library.js';
-import { rank, refinePoints, pointsOf, REFINE_ROUNDS, REFINE_PER_ROUND } from '../src/engine/inverse.js';
-import { runPatient, readingsOf } from '../src/engine/inverse-run.js';
-import { keyOf, FAMILY, settingsOf } from '../src/engine/inverse-families.js';
-import { yoursRecord, setYours } from '../src/engine/yours.js';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
+import { LIBRARY } from '../src/engine/portal/inverse-library.js';
+import { rank, refinePoints, pointsOf, REFINE_ROUNDS, REFINE_PER_ROUND } from '../src/engine/portal/inverse.js';
+import { runPatient, readingsOf } from '../src/engine/portal/inverse-run.js';
+import { keyOf, FAMILY, settingsOf } from '../src/engine/portal/inverse-families.js';
+import { yoursRecord, setYours } from '../src/engine/portal/yours.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
 
 test('the fit on the real engine brings FHVP 24 with WHVP 30 to a misfit under the allowed error, and its settings give the readings back', { timeout: 300000 }, () => {
   const readings = { whvp: 30, fhvp: 24 };

@@ -6,11 +6,11 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import './dom-shim.js';
-import { LSM_CUTS, LSM_STEPS, csphVerdict } from '../src/engine/lsm-cuts.js';
-import { SAAG_PORTAL, TP_HIGH, saagPortal, tpHigh } from '../src/engine/ascites-cuts.js';
-import { TRANSFUSE, transfuseBand, TRANSFUSE_WORDS } from '../src/engine/transfusion-cuts.js';
+import { LSM_CUTS, LSM_STEPS, csphVerdict } from '../src/engine/portal/lsm-cuts.js';
+import { SAAG_PORTAL, TP_HIGH, saagPortal, tpHigh } from '../src/engine/portal/ascites-cuts.js';
+import { TRANSFUSE, transfuseBand, TRANSFUSE_WORDS } from '../src/engine/portal/transfusion-cuts.js';
 import { stiffLayout, stiffWords, verdictOf, plateletWords, spleenVerdictOf, BARS } from '../src/ui/stiff-bar.js';
-import { SSM_CUTS, SSM_STEPS } from '../src/engine/ssm-cuts.js';
+import { SSM_CUTS, SSM_STEPS } from '../src/engine/portal/ssm-cuts.js';
 import { saagLayout, pointsOf, readingOf, saagWords } from '../src/ui/tool-saag.js';
 import { riForms, pulsatility } from '../src/ui/doppler-marks.js';
 import { HB_LO, HB_HI, hbAt } from '../src/ui/vitals-monitor.js';
@@ -181,7 +181,7 @@ test('each cut-off is typed once: the cards, the tiles and the monitor import th
     'src/ui/tool-saag.js': 'ascites-cuts.js', 'src/ui/vitals-monitor.js': 'transfusion-cuts.js', 'src/ui/vital-read.js': 'transfusion-cuts.js',
   };
   for (const [f, mod] of Object.entries(need)) assert.ok(read(f).includes(mod), `${f} reads ${mod}`);
-  const own = new Set(['src/engine/lsm-cuts.js', 'src/engine/ascites-cuts.js', 'src/engine/transfusion-cuts.js']);
+  const own = new Set(['src/engine/portal/lsm-cuts.js', 'src/engine/portal/ascites-cuts.js', 'src/engine/portal/transfusion-cuts.js']);
   for (const f of walk('src').filter((x) => x.endsWith('.js') && !own.has(x) && !x.startsWith('src/ui/decks/'))) {   // (a deck's teaching text may quote a number)
     const c = code(read(f));
     assert.ok(!/\bSAAG_PORTAL\s*=|\bTP_HIGH\s*=/.test(c), `${f}: no second SAAG or protein cut-off`);

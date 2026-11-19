@@ -16,7 +16,7 @@
 import { TRIAL_IDS } from '../trials.js';
 import { PATHS } from '../path-data.js';
 import { LOOKS } from '../looks.js';
-import { PRESETS } from '../../engine/scenario.js';
+import { PRESETS } from '../../engine/portal/scenario.js';
 import { MAIN } from './catalog-main.js';
 import { GALLERY_DEVICES } from '../devices.js';
 

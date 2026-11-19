@@ -4,10 +4,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { defaultParams, deepMerge, sanitizeParams } from '../src/engine/scenario.js';
-import { EDGES } from '../src/engine/topology.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { defaultParams, deepMerge, sanitizeParams } from '../src/engine/portal/scenario.js';
+import { EDGES } from '../src/engine/portal/topology.js';
 import { SURGICAL, SURGICAL_BY_ID, surgicalVerbs, shuntName } from '../src/ui/surgical-shunts.js';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

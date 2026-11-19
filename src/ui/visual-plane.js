@@ -28,7 +28,7 @@
 // element's own pixels, one unit a CSS pixel, so its words keep the slide's caption size (12 px or more) at any width.
 
 import { h, fmt, clamp } from './util.js';
-import { HVPG_CUTS, PPG_CUTS, HVPG_WORDS } from '../engine/pressure-cuts.js';
+import { HVPG_CUTS, PPG_CUTS, HVPG_WORDS } from '../engine/portal/pressure-cuts.js';
 import { TILE, tileShown, numName } from './table-marks.js';
 import { plotPanel } from './plot-look.js';
 import { BAVENO, BAVENO_AXES, bavenoRects, bavenoHatch, zoneArt, plotHeight, hatchKey } from './baveno-zones.js';

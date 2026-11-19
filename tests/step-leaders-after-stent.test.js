@@ -9,7 +9,7 @@ test('slide 51 after the TIPS stent slide: each step number keeps its leader and
 const { st, page } = await bootGL({ w: 395, h: 859, dpr: 3, coarse: true });
 const { store } = await import('../src/ui/store.js');
 const { stepPlan } = await import('../src/ui/callout-math.js');
-const { EDGES } = await import('../src/engine/topology.js');
+const { EDGES } = await import('../src/engine/portal/topology.js');
 const { createCore } = await import('../src/worker-core.js');
 const EIDS = new Set(EDGES.map((e) => e.id)), doc = page.document;
 const SEQ = 550, GLOW = ['V_INT', 'PV_TRUNK', 'SIN_RR', 'RHV_IVC', 'IVCS_RA'];

@@ -13,13 +13,13 @@
 // the card's width in the same way, and the healthy split as a dashed line over it with "Healthy portal 73%" above, as the pressure
 // ladder marks its Healthy line (Mohammad, 25 Oct: "the blood into the liver card ... so off center it's bad", his pick of the three
 // drawn in review/liver-inflow-card-ideas).
-// The parts are the slide's fingerprint's flows (at.Q), counted as the shunt fraction is (engine/metrics.js), so the liver's
+// The parts are the slide's fingerprint's flows (at.Q), counted as the shunt fraction is (engine/portal/metrics.js), so the liver's
 // part is always 100 less the slide's Shunted tile (table-marks.js portalSplit). The cavernoma returns blood to the liver,
 // so it counts as liver.
 
 import { frame, cancelFrame } from './frame.js';
 import { restPass, cancelRest } from './rest-pass.js';
-import { EDGES, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from '../engine/topology.js';
+import { EDGES, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from '../engine/portal/topology.js';
 import { portalSplit } from './table-marks.js';
 import { measure } from './glyph-measure.js';
 import { createSvgGL, svgModel, setGeo, setPts, setWords } from './svg-gl.js';

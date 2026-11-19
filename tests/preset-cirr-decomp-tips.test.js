@@ -2,10 +2,10 @@
 // with the default stent (8 mm, uniform, covered) already in place, settled, so the TIPS cards open as they do after switching a TIPS on.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { PRESETS, defaultParams } from '../src/engine/scenario.js';
-import { endOf, geomOf } from '../src/engine/stent-geom.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { PRESETS, defaultParams } from '../src/engine/portal/scenario.js';
+import { endOf, geomOf } from '../src/engine/portal/stent-geom.js';
 import { SNAPSHOTS } from '../src/ui/snapshots.js';
 
 const ID = 'cirr-decomp-tips';

@@ -4,10 +4,10 @@
 // portal vein slows under 30 cm/s and the left portal vein turns back toward the liver. The slides are run as the presenter runs them.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { EDGES, dopplerK } from '../src/engine/topology.js';
-import { deepMerge } from '../src/engine/scenario.js';
-import { computeMetrics } from '../src/engine/metrics.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { EDGES, dopplerK } from '../src/engine/portal/topology.js';
+import { deepMerge } from '../src/engine/portal/scenario.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
 import { TIPS_DOPPLER } from '../src/ui/decks/tips-doppler.js';
 
 // The Doppler's reading: flow over the lumen, scaled to the spectrum's peak (topology.js dopplerK).
@@ -57,7 +57,7 @@ test('the talk uses two lenses, velocity and direction, and the slides name the 
 });
 
 test('proximal, mid and distal stent velocities: the narrowed stent slows along its length and jets through its hepatic vein end', async () => {
-  const { stentSegments } = await import('../src/engine/topology.js');
+  const { stentSegments } = await import('../src/engine/portal/topology.js');
   const ok = run('jet'), [p0, m0, d0] = stentSegments(vel(ok, 'TIPS'), 0);
   assert.ok(p0 < d0 && d0 < m0 && p0 >= 90 && m0 <= 190, `a working stent reads slowest at its portal end and fastest mid stent, all within 90–190 (${p0}, ${m0}, ${d0})`);
   assert.ok(Math.abs(p0 / m0 - 0.9) < 1e-9 && Math.abs(d0 / m0 - 0.95) < 1e-9 && m0 - p0 < 50, 'a small spread, under the 50 cm/s stenosis cut-off');
@@ -70,7 +70,7 @@ test('proximal, mid and distal stent velocities: the narrowed stent slows along 
 });
 
 test('a stent narrows at a short pinch in the segment its card names', async () => {
-  const { stentSegments, stentSite } = await import('../src/engine/topology.js');
+  const { stentSegments, stentSite } = await import('../src/engine/portal/topology.js');
   assert.equal(stentSite({}, 'TIPS'), 'distal', 'the hepatic vein end by default');
   assert.equal(stentSite({ stenosisSite: { TIPS: 'nowhere' } }, 'TIPS'), 'distal');
   const [p, m, d] = stentSegments(100, 0.5, 'proximal');
@@ -94,7 +94,7 @@ test('a stent narrows at a short pinch in the segment its card names', async () 
 });
 
 test('the Doppler gate reads one third of a stent, and slides name gates and segments the code knows', async () => {
-  const { stentGate, STENT_SPANS, stentSegments } = await import('../src/engine/topology.js');
+  const { stentGate, STENT_SPANS, stentSegments } = await import('../src/engine/portal/topology.js');
   assert.equal(stentGate(undefined, {}, 'TIPS'), 'mid', 'mid stent by default');
   assert.equal(stentGate('site', {}, 'TIPS'), 'distal', "'site' follows the narrowing, distal by default");
   assert.equal(stentGate('site', { stenosisSite: { TIPS: 'proximal' } }, 'TIPS'), 'proximal');

@@ -7,9 +7,9 @@
 // belongs to a deck whose clot is occlusive and says so.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { HVPG_CUTS } from '../src/engine/pressure-cuts.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { HVPG_CUTS } from '../src/engine/portal/pressure-cuts.js';
 import { DECKS } from '../src/ui/decks.js';
 import { strings } from '../scripts/clinical-wording.mjs';
 

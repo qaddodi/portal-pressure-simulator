@@ -7,7 +7,7 @@
 // Nothing here makes an object, an array or a string after the record is made.
 
 import { D_SURFACE, EASE_MOVE, cssCurve, easeArrive, reduced } from './motion.js';
-import { NOT_SHOWN } from '../engine/pressure-cuts.js';
+import { NOT_SHOWN } from '../engine/portal/pressure-cuts.js';
 
 const tapCurve = cssCurve(EASE_MOVE);   // (the tap's keyframes each run on --ease-move, as a CSS animation's timing function does)
 const TAP_O = [0, 0.2, 0.45, 0.7, 1], TAP_V = [0, 2, -1.2, 0.6, 0];   // (app.css @keyframes sp-tap: translateX along the probe, px)

@@ -7,7 +7,7 @@
 //   tool: { kind: 'course', reading: 'asc', from, event, wait, after, then }   one reading over the days after an event, on the rating's zones, a line per
 //         treatment from the same day (tool-course.js)
 
-import { lcFirst } from '../engine/lc-first.js';
+import { lcFirst } from '../engine/portal/lc-first.js';
 import { createCurve, warmCurve, curveLines, lineMeta, axisMeta } from './tool-curve.js';
 import { createCourse, warmCourse, courseOf } from './tool-course.js';
 

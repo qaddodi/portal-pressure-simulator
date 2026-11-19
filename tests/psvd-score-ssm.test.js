@@ -3,8 +3,8 @@
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-const { Engine } = await import('../src/engine/engine.js');
-const { computeMetrics } = await import('../src/engine/metrics.js');
+const { Engine } = await import('../src/engine/portal/engine.js');
+const { computeMetrics } = await import('../src/engine/portal/metrics.js');
 const { NCPH } = await import('../src/ui/decks/ncph.js').then((m) => ({ NCPH: Object.values(m).find((d) => d?.slides) }));
 
 test('the PSVD patient\'s spleen stiffness is above the 40 kPa specific-sign cut-off the score slide names', () => {

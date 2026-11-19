@@ -11,9 +11,9 @@
 //   dispose()      ends the worker
 // A reply to an older request is dropped, a refinement that has been silent for REFINE_TIMEOUT_MS is given up (the worker ended, the ranking
 // stays the grid's plus what came back), and nothing here ever blocks the page.
-import { rank, pointsOf, normalise, MIN_READINGS, REFINE_ROUNDS as ROUNDS } from '../engine/inverse.js';
-import { LIBRARY } from '../engine/inverse-library.js';
-import { keyOf } from '../engine/inverse-families.js';
+import { rank, pointsOf, normalise, MIN_READINGS, REFINE_ROUNDS as ROUNDS } from '../engine/portal/inverse.js';
+import { LIBRARY } from '../engine/portal/inverse-library.js';
+import { keyOf } from '../engine/portal/inverse-families.js';
 
 export const REFINE_TIMEOUT_MS = 40000;
 

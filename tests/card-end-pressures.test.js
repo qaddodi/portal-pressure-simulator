@@ -10,8 +10,8 @@ for (const k of ['window', 'document', 'Node', 'Element', 'HTMLElement', 'Mutati
 globalThis.ResizeObserver ??= class { observe() {} disconnect() {} };
 globalThis.addEventListener ??= () => {};
 globalThis.matchMedia ??= () => ({ matches: false, addEventListener() {}, addListener() {} });
-import { Engine } from '../src/engine/engine.js';
-import { EDGES, NODES, JUNCTION_HOST_ENDS, partOf } from '../src/engine/topology.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { EDGES, NODES, JUNCTION_HOST_ENDS, partOf } from '../src/engine/portal/topology.js';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const one = (x) => x.toFixed(1);

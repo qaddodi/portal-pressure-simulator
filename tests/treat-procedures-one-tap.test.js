@@ -17,7 +17,7 @@ globalThis.cancelAnimationFrame ||= (id) => clearTimeout(id);
 
 const { createChart } = await import('../src/ui/chart.js');
 const { store, replaceParams } = await import('../src/ui/store.js');
-const { defaultParams } = await import('../src/engine/scenario.js');
+const { defaultParams } = await import('../src/engine/portal/scenario.js');
 const { PROCEDURES } = await import('../src/ui/procedure-names.js');
 
 function mount(patch) {

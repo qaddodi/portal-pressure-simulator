@@ -142,7 +142,7 @@ export function pairScales(vl, vu, optL = {}, optU = {}, same = false) {
  *  view (the days clock, optional; the slide's tool): { scales: { key: [min, max, step] } (a line's own scale in place of a fitted one: a
  *  pressure from zero, so a change keeps its true size; both lines need one, in as many steps), before: { key:
  *  value } (the state before the change the time-lapse starts from, drawn at day 0 on the day of the change; the model's own first day
- *  is then day 1, a step at the very left, as sudden as the change is) }. The trail's days are already calmed: the worker does it where they are made (engine/trail-calm.js). */
+ *  is then day 1, a step at the very left, as sudden as the change is) }. The trail's days are already calmed: the worker does it where they are made (engine/portal/trail-calm.js). */
 export function flowTimeSeries(trail, clock = 'meal', lines = MEAL_LINES, given = null, view = null) {
   const model = modelLines(lines), col = (k) => 1 + model.indexOf(k);
   const pts = (trail || []).filter((r) => r && model.every((k) => Number.isFinite(r[col(k)])));

@@ -1,6 +1,6 @@
 // Held geometry writes
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { EDGES } from '../engine/topology.js';
+import { EDGES } from '../engine/portal/topology.js';
 import { setLive } from './live-style.js';
 import { restPass } from './rest-pass.js';
 import { stageScope } from './stage-scope.js';

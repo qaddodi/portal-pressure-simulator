@@ -6,8 +6,8 @@ import assert from 'node:assert/strict';
 import { stentWaist, lossShares } from '../src/ui/stent-waist.js';
 import { alongCurve, LOSS_SPAN } from '../src/ui/pressure-along.js';
 import { lesionEase, GEOM_SNAP } from '../src/ui/lesion-ease.js';
-import { geomFix, profileAt, stentParts, waistSpan, endSpan } from '../src/engine/stent-geom.js';
-import { STENT_SITES } from '../src/engine/topology.js';
+import { geomFix, profileAt, stentParts, waistSpan, endSpan } from '../src/engine/portal/stent-geom.js';
+import { STENT_SITES } from '../src/engine/portal/topology.js';
 
 const N = 64, S = 0.6, W = 12, LEN = 160;
 // (A narrowing mid stent is the waist, g.red; at an end, the end stenosis s: stent-geom.js, since 17 Nov 2026.)
@@ -190,7 +190,7 @@ test('a stent\'s stenosis eases between its ends, a waist never moves it, and a 
 
 test('a stent label\'s end stenosis names the end the params name, proximal or distal (play-test 17 Nov 2026: it always said "distal", the statement had been left inside a comment)', async () => {
   const { stentFacts } = await import('../src/ui/stent-waist.js');
-  const { EDGES } = await import('../src/engine/topology.js');
+  const { EDGES } = await import('../src/engine/portal/topology.js');
   for (const id of ['TIPS', 'DIPS']) {
     const e = EDGES.find((x) => x.id === id), key = id.toLowerCase();
     const mk = (site) => ({ [key]: { on: true, d: 8 }, stenosis: { [id]: 0.4 }, stenosisSite: { [id]: site } });

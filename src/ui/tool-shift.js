@@ -12,7 +12,7 @@
 //                (flow-time.js pairScales, so their end points stand apart). Not the portal vein flow: in the model it falls as cirrhosis
 //                advances (1.09 to 0.75 L/min, two thirds of the splanchnic blood bypassing the liver), while the inflow the slides teach rises.
 // Each line is smooth through its states and never overshoots one (a monotone cubic); a time-lapse's stretch is the model's own day-by-day trail,
-// already calmed in the worker (engine/trail-calm.js), drawn from its first day as the days play. The slide's `key` lights the lines it teaches
+// already calmed in the worker (engine/portal/trail-calm.js), drawn from its first day as the days play. The slide's `key` lights the lines it teaches
 // (the others stay, faint); no key lights them all. The right column names every line with its value at the last state shown.
 // A slide that brings a new state shows it only once the model has moved: a question slide holds the state before until its answer plays,
 // and the chart's new stretch appears and follows the readings as they ease (pin). A what-if slider's change (the splanchnic tone) moves a ring

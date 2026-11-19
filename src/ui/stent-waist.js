@@ -1,11 +1,11 @@
 // A stent's drawn waist and the pressure colour's steps along it (17 Nov 2026, the TIPS geometry on the figure; plan
 // /mnt/project-files/tips-geometry/tips-geometry-plan.md, Phase 3). The stent is always drawn at its anatomical length: a longer waist
 // lengthens the narrowed stretch inside it (waist/len of the drawn path, its ends tapering over trans/len) and never stretches the stent.
-// The profile is src/engine/stent-geom.js profileAt, the one the engine, the Doppler gates and the cards read; here it is smoothed a little
+// The profile is src/engine/portal/stent-geom.js profileAt, the one the engine, the Doppler gates and the cards read; here it is smoothed a little
 // (about 0.3 of the drawn width) so the GPU tube has no kinks, and kept as a table made when a number changes, not in a frame.
-import { clamp } from '../engine/physiology.js';
-import { endOf, endSiteOf, endSpan, geomOf, kindOf, profileAt, waistSpan, waistShown, lumenShown } from '../engine/stent-geom.js';
-import { STENT_SITES } from '../engine/topology.js';
+import { clamp } from '../engine/core/physiology.js';
+import { endOf, endSiteOf, endSpan, geomOf, kindOf, profileAt, waistSpan, waistShown, lumenShown } from '../engine/portal/stent-geom.js';
+import { STENT_SITES } from '../engine/portal/topology.js';
 
 /** The smoothing, as a share of the stent's drawn width (the Gaussian's sigma). */
 export const WAIST_SMOOTH = 0.1;

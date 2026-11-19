@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseShare, cleanShare } from '../src/ui/share-link.js';
-import { deepMerge, sanitizeParams, defaultParams } from '../src/engine/scenario.js';
+import { deepMerge, sanitizeParams, defaultParams } from '../src/engine/portal/scenario.js';
 
 const enc = (json) => Buffer.from(json, 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 

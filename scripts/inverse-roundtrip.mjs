@@ -3,10 +3,10 @@
 // exactly as the worker does, and check the search finds a scenario that gives the same readings at no more Occam cost than the one drawn.
 //   node scripts/inverse-roundtrip.mjs [count=10] [seed=1] [--lib]    (--lib: the shipped library alone, no fit; fast)
 import { pathToFileURL } from 'node:url';
-import { LIBRARY } from '../src/engine/inverse-library.js';
-import { rank, refinePoints, pointsOf, costOf, normalise, REFINE_ROUNDS, REFINE_PER_ROUND } from '../src/engine/inverse.js';
-import { runPatient } from '../src/engine/inverse-run.js';
-import { FAMILIES, FAMILY, SIDE, sidesOf, sideDefault, sideClamp, keyOf } from '../src/engine/inverse-families.js';
+import { LIBRARY } from '../src/engine/portal/inverse-library.js';
+import { rank, refinePoints, pointsOf, costOf, normalise, REFINE_ROUNDS, REFINE_PER_ROUND } from '../src/engine/portal/inverse.js';
+import { runPatient } from '../src/engine/portal/inverse-run.js';
+import { FAMILIES, FAMILY, SIDE, sidesOf, sideDefault, sideClamp, keyOf } from '../src/engine/portal/inverse-families.js';
 
 /** The readings a clinic might have: the pressures, the stiffness, the blood count, the spleen, the fluid and the portal flow. */
 export const ENTERED = ['whvp', 'fhvp', 'ra', 'lsm', 'plt', 'spleen', 'asc', 'pvVel'];

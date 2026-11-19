@@ -10,9 +10,9 @@
 // loaded, cleared by dispose.
 import { benchRoot, h, statusLine, ppsOf, copyButton } from './ui.js';
 import { SNAPSHOTS, PATH } from '../../snapshots.js';
-import { PRESETS } from '../../../engine/scenario.js';
-import { NODES } from '../../../engine/topology.js';
-import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, PPG_LINE_NOTE } from '../../../engine/pressure-cuts.js';
+import { PRESETS } from '../../../engine/portal/scenario.js';
+import { NODES } from '../../../engine/portal/topology.js';
+import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, PPG_LINE_NOTE } from '../../../engine/portal/pressure-cuts.js';
 
 /**
  * When a live number is "different from the snapshot": pressures by more than 0.5 mmHg; flows by more than 5 % (or the snapshot's own rounding step,

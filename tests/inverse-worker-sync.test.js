@@ -3,7 +3,7 @@
 // at the start of the next request, and the page keeps any patient it is sent whichever request it answers.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LIBRARY } from '../src/engine/inverse-library.js';
+import { LIBRARY } from '../src/engine/portal/inverse-library.js';
 
 const got = [];
 globalThis.self = { postMessage: (m) => got.push(m) };

@@ -1,11 +1,11 @@
 // "Yours": a patient made from readings is rebuilt from its family every time, never read back from storage, and the list kept is safe whatever
-// storage holds (src/engine/yours.js, src/ui/yours-store.js, the worker's 'yours' message).
+// storage holds (src/engine/portal/yours.js, src/ui/yours-store.js, the worker's 'yours' message).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { yoursId, yoursLabel, yoursRecord, cleanYours, yoursPreset, setYours, readingsLine, YOURS_MAX, YOURS_GROUP, YOURS_NOTE } from '../src/engine/yours.js';
-import { PRESETS } from '../src/engine/scenario.js';
-import { FAMILIES } from '../src/engine/inverse-families.js';
-import { Engine } from '../src/engine/engine.js';
+import { yoursId, yoursLabel, yoursRecord, cleanYours, yoursPreset, setYours, readingsLine, YOURS_MAX, YOURS_GROUP, YOURS_NOTE } from '../src/engine/portal/yours.js';
+import { PRESETS } from '../src/engine/portal/scenario.js';
+import { FAMILIES } from '../src/engine/portal/inverse-families.js';
+import { Engine } from '../src/engine/portal/engine.js';
 import { createCore } from '../src/worker-core.js';
 
 const R = { whvp: 8, fhvp: 4.5, lsm: 6.5, plt: 78, asc: 0 };

@@ -43,7 +43,7 @@ import { scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js';
 import { h, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha } from './util.js';
 import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js';
 import { pressureColor } from './colormap.js';
-import { NODES, EDGES } from '../engine/topology.js';
+import { NODES, EDGES } from '../engine/portal/topology.js';
 import { F_RING } from './veins-mesh-glsl.js';
 import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE } from './veins-gl.js';
 import { PERIOD, originFractionsInto, ORIGIN_N, DRIFT_PERIOD, DRIFT_RATE } from './blood.js';

@@ -1,6 +1,6 @@
 // The frame state: the latest frame, its readout and the plain reads of it.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { EDGES, dMinOf, edgePresent } from '../engine/topology.js';
+import { EDGES, dMinOf, edgePresent } from '../engine/portal/topology.js';
 import { ANAT_HIDDEN, NEEDS_C3, STRAND_FROM, STRAND_HOLD, STRAND_PLATEAU, STRAND_SOFT, VB_ANAT, VB_CIRC, WIG_CAP } from './anatomy.js';
 import { smooth01 } from './motion.js';
 import { cavStrand, trunkFrame } from './cavernoma-strand.js';

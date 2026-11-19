@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { SITES } from '../src/ui/decks/sites.js';
 import { NCPH } from '../src/ui/decks/ncph.js';
-import { PRESETS, defaultParams } from '../src/engine/scenario.js';
+import { PRESETS, defaultParams } from '../src/engine/portal/scenario.js';
 import { runSteps } from './deck-states.js';
 import { appCss, presenterSource } from './split-src.js';
 

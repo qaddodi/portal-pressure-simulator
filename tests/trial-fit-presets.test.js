@@ -5,9 +5,9 @@
 // decompensated, so no preset matches PREDESCI on its own; only a case author's fact (CASE below) can complete that rule.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { PRESETS } from '../src/engine/scenario.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { PRESETS } from '../src/engine/portal/scenario.js';
 import { TRIALS } from '../src/ui/trials.js';
 import { fitTrial } from '../src/ui/trial-fit.js';
 

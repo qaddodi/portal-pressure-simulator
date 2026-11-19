@@ -4,7 +4,7 @@
 // tabulates every difference. There is no Compare mode: unpinning ends it.
 
 import { store } from './store.js';
-import { wallShare } from '../engine/wall-read.js';
+import { wallShare } from '../engine/portal/wall-read.js';
 import { h, fmt as fmt1, svgIcon } from './util.js';
 import { fmtG } from './num.js';
 import { liveBalance } from './balance-hold.js';

@@ -3,9 +3,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync } from 'node:fs';
-import { solveInPlace } from '../src/engine/linalg.js';
-import { Engine } from '../src/engine/engine.js';
-import { PRESETS, defaultParams, deepMerge } from '../src/engine/scenario.js';
+import { solveInPlace } from '../src/engine/core/linalg.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { PRESETS, defaultParams, deepMerge } from '../src/engine/portal/scenario.js';
 import { runSteps, changes } from './deck-states.js';
 
 // A small seeded generator, so a failure repeats.

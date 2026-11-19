@@ -1,6 +1,6 @@
 // The label driver: what the labels were solved for, the hand ride keys, pinch, settle, signature, solved-slot cache, updateLabels and the label job.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { EDGES } from '../engine/topology.js';
+import { EDGES } from '../engine/portal/topology.js';
 import { CHIP_NODES } from './anatomy.js';
 import { afterMotion, cancelFrame, cancelMay, frameFor, inMotion, mayTask } from './frame.js';
 import { COUNTED, gpuProbe } from './gpu-probe.js';

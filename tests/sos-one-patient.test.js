@@ -3,7 +3,7 @@
 // Now the preset carries 32 and no slide overrides it, so every deck shows the same numbers for the same disease.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PRESETS } from '../src/engine/scenario.js';
+import { PRESETS } from '../src/engine/portal/scenario.js';
 import { DECKS } from '../src/ui/decks.js';
 import { runSteps } from './deck-states.js';
 

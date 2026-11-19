@@ -8,8 +8,8 @@
 
 import { COLON_D, COLON_RING, BOWEL_RING, DUO_D } from './organ-art.js';
 import { gutPath, gutY } from './gut-proportions.js';
-import { hvpgSev, ppgSev } from '../engine/pressure-cuts.js';
-import { EDGES, JUNCTIONS, JUNCTION_HOST_ENDS, JUNCTION_PIECES } from '../engine/topology.js';
+import { hvpgSev, ppgSev } from '../engine/portal/pressure-cuts.js';
+import { EDGES, JUNCTIONS, JUNCTION_HOST_ENDS, JUNCTION_PIECES } from '../engine/portal/topology.js';
 
 export const VIEW = { w: 1400, h: 1000 };
 // Where the rectum's end fades away (y: clear above the first, gone at the second): the colon's mask (stage.js rectFade) and the

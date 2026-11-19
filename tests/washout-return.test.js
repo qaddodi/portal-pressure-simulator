@@ -6,8 +6,8 @@ import assert from 'node:assert/strict';
 
 for (const drug of ['propranolol', 'carvedilol']) {
   test(`${drug} on and off five times: HVPG, PPG and the portal vein return to where the patient began, and the readings drift no further than 0.3 mmHg meanwhile`, async () => {
-    const { Engine } = await import('../src/engine/engine.js');
-    const { computeMetrics } = await import('../src/engine/metrics.js');
+    const { Engine } = await import('../src/engine/portal/engine.js');
+    const { computeMetrics } = await import('../src/engine/portal/metrics.js');
     const e = new Engine(); e.loadPreset('cirr-decomp'); e.beat = true;
     const h = 0.004, run = (s) => { for (let i = 0; i < s / h; i++) e.step(h); };
     const read = () => { const m = computeMetrics(e); return { hvpg: m.hvpg, ppg: m.ppg, pv: m.pv, fhvp: m.fhvp }; };

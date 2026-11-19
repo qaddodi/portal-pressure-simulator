@@ -20,8 +20,8 @@ export const D_FLIP = 120, D_SMALL = 240, D_SURFACE = 420;   // (a state change;
 export const EASE_ARRIVE = 'cubic-bezier(.2, .8, .2, 1)', EASE_MOVE = 'cubic-bezier(.5, 0, .5, 1)', EASE_IN = 'cubic-bezier(.4, 0, 1, 1)';
 export const RISE_PX = 6;   // (fade-rise: how far a word, row or chip rises into place; its CSS twin is --rise-y in app.css, motion-scale.test.js keeps the two equal)
 
-export { easeMove } from '../engine/ease-move.js';   // (defined with the engine: the simulation worker takes it from there)
-import { easeMove } from '../engine/ease-move.js';
+export { easeMove } from '../engine/core/ease-move.js';   // (defined with the engine: the simulation worker takes it from there)
+import { easeMove } from '../engine/core/ease-move.js';
 
 // (The curve's polynomial and its slope at t, for coefficients a, b, c: plain functions, so a curve makes no closure but its own.)
 const poly = (a, b, c, t) => ((a * t + b) * t + c) * t, slope = (a, b, c, t) => (3 * a * t + 2 * b) * t + c;

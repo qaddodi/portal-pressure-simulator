@@ -1,7 +1,7 @@
 // The label solver's helpers for a stent called out at its three points and for the stent's own drawn dimensions (moved out of stage-label-solve.js,
 // 17 Nov 2026, as it passed its 1500 lines): where a point is on the screen, the column's two sides scored, the slide's mark on the stent and its lane, a
 // caliper's boxes, the dimension words' and bracket's boxes as obstacles, and a narrowing's words' spot search (clBoxAt, clFree). Kept records only; nothing here reads the page.
-import { STENT_SITES, stentGate } from '../engine/topology.js';
+import { STENT_SITES, stentGate } from '../engine/portal/topology.js';
 import { hits, within } from './label-place.js';
 
 export function createLabelCol({ geo, pointAt, worldToLocalInto, lineHits, stenosisAt, live, E }) {

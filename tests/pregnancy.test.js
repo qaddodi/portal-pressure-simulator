@@ -3,9 +3,9 @@
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
-import { Engine, pregnancyLevel } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { deepMerge, sanitizeParams, PRESETS } from '../src/engine/scenario.js';
+import { Engine, pregnancyLevel } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { deepMerge, sanitizeParams, PRESETS } from '../src/engine/portal/scenario.js';
 
 const within = (v, lo, hi, what) => assert.ok(v >= lo && v <= hi, `${what}: ${v.toFixed(2)} not in [${lo}, ${hi}]`);
 const weeks = (e, w, extra = {}) => { e.setParams(deepMerge(e.params, { gestation: w, ...extra })); e.settle(); return computeMetrics(e); };

@@ -4,7 +4,7 @@
 // comes from there (TILES, GROUPS, VITALS, readoutValue), passed in so this file does not import the dock.
 
 import { store, hiddenNow } from './store.js';
-import { hvBlocked, SEV_OF_RATE, NOT_MEASURABLE, NOT_SHOWN } from '../engine/pressure-cuts.js';
+import { hvBlocked, SEV_OF_RATE, NOT_MEASURABLE, NOT_SHOWN } from '../engine/portal/pressure-cuts.js';
 import { h, svgIcon, fmt, clamp, shownOf, countTo, setNone, swapText, fadeIn, putText, numberMoving, bandSwap } from './util.js';
 import { bandStepFor, BAND_RECHECK_MS, BAND_LONG_MS } from './band-settle.js';
 import { reduceMotionMQ } from './motion.js';

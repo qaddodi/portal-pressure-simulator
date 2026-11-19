@@ -2,9 +2,9 @@
 // catheter also reads the central vein that drains the sinusoids. Said only where the two differ by 0.2 mmHg or more.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { formula } from '../src/engine/explain.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { formula } from '../src/engine/portal/explain.js';
 
 for (const [id, says] of [['healthy', true], ['postprandial', true], ['cirr-decomp', false]]) {
   test(`${id}: the HVPG line ${says ? 'explains the gap to' : 'leaves out the note on'} the labels' difference`, () => {

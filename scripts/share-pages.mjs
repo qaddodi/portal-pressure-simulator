@@ -36,7 +36,7 @@ ${summary ? `<meta property="og:description" content="${esc(summary)}" />\n<meta
 }
 
 export async function cases() {
-  const { PRESETS } = await import(pathToFileURL(join(ROOT, 'src/engine/scenario.js')).href);
+  const { PRESETS } = await import(pathToFileURL(join(ROOT, 'src/engine/portal/scenario.js')).href);
   const out = PRESETS.map((p) => ({ file: `${p.id}.html`, title: p.label, summary: p.summary, target: '../', image: `${p.id}.jpg` }));
   const dir = join(ROOT, 'src/ui/decks');
   for (const f of readdirSync(dir).filter((x) => x.endsWith('.js')).sort()) {

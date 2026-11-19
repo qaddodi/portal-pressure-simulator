@@ -3,10 +3,10 @@
 // wrong: a healthy patient given a disease, readings that contradict each other given a confident answer, a presinusoidal patient given only cirrhosis.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LIBRARY } from '../src/engine/inverse-library.js';
-import { rank, pointsOf } from '../src/engine/inverse.js';
+import { LIBRARY } from '../src/engine/portal/inverse-library.js';
+import { rank, pointsOf } from '../src/engine/portal/inverse.js';
 import { CASES } from '../scripts/inverse-cases.mjs';
-import { TRY_CASES } from '../src/engine/inverse-try-cases.js';
+import { TRY_CASES } from '../src/engine/portal/inverse-try-cases.js';
 
 const POINTS = pointsOf(LIBRARY);
 const run = (id) => { const c = CASES.find((x) => x.id === id); assert.ok(c, id); return { c, r: rank(c.readings, POINTS) }; };

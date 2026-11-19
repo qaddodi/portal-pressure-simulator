@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createCore } from '../src/worker-core.js';
-import { calmed, calmTrail, calmRadius, CALM_MIN } from '../src/engine/trail-calm.js';
+import { calmed, calmTrail, calmRadius, CALM_MIN } from '../src/engine/portal/trail-calm.js';
 
 // Mohammad, 16 Nov 2026 (the Carvedilol slide, "HVPG and LSM over two years"): "I don't like that they sometimes zigzag or step ladder ... fix at the
 // root". The model's day-by-day readings are taken in quiet steps, whatever the beat's and the breath's phase is at that moment, so each carries a

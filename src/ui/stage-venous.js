@@ -2,7 +2,7 @@
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { fadeStep } from './motion.js';
 import { restPass } from './rest-pass.js';
-import { stentOpen } from '../engine/stent-ease.js';
+import { stentOpen } from '../engine/portal/stent-ease.js';
 import { store } from './store.js';
 import { s } from './util.js';
 

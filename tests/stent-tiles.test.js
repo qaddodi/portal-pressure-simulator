@@ -3,11 +3,11 @@
 // the engine's stentState, so the tile, the card and the Doppler cannot say different things; none is the PPG, and none is ever called an HVPG.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { deepMerge, sanitizeParams } from '../src/engine/scenario.js';
-import { fingerprintOf } from '../src/engine/fingerprint.js';
-import { stentReadsOf, dopplerK, EDGES } from '../src/engine/topology.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { deepMerge, sanitizeParams } from '../src/engine/portal/scenario.js';
+import { fingerprintOf } from '../src/engine/portal/fingerprint.js';
+import { stentReadsOf, dopplerK, EDGES } from '../src/engine/portal/topology.js';
 import { TILE, RATE, SCALE, STENT_RANGE, rateOf, tileOf } from '../src/ui/table-marks.js';
 
 const settled = (patch, preset = 'cirr-decomp') => {

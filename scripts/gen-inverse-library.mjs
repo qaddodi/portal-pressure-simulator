@@ -1,15 +1,15 @@
-// Makes src/engine/inverse-library.js: the readings of every virtual patient on the Work-backward grid (inverse-families.js), run through the
+// Makes src/engine/portal/inverse-library.js: the readings of every virtual patient on the Work-backward grid (inverse-families.js), run through the
 // real engine, so the "From readings" search starts with a table in hand and the worker only refines near the best fit.
 //   node scripts/gen-inverse-library.mjs            write the library (about 1.5 minutes: 186 patients at about a quarter of a second each)
 //   node scripts/gen-inverse-library.mjs --check    run them again and fail where the file disagrees
 // tests/inverse-library.test.js keeps the grid and the file in step and re-runs a sample of patients, so a change to the engine or a family
 // that moves a reading fails there, and this is run again. Node only: no browser.
 import { writeFileSync, readFileSync } from 'node:fs';
-import { FAMILIES } from '../src/engine/inverse-families.js';
-import { runPatient } from '../src/engine/inverse-run.js';
-import { rowOf, READING_KEYS } from '../src/engine/inverse.js';
+import { FAMILIES } from '../src/engine/portal/inverse-families.js';
+import { runPatient } from '../src/engine/portal/inverse-run.js';
+import { rowOf, READING_KEYS } from '../src/engine/portal/inverse.js';
 
-const OUT = new URL('../src/engine/inverse-library.js', import.meta.url);
+const OUT = new URL('../src/engine/portal/inverse-library.js', import.meta.url);
 const rows = [];
 for (const f of FAMILIES) for (const p of f.grid) rows.push(rowOf(f.id, p, runPatient(f.id, p)));
 

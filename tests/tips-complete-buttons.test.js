@@ -5,10 +5,10 @@
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { deepMerge, sanitizeParams } from '../src/engine/scenario.js';
-import { fingerprintOf } from '../src/engine/fingerprint.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { deepMerge, sanitizeParams } from '../src/engine/portal/scenario.js';
+import { fingerprintOf } from '../src/engine/portal/fingerprint.js';
 import { TIPS_COMPLETE as D } from '../src/ui/decks/tips-complete.js';
 import { abChoice } from '../src/ui/presenter-words.js';
 import { toggleLabels } from '../src/ui/variant-toggle.js';

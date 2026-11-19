@@ -45,8 +45,8 @@
 // Even 'fits' is not "eligible" or "enrolled": the entry list is the audited abstract's, not the protocol's whole eligibility set, so the words for it
 // (FITS_WORDS) read "Matches the modeled criteria. The protocol's other entry rules, such as its exclusions, are not checked." and name the rules still open (R01, external review 15 Nov 2026).
 
-import { hvBlocked } from '../engine/pressure-cuts.js';
-import { varixGrade, ascitesGrade, VARIX_NONE_MM } from '../engine/metrics.js';
+import { hvBlocked } from '../engine/portal/pressure-cuts.js';
+import { varixGrade, ascitesGrade, VARIX_NONE_MM } from '../engine/portal/metrics.js';
 
 export const NOT_IN_MODEL = 'Not in the model';
 const one = (v) => (Math.round(v * 10) / 10).toFixed(1);

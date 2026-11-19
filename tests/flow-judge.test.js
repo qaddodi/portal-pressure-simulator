@@ -1,10 +1,10 @@
-// One judgement of slow, absent and backward flow (velNormal.js judgeFlow, cut-offs in engine/flow-cuts.js). The Doppler's reading, the figure's
+// One judgement of slow, absent and backward flow (velNormal.js judgeFlow, cut-offs in engine/portal/flow-cuts.js). The Doppler's reading, the figure's
 // velocity labels, the Details sentences, the lobule's cards, the screen-reader summary, the summary tables and the stasis event all read it;
 // this pins the boundaries so they cannot drift apart again.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { judgeFlow, flowReversed, FLOW_CUTS } from '../src/ui/velNormal.js';
-import { FLOW_CUTS as ENGINE_CUTS } from '../src/engine/flow-cuts.js';
+import { FLOW_CUTS as ENGINE_CUTS } from '../src/engine/portal/flow-cuts.js';
 import { RATE } from '../src/ui/table-marks.js';
 
 const PV = [15, 40];

@@ -9,9 +9,9 @@ import assert from 'node:assert/strict';
 const { shiftStages, stageVals, rowVals, movedFrom, topScale, monotone, thin, spread, SHIFT_KEYS, SHIFT_TOP, SHIFT_LOW, shiftTrail } = await import('../src/ui/tool-shift.js');
 const { HYPERDYNAMIC } = await import('../src/ui/decks/hyperdynamic.js');
 const { keepData, dataPlan, carries, eases } = await import('../src/ui/card-keep.js');
-const { Engine } = await import('../src/engine/engine.js');
-const { computeMetrics } = await import('../src/engine/metrics.js');
-const { fingerprintOf } = await import('../src/engine/fingerprint.js');
+const { Engine } = await import('../src/engine/portal/engine.js');
+const { computeMetrics } = await import('../src/engine/portal/metrics.js');
+const { fingerprintOf } = await import('../src/engine/portal/fingerprint.js');
 const { trailOf } = await import('../src/ui/slide-ext.js');
 
 const slides = HYPERDYNAMIC.slides;

@@ -15,7 +15,7 @@
 //
 // Units: mmHg, mL/s, mm, cm. Pressures are above the IVC (P = 0 at the hepatic end), so the portal end reads the PPG.
 
-import { clamp } from './physiology.js';
+import { clamp } from '../core/physiology.js';
 
 /** ½ρ per (m/s)² in mmHg: 1060 kg/m³ over 2, over 133.322 Pa per mmHg (a flow of 1 mL/s through 1 mm² is 1 m/s). */
 export const HEAD = 3.9753;

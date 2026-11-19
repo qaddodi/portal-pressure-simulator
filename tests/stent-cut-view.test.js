@@ -18,7 +18,7 @@ try { Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigat
 
 const { stentCutD, stentLookD } = await import('../src/ui/stent-mesh.js');
 const { store } = await import('../src/ui/store.js');
-const { STENT_SITES } = await import('../src/engine/topology.js');
+const { STENT_SITES } = await import('../src/engine/portal/topology.js');
 
 const nums = (d) => (d.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
 const ys = (d) => nums(d).filter((_, i) => i % 2 === 1);

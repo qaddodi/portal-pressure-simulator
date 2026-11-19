@@ -10,8 +10,8 @@
 // (Paulson et al., Radiology 1996). The bands below hold the built values with room for that spread, not a fit to one number.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { EDGES, dopplerK } from '../src/engine/topology.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { EDGES, dopplerK } from '../src/engine/portal/topology.js';
 
 const H = 0.004;
 const run = (id, secs = 40) => { const e = new Engine(); e.loadPreset(id); e.settle(); e.beat = true; while (e.t < secs) e.step(H); return e; };

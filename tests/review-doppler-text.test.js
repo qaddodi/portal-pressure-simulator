@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createCore } from '../src/worker-core.js';
-import { Engine } from '../src/engine/engine.js';
+import { Engine } from '../src/engine/portal/engine.js';
 import { velNormal, velPos, STENT_PV_NORMAL } from '../src/ui/velNormal.js';
 import { DOPPLER } from '../src/ui/decks/doppler.js';
 
@@ -68,7 +68,7 @@ test('with a TIPS in, a fast main portal vein is normal: no ceiling, never colou
 // own number (TIPS Doppler 5 read "Portal v. 18 cm/s", the lumen mean, beside a monitor at 34).
 test('velocity callouts read the named vessel as the Doppler reads it, and its monitor\'s number', async () => {
   const { STATION_VESSEL } = await import('../src/ui/velNormal.js');
-  const { EDGES } = await import('../src/engine/topology.js');
+  const { EDGES } = await import('../src/engine/portal/topology.js');
   for (const [n, id] of Object.entries(STATION_VESSEL)) {
     const e = EDGES.find((x) => x.id === id);
     // (a vein a shunt joins part-way is cut in pieces for the drawing, topology.js JUNCTIONS; the station is at an end of the vein the model reads)

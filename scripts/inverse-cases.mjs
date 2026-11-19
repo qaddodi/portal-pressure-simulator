@@ -37,10 +37,10 @@ export const CASES = Object.freeze([
 ]);
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const { LIBRARY } = await import('../src/engine/inverse-library.js');
-  const { rank, refinePoints, pointsOf, REFINE_ROUNDS, REFINE_PER_ROUND } = await import('../src/engine/inverse.js');
-  const { runPatient } = await import('../src/engine/inverse-run.js');
-  const { keyOf } = await import('../src/engine/inverse-families.js');
+  const { LIBRARY } = await import('../src/engine/portal/inverse-library.js');
+  const { rank, refinePoints, pointsOf, REFINE_ROUNDS, REFINE_PER_ROUND } = await import('../src/engine/portal/inverse.js');
+  const { runPatient } = await import('../src/engine/portal/inverse-run.js');
+  const { keyOf } = await import('../src/engine/portal/inverse-families.js');
   // A one-off set of readings: node scripts/inverse-cases.mjs whvp=30 fhvp=24 ...
   const args = process.argv.slice(2), custom = args.filter((a) => a.includes('='));
   const list = custom.length ? [{ id: 'X', name: custom.join(' '), truth: '?', readings: Object.fromEntries(custom.map((a) => a.split('=')).map(([k, v]) => [k, +v])) }] : CASES;

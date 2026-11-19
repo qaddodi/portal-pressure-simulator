@@ -14,7 +14,7 @@ import { createCurve } from './tool-curve.js';
 import { sharedCalc } from './calc-client.js';
 import { attrSoon, dataSoon } from './class-soon.js';
 import { restPass } from './rest-pass.js';
-import { GEOM_RANGE, BENCH_DP, WAIST_STEP } from '../engine/stent-geom.js';
+import { GEOM_RANGE, BENCH_DP, WAIST_STEP } from '../engine/portal/stent-geom.js';
 
 export const SWEEPS = ['diameter', 'end', 'waist', 'length'];
 const LABEL = { diameter: 'Diameter', end: 'End narrowing', waist: 'Waist length', length: 'Stent length (idealized)' };

@@ -5,9 +5,9 @@ import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { Engine } from '../src/engine/engine.js';
-import { NODES } from '../src/engine/topology.js';
-import { deepMerge } from '../src/engine/scenario.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { NODES } from '../src/engine/portal/topology.js';
+import { deepMerge } from '../src/engine/portal/scenario.js';
 import { lobuleState, sinceOf, LOBE } from '../src/ui/lobule-model.js';
 import { lobuleSource } from './split-src.js';
 

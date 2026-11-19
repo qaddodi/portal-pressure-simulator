@@ -7,7 +7,7 @@
 // 15 Nov 2026 it stayed until the HVPG was measured again). It changes nothing in the model: a measurement.
 
 import { h, icon, toast } from './util.js';
-import { ppgWord, NOT_SHOWN } from '../engine/pressure-cuts.js';
+import { ppgWord, NOT_SHOWN } from '../engine/portal/pressure-cuts.js';
 import { store, logAction } from './store.js';
 import { MEASURES, READS, playProcedure, procRunning, procBlocked } from './proc-anim.js';
 import { createReading } from './tool-reading.js';

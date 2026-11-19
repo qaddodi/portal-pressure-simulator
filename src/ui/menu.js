@@ -8,7 +8,7 @@ import { store } from './store.js';
 import { createTraceGL, fitPen } from './trace-gl.js';
 import { h, icon, svgIcon, cssVar, clamp, placeAt, swipeSheet, visibleBottom, fadeWhileMore, STACK_MQ, fmt, shownOf, claimSurface, releaseSurface } from './util.js';
 import { SNAPSHOTS } from './snapshots.js';
-import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js';
+import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/portal/pressure-cuts.js';
 import { pressureColor } from './colormap.js';
 import { readAnims } from './layout-snap.js';
 import { deckSig, patientSig } from './menu-keep.js';

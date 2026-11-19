@@ -2,10 +2,10 @@
 // It is the one shunt that joins two portal vessels, so its blood counts as portal blood reaching the liver, never as shunted.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { defaultParams, deepMerge, sanitizeParams } from '../src/engine/scenario.js';
-import { EDGES, NODES, PORTOSYSTEMIC_EDGES } from '../src/engine/topology.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { defaultParams, deepMerge, sanitizeParams } from '../src/engine/portal/scenario.js';
+import { EDGES, NODES, PORTOSYSTEMIC_EDGES } from '../src/engine/portal/topology.js';
 import { originFractions, ORIGIN_N } from '../src/ui/blood.js';
 import { EDGE_PATH, CIRCUIT_PATH } from '../src/ui/anatomy.js';
 import { GRAFTS, PROC_KINDS, specOf, procBlocked, procOffered, procFrame, stepAt, rexSuitable } from '../src/ui/proc-anim.js';

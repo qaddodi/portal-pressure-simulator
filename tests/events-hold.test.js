@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { detectEvents } from '../src/engine/events.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { detectEvents } from '../src/engine/portal/events.js';
 
 // An event's hold is model time, not a count of evaluations: a slider drag posts a frame per change (many evaluations in a
 // few milliseconds of model time) and 8x posts one per 0.8 s of model time; both wait the same quarter second now.

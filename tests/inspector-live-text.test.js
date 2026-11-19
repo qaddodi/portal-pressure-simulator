@@ -3,9 +3,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import './dom-shim.js';
-import { Engine } from '../src/engine/engine.js';
-import { PRESETS, DRUGS } from '../src/engine/scenario.js';
-import { EDGES } from '../src/engine/topology.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { PRESETS, DRUGS } from '../src/engine/portal/scenario.js';
+import { EDGES } from '../src/engine/portal/topology.js';
 const { activeInterventions, readings } = await import('../src/ui/inspector.js');
 // (The inspector reads util.js by its plain name, so its units are the ones of that copy of the module: this reads the same one.)
 const { fmt, fmtFlow, fp, ff, units } = await import('../src/ui/util.js');

@@ -13,7 +13,7 @@ import { measure } from './glyph-measure.js';
 import { readMetric } from './layout-snap.js';
 import { wrapWords } from './tool-trial.js';
 import { TYPE } from './chart-looks/saag.js';
-import { SAAG_PORTAL, TP_HIGH, saagPortal, tpHigh } from '../engine/ascites-cuts.js';
+import { SAAG_PORTAL, TP_HIGH, saagPortal, tpHigh } from '../engine/portal/ascites-cuts.js';
 import { NO_ASC } from './table-marks.js';
 import { fmt } from './util.js';
 import { cardShow } from './card-show.js';

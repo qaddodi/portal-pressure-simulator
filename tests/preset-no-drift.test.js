@@ -4,8 +4,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createCore } from '../src/worker-core.js';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
 
 for (const id of ['cirr-decomp', 'csph', 'sos', 'healthy']) {
   test(`${id}: the readings the page gets on loading are the ones the patient settles at`, async (t) => {

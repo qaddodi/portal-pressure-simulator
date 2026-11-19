@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { endoGrow, LARGE_MM } from '../src/ui/endo-size.js';
-import { varixGrade } from '../src/engine/metrics.js';
+import { varixGrade } from '../src/engine/portal/metrics.js';
 
 const old = (d) => Math.min(1, Math.max(0, (d - 2) / 10));
 

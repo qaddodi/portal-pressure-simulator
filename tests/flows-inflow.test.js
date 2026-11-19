@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import './dom-shim.js';
-import { EDGES } from '../src/engine/topology.js';
+import { EDGES } from '../src/engine/portal/topology.js';
 import { inflowGeo, inflowMarker, inflowSpans, inflowLabels, barOrder, routeGeo, routeHeight, routeRows, routeMarker, routeLayout, LABEL_GAP } from '../src/ui/tool-flows.js';
 
 const idx = Object.fromEntries(EDGES.map((e, k) => [e.id, k]));

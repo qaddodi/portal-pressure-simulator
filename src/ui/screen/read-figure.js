@@ -2,7 +2,7 @@
 // selection, stent and glow. No pixels: the rows are what the vessel painter (stage-tubes.js renderTubes) holds for the GPU row builder, read by the
 // stage's `figureRows` accessor (sources.js); the model pressures are the frame's own (the ones the painter coloured from).
 // THE ONE RULE: the colour a vessel should have is the painter's own colormap.js `pressureColor` over its own bin (qP, 0.5 mmHg). This file defines no colour ramp of its own. tests/screen-readers.test.js holds that.
-import { edgeById } from '../../engine/topology.js';
+import { edgeById } from '../../engine/portal/topology.js';
 import { pressureColor } from '../colormap.js';
 import { COLOUR_BIN, qP } from '../colour-bin.js';
 

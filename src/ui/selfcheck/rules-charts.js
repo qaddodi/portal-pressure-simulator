@@ -25,12 +25,12 @@ registerRule({
   check: (report) => numbersAgree(report.charts?.numbers || []).map(shape),
 });
 registerRule({
-  id: 'pressure-colour', owner: 'src/engine/pressure-cuts.js', kind: 'state',
+  id: 'pressure-colour', owner: 'src/engine/portal/pressure-cuts.js', kind: 'state',
   why: 'A pressure wears the colour its cut-offs give the number shown: HVPG amber over 5, red 10; PPG amber 6, red 12',
   check: (report) => pressureColour(report.charts?.numbers || []).map(shape),
 });
 registerRule({
-  id: 'pressure-words', owner: 'src/engine/pressure-cuts.js', kind: 'state',
+  id: 'pressure-words', owner: 'src/engine/portal/pressure-cuts.js', kind: 'state',
   why: 'Words that name a cut-off of the HVPG or PPG name one of the app\'s (HVPG 5, 10, 12, 20; PPG 6, 12)',
   check: (report) => pressureWords([
     ...(report.cards?.cards || []).flatMap((c) => c.lines.map(([text]) => ({ where: `the ${c.kind}`, text }))),

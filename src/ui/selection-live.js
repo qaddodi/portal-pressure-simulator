@@ -1,7 +1,7 @@
 // A card never outlives what it is about (16 Nov 2026, play-test: a TIPS placed on Decompensated cirrhosis, then Cirrhosis with gastrorenal shunt picked, left the TIPS
 // card open with "0.0 mm", a live width slider, and Remove and Doppler buttons for a stent that no longer existed). The one place it is decided: whenever the
 // parameters change (a patient, a restore, an undo, a take-down, a slide), a selected device that is no longer in the patient is let go.
-import { EDGES, deviceInPlace } from '../engine/topology.js';
+import { EDGES, deviceInPlace } from '../engine/portal/topology.js';
 
 /** True when `sel` names a placed device (a stent, a surgical or own shunt) that `params` do not place. */
 export function selectionGone(sel, params) {

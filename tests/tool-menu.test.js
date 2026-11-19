@@ -24,10 +24,10 @@ globalThis.MutationObserver = class { observe() {} disconnect() {} };
 globalThis.matchMedia = () => ({ matches: false, addEventListener() {}, addListener() {} });
 globalThis.addEventListener = () => {};
 
-const { Engine } = await import('../src/engine/engine.js');
-const { computeMetrics } = await import('../src/engine/metrics.js');
-const { fingerprintOf } = await import('../src/engine/fingerprint.js');
-const { deepMerge } = await import('../src/engine/scenario.js');
+const { Engine } = await import('../src/engine/portal/engine.js');
+const { computeMetrics } = await import('../src/engine/portal/metrics.js');
+const { fingerprintOf } = await import('../src/engine/portal/fingerprint.js');
+const { deepMerge } = await import('../src/engine/portal/scenario.js');
 const M = await import('../src/ui/tool-menu.js');
 
 const fpOf = (e) => fingerprintOf(computeMetrics(e), { P: e.P, Q: e.Q, D: e.D, params: e.params });

@@ -2,7 +2,7 @@
 // words, a short and a long form ([short, long]); "Not measurable" is the one wording for a reading that cannot be taken; a number not known
 // prints as one glyph, the em dash, and a value still to come in running text as the ellipsis; and the three rating vocabularies (status:
 // ok, caution, danger; table rating: ok, mid, hi; colour token: --ok, --caution, --danger) map onto each other through the tables of
-// src/engine/pressure-cuts.js. Each card and tile is asked what it prints, so a second wording or a second map that drifts fails here;
+// src/engine/portal/pressure-cuts.js. Each card and tile is asked what it prints, so a second wording or a second map that drifts fails here;
 // scripts/source-shapes/vocab.mjs keeps a second copy of the words or the maps from being written at all.
 import './dom-shim.js';
 import { test } from 'node:test';
@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import {
   HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, RATE_OF_SEV, SEV_OF_RATE, TOKEN_OF_SEV, TOKEN_OF_RATE, HVPG_WORDS, PPG_WORDS, BLEED_WORD,
   hvpgWord, ppgWord, NOT_MEASURABLE, NOT_SHOWN, VALUE_PENDING,
-} from '../src/engine/pressure-cuts.js';
+} from '../src/engine/portal/pressure-cuts.js';
 import { RATE } from '../src/ui/table-marks.js';
 import { valueText, valueTone, widest } from '../src/ui/callout-math.js';
 import { scanReadingText } from '../src/ui/scan-ease.js';

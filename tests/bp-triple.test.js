@@ -4,10 +4,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync } from 'node:fs';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { PRESETS } from '../src/engine/scenario.js';
-import { bedsideMean } from '../src/engine/bedside-mean.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { PRESETS } from '../src/engine/portal/scenario.js';
+import { bedsideMean } from '../src/engine/portal/bedside-mean.js';
 import { bpText } from '../src/ui/vital-read.js';
 import { deckStates } from './deck-states.js';
 

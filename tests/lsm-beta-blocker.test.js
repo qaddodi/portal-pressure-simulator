@@ -2,9 +2,9 @@
 // judging the HVPG response to NSBB). metrics.lsm reads the gradient the liver would have without the drug (Engine.hvNoBlocker).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { deepMerge } from '../src/engine/scenario.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { deepMerge } from '../src/engine/portal/scenario.js';
 
 const preset = (id) => { const e = new Engine(); e.loadPreset(id); e.settle(); return e; };
 const on = (e, drugs) => { const f = new Engine(); f.restore(e.snapshot()); f.setParams(deepMerge(f.params, { drugs })); f.settle(); return f; };

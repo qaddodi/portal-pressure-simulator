@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createShownState, createFollow, noteJump, SHOWN_TAU } from '../src/ui/display-state.js';
-import { tenthGap } from '../src/engine/gap.js';
+import { tenthGap } from '../src/engine/core/gap.js';
 import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');

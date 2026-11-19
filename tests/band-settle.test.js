@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { bandStep } from '../src/ui/band-settle.js';
 import { atShown, dirAbs, pressDp } from '../src/ui/table-marks.js';
-import { hvpgRate, ppgRate } from '../src/engine/pressure-cuts.js';
+import { hvpgRate, ppgRate } from '../src/engine/portal/pressure-cuts.js';
 
 test('the band waits for its number: the roll ends, then the word cross-fades; Reduce Motion changes all at once', () => {
   assert.equal(bandStep('caution', 'caution', true, false), 'same');

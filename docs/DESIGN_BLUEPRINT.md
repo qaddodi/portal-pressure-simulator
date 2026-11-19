@@ -491,7 +491,7 @@ Keyboard use is listed in the in-app Guide (Help › Keyboard shortcuts). The pr
 
 ### 9.1 Clinical strip (always visible)
 
-The tiles and their cut-offs are in `src/ui/table-marks.js` (`RATE`, `SCALE`, `CUT`) and in `docs/deck-authoring-guide.md` section 8.6. Pressure colours and cut-offs live once in `src/engine/pressure-cuts.js`: HVPG amber 5, red 10; PPG amber 6, red 12.
+The tiles and their cut-offs are in `src/ui/table-marks.js` (`RATE`, `SCALE`, `CUT`) and in `docs/deck-authoring-guide.md` section 8.6. Pressure colours and cut-offs live once in `src/engine/portal/pressure-cuts.js`: HVPG amber 5, red 10; PPG amber 6, red 12.
 
 ### 9.2 Dock charts
 
@@ -556,7 +556,7 @@ for fairness) in the worker when the user asks. Cache the result until the state
 | Cardiac | **Right heart failure / TR** | Contractility ↓, TR ↑ | RA ↑↑, FHVP and WHVP both ↑, **HVPG normal**, **pulsatile PV**, high-protein ascites |
 | Cardiac | **Constrictive pericarditis** | Pericardial constraint ↑ | Similar to RHF, with a respiratory pattern |
 
-The app has 19 presets (`src/engine/scenario.js`, listed in `docs/deck-authoring-guide.md` 8.1). Beyond this table (the porto-sinusoidal patient is a second presinusoidal one, beside schistosomiasis): cirrhosis with reversed portal flow, MASLD cirrhosis (HVPG under-reads), cirrhosis with a gastrorenal shunt (isolated fundal varices), and cirrhosis in pregnancy.
+The app has 19 presets (`src/engine/portal/scenario.js`, listed in `docs/deck-authoring-guide.md` 8.1). Beyond this table (the porto-sinusoidal patient is a second presinusoidal one, beside schistosomiasis): cirrhosis with reversed portal flow, MASLD cirrhosis (HVPG under-reads), cirrhosis with a gastrorenal shunt (isolated fundal varices), and cirrhosis in pregnancy.
 
 ### 10.2 Interventions library
 
@@ -654,7 +654,7 @@ See `docs/stage-map.md` and the folders `src/engine/`, `src/ui/`, `src/ui/decks/
 
 ### 13.3 Topology schema (sketch)
 
-The topology is `src/engine/topology.js` (nodes and edges with ids; see §7.2).
+The topology is `src/engine/portal/topology.js` (nodes and edges with ids; see §7.2).
 
 ### 13.4 Worker ↔ UI protocol
 

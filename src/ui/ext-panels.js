@@ -6,7 +6,7 @@
 //   visual: 'allpatients'   every patient's HVPG over two years on one chart, with a key of three readings (visual-allpatients.js), cohort: [{ name, c, slides, pace? }]
 //   table column 'wave' (col-wave.js)
 
-import { lcFirst } from '../engine/lc-first.js';
+import { lcFirst } from '../engine/portal/lc-first.js';
 import { planeVisual, createPlaneTool, toolPlane } from './visual-plane.js';
 import { waveColumn } from './col-wave.js';
 import { allPatientsVisual, warmAllPatients } from './visual-allpatients.js';

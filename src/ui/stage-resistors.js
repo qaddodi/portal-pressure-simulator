@@ -1,6 +1,6 @@
 // The circuit's resistors: the ratio each shows against the healthy liver, its reading as a figure label, and its zigzag record on the overlay painter.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { EDGES, edgePresent } from '../engine/topology.js';
+import { EDGES, edgePresent } from '../engine/portal/topology.js';
 import { NODE_POS } from './anatomy.js';
 import { dotRadius } from './circuit-nodes.js';
 import { store } from './store.js';

@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { readdirSync } from 'node:fs';
 import './dom-shim.js';
 import { deckStates, runSteps } from './deck-states.js';
-import { EDGES } from '../src/engine/topology.js';
+import { EDGES } from '../src/engine/portal/topology.js';
 
 const DIR = new URL('../src/ui/decks/', import.meta.url);
 const RATIO = /\b(doubles|doubled|doubling|twice as (?:large|much|many|high|low|fast|slow|great)|two-?fold|three times|threefold|triples?|tripled|halves|halved|half as|\d+(?:\.\d+)? times (?:as|higher|lower|more|less|faster|slower|the)|\d+-fold|several-fold|several times|many times)\b/gi;

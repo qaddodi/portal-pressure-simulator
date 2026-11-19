@@ -3,8 +3,8 @@
 // route (C1b) meets at the arch is the azygos itself (Mohammad, 30 Oct: "Esophageal varices connect to azygous").
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { EDGES, dMinOf } from '../src/engine/topology.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { EDGES, dMinOf } from '../src/engine/portal/topology.js';
 import { EDGE_PATH, NODE_POS, FEEDERS } from '../src/ui/anatomy.js';
 
 const pts = (d) => (d.match(/-?[\d.]+/g) || []).map(Number).reduce((a, v, i) => (i % 2 ? a[a.length - 1].push(v) : a.push([v]), a), []);

@@ -9,10 +9,10 @@ import { store, hiddenNow } from './store.js';
 import { h, fmt, cssVar, cssAlpha, cssInk, clamp } from './util.js';
 import { FONT as FONT0, FONT } from './charts.js';
 import { frameFor, cancelFrame, paceMs, restGapFor, restPark, noteDraw, frameAnimating, pageRest, onPageWake } from './frame.js';
-import { tenthGap } from '../engine/gap.js';
-import { calmedDays, recordDay } from '../engine/trail-calm.js';
-import { treatmentKey } from '../engine/change-events.js';
-import { HVPG_CUTS, hvpgSev, HVPG_WORDS, BLEED_WORD, TOKEN_OF_SEV, NOT_SHOWN } from '../engine/pressure-cuts.js';
+import { tenthGap } from '../engine/core/gap.js';
+import { calmedDays, recordDay } from '../engine/portal/trail-calm.js';
+import { treatmentKey } from '../engine/portal/change-events.js';
+import { HVPG_CUTS, hvpgSev, HVPG_WORDS, BLEED_WORD, TOKEN_OF_SEV, NOT_SHOWN } from '../engine/portal/pressure-cuts.js';
 import { firstAtOrAbove, firstAbove } from './sorted.js';
 import { limitLabelX as labelX } from './limit-label.js';
 import { wrapLabel } from './wrap-label.js';
@@ -371,7 +371,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true, smooth
     }
     out.x.length = out.mid.length = 0;
     // (The days' readings are taken in whatever phase of the beat and breath the disease clock is in on that day, a ripple that is no part of the trend,
-    // so the line is drawn calmed, as every time-lapse chart is, engine/trail-calm.js; its latest reading stays the live one.)
+    // so the line is drawn calmed, as every time-lapse chart is, engine/portal/trail-calm.js; its latest reading stays the live one.)
     const c = calmOf(key);
     if (!c) { for (const d of days) if (d.v[key] != null && d.day >= x0) { out.x.push(d.day); out.mid.push(d.v[key]); } return out; }
     const n = c.x.length;

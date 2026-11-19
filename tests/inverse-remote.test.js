@@ -4,9 +4,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createInverseRemote, REFINE_TIMEOUT_MS } from '../src/ui/inverse-remote.js';
-import { LIBRARY } from '../src/engine/inverse-library.js';
-import { keyOf, FAMILY } from '../src/engine/inverse-families.js';
-import { pointsOf, MIN_READINGS, REFINE_PER_ROUND } from '../src/engine/inverse.js';
+import { LIBRARY } from '../src/engine/portal/inverse-library.js';
+import { keyOf, FAMILY } from '../src/engine/portal/inverse-families.js';
+import { pointsOf, MIN_READINGS, REFINE_PER_ROUND } from '../src/engine/portal/inverse.js';
 
 const A = { whvp: 8.0, fhvp: 4.5, ppg: 14, spleen: 16, plt: 78, lsm: 6.5, ssm: 68, asc: 0 };
 const libKeys = new Set(pointsOf(LIBRARY).map((p) => keyOf(p.f, p.p)));

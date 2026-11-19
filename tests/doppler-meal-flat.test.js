@@ -3,8 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DOPPLER } from '../src/ui/decks/doppler.js';
-import { Engine } from '../src/engine/engine.js';
-import { EDGES } from '../src/engine/topology.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { EDGES } from '../src/engine/portal/topology.js';
 
 test('the meal slide turns breathing off, and the next slide loads a fresh patient', () => {
   const i = DOPPLER.slides.findIndex((s) => s.id === 'meal');

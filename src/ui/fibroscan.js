@@ -20,7 +20,7 @@ import { fibroscanLabel } from './instrument-aria.js';
 import { RATE } from './table-marks.js';
 import { onTheme } from './theme-epoch.js';
 import { createStiffBar } from './stiff-bar.js';
-import { lsmContext } from '../engine/lsm-cuts.js';
+import { lsmContext } from '../engine/portal/lsm-cuts.js';
 const nextFrame = frameFor('fibroscan');
 
 const WAVE_T0 = 8; // ms: the shear wave reaches the top of the measurement window about 8 ms after the push

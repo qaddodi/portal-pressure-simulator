@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { MEASURES, READS, PROC_KINDS, specOf, procFrame, stepAt, stepMarks, markAt, procBlocked, procOffered } from '../src/ui/proc-anim.js';
 import { EUS_ROUTE, EUS_TARGETS, EUS_STATIONS, EUS_RHO, EUS_RIGID, EUS_SCOPE_R, EUS_EXIT_SIDE, EUS_PORT_R, eusPose, eusDraw, newTip, pointOn } from '../src/ui/eus-scope.js';
 import { EDGE_PATH, ORGANS, SEAM_D } from '../src/ui/anatomy.js';
-import { NODES } from '../src/engine/topology.js';
+import { NODES } from '../src/engine/portal/topology.js';
 
 const E = MEASURES.eus, T = E.T;
 const times = Array.from({ length: Math.ceil(T.end / 20) + 1 }, (_, i) => i * 20);
@@ -269,11 +269,11 @@ test('the esophageal varices fade as the scope goes in, stay faded through the w
 // Play-test, 16 Nov 2026: the card read PV 7.7 and HV 5.2 where the figure said PV 8.1 and the PPG 4.2. The needle takes the left portal vein and the left hepatic vein, inside the liver,
 // so its gradient differs from the PPG (trunk minus IVC) by the fall along the portal vein and the hepatic vein's step above the IVC. The card says so, and the model keeps the gap small.
 test('the EUS-PPG says which veins it reads, and the model keeps it within 1.5 mmHg of the PPG wherever the needle sees the portal pressure', async () => {
-  const { EUS_SITE_NOTE } = await import('../src/engine/pressure-cuts.js');
-  const { Engine } = await import('../src/engine/engine.js');
-  const { computeMetrics } = await import('../src/engine/metrics.js');
-  const { fingerprintOf } = await import('../src/engine/fingerprint.js');
-  const { PRESETS } = await import('../src/engine/scenario.js');
+  const { EUS_SITE_NOTE } = await import('../src/engine/portal/pressure-cuts.js');
+  const { Engine } = await import('../src/engine/portal/engine.js');
+  const { computeMetrics } = await import('../src/engine/portal/metrics.js');
+  const { fingerprintOf } = await import('../src/engine/portal/fingerprint.js');
+  const { PRESETS } = await import('../src/engine/portal/scenario.js');
   assert.match(EUS_SITE_NOTE, /left portal vein pressure minus the left hepatic vein pressure/);
   assert.match(EUS_SITE_NOTE, /portal vein minus the IVC/);
   assert.ok(E.steps.find((s) => s[0] === 'done')[2].includes(EUS_SITE_NOTE), 'the last step says it');

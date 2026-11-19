@@ -1,14 +1,14 @@
 // The stent's longitudinal traces (17 Nov 2026; the reviewer's view, /mnt/project-files/tips-geometry-mocks/tips-geometry-two-designs.html part 1, on the engine's numbers):
 // ONE chart at a time, on the same x as the side view above it (the stent's two ends are the drawing's; the five numbered pressure sites are marks on the drawing and digits under the chart; the card's lens
 // crossfades the charts, a chart of a fixed height at every width): the static pressure (it dips where the lumen narrows and recovers part of it), the energy lost so
-// far (it only rises) and the mean velocity. src/engine/stent-trace.js makes the curves; the solver is
+// far (it only rises) and the mean velocity. src/engine/portal/stent-trace.js makes the curves; the solver is
 // lumped, so the picture is a schematic of where each part of the drop happens (labelled so) and its ends are the engine's own: the PPG at the portal end, 0 at the IVC.
 // One picture (a drawing of fixed pieces: 161-point curves, nothing made or taken away when the geometry changes), drawn on the GPU by tool-stent.js's createSvgGL.
 // createTracePic(sv) → { svg, words, fit(T, out), paint(T, ex, pm), layout(fs) → height, fitWords(fs) }. T is the record paint reads; pm the chart shown (0 pressure, 1 energy, 2 velocity; between two, both crossfaded).
 import { setGeo, setPts, setWords } from './svg-gl.js';
 import { clamp } from './util.js';
-import { profileAt } from '../engine/stent-geom.js';
-import { stentTrace, makeTrace, TRACE_N } from '../engine/stent-trace.js';
+import { profileAt } from '../engine/portal/stent-geom.js';
+import { stentTrace, makeTrace, TRACE_N } from '../engine/portal/stent-trace.js';
 
 /** The sample index of fraction u along a stent of length len cm in the trace (the gates' places on the chart). */
 export const gateIndex = (u, len) => clamp(Math.round((TRACE_N * (u * len + TR.veinCm)) / (len + 2 * TR.veinCm)), 0, TRACE_N);

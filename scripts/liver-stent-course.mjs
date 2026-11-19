@@ -7,7 +7,7 @@
 // vessels, crossings), a bend that is one way, and closeness to the TIPS's own angles (34 degrees off the portal run, 52 off the hepatic).
 import { EDGE, anatomyLines, anatomyStations, cubicsToD, judge, sampleD } from './shunt-route-lib.mjs';
 import { EDGE_PATH, NODE_POS } from '../src/ui/anatomy.js';
-import { JUNCTION_PIECES, LIVER_STENT_FROM, LIVER_STENT_TO, isLiverStent } from '../src/engine/topology.js';
+import { JUNCTION_PIECES, LIVER_STENT_FROM, LIVER_STENT_TO, isLiverStent } from '../src/engine/portal/topology.js';
 
 export const PORTAL_HOST = { RPV: 'PVH_R', LPV: 'PVH_L' };   // the branch's drawn run, hilum outward
 export const HEPATIC_HOST = { RHV: 'RHV_IVC', MHV: 'MHV_IVC', LHV: 'LHV_IVC' };   // the vein's drawn run, toward the cava

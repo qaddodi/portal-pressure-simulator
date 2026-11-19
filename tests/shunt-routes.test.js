@@ -4,7 +4,7 @@
 // The numbers are the lengths (world units) of the course on top of / alongside others, see scripts/shunt-route-lib.mjs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { EDGES, isLiverStent } from '../src/engine/topology.js';
+import { EDGES, isLiverStent } from '../src/engine/portal/topology.js';
 import { NODE_POS, VB_ANAT, VB_CIRC, HIDDEN_NODES, CIRCUIT_TREES, route as metroRoute } from '../src/ui/anatomy.js';
 import { CUSTOM_SHUNT_PATH } from '../src/ui/custom-shunt-paths.js';
 import { createRouter } from '../src/ui/circuit-router.js';

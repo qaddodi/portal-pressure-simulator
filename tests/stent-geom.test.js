@@ -7,13 +7,13 @@ import assert from 'node:assert/strict';
 import {
   stentParts, geomOf, geomFix, geomDefault, benchFlow, profileAt, waistSpan, endSpan, coneFactor, kExp, coneAngle,
   C_WALL, KIN, K_ENTRY, K_C, PINCH, TAPER_CM, tractOf, GEOM_RANGE, WAIST_STEP,
-} from '../src/engine/stent-geom.js';
-import { stenosisFactor } from '../src/engine/physiology.js';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { deepMerge, sanitizeParams, sanitizeParamsReport } from '../src/engine/scenario.js';
-import { stentSegments, stentReadsOf, STENT_SITES } from '../src/engine/topology.js';
-import { fingerprintOf } from '../src/engine/fingerprint.js';
+} from '../src/engine/portal/stent-geom.js';
+import { stenosisFactor } from '../src/engine/core/physiology.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { deepMerge, sanitizeParams, sanitizeParamsReport } from '../src/engine/portal/scenario.js';
+import { stentSegments, stentReadsOf, STENT_SITES } from '../src/engine/portal/topology.js';
+import { fingerprintOf } from '../src/engine/portal/fingerprint.js';
 
 // The model's stent as it was before geometry (engine.js until 16 Nov 2026), kept here as the reference.
 const OLD = (() => {
@@ -259,7 +259,7 @@ test('the default waist is PINCH of the stent on the 0.5 cm step: 1 cm of a TIPS
 });
 
 test('a stenosis sits at an end and the waist mid stent: two narrowings, and neither moves the other (17 Nov 2026)', async () => {
-  const { stentSite, tightSite, stentGate } = await import('../src/engine/topology.js');
+  const { stentSite, tightSite, stentGate } = await import('../src/engine/portal/topology.js');
   for (const [id, kind] of [['TIPS', 'tips'], ['DIPS', 'dips'], ['X_SMV_RHV', 'custom']]) {
     for (const site of ['proximal', 'distal']) {
       assert.equal(stentSite({ stenosisSite: { [id]: site } }, id), site, `${id} at ${site}`);
@@ -285,7 +285,7 @@ test('a stenosis sits at an end and the waist mid stent: two narrowings, and nei
 });
 
 test('the stent card: Waist, Waist length and Ends set the waist and leave the stenosis alone; End moves the stenosis and leaves the waist alone', async () => {
-  const { withWaist, withEnd } = await import('../src/engine/stent-geom.js');
+  const { withWaist, withEnd } = await import('../src/engine/portal/stent-geom.js');
   let p = withWaist({ stenosis: { TIPS: 0.4 }, stenosisSite: { TIPS: 'proximal' } }, 'TIPS', 'tips', 'red', 0.3);
   p = withWaist(p, 'TIPS', 'tips', 'waist', 4);
   p = withWaist(p, 'TIPS', 'tips', 'trans', TAPER_CM);
@@ -309,8 +309,8 @@ test('a saved state from before 17 Nov 2026 with a stenosis mid stent opens as t
 });
 
 test('stentState names the lesion kinds: an end stenosis is dysfunction, the waist an intentional reduction, and each Doppler gate says whose jet it reads', async () => {
-  const { Engine } = await import('../src/engine/engine.js');
-  const { deepMerge, sanitizeParams } = await import('../src/engine/scenario.js');
+  const { Engine } = await import('../src/engine/portal/engine.js');
+  const { deepMerge, sanitizeParams } = await import('../src/engine/portal/scenario.js');
   const st = (patch) => { const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams(sanitizeParams(deepMerge(e.params, { tips: { on: true, d: 10 }, ...patch }))); e.settle(2); return e.stentState('TIPS'); };
   let o = st({});
   assert.equal(o.lesion, 'none'); assert.deepEqual([...o.gateKind], [null, null, null]);
@@ -323,7 +323,7 @@ test('stentState names the lesion kinds: an end stenosis is dysfunction, the wai
 });
 
 test('a long waist over the end stenosis is one lumen, counted once: the friction is the combined profile integrated once, and the stenosis jets into the waist', async () => {
-  const { stentParts: SP, profileAt: PA, geomFix: GF, END_U: EU, waistSpan: WS, endSpan: ES } = await import('../src/engine/stent-geom.js');
+  const { stentParts: SP, profileAt: PA, geomFix: GF, END_U: EU, waistSpan: WS, endSpan: ES } = await import('../src/engine/portal/stent-geom.js');
   const open = SP('tips', 10, 5, 1, 0, GF({ len: 8, waist: 1, trans: 0, red: 0 }, 'tips')).wall;
   const combined = (g, s, site) => { let a = 0; const n = 40000; for (let i = 0; i < n; i++) { const r = PA(g, s, site, (i + 0.5) / n); a += 1 / r ** 4 - 1; } return (open * a) / n; };
   for (const [g, s] of [[GF({ len: 8, waist: 6, trans: 0, red: 0.3 }, 'tips'), 0.5], [GF({ len: 8, waist: 5, trans: 1, red: 0.25 }, 'tips'), 0.6], [GF({ len: 8, waist: 6, trans: 0, red: 0.5 }, 'tips'), 0.3]]) {

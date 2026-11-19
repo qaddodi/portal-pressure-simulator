@@ -3,7 +3,7 @@
 // and result line are source-shape rules (scripts/source-shapes/review-fixes.mjs).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PPG_WORDS, PPG_LINE_NOTE, EUS_LINE_NOTE, PPG_CUTS, HVPG_CUTS } from '../src/engine/pressure-cuts.js';
+import { PPG_WORDS, PPG_LINE_NOTE, EUS_LINE_NOTE, PPG_CUTS, HVPG_CUTS } from '../src/engine/portal/pressure-cuts.js';
 
 test('the PPG\'s long band words never read as a guideline category', () => {
   for (const sev of ['ok', 'caution', 'danger']) assert.match(PPG_WORDS[sev][1], /model/, sev);

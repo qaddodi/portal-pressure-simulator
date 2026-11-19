@@ -3,7 +3,7 @@
 // rebleeding (carvedilol or an NSBB allowed) for >6 consecutive months, and (3) improved liver function, Child-Pugh A5 or A6. CSPH may also resolve (HVPG <10 off
 // carvedilol, LSM <10, or LSM <15 with SSM <25: 7.16, 7.19; those numbers stay in the notes, not in the drawn words).
 // A checklist: kind 'score' with allOf. The patient is the slide's own answers { ca, ev, lf }, each the index of the option (0 = 'Met').
-import { lcFirst } from '../../engine/lc-first.js';
+import { lcFirst } from '../../engine/portal/lc-first.js';
 import { scoreKit } from './helpers.js';
 
 const rows = [

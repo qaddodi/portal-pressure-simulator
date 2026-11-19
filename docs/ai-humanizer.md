@@ -2,7 +2,7 @@
 
 Rewritten 13 Nov 2026 (Mohammad: "X less Y is a stupid way of putting this minus that ... correct our humanizer to be clinically
 oriented for an American physician"). Checked against the authoring guide (section 9, rules 13, 17 and 24), the cut-offs in
-`src/engine/pressure-cuts.js` and the guidelines in `guidelines/` (Baveno VIII, AASLD 2024, AASLD 2021 ascites, AASLD 2020 and EASL 2025 vascular).
+`src/engine/portal/pressure-cuts.js` and the guidelines in `guidelines/` (Baveno VIII, AASLD 2024, AASLD 2021 ascites, AASLD 2020 and EASL 2025 vascular).
 
 Use it for every word a learner reads: slide titles, lines, notes, asks, checks, vignettes, teaching cards, instrument and data
 cards, tile names and tooltips, pop-ups and toasts, preset names and descriptions, menus, Help, About, the guide PDFs, README

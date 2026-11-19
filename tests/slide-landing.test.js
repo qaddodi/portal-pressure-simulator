@@ -10,11 +10,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DECKS } from '../src/ui/decks.js';
 import { deckStatesFull, changes } from './deck-states.js';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { fingerprintOf } from '../src/engine/fingerprint.js';
-import { hvpgSev, ppgSev } from '../src/engine/pressure-cuts.js';
-import { DisplayMean } from '../src/engine/display-mean.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { fingerprintOf } from '../src/engine/portal/fingerprint.js';
+import { hvpgSev, ppgSev } from '../src/engine/portal/pressure-cuts.js';
+import { DisplayMean } from '../src/engine/portal/display-mean.js';
 import { atBedside, WARM_STEPS, WARM_SECS } from '../src/worker-core.js';
 
 const fingerprint = (m, e) => fingerprintOf(m, { P: e.Pf || e.P, Q: e.Qf || e.Q, D: Float32Array.from(e.edges, (ed) => e.diameterShown(ed.id)), copy: true, params: e.params, fluid: e.starling(true) });

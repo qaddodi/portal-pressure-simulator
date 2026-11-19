@@ -38,8 +38,8 @@ import { TRIAL_IDS, trialOf, trialSource, bavenoLine } from './trials.js';
 import { fitTrial, failedRows, openDefining, groupOf, countWords, possiblyWords, whyNot, lcFirst, stillNeeded, FITS_HEAD, FITS_WORDS, NOT_IN_MODEL } from './trial-fit.js';
 import { createForest, ratiosOf, ratioText } from './trial-forest.js';
 import { createTrial } from './tool-trial.js';
-import { hvpgSev, ppgSev, hvBlocked, NOT_MEASURABLE, PTIPS_HVPG } from '../engine/pressure-cuts.js';
-import { PRESETS } from '../engine/scenario.js';
+import { hvpgSev, ppgSev, hvBlocked, NOT_MEASURABLE, PTIPS_HVPG } from '../engine/portal/pressure-cuts.js';
+import { PRESETS } from '../engine/portal/scenario.js';
 
 export const GROUPS = Object.freeze([['fits', FITS_HEAD], ['possible', 'Possibly fits'], ['no', 'Not this patient'], ['unknown', 'Cannot tell from the model']]);
 /** The list's sections, in order: [key, heading]. */

@@ -2,9 +2,9 @@
 // rule, the heart's validity, the LSM that follows the cirrhosis slider, the physiology warnings, why one scenario beats the next, the natural ties, ascitic protein.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LIBRARY } from '../src/engine/inverse-library.js';
-import { rank, pointsOf, costOf, normalise, whyBeats, READINGS, LESION_COST, SEVERITY_COST, HEART_RA } from '../src/engine/inverse.js';
-import { FAMILIES, FAMILY } from '../src/engine/inverse-families.js';
+import { LIBRARY } from '../src/engine/portal/inverse-library.js';
+import { rank, pointsOf, costOf, normalise, whyBeats, READINGS, LESION_COST, SEVERITY_COST, HEART_RA } from '../src/engine/portal/inverse.js';
+import { FAMILIES, FAMILY } from '../src/engine/portal/inverse-families.js';
 
 const POINTS = pointsOf(LIBRARY);
 const NAMES = ['whvp', 'fhvp', 'hvpg', 'pv', 'ppg', 'ra', 'ivc', 'lsm', 'ssm', 'spleen', 'plt', 'pvVel', 'saag', 'asctp', 'asc', 'varix'];

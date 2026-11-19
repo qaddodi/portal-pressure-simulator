@@ -4,8 +4,8 @@
 // library alone, Mohammad's own case with the fit, and a few seeded patients with side sliders drawn off their defaults, each fitted as the worker does.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LIBRARY } from '../src/engine/inverse-library.js';
-import { rank, pointsOf, costOf, normalise, HEART_RA } from '../src/engine/inverse.js';
+import { LIBRARY } from '../src/engine/portal/inverse-library.js';
+import { rank, pointsOf, costOf, normalise, HEART_RA } from '../src/engine/portal/inverse.js';
 import { ENTERED, fit, roundTrip, randomPatient } from '../scripts/inverse-roundtrip.mjs';
 
 const POINTS = pointsOf(LIBRARY);

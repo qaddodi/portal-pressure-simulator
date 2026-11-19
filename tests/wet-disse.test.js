@@ -3,8 +3,8 @@
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
 import { disseJ } from '../src/ui/lobule-model.js';
 
 const HEALTHY = (() => { const e = new Engine(); e.loadPreset('healthy'); return e.starling().hep; })();

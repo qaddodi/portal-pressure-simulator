@@ -4,10 +4,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { RATE, rateOf, rateShown, tileShown } from '../src/ui/table-marks.js';
-import { varixGrade, ascitesGrade } from '../src/engine/metrics.js';
-import { Engine } from '../src/engine/engine.js';
-import { explain } from '../src/engine/explain.js';
-import { stentSegments } from '../src/engine/topology.js';
+import { varixGrade, ascitesGrade } from '../src/engine/portal/metrics.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { explain } from '../src/engine/portal/explain.js';
+import { stentSegments } from '../src/engine/portal/topology.js';
 import { appCss, presenterSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');

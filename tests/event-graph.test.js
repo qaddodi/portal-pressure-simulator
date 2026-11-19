@@ -5,11 +5,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync } from 'node:fs';
 import { createCore } from '../src/worker-core.js';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { fingerprintOf } from '../src/engine/fingerprint.js';
-import { deepMerge } from '../src/engine/scenario.js';
-import { PPG_CUTS } from '../src/engine/pressure-cuts.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { fingerprintOf } from '../src/engine/portal/fingerprint.js';
+import { deepMerge } from '../src/engine/portal/scenario.js';
+import { PPG_CUTS } from '../src/engine/portal/pressure-cuts.js';
 await import('./dom-shim.js');   // (the chart draws on the GPU, svg-gl.js, which loads only with a page)
 const { LINE, END_APART } = await import('../src/ui/flow-time.js');
 const { eventLines, eventGraphOf, eventScale, eventScales, EVENT_S, PRE_S, EVENT_WORD } = await import('../src/ui/event-graph.js');

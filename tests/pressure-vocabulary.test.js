@@ -1,4 +1,4 @@
-// R6: pressure has one vocabulary. HVPG is amber above 5 and red from 10, PPG amber from 6 and red from 12 (src/engine/pressure-cuts.js),
+// R6: pressure has one vocabulary. HVPG is amber above 5 and red from 10, PPG amber from 6 and red from 12 (src/engine/portal/pressure-cuts.js),
 // and every place that rates a gradient (the tiles, the Over time chart, the summary tables, the catheter, the talk trace, the plane, the
 // ladder, the menu chips, the engine's events) reads them from that table and the colour tokens (--ok, --caution, --danger) for what they
 // mean. These checks keep a second copy from creeping back in.
@@ -9,7 +9,7 @@ import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import './dom-shim.js';
 import { presenterSource } from './split-src.js';
-import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvpgRate, ppgRate, RATE_OF_SEV } from '../src/engine/pressure-cuts.js';
+import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvpgRate, ppgRate, RATE_OF_SEV } from '../src/engine/portal/pressure-cuts.js';
 import { RATE } from '../src/ui/table-marks.js';
 import { PLANES } from '../src/ui/visual-plane.js';
 import { appCss } from './split-src.js';
@@ -57,12 +57,12 @@ test('no file but the table writes a HVPG or PPG cut-off as a number', () => {
       if (LITERAL_CUT.some((re) => re.test(code))) stray.push(`${f}:${i + 1}: ${line.trim().slice(0, 100)}`);
     });
   }
-  assert.deepEqual(stray, [], 'read the cut-off from src/engine/pressure-cuts.js');
+  assert.deepEqual(stray, [], 'read the cut-off from src/engine/portal/pressure-cuts.js');
 });
 
 test('every file that rates a gradient takes the table', () => {
   for (const f of ['src/ui/dock.js', 'src/ui/pressure-time.js', 'src/ui/table-marks.js', 'src/ui/presenter.js', 'src/ui/menu.js', 'src/ui/talk-trace.js',
-    'src/ui/hvpg-proc.js', 'src/ui/visual-plane.js', 'src/ui/anatomy.js', 'src/engine/events.js']) assert.match(f === 'src/ui/presenter.js' ? presenterSource() : read(f), /from '(?:\.\.\/engine|\.)\/pressure-cuts\.js/, f);   // (the presenter and its parts)
+    'src/ui/hvpg-proc.js', 'src/ui/visual-plane.js', 'src/ui/anatomy.js', 'src/engine/portal/events.js']) assert.match(f === 'src/ui/presenter.js' ? presenterSource() : read(f), /from '(?:\.\.\/engine\/portal|\.)\/pressure-cuts\.js/, f);   // (the presenter and its parts)
 });
 
 test('the plane draws the table: its ticks, cuts and zone edges', () => {
@@ -110,7 +110,7 @@ test('the stylesheet colours "mid" amber and "hi" red, everywhere', () => {
 // The timeline's events take the colour of the readings they name: HVPG at 10 or more is red on the tile, so its CSPH event (and the HVPG 12
 // one above it) is red too, never amber (Mohammad, 31 Oct).
 test('the HVPG events are red, as the readings they name', () => {
-  const ev = read('src/engine/events.js');
+  const ev = read('src/engine/portal/events.js');
   for (const id of ['CSPH', 'BLEED_RISK']) assert.match(ev, new RegExp(`id: '${id}', on: \\(m\\) => m\\.hvpg[^\\n]*severity: 'danger'`), id);
   assert.equal(hvpgSev(HVPG_CUTS.red), 'danger');
 });

@@ -34,7 +34,7 @@ test('Treat › Procedures, the palette, the timeline and the circuit take the n
   const chart = code(read('src/ui/chart.js'));
   for (const id of ['band', 'balloon', 'tips', 'dips', 'brto', 'paracentesis']) assert.match(chart, new RegExp(`proc\\('[a-z]+', '${id}'`), `Treat has ${id} by its id`);
   assert.ok(!/'Band ligation'/.test(chart + code(read('src/ui/palette.js')) + code(read('src/ui/main.js'))), 'no second spelling of Band (EVL)');
-  assert.match(code(read('src/engine/topology.js')), new RegExp(`label: '${procLabel('dsrs').replace(/[()]/g, '\\$&')}'`), 'the circuit names the shunt as the table does');
+  assert.match(code(read('src/engine/portal/topology.js')), new RegExp(`label: '${procLabel('dsrs').replace(/[()]/g, '\\$&')}'`), 'the circuit names the shunt as the table does');
 });
 
 test('nothing the learner reads calls the distal splenorenal shunt the Warren shunt, but the table that explains the alias', () => {

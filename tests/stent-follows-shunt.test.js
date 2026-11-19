@@ -5,8 +5,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { bootGL, pump } from './stage-gl-boot.js';
-import { EDGES } from '../src/engine/topology.js';
-import { STENT_OPEN_D } from '../src/engine/stent-ease.js';
+import { EDGES } from '../src/engine/portal/topology.js';
+import { STENT_OPEN_D } from '../src/engine/portal/stent-ease.js';
 
 const booted = bootGL({ w: 1200, h: 800, labels: 'none' });   // (one stage for both: a second boot in a process is not made)
 

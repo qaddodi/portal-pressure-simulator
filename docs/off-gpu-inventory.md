@@ -50,88 +50,88 @@ No percentage blocks a push or a deploy; the honest score is printed and the tar
 
 | File:line | Category | Function | What | Owner |
 |---|---|---|---|---|
-| src/engine/engine.js:1090 | unreached | trackPulsatility | attrWrite: .value = — runs during use (a method of this name is called from event handler) | unassigned (coordinator to map) |
-| src/engine/events.js:134 | alloc | detectEvents | object literal — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#frame@258 → detectEvents@129 | unassigned (coordinator to map) |
-| src/engine/explain-ids.js:5 | alloc | edgeWhy | template string with a value — frame path: main.js#lensRedrawStep@458 → main.js#redraw@569 → main.js#get@137 → main.js#load@320 → timeline.js#load@423 → inspector.js#render@339 → inspector.js#edgePanel@261 → edgeWhy@5 | unassigned (coordinator to map) |
-| src/engine/explain-ids.js:6 | alloc | nodeWhy | template string with a value — frame path: main.js#lensRedrawStep@458 → main.js#redraw@569 → main.js#get@137 → main.js#load@320 → timeline.js#load@423 → inspector.js#render@339 → inspector.js#nodePanel@303 → nodeWhy@6 | unassigned (coordinator to map) |
-| src/engine/explain.js:217 | alloc | edgeFormula › say | .toFixed() — frame path: main.js#anon@1591 → main.js#renderLegend@1043 → main.js#lgPut@1037 → legend-morph.js#morphKey@101 → legend-morph.js#current@186 → legend-morph.js#mixLabs@62 → legend-morph.js#anon@62 → say@217 | unassigned (coordinator to map) |
-| src/engine/inverse-families.js:191 | alloc | spanOf | array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → src/engine/inverse.js#rank@185 → spanOf@191 | unassigned (coordinator to map) |
-| src/engine/inverse.js:112 | alloc | normalise | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
-| src/engine/inverse.js:114 | alloc | normalise | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
-| src/engine/inverse.js:115 | alloc | normalise | array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
-| src/engine/inverse.js:120 | alloc | normalise | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
-| src/engine/inverse.js:122 | alloc | normalise | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
-| src/engine/inverse.js:123 | alloc | normalise | object literal, template string with a value — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
-| src/engine/inverse.js:126 | alloc | normalise | closure, .toString(), object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
-| src/engine/inverse.js:130 | alloc | normalise | template string with a value, array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
-| src/engine/inverse.js:131 | alloc | normalise | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
-| src/engine/inverse.js:136 | alloc | normalise | template string with a value, array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
-| src/engine/inverse.js:137 | alloc | normalise | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
-| src/engine/inverse.js:140 | alloc | normalise | template string with a value, array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
-| src/engine/inverse.js:141 | alloc | normalise | template string with a value, array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
-| src/engine/inverse.js:142 | alloc | normalise | template string with a value, array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
-| src/engine/inverse.js:143 | alloc | normalise | template string with a value, array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
-| src/engine/inverse.js:144 | alloc | normalise | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
-| src/engine/inverse.js:160 | alloc | scorePoint | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → scorePoint@158 | unassigned (coordinator to map) |
-| src/engine/inverse.js:161 | alloc | scorePoint | Object.keys() — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → scorePoint@158 | unassigned (coordinator to map) |
-| src/engine/inverse.js:162 | alloc | scorePoint | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → scorePoint@158 | unassigned (coordinator to map) |
-| src/engine/inverse.js:187 | alloc | rank | Object.keys() — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
-| src/engine/inverse.js:188 | alloc | rank | object literal, array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
-| src/engine/inverse.js:189 | alloc | rank | new Map, .map(), closure, array literal (returned), array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
-| src/engine/inverse.js:195 | alloc | rank | object literal, spread — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
-| src/engine/inverse.js:197 | alloc | rank | array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
-| src/engine/inverse.js:201 | alloc | rank | closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
-| src/engine/inverse.js:203 | alloc | rank | .filter(), closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
-| src/engine/inverse.js:204 | alloc | rank | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
-| src/engine/inverse.js:206 | alloc | rank | .map(), closure, spread — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
-| src/engine/inverse.js:207 | alloc | rank | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
-| src/engine/inverse.js:211 | alloc | rank | .filter(), .map(), closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
-| src/engine/inverse.js:212 | alloc | rank | array literal, spread — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
-| src/engine/inverse.js:214 | alloc | rank | object literal, array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
-| src/engine/inverse.js:217 | alloc | rank | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
-| src/engine/inverse.js:219 | alloc | rank | closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
-| src/engine/inverse.js:220 | alloc | rank | object literal, array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
-| src/engine/inverse.js:223 | alloc | rank | new Map, .map(), closure, array literal (returned) — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
-| src/engine/inverse.js:227 | alloc | rank | .join(), .filter(), closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
-| src/engine/inverse.js:231 | alloc | rank | closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
-| src/engine/inverse.js:232 | alloc | rank | .filter(), closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
-| src/engine/inverse.js:241 | alloc | rank | .filter(), .map(), closure, object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
-| src/engine/inverse.js:242 | alloc | rank | object literal, .filter(), closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
-| src/engine/inverse.js:243 | alloc | rank | .filter(), closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
-| src/engine/inverse.js:244 | alloc | rank | .filter(), closure, array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
-| src/engine/inverse.js:246 | alloc | rank | .filter(), closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
-| src/engine/inverse.js:247 | alloc | rank | closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
-| src/engine/inverse.js:248 | alloc | rank | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
-| src/engine/inverse.js:259 | alloc | whyBeats | .map(), .slice(), .filter(), Object.keys(), closure, object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → anon@247 → whyBeats@258 | unassigned (coordinator to map) |
-| src/engine/inverse.js:260 | alloc | whyBeats | closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → anon@247 → whyBeats@258 | unassigned (coordinator to map) |
-| src/engine/inverse.js:261 | alloc | whyBeats | closure, object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → anon@247 → whyBeats@258 | unassigned (coordinator to map) |
-| src/engine/inverse.js:271 | alloc | key | .replace() — frame path: main.js#anon@1591 → main.js#renderLegend@1043 → main.js#lgPut@1037 → legend-morph.js#morphKey@101 → legend-morph.js#current@186 → legend-morph.js#mixLabs@62 → legend-morph.js#anon@62 → key@271 | unassigned (coordinator to map) |
-| src/engine/inverse.js:275 | alloc | tiesOf | array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → tiesOf@274 | unassigned (coordinator to map) |
-| src/engine/inverse.js:277 | alloc | tiesOf | new Map — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → tiesOf@274 | unassigned (coordinator to map) |
-| src/engine/inverse.js:280 | alloc | tiesOf | array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → tiesOf@274 | unassigned (coordinator to map) |
-| src/engine/inverse.js:282 | alloc | tiesOf | template string with a value, object literal, .map(), closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → tiesOf@274 | unassigned (coordinator to map) |
-| src/engine/inverse.js:302 | alloc | nextReading | .filter(), .map(), closure, object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → nextReading@296 | unassigned (coordinator to map) |
-| src/engine/inverse.js:307 | alloc | nextReading | array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → nextReading@296 | unassigned (coordinator to map) |
-| src/engine/inverse.js:309 | alloc | nextReading | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → nextReading@296 | unassigned (coordinator to map) |
-| src/engine/inverse.js:312 | alloc | nextReading | object literal, spread — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → nextReading@296 | unassigned (coordinator to map) |
-| src/engine/inverse.js:314 | alloc | gradeIndex | closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → nextReading@296 → gradeGap@315 → gradeIndex@314 | unassigned (coordinator to map) |
-| src/engine/metrics.js:163 | alloc | computeMetrics | object literal — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#frame@258 → src/engine/events.js#detectEvents@129 → computeMetrics@82 | unassigned (coordinator to map) |
-| src/engine/pressure-cuts.js:48 | alloc | hvMeasure | template string with a value — frame path: hvpg-proc.js#step@147 → hvpg-proc.js#paintSide@231 → hvBlocked@53 → hvMeasure@46 | unassigned (coordinator to map) |
-| src/engine/pressure-cuts.js:51 | alloc | hvMeasure | object literal — frame path: hvpg-proc.js#step@147 → hvpg-proc.js#paintSide@231 → hvBlocked@53 → hvMeasure@46 | unassigned (coordinator to map) |
-| src/engine/scenario.js:224 | alloc | sanitize | template string with a value — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#bedsideStep@456 → src/worker-core.js#setParams@505 → sanitizeParams@204 → sanitize@211 | unassigned (coordinator to map) |
-| src/engine/scenario.js:225 | alloc | sanitize | template string with a value — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#bedsideStep@456 → src/worker-core.js#setParams@505 → sanitizeParams@204 → sanitize@211 | unassigned (coordinator to map) |
-| src/engine/scenario.js:226 | alloc | sanitize | template string with a value — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#bedsideStep@456 → src/worker-core.js#setParams@505 → sanitizeParams@204 → sanitize@211 | unassigned (coordinator to map) |
-| src/engine/scenario.js:234 | alloc | sanitize | template string with a value — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#bedsideStep@456 → src/worker-core.js#setParams@505 → sanitizeParams@204 → sanitize@211 | unassigned (coordinator to map) |
-| src/engine/scenario.js:236 | alloc | sanitize | array literal, template string with a value — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#bedsideStep@456 → src/worker-core.js#setParams@505 → sanitizeParams@204 → sanitize@21 | unassigned (coordinator to map) |
-| src/engine/scenario.js:241 | alloc | sanitize | template string with a value — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#bedsideStep@456 → src/worker-core.js#setParams@505 → sanitizeParams@204 → sanitize@211 | unassigned (coordinator to map) |
-| src/engine/scenario.js:242 | alloc | sanitize | template string with a value — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#bedsideStep@456 → src/worker-core.js#setParams@505 → sanitizeParams@204 → sanitize@211 | unassigned (coordinator to map) |
-| src/engine/scenario.js:248 | alloc | sanitize | template string with a value — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#bedsideStep@456 → src/worker-core.js#setParams@505 → sanitizeParams@204 → sanitize@211 | unassigned (coordinator to map) |
-| src/engine/scenario.js:260 | alloc | sanitize | template string with a value — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#bedsideStep@456 → src/worker-core.js#setParams@505 → sanitizeParams@204 → sanitize@211 | unassigned (coordinator to map) |
-| src/engine/scenario.js:281 | alloc | deepMerge | closure — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#bedsideStep@456 → deepMerge@279 | unassigned (coordinator to map) |
-| src/engine/scenario.js:282 | alloc | deepMerge › merge | Object.keys() — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#bedsideStep@456 → deepMerge@279 → merge@281 | unassigned (coordinator to map) |
-| src/engine/stent-ease.js:12 | alloc | stentMix | object literal, spread — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#morphAt@48 → stentMix@8 | unassigned (coordinator to map) |
-| src/engine/trail-calm.js:28 | alloc | calmed | .slice() — frame path: pressure-time.js#tickLoop@479 → pressure-time.js#draw@493 → pressure-time.js#drawNow@862 → pressure-time.js#drawWith@897 → pressure-time.js#series@325 → pressure-time.js#rawSeries@352 → pressure-time.js#calmOf@392 → calmed@26 | unassigned (coordinator to map) |
-| src/engine/trail-calm.js:29 | alloc | calmed | new Array — frame path: pressure-time.js#tickLoop@479 → pressure-time.js#draw@493 → pressure-time.js#drawNow@862 → pressure-time.js#drawWith@897 → pressure-time.js#series@325 → pressure-time.js#rawSeries@352 → pressure-time.js#calmOf@392 → calmed@26 | unassigned (coordinator to map) |
+| src/engine/portal/engine.js:1090 | unreached | trackPulsatility | attrWrite: .value = — runs during use (a method of this name is called from event handler) | unassigned (coordinator to map) |
+| src/engine/portal/events.js:134 | alloc | detectEvents | object literal — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#frame@258 → detectEvents@129 | unassigned (coordinator to map) |
+| src/engine/portal/explain-ids.js:5 | alloc | edgeWhy | template string with a value — frame path: main.js#lensRedrawStep@458 → main.js#redraw@569 → main.js#get@137 → main.js#load@320 → timeline.js#load@423 → inspector.js#render@339 → inspector.js#edgePanel@261 → edgeWhy@5 | unassigned (coordinator to map) |
+| src/engine/portal/explain-ids.js:6 | alloc | nodeWhy | template string with a value — frame path: main.js#lensRedrawStep@458 → main.js#redraw@569 → main.js#get@137 → main.js#load@320 → timeline.js#load@423 → inspector.js#render@339 → inspector.js#nodePanel@303 → nodeWhy@6 | unassigned (coordinator to map) |
+| src/engine/portal/explain.js:217 | alloc | edgeFormula › say | .toFixed() — frame path: main.js#anon@1591 → main.js#renderLegend@1043 → main.js#lgPut@1037 → legend-morph.js#morphKey@101 → legend-morph.js#current@186 → legend-morph.js#mixLabs@62 → legend-morph.js#anon@62 → say@217 | unassigned (coordinator to map) |
+| src/engine/portal/inverse-families.js:191 | alloc | spanOf | array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → src/engine/portal/inverse.js#rank@185 → spanOf@191 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:112 | alloc | normalise | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:114 | alloc | normalise | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:115 | alloc | normalise | array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:120 | alloc | normalise | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:122 | alloc | normalise | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:123 | alloc | normalise | object literal, template string with a value — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:126 | alloc | normalise | closure, .toString(), object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:130 | alloc | normalise | template string with a value, array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:131 | alloc | normalise | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:136 | alloc | normalise | template string with a value, array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:137 | alloc | normalise | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:140 | alloc | normalise | template string with a value, array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:141 | alloc | normalise | template string with a value, array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:142 | alloc | normalise | template string with a value, array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:143 | alloc | normalise | template string with a value, array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:144 | alloc | normalise | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:160 | alloc | scorePoint | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → scorePoint@158 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:161 | alloc | scorePoint | Object.keys() — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → scorePoint@158 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:162 | alloc | scorePoint | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → scorePoint@158 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:187 | alloc | rank | Object.keys() — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:188 | alloc | rank | object literal, array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:189 | alloc | rank | new Map, .map(), closure, array literal (returned), array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:195 | alloc | rank | object literal, spread — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:197 | alloc | rank | array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:201 | alloc | rank | closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:203 | alloc | rank | .filter(), closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:204 | alloc | rank | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:206 | alloc | rank | .map(), closure, spread — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:207 | alloc | rank | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:211 | alloc | rank | .filter(), .map(), closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:212 | alloc | rank | array literal, spread — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:214 | alloc | rank | object literal, array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:217 | alloc | rank | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:219 | alloc | rank | closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:220 | alloc | rank | object literal, array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:223 | alloc | rank | new Map, .map(), closure, array literal (returned) — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:227 | alloc | rank | .join(), .filter(), closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:231 | alloc | rank | closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:232 | alloc | rank | .filter(), closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:241 | alloc | rank | .filter(), .map(), closure, object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:242 | alloc | rank | object literal, .filter(), closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:243 | alloc | rank | .filter(), closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:244 | alloc | rank | .filter(), closure, array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:246 | alloc | rank | .filter(), closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:247 | alloc | rank | closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:248 | alloc | rank | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:259 | alloc | whyBeats | .map(), .slice(), .filter(), Object.keys(), closure, object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → anon@247 → whyBeats@258 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:260 | alloc | whyBeats | closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → anon@247 → whyBeats@258 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:261 | alloc | whyBeats | closure, object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → anon@247 → whyBeats@258 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:271 | alloc | key | .replace() — frame path: main.js#anon@1591 → main.js#renderLegend@1043 → main.js#lgPut@1037 → legend-morph.js#morphKey@101 → legend-morph.js#current@186 → legend-morph.js#mixLabs@62 → legend-morph.js#anon@62 → key@271 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:275 | alloc | tiesOf | array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → tiesOf@274 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:277 | alloc | tiesOf | new Map — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → tiesOf@274 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:280 | alloc | tiesOf | array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → tiesOf@274 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:282 | alloc | tiesOf | template string with a value, object literal, .map(), closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → tiesOf@274 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:302 | alloc | nextReading | .filter(), .map(), closure, object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → nextReading@296 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:307 | alloc | nextReading | array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → nextReading@296 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:309 | alloc | nextReading | object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → nextReading@296 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:312 | alloc | nextReading | object literal, spread — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → nextReading@296 | unassigned (coordinator to map) |
+| src/engine/portal/inverse.js:314 | alloc | gradeIndex | closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → rank@185 → nextReading@296 → gradeGap@315 → gradeIndex@314 | unassigned (coordinator to map) |
+| src/engine/portal/metrics.js:163 | alloc | computeMetrics | object literal — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#frame@258 → src/engine/portal/events.js#detectEvents@129 → computeMetrics@82 | unassigned (coordinator to map) |
+| src/engine/portal/pressure-cuts.js:48 | alloc | hvMeasure | template string with a value — frame path: hvpg-proc.js#step@147 → hvpg-proc.js#paintSide@231 → hvBlocked@53 → hvMeasure@46 | unassigned (coordinator to map) |
+| src/engine/portal/pressure-cuts.js:51 | alloc | hvMeasure | object literal — frame path: hvpg-proc.js#step@147 → hvpg-proc.js#paintSide@231 → hvBlocked@53 → hvMeasure@46 | unassigned (coordinator to map) |
+| src/engine/portal/scenario.js:224 | alloc | sanitize | template string with a value — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#bedsideStep@456 → src/worker-core.js#setParams@505 → sanitizeParams@204 → sanitize@211 | unassigned (coordinator to map) |
+| src/engine/portal/scenario.js:225 | alloc | sanitize | template string with a value — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#bedsideStep@456 → src/worker-core.js#setParams@505 → sanitizeParams@204 → sanitize@211 | unassigned (coordinator to map) |
+| src/engine/portal/scenario.js:226 | alloc | sanitize | template string with a value — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#bedsideStep@456 → src/worker-core.js#setParams@505 → sanitizeParams@204 → sanitize@211 | unassigned (coordinator to map) |
+| src/engine/portal/scenario.js:234 | alloc | sanitize | template string with a value — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#bedsideStep@456 → src/worker-core.js#setParams@505 → sanitizeParams@204 → sanitize@211 | unassigned (coordinator to map) |
+| src/engine/portal/scenario.js:236 | alloc | sanitize | array literal, template string with a value — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#bedsideStep@456 → src/worker-core.js#setParams@505 → sanitizeParams@204 → sanitize@21 | unassigned (coordinator to map) |
+| src/engine/portal/scenario.js:241 | alloc | sanitize | template string with a value — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#bedsideStep@456 → src/worker-core.js#setParams@505 → sanitizeParams@204 → sanitize@211 | unassigned (coordinator to map) |
+| src/engine/portal/scenario.js:242 | alloc | sanitize | template string with a value — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#bedsideStep@456 → src/worker-core.js#setParams@505 → sanitizeParams@204 → sanitize@211 | unassigned (coordinator to map) |
+| src/engine/portal/scenario.js:248 | alloc | sanitize | template string with a value — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#bedsideStep@456 → src/worker-core.js#setParams@505 → sanitizeParams@204 → sanitize@211 | unassigned (coordinator to map) |
+| src/engine/portal/scenario.js:260 | alloc | sanitize | template string with a value — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#bedsideStep@456 → src/worker-core.js#setParams@505 → sanitizeParams@204 → sanitize@211 | unassigned (coordinator to map) |
+| src/engine/portal/scenario.js:281 | alloc | deepMerge | closure — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#bedsideStep@456 → deepMerge@279 | unassigned (coordinator to map) |
+| src/engine/portal/scenario.js:282 | alloc | deepMerge › merge | Object.keys() — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#bedsideStep@456 → deepMerge@279 → merge@281 | unassigned (coordinator to map) |
+| src/engine/portal/stent-ease.js:12 | alloc | stentMix | object literal, spread — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickBody@370 → src/worker-core.js#morphAt@48 → stentMix@8 | unassigned (coordinator to map) |
+| src/engine/portal/trail-calm.js:28 | alloc | calmed | .slice() — frame path: pressure-time.js#tickLoop@479 → pressure-time.js#draw@493 → pressure-time.js#drawNow@862 → pressure-time.js#drawWith@897 → pressure-time.js#series@325 → pressure-time.js#rawSeries@352 → pressure-time.js#calmOf@392 → calmed@26 | unassigned (coordinator to map) |
+| src/engine/portal/trail-calm.js:29 | alloc | calmed | new Array — frame path: pressure-time.js#tickLoop@479 → pressure-time.js#draw@493 → pressure-time.js#drawNow@862 → pressure-time.js#drawWith@897 → pressure-time.js#series@325 → pressure-time.js#rawSeries@352 → pressure-time.js#calmOf@392 → calmed@26 | unassigned (coordinator to map) |
 | src/test-clock.js:148 | unreached | createTestClock › syncAnimations | layoutRead: getAnimations() — runs during use (event handler) | unassigned (coordinator to map) |
 | src/test-clock.js:153 | unreached | createTestClock › syncAnimations | layoutRead: getComputedTiming() — runs during use (event handler) | unassigned (coordinator to map) |
 | src/ui/actions.js:185 | alloc | buildEdgeCard › run | closure, object literal, template string with a value — frame path: main.js#anon@1591 → main.js#renderLegend@1043 → main.js#lgPut@1037 → legend-morph.js#morphKey@101 → legend-morph.js#current@186 → legend-morph.js#mixLabs@62 → legend-morph.js#anon@62 → run@185 | unassigned (coordinator to map) |
@@ -5728,48 +5728,48 @@ Allocations a frame path reaches only on a branch that never runs per frame (fir
 
 | File:line | Function | What |
 |---|---|---|
-| src/engine/events.js:63 | collDetail | template string with a value — rare: only when a collateral event fires (a share crossed its cut and held), never per frame |
-| src/engine/events.js:88 | breathAveraged | object literal — rare: only when the average starts over (a new engine, a reset or a restored state clears evAvg) |
-| src/engine/events.js:131 | detectEvents | object literal — rare: once per engine |
-| src/engine/events.js:139 | detectEvents | object literal — rare: only the first time a condition is seen (and after a reset or a restored state, which clear evState) |
-| src/engine/events.js:149 | detectEvents | object literal — rare: only when an event fires (a condition crossed its cut and held), never per frame |
-| src/engine/metrics.js:78 | spareOf | object literal — rare: made once for a record |
-| src/engine/metrics.js:81 | part | object literal — rare: a record inside the metrics, made when the metrics record is (once for the tick's, per call for a reader that gave none) |
-| src/engine/metrics.js:94 | computeMetrics | object literal — rare: a reader that gives no record to write into gets one of its own; the tick always gives its kept record |
-| src/engine/scenario.js:7 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:9 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:10 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:11 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:13 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:14 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:15 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:16 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:31 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:33 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:34 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:35 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:38 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:47 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:50 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:213 | sanitize | closure — rare: only while a repair is being reported |
-| src/engine/scenario.js:216 | sanitize | Object.keys() — rare: checked when parameters are set, in the simulation worker |
-| src/engine/scenario.js:219 | sanitize | Object.keys() — rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame |
-| src/engine/scenario.js:229 | sanitize | Object.keys() — rare: checked when parameters are set, in the simulation worker (a few tiny key lists) |
-| src/engine/scenario.js:230 | sanitize | Object.keys() — rare: checked when parameters are set, in the simulation worker (a few tiny key lists), |
-| src/engine/scenario.js:232 | sanitize | Object.keys() — rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame |
-| src/engine/scenario.js:245 | sanitize | Object.keys() — rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame |
-| src/engine/scenario.js:254 | sanitize | Object.keys() — rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame |
-| src/engine/scenario.js:258 | sanitize | array literal — rare: checked when parameters are set, in the simulation worker (a few tiny key lists) |
-| src/engine/scenario.js:267 | pruneTo | Object.keys() — rare: checked when parameters are set, in the simulation worker, never by a drawn frame |
-| src/engine/scenario.js:274 | keepKnown | Object.keys() — rare: checked when parameters are set, in the simulation worker, never by a drawn frame |
-| src/engine/stent-geom.js:61 | geomDefault | object literal — rare: only a caller that brings no record (a test, a card's setter) |
-| src/engine/stent-geom.js:68 | geomFix | object literal — rare: only a caller that brings no record |
-| src/engine/stent-geom.js:104 | stentParts | object literal — rare: only a caller that brings no record (a test, a card); the engine brings one |
-| src/engine/stent-geom.js:128 | waistSpan | object literal — rare: only a caller that brings no record |
-| src/engine/stent-geom.js:183 | stentBand | array literal — rare: only a caller that brings no list (a test); the drawn paths pass one |
-| src/engine/topology.js:406 | stentSegments | array literal — rare: only a caller that gives no list of its own (a test); the drawn paths pass one |
-| src/engine/topology.js:426 | edgeById | new Map — rare: made once |
-| src/engine/wall-read.js:19 | shown | .toFixed() — rare: a value's text is made the first time it is shown |
+| src/engine/portal/events.js:63 | collDetail | template string with a value — rare: only when a collateral event fires (a share crossed its cut and held), never per frame |
+| src/engine/portal/events.js:88 | breathAveraged | object literal — rare: only when the average starts over (a new engine, a reset or a restored state clears evAvg) |
+| src/engine/portal/events.js:131 | detectEvents | object literal — rare: once per engine |
+| src/engine/portal/events.js:139 | detectEvents | object literal — rare: only the first time a condition is seen (and after a reset or a restored state, which clear evState) |
+| src/engine/portal/events.js:149 | detectEvents | object literal — rare: only when an event fires (a condition crossed its cut and held), never per frame |
+| src/engine/portal/metrics.js:78 | spareOf | object literal — rare: made once for a record |
+| src/engine/portal/metrics.js:81 | part | object literal — rare: a record inside the metrics, made when the metrics record is (once for the tick's, per call for a reader that gave none) |
+| src/engine/portal/metrics.js:94 | computeMetrics | object literal — rare: a reader that gives no record to write into gets one of its own; the tick always gives its kept record |
+| src/engine/portal/scenario.js:7 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:9 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:10 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:11 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:13 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:14 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:15 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:16 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:31 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:33 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:34 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:35 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:38 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:47 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:50 | defaultParams | object literal — rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:213 | sanitize | closure — rare: only while a repair is being reported |
+| src/engine/portal/scenario.js:216 | sanitize | Object.keys() — rare: checked when parameters are set, in the simulation worker |
+| src/engine/portal/scenario.js:219 | sanitize | Object.keys() — rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame |
+| src/engine/portal/scenario.js:229 | sanitize | Object.keys() — rare: checked when parameters are set, in the simulation worker (a few tiny key lists) |
+| src/engine/portal/scenario.js:230 | sanitize | Object.keys() — rare: checked when parameters are set, in the simulation worker (a few tiny key lists), |
+| src/engine/portal/scenario.js:232 | sanitize | Object.keys() — rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame |
+| src/engine/portal/scenario.js:245 | sanitize | Object.keys() — rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame |
+| src/engine/portal/scenario.js:254 | sanitize | Object.keys() — rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame |
+| src/engine/portal/scenario.js:258 | sanitize | array literal — rare: checked when parameters are set, in the simulation worker (a few tiny key lists) |
+| src/engine/portal/scenario.js:267 | pruneTo | Object.keys() — rare: checked when parameters are set, in the simulation worker, never by a drawn frame |
+| src/engine/portal/scenario.js:274 | keepKnown | Object.keys() — rare: checked when parameters are set, in the simulation worker, never by a drawn frame |
+| src/engine/portal/stent-geom.js:61 | geomDefault | object literal — rare: only a caller that brings no record (a test, a card's setter) |
+| src/engine/portal/stent-geom.js:68 | geomFix | object literal — rare: only a caller that brings no record |
+| src/engine/portal/stent-geom.js:104 | stentParts | object literal — rare: only a caller that brings no record (a test, a card); the engine brings one |
+| src/engine/portal/stent-geom.js:128 | waistSpan | object literal — rare: only a caller that brings no record |
+| src/engine/portal/stent-geom.js:183 | stentBand | array literal — rare: only a caller that brings no list (a test); the drawn paths pass one |
+| src/engine/portal/topology.js:406 | stentSegments | array literal — rare: only a caller that gives no list of its own (a test); the drawn paths pass one |
+| src/engine/portal/topology.js:426 | edgeById | new Map — rare: made once |
+| src/engine/portal/wall-read.js:19 | shown | .toFixed() — rare: a value's text is made the first time it is shown |
 | src/ui/actions.js:204 | buildEdgeCard › format | template string with a value — rare: the slider's number label, made on the slider's own input event (a drag moves it at pointer rate, not a frame's work) |
 | src/ui/actions.js:206 | buildEdgeCard › run | object literal — rare: a click handler (a verb of the open card): runs once per tap, never in a frame; the scan reaches it only through the conservative callback dispatch of the halo step |
 | src/ui/actions.js:208 | buildEdgeCard › format | template string with a value — rare: the slider's number label, made on the slider's own input event (a drag moves it at pointer rate, not a frame's work) |
@@ -9366,20 +9366,20 @@ Still off the GPU: 5349. Grouped by kind, then file; tick a box by moving the si
 
 ### Memory allocated in a frame or motion callback (new array, object, typed array, closure, spread, string build: garbage every frame; keep a buffer and write in place) (`alloc`): 2131
 
-**src/engine/events.js** (1)
+**src/engine/portal/events.js** (1)
 - [ ] line 134, detectEvents: object literal — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.j
 
-**src/engine/explain-ids.js** (2)
+**src/engine/portal/explain-ids.js** (2)
 - [ ] line 5, edgeWhy: template string with a value — frame path: main.js#lensRedrawStep@458 → main.js#redraw@569 → main.js#get@137 →
 - [ ] line 6, nodeWhy: template string with a value — frame path: main.js#lensRedrawStep@458 → main.js#redraw@569 → main.js#get@137 →
 
-**src/engine/explain.js** (1)
+**src/engine/portal/explain.js** (1)
 - [ ] line 217, edgeFormula › say: .toFixed() — frame path: main.js#anon@1591 → main.js#renderLegend@1043 → main.js#lgPut@1037 → legend-morph.js#
 
-**src/engine/inverse-families.js** (1)
+**src/engine/portal/inverse-families.js** (1)
 - [ ] line 191, spanOf: array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26
 
-**src/engine/inverse.js** (59)
+**src/engine/portal/inverse.js** (59)
 - [ ] line 112, normalise: object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112
 - [ ] line 114, normalise: object literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112
 - [ ] line 115, normalise: array literal — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → normalise@112
@@ -9440,14 +9440,14 @@ Still off the GPU: 5349. Grouped by kind, then file; tick a box by moving the si
 - [ ] line 312, nextReading: object literal, spread — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#
 - [ ] line 314, gradeIndex: closure — frame path: from-readings.js#anon@185 → inverse-remote.js#set@51 → inverse-remote.js#rerank@26 → ran
 
-**src/engine/metrics.js** (1)
+**src/engine/portal/metrics.js** (1)
 - [ ] line 163, computeMetrics: object literal — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.j
 
-**src/engine/pressure-cuts.js** (2)
+**src/engine/portal/pressure-cuts.js** (2)
 - [ ] line 48, hvMeasure: template string with a value — frame path: hvpg-proc.js#step@147 → hvpg-proc.js#paintSide@231 → hvBlocked@53 →
 - [ ] line 51, hvMeasure: object literal — frame path: hvpg-proc.js#step@147 → hvpg-proc.js#paintSide@231 → hvBlocked@53 → hvMeasure@46
 
-**src/engine/scenario.js** (11)
+**src/engine/portal/scenario.js** (11)
 - [ ] line 224, sanitize: template string with a value — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src
 - [ ] line 225, sanitize: template string with a value — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src
 - [ ] line 226, sanitize: template string with a value — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src
@@ -9460,10 +9460,10 @@ Still off the GPU: 5349. Grouped by kind, then file; tick a box by moving the si
 - [ ] line 281, deepMerge: closure — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js#tickB
 - [ ] line 282, deepMerge › merge: Object.keys() — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worker-core.js
 
-**src/engine/stent-ease.js** (1)
+**src/engine/portal/stent-ease.js** (1)
 - [ ] line 12, stentMix: object literal, spread — frame path: src/worker-core.js#tick@322 → src/worker-core.js#tickOnce@362 → src/worke
 
-**src/engine/trail-calm.js** (2)
+**src/engine/portal/trail-calm.js** (2)
 - [ ] line 28, calmed: .slice() — frame path: pressure-time.js#tickLoop@479 → pressure-time.js#draw@493 → pressure-time.js#drawNow@86
 - [ ] line 29, calmed: new Array — frame path: pressure-time.js#tickLoop@479 → pressure-time.js#draw@493 → pressure-time.js#drawNow@8
 
@@ -11899,7 +11899,7 @@ Still off the GPU: 5349. Grouped by kind, then file; tick a box by moving the si
 
 ### Site no frame path reaches, that runs during use (event, timer, promise, listener) or has no caller the scan can find: never credited as on the GPU, with its reason (`unreached`): 2019
 
-**src/engine/engine.js** (1)
+**src/engine/portal/engine.js** (1)
 - [ ] line 1090, trackPulsatility: attrWrite: .value = — runs during use (a method of this name is called from event handler)
 
 **src/test-clock.js** (2)

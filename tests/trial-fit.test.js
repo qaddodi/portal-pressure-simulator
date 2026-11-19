@@ -4,8 +4,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { fitTrial, failedRows, FIT_TESTS, NOT_IN_MODEL, groupOf, possiblyWords, whyNot, lcFirst, openRows, stillNeeded, fitsWords, FITS_WORDS, metricsOfFp } from '../src/ui/trial-fit.js';
-import { varixGrade, ascitesGrade } from '../src/engine/metrics.js';
-import { HV_BLOCKED } from '../src/engine/pressure-cuts.js';
+import { varixGrade, ascitesGrade } from '../src/engine/portal/metrics.js';
+import { HV_BLOCKED } from '../src/engine/portal/pressure-cuts.js';
 
 // A patient as computeMetrics and the params give it, with only the fields the tests read.
 // (rw: the red wale signs the model reads on the varix: true, false, or null for a record that does not carry them.)

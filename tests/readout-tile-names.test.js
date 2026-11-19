@@ -3,7 +3,7 @@ import './dom-shim.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { TILES } from '../src/ui/dock.js';
-import { WALL_WORDS } from '../src/engine/wall-read.js';
+import { WALL_WORDS } from '../src/engine/portal/wall-read.js';
 
 test('one phrase for the varix wall stress: of rupture threshold', () => {
   assert.equal(TILES.find((t) => t.id === 'varix').ux, ' of rupture threshold');

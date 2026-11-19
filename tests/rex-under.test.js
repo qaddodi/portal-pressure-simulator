@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { BACK_EDGES, CIRCUIT_PATH, EDGE_PATH, REX_UNDER } from '../src/ui/anatomy.js';
-import { EDGES, PORTAL_TERRITORY, isStent } from '../src/engine/topology.js';
+import { EDGES, PORTAL_TERRITORY, isStent } from '../src/engine/portal/topology.js';
 
 const EBY = Object.fromEntries(EDGES.map((e) => [e.id, e]));
 const SHUNTS_OVER = ['TIPS', 'DIPS', 'C6', 'S_DSR', 'S_PC', 'C8', 'S_MC', 'REX'];   // (stage.js: the shunts drawn in the portal tree's tier)

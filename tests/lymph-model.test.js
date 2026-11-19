@@ -5,11 +5,11 @@
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { LYMPH, tissueP, sinusoidPull, hepLymphOf, pushOfHepLymph } from '../src/engine/lymph.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { LYMPH, tissueP, sinusoidPull, hepLymphOf, pushOfHepLymph } from '../src/engine/portal/lymph.js';
 import { DECKS } from '../src/ui/decks.js';
 import { deckStates } from './deck-states.js';
-import { runPatient } from '../src/engine/inverse-run.js';
+import { runPatient } from '../src/engine/portal/inverse-run.js';
 
 const healthy = (() => { const e = new Engine(); e.loadPreset('healthy'); return e.starling(true).hep; })();
 

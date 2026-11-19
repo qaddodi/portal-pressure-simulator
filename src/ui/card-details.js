@@ -5,8 +5,8 @@
 // its healthy flow (or how far a collateral has opened), the organ's own numbers the card leaves out, why the value is what it is (the Why? explainer), and
 // what the structure is, in words. Built when it is opened, never with the card; its numbers follow the model frame (update), each worded once per value.
 
-import { EDGES, NODES, dMinOf } from '../engine/topology.js';
-import { wallShare } from '../engine/wall-read.js';
+import { EDGES, NODES, dMinOf } from '../engine/portal/topology.js';
+import { wallShare } from '../engine/portal/wall-read.js';
 import { store } from './store.js';
 import { h, clamp, icon, putText } from './util.js';
 import { newCell, numText, lpmText, Pof, Qof } from './live-readings.js';

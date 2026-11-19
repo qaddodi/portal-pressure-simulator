@@ -5,9 +5,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { main, parseArgs, patchOf, actionsOf, runSteps } from '../scripts/model-cli.mjs';
-import { PRESETS } from '../src/engine/scenario.js';
+import { PRESETS } from '../src/engine/portal/scenario.js';
 import { SNAPSHOTS } from '../src/ui/snapshots.js';
-import { HVPG_CUTS, hvpgWord, NOT_MEASURABLE } from '../src/engine/pressure-cuts.js';
+import { HVPG_CUTS, hvpgWord, NOT_MEASURABLE } from '../src/engine/portal/pressure-cuts.js';
 import { DECKS, withOverview } from '../src/ui/decks.js';
 
 const run = async (...argv) => { let out = ''; await main(argv, (s) => { out += `${s}\n`; }); return out; };

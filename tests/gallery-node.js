@@ -219,7 +219,7 @@ export async function mainRig() {
   await boot();
   const { createCore } = await import('../src/worker-core.js');
   const { store } = await import('../src/ui/store.js');
-  const { deepMerge } = await import('../src/engine/scenario.js');
+  const { deepMerge } = await import('../src/engine/portal/scenario.js');
   const { createDock } = await import('../src/ui/dock.js');
   const { createCard } = await import('../src/ui/card.js');
   const { createDoppler } = await import('../src/ui/doppler.js');

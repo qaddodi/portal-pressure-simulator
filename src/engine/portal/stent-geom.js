@@ -32,7 +32,7 @@
 //
 // Units: pressure mmHg; flow mL/s; resistance PRU (mmHg·s/mL); diameters mm; lengths cm; visc relative to blood at a hematocrit of 0.42.
 
-import { clamp } from './physiology.js';
+import { clamp } from '../core/physiology.js';
 
 /** Distributed friction, PRU per cm of stent at 10 mm and viscosity 1. */
 export const C_WALL = 0.005;

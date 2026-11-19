@@ -3,10 +3,10 @@
 // the stent within a stated tolerance before any display rounds them, and they are signed with the flow.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../src/engine/engine.js';
-import { computeMetrics } from '../src/engine/metrics.js';
-import { fingerprintOf } from '../src/engine/fingerprint.js';
-import { deepMerge, sanitizeParams } from '../src/engine/scenario.js';
+import { Engine } from '../src/engine/portal/engine.js';
+import { computeMetrics } from '../src/engine/portal/metrics.js';
+import { fingerprintOf } from '../src/engine/portal/fingerprint.js';
+import { deepMerge, sanitizeParams } from '../src/engine/portal/scenario.js';
 
 // The residual a display may hide by scaling (the smoothed pressures and flow are not one instant): 2 % of the drop, or 0.05 mmHg.
 const TOL = (dp) => Math.max(0.05, 0.02 * Math.abs(dp));

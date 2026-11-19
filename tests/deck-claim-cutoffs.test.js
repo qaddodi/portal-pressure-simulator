@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readdirSync } from 'node:fs';
 import './dom-shim.js';
 import { deckStates } from './deck-states.js';
-import { VARIX_LARGE_MM, ASCITES_CUTS } from '../src/engine/metrics.js';
+import { VARIX_LARGE_MM, ASCITES_CUTS } from '../src/engine/portal/metrics.js';
 
 const DIR = new URL('../src/ui/decks/', import.meta.url);
 const TEXT = ['title', 'line', 'question', 'caseQ'];
