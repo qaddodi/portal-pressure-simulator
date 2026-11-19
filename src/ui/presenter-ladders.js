@@ -15,7 +15,7 @@ import { isModalOpen, restBox } from './util.js';
 
 export function createLadders(st, live) {
   const placeSeen = new WeakMap();   // (the mode each talk's cards were last laid out in: place-reset.js)
-  const { GRIP, LIP, LOW_M, SHORT_H, TEXT_CARD, app, autoDock, capOf, cath, creditLease, dataStands, dock, dockPaint, dockRest, dockVec, figOf, fitCards, fitDone, fitSig, frameTo, insetL, liftTo, lipOn, lowKey, minText, overflowOf, phone, placeBar, placeLip, slip, splitSheet, stage, stimer, stopUnder, tabBeside, tabUp, throwCards, underU, until, wideSheet, words, wordsGlide, wrap } = st;
+  const { GRIP, LIP, LOW_M, SHORT_H, TEXT_CARD, app, autoDock, capOf, cath, creditLease, dataStands, dock, dockPaint, dockRest, dockVec, figOf, fitCards, fitDone, fitSig, frameTo, insetL, liftTo, lipOn, lowKey, minText, overflowOf, phone, placeBar, placeLip, slip, splitSheet, stage, stimer, stopUnder, tabBeside, tabUp, throwCards, toolDemand, underU, until, wideSheet, words, wordsGlide, wrap } = st;
   // A card whose contents grow after the layout (a time-lapse, the numbers settling) is fitted again.
   // A slide whose data card changes only its readings while it shows: a what-if slider or compare button driving the live model
   // (liveOff), or a time-lapse slide (its days running, or run). Its cards keep the plan made as the slide came in.
@@ -529,6 +529,10 @@ export function createLadders(st, live) {
     }
     if (below !== isCol) { void readMetric(dd, 'offsetWidth'); dd.style.transition = ''; }
     chipRoom(dd);
+    // (CRD-1, 19 Nov 2026: the slide's Shuffle is written before anything is fitted. It was written last, by sync() at the foot of this layout, so an instrument drawn in the fit
+    // read the last slide's flag: NCPH 8 and Carvedilol 12 on an iPhone on its side came in without the 10 px allowance, or kept it when they were not shuffled, and the fit
+    // that followed recorded a card whose classes were then changed again. The classes only: sync() below builds and moves.)
+    live.shuffle?.mark(shuf);
     const beside = low && tabBeside();
     fitCards(live.ui.data, live.ui.panel);
     if (beside && !tabBeside()) { fitDone.delete(live.ui.panel); fitCards(live.ui.panel); }
@@ -548,6 +552,9 @@ export function createLadders(st, live) {
       // empty space to a downward move that would leave too little room for its final height.
       const cardH = !ws && parseFloat(dd.style.getPropertyValue('--ft-card')) || tuckH;
       const stackH = t.height + 2 * pad + gap + cardH * k;
+      // (CRD-2: an instrument that could not shrink to its room stands past it, and the fit has nothing left to give; the pair rises into its top margin by that much, as
+      // it does for a pair a few px too tall, so the card's foot is not cut. Stiffness 8's map, 20 to 25 px over, on a short screen. The Shuffle has its own place.)
+      if (!shuf && !wideSheet(dd)) { const need = toolDemand(dd) * k; if (need > 0.5) rise = Math.max(rise, pairRise(need, top0, 4 * k)); }
       shift = shuf ? SHUF.lift * k : rise > 0 ? -rise : Math.max(0, Math.min((H - stackH) / 2 - top0, foot - top0 - stackH));
       // (Centred once per slide: while only the data card's readings change (a time-lapse, a what-if slider), the pair keeps the place
       // it came in at, so the words never ride up and down with a reading that measured a pixel taller.)
@@ -615,11 +622,19 @@ export function createLadders(st, live) {
     set('--pz-l', live.frameL);
     const rBase = !p && d ? W - (readMetric(live.ui.data, 'offsetLeft') + dock.to * dv[0]) * k + 8 : 0;   // (where the card comes to rest: past its entry shift, at its dock)
     set('--pz-r', rBase);
-    set('--pz-t', p && d ? (readMetric(live.ui.data, 'offsetTop') + readMetric(live.ui.data, 'offsetHeight') + (lipOn(live.ui.data) ? LIP : 0) + dv[1] * dock.to) * k + 4 : 0);   // (offsets: a card coming in is still shifted by its entry transform)
+    const putT = () => set('--pz-t', p && d ? (readMetric(live.ui.data, 'offsetTop') + readMetric(live.ui.data, 'offsetHeight') + (lipOn(live.ui.data) ? LIP : 0) + dv[1] * dock.to) * k + 4 : 0);   // (offsets: a card coming in is still shifted by its entry transform)
+    putT();
     set('--pz-b', p && t ? B + 34 : 0);
     if (!dock.drag) { dockPaint(); placeLip(); }   // (the edge's place, read here at rest: a glide's frames only move it)
-    // (The corner icon is offered where the card has room to grow, and only on a wide screen with an instrument: card-zoom.js.)
-    live.ui.data.classList.toggle('pz-zoomable', wide && !live.ui.data.hidden && zoomCard() && !!live.ui.zoom.plan());
+    // (The corner icon is offered where the card has room to grow, and only on a wide screen with an instrument: card-zoom.js. It takes padding from the header, so a flip
+    // changes the card's fit: fitted at once, in this layout, and the readings of its box written again. Left to the next observer pass, as it was (fitSig held the class),
+    // the card was fitted a second time with the cards in view, a snap, CRD-1, 19 Nov 2026.)
+    const zoomOn = wide && !live.ui.data.hidden && zoomCard() && !!live.ui.zoom.plan();
+    if (live.ui.data.classList.contains('pz-zoomable') !== zoomOn) {
+      live.ui.data.classList.toggle('pz-zoomable', zoomOn); fitDone.delete(live.ui.data); fitCards(live.ui.data);
+      set('--pz-r', rBase);
+      putT();
+    }
     placeBar();
     live.shuffle?.sync(shuf, lockKey || '');
     if (!insets.held) dispatchEvent(new Event('pps:occ'));
