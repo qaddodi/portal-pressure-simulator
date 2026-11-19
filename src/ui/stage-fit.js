@@ -373,7 +373,6 @@ export function createFit(st, live) {
       // The one rule for every card (U3, card-clear.js): the figure keeps its place and moves only as far as an open card makes it.
       const sw = k * s0 * (x1 - x0) + 24, ox = figureShift(ins, sw, store.get().presenting);
       const cx = VB_ANAT[0] + VB_ANAT[2] / 2 + ox / s0, cy = VB_ANAT[1] + VB_ANAT[3] / 2 + (ins.t + tg - ins.b) / 2 / s0;
-      live.fitKept = k;   // (kept for an arc's widest pull back, arcRoom)
       return cardPanVT({ k, x: cx - k * ((x0 + x1) / 2), y: cy - k * ((y0 + y1) / 2) }, VB_ANAT, ab);
     }
     // Turned upright, the map is tall and fills the height of the stage as it is.

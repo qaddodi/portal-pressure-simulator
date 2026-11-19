@@ -9,7 +9,6 @@
  "blood-shading-fast.test.js",
  "blood-zoom-look.test.js",
  "breakpoints.test.js",
- "cam-arc.test.js",
  "camera-only-revisions.test.js",
  "caption-text-policy.test.js",
  "captions-in-figure.test.js",

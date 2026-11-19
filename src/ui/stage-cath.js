@@ -929,9 +929,9 @@ export function createCath(st, live) {
   // Where a treatment's route enters the plate (its lead-in from outside ends there): the view never follows the tip off the figure.
   const procIn = (r) => r.parts?.[1]?.d0 ?? r.start;
   // (steady: a refit to cards that moved, see animateVT.)
-  function cathFocus(mode, ms = 700, { both = false, near = false, arc = false, steady = false, scale = false, ostium = null, route = '' } = {}) {   // (scale: the camera's own time for how far it goes, ms its ceiling: animateVT)
+  function cathFocus(mode, ms = 700, { both = false, near = false, steady = false, scale = false, ostium = null, route = '' } = {}) {   // (scale: the camera's own time for how far it goes, ms its ceiling: animateVT)
     const r = cathRoute(route);
-    if (mode === 'home') { if (cath.saved) animateVT(cath.saved, ms, { arc, scale }); cath.saved = null; return true; }
+    if (mode === 'home') { if (cath.saved) animateVT(cath.saved, ms, { scale }); cath.saved = null; return true; }
     if (!r) return false;
     if (!cath.saved) cath.saved = { ...(live.vtTarget && live.vtAnim ? live.vtTarget : live.vt) };
     const wr = wrap.getBoundingClientRect(), ins = safeInsets();
@@ -969,7 +969,7 @@ export function createCath(st, live) {
         cx = (Math.min(...ax) + Math.max(...ax)) / 2; cy = (Math.min(...ay) + Math.max(...ay)) / 2;
       } else if (mode === 'way') [cx, cy] = cathAt(r, Math.max(r.start + (r.free - r.start) * clamp(cath.st?.u || 0, 0, 1), procIn(r))).p;
       else { cx = (x0 + x1) / 2; cy = (y0 + y1) / 2; }
-      animateVT({ k, x: (fr.x0 + fr.x1) / 2 - cx * k, y: (fr.y0 + fr.y1) / 2 - cy * k }, ms, { arc, steady, scale });
+      animateVT({ k, x: (fr.x0 + fr.x1) / 2 - cx * k, y: (fr.y0 + fr.y1) / 2 - cy * k }, ms, { steady, scale });
       return true;
     } else if (mode === 'tip') {
       const tp = cutLen(r.pts, r.cum, 0, r.free).at(-1);

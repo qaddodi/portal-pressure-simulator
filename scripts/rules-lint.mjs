@@ -572,14 +572,16 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   need('src/ui/stage-view.js', [[/vb0: \[vbBox\.x, vbBox\.y, vbBox\.width, vbBox\.height\]/, 'a change keeps the view box its camera was written for'], [/sameView\(live\.vt, to\), \[vbBox\.x/, 'a retarget keeps the box the camera it sets out from stands in']]);
   need('src/ui/stage-fit.js', [[/viewXfCameraInto\(g\.x, /, "the phone's turn glide is worked out on the screen too: the view box turns under the camera"]]);
   forbid('src/ui/stage-glide.js', /camMs\([^)]*VIEW\.w|springSlope\([^)]*VIEW\.w/, "a glide's time and carried speed count the screen's real width (stage-ride.js screenW), not the old 1400 plate");
-  need('src/ui/stage-glide.js', [[/else if \(opt\.slow\) animateVT\(to, ms, \{ arc: true, scale: true, floor: CAM_MS_MAX, slide \}\)/, "the move in from a case card takes the time the move out took (frameBox opt.slow)"]]);
+  need('src/ui/stage-glide.js', [[/else if \(opt\.slow\) animateVT\(to, ms, \{ scale: true, floor: CAM_MS_MAX, slide \}\)/, "the move in from a case card takes the time the move out took (frameBox opt.slow)"]]);
   need('src/ui/presenter.js', [
     [/prep = bare \? unseenFit\(cut\) : null, Promise\.resolve\(prep\)\.then\(\(ok\) => \(bare && !ok \? null : camera\(cam, fv, cut\)\)\)/, "the lead-in camera frames only after the unseen cards' last fitting (Carvedilol 3 to 4, 16 Nov 2026: a framing taken before it was undone by a second move)"],
     [/else if \(cam\) \{ if \(prepWith\) \{ prep \|\|= unseenFit\(cut\); if \(!await prep\) return; \} await camera\(cam, fv, cut, plate \? CARDS_AT : 0\); \}/, "the slide's camera frames only after the unseen cards' last fitting, for every kind of slide change over the plate (same patient, new patient, case card)"],
   ]);
   need('src/ui/presenter.js', [[/await caseLifted\(cut\); if \(cut\(\)\) return; caseExit = true;/, "the camera behind a case card is at the whole patient: its move in takes 900 ms (presenter-proc.js frameTo reads caseExit)"]]);
   need('src/ui/presenter-proc.js', [[/live\.caseExit && !opt\.drift \? \{ \.\.\.opt, slow: true \} : opt/, "frameTo asks the move in from a case card slow"]]);
-  need('src/ui/stage-glide.js', [[/arcRoom\(freeAsk\)/, "a framing's arc travels the middle of the room the cards left (cam-arc.js camWindow)"]]);
+  // The camera has one path, the straight one (19 Nov 2026, bible review STG-4; Mohammad, 18 Nov: "camera must zoom straight from any view to any view"): no pull-back arc, no blend of two paths, no arc option.
+  for (const f of ['src/ui/stage.js', 'src/ui/stage-glide.js', 'src/ui/stage-cath.js', 'src/ui/stage-ride.js', 'src/ui/stage-fit.js', 'src/ui/stage-view.js']) forbid(f, /\barcRoom\b|\bcamPath\b|\bblendPaths\b|\barcRun\b|\bviewsOverlap\b|\barc: true|\{ arc\b/, 'the camera goes straight from any view to any view: no pull-back arc, no blended refit, no arc option (cam-arc.js lerpInto)');
+  forbid('src/ui/proc-anim.js', /\barc:\s*(?:true|false)/, 'a procedure shot goes straight: no arc option (STG-4)');
   forbid('src/ui/stage-ride.js', /VIEW\./, 'the arcs read the stage\'s real view box (cam-arc.js camWindow), never the old 1400 x 1000 plate');
   need('src/ui/lobule-zoom*', [[/diveMapInto\(D\.p, D\.c, D\.rot, D\.Z, g, DM\)/, 'the lobule is carried by the dive map: turned and grown about its sinusoid, which goes straight to its place']]);
   forbid('src/ui/lobule-zoom*', /D\.q\b/, 'no fixed point: the zoom into a sinusoid spiralled about it (15 Nov 2026)');
@@ -718,8 +720,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   }
   need('src/ui/stage-glide.js', [
     [/const v0 = opt\.v0 \|\| \(!drift && live\.vtGliding \? vtTrack\.take\(performance\.now\(\)\) : null\);/, "a glide takes the hand's speed (opt.v0) or the glide's it replaces"],
-    [/if \(v0 && \(!live\.arcRun \|\| newArc\) && !sameView\(from, to\)\) \{/, 'a fresh arc carries the old speed on, as a plain glide does (item 14)'],
-    [/t0 = prev\.t0; ms = prev\.ms;\n\s+live\.arcRun = \{ from: prev\.from, to, t0, ms, at \};/, "a refit's blend of a running arc keeps its pace and end time"],
+    [/if \(v0 && !sameView\(from, to\)\) \{/, 'a glide carries the old speed on (item 14), on the straight path'],
   ]);
   need('src/ui/stage-ride.js', [[/lerpInto\(a, b, f, FOLLOW_V\)/, 'the card-room follow zooms in log space (item 14)']]);
   need('src/ui/card-zoom.js', [
