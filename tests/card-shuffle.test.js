@@ -98,8 +98,8 @@ test('the layout gives every pair on a phone on its side the wallet, centred, an
   assert.match(s, /live\.shuffle\?\.park\(\);\s*\n\s*try \{ layoutNow\(\); \} finally \{ live\.shuffle\?\.resume\(\); \}/);
   assert.match(s, /live\.shuffle\?\.sync\(shuf, lockKey \|\| '', \{ H: H \/ k, pad: pad \/ k \}\)/);
   assert.match(s, /let y = shuf \? top0 :/);
-  assert.match(s, /shift = shuf \? shufTop\(H, t\.height \+ 2 \* pad, 4 \* k, k\) - top0/, 'the words\' glass is centred by its own height, or as high as it must stand to clear the strip');
-  assert.match(s, /ddTop = shufTop\(H, hd, 4 \* k, k\)/, 'and the instrument by its own');
+  assert.match(s, /shift = shuf \? shufTop\(H, t\.height \+ 2 \* pad, SHUF\.edge \* k, k\) - top0/, 'the words\' glass is centred by its own height, or as high as it must stand to clear the strip');
+  assert.match(s, /ddTop = shufTop\(H, hd, SHUF\.edge \* k, k\)/, 'and the instrument by its own');
   assert.match(s, /!shuf && !wideSheet\(dd\)\) rise = pairRise/, 'a wallet does not rise');
   assert.match(s, /textLock = \{ key: lockKey, below, shuf, room, col: colIx,/, 'the wallet and its column are part of what a slide keeps');
   assert.match(s, /'--pz-sx'/, 'the pair is shifted to the middle by the one left margin');
@@ -280,8 +280,11 @@ test('a front card\'s foot is never below the strip\'s top: the full 48 px strip
     assert.ok(top >= SHUF.edge - 1e-9, `H ${H}, h ${h}: the card is above the screen`);
     if (h <= shufMaxH(H, 1)) assert.ok(Math.abs(top - (H - h) / 2) < 1e-9, `H ${H}, h ${h}: a card that fits is centred`);
   }
-  assert.equal(shufTop(393, 335, 4), 4, 'a 335 px card stands at the top edge, its foot 339, the strip from 345'); assert.equal(shufTop(393, 330, 4), 9);
-  assert.equal(shufMaxH(393, 2), 335);
+  const top = shufMaxH(393, 2);
+  assert.equal(shufTop(393, top, SHUF.edge), SHUF.edge, 'the tallest card stands at the top edge, its foot 6 px above the strip');
+  assert.equal(shufTop(393, top - 5, SHUF.edge), 393 - SHUF.strip - SHUF.gapTight - (top - 5), 'a shorter card stands with its foot 6 px over the strip');
+  assert.equal(shufMaxH(393, 2), 393 - SHUF.edge - SHUF.strip - SHUF.gapTight);
+  assert.ok(SHUF.edge >= 14, 'a card standing as high as it can leaves the deck\'s tabs 14 px under the screen\'s top');
 });
 
 test('the wallet measures the words at their own height (no cap, no zoom of an earlier pass) and counts the glass\'s taller top padding, so a card cut short is seen as too tall and the column widens', () => {

@@ -587,13 +587,13 @@ export function createLadders(st, live) {
       // it does for a pair a few px too tall, so the card's foot is not cut. Stiffness 8's map, 20 to 25 px over, on a short screen. The Shuffle has its own place.)
       if (!shuf && !wideSheet(dd)) { const need = toolDemand(dd) * k; if (need > 0.5) rise = Math.max(rise, pairRise(need, top0, 4 * k)); }
       // (The wallet's cards each stand centred by their own height, the glass of the words and the instrument: the words' shift here, the instrument's top below.)
-      shift = shuf ? shufTop(H, t.height + 2 * pad, 4 * k, k) - top0 : rise > 0 ? -rise : Math.max(0, Math.min((H - stackH) / 2 - top0, foot - top0 - stackH));
+      shift = shuf ? shufTop(H, t.height + 2 * pad, SHUF.edge * k, k) - top0 : rise > 0 ? -rise : Math.max(0, Math.min((H - stackH) / 2 - top0, foot - top0 - stackH));
       // (Centred once per slide: while only the data card's readings change (a time-lapse, a what-if slider), the pair keeps the place
       // it came in at, so the words never ride up and down with a reading that measured a pixel taller.)
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       // (The wallet's instrument stands centred by its own height, held the same way while only its readings change.)
       if (shuf) {
-        const hd = (parseFloat(dd.style.getPropertyValue('--ft-card')) || readMetric(dd, 'offsetHeight')) * k; let ddTop = shufTop(H, hd, 4 * k, k);
+        const hd = (parseFloat(dd.style.getPropertyValue('--ft-card')) || readMetric(dd, 'offsetHeight')) * k; let ddTop = shufTop(H, hd, SHUF.edge * k, k);
         if (lockKey && topLock?.key === lockKey && readingsOnly()) ddTop = topLock.v; else if (lockKey) topLock = { key: lockKey, v: ddTop };
         dd.style.top = `${(ddTop / k).toFixed(1)}px`;
       }
