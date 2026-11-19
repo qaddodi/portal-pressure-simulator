@@ -9,7 +9,6 @@ import { appCss } from './split-src.js';
 // Review P6, P9 and P12 (16 Oct): cheaper glow eases, FibroScan ripples, hidden tubes, label caches and font caching,
 // each with the same picture as before.
 const stage = stageSource();
-const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 const rnd0 = (seed0) => { let seed = seed0; return () => ((seed = (seed * 16807) % 2147483647) / 2147483647); };
@@ -57,26 +56,6 @@ test('the vessels are records the GPU draws: no SVG tube, gradient, mask or hit 
   for (const c of ['.v-wall', '.v-lumen', '.v-artery', '.v-strand', '.v-select', '.v-shadow', '.tier-casing']) assert.ok(!css.includes(c + ' ') && !css.includes(c + ','), `no style left for ${c}`);
 });
 
-
-test('fonts and brand art come from the cache at once and are refreshed behind it', async () => {
-  const handlers = {}, puts = [], fetched = [];
-  const store = new Map([['https://x.test/fonts/inter-latin.woff2', 'cached-font']]);
-  const self = { addEventListener: (t, fn) => { handlers[t] = fn; }, skipWaiting() {}, clients: { claim() {} } };
-  const caches = { match: async (r) => store.get(r.url), open: async () => ({ put: async (r, v) => puts.push([r.url, v]) }), keys: async () => [] };
-  const fetch = async (r, o) => { fetched.push([r.url, o?.cache]); return { ok: true, clone: () => 'fresh:' + r.url, url: r.url }; };
-  new Function('self', 'caches', 'fetch', 'location', 'URL', 'Response', sw)(self, caches, fetch, { origin: 'https://x.test' }, URL, { error: () => 'error' });
-  const run = async (url) => {
-    let out, wait = [];
-    handlers.fetch({ request: { url, method: 'GET', mode: 'cors' }, respondWith: (p) => { out = p; }, waitUntil: (p) => wait.push(p) });
-    const res = await out; await Promise.all(wait); await new Promise((r) => setTimeout(r, 0));
-    return res;
-  };
-  assert.equal(await run('https://x.test/fonts/inter-latin.woff2'), 'cached-font');
-  assert.deepEqual(fetched.at(-1), ['https://x.test/fonts/inter-latin.woff2', 'no-cache'], 'refreshed behind the cached copy');
-  assert.deepEqual(puts.at(-1), ['https://x.test/fonts/inter-latin.woff2', 'fresh:https://x.test/fonts/inter-latin.woff2']);
-  const miss = await run('https://x.test/preview/brand/mark.svg');
-  assert.equal(miss.url, 'https://x.test/preview/brand/mark.svg', 'a miss waits on the network');
-});
 
 test("a pan or pinch's own classes never count as a change of the stage's look", () => {
   // (panning, stage-busy and figure-focus come on as a gesture starts and off as it ends, and stage-busy 0.6 s later, as the menus

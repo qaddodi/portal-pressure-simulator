@@ -543,7 +543,7 @@ async function main() {
     const reg = () => whenQuiet(() => (window.requestIdleCallback || ((fn) => setTimeout(fn, 1500)))(() => navigator.serviceWorker.register('sw.js')
       .then(() => navigator.serviceWorker.ready).then((r) => whenQuiet(() => r.active?.postMessage('pps:fill'), 2000, 1000))
       .catch(() => { /* offline support is optional */ })));
-    // (The source site, `npm start`, loads src/ui/main.js and has no worker of its own: the build writes dist/sw.js, so only a built page registers one.)
+    // (The source site, `npm start`, has no worker: the build writes dist/sw.js, the only worker there is, so only a built page registers one.)
     const built = !document.querySelector('script[type=module][src^="src/"]');
     if (built) { if (window.ppsFigureReady) reg(); else addEventListener('pps:figure-ready', reg, { once: true }); }
   }

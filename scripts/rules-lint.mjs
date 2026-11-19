@@ -45,7 +45,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // (embed: a deep link like script and preset, not a switch: ?embed is the app for an iframe on someone else's page, O1, 13 Nov 2026; src/ui/embed.js.)
 const KEEP = new Set(['perf', 'offgpu', 'fps', 'budget', 'inputs', 'lap', 'script', 'slide', 'preset', 'home', 'embed', 'back', 'presenter-view', 'v', 'lumen', 'lumenscale', 'rest', 'gallery', 'watch', 'sweep', 'r']);   // (watch: the motion recorder's red dot, a preview-only measuring aid like perf and offgpu; src/ui/watch)
 const walk = (p) => (statSync(p).isDirectory() ? readdirSync(p).flatMap((f) => walk(join(p, f))) : [p]);
-const files = [...walk(join(ROOT, 'src')).filter((f) => f.endsWith('.js')), join(ROOT, 'index.html'), join(ROOT, 'sw.js')];
+const files = [...walk(join(ROOT, 'src')).filter((f) => f.endsWith('.js')), join(ROOT, 'index.html')];
 
 const switches = new Map();   // name → [file:line]
 // (A flag the flag reader knows, src/ui/flags.js (FLAGS and EXTRA: each with its meaning and the gate that says where it is open), is a measuring or debug aid, not a runtime switch of the product: reading
