@@ -1,6 +1,10 @@
 // Station labels, their sizes, the glide and the names on the GPU
 // (moved out of lobule-zoom.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { createCallGeoFade } from './call-geo-fade.js';
+import { badgeOff, badgeOn } from './change-badge.js';
+import { newRoll, rollStep } from './count-roll.js';
+import { frameFor } from './frame.js';
+import { padDigits } from './reading-text.js';
 import { zoneSpot } from './lobule-zone-spot.js';
 import { caught } from './caught.js';
 import { classHas, classSoon, runSoon } from './class-soon.js';
@@ -45,6 +49,9 @@ export function createLobuleLabels(st, live) {
   const stV = { triad: mkSlot(), sin: mkSlot(), cv: mkSlot() }, stD = { triad: mkSlot(), sin: mkSlot(), cv: mkSlot() };
   const stFlow = mkSlot(), stO = [mkSlot(), mkSlot(), mkSlot()], stP = [mkSlot(), mkSlot(), mkSlot()];
   const OXY_AT = { triad: 0, sin: 1, cv: 2 };
+  const rolls = { triad: newRoll(), sin: newRoll(), cv: newRoll() };
+  let rollAsked = false;
+  const rollAsk = () => { if (!rollAsked) { rollAsked = true; frameFor('lobule-labels')(() => { rollAsked = false; if (live.model) panel(); }); } };   // (a count in flight asks for the next frame, as the figure's labels do)
   // What the station card has to say: the number, its unit, the change and its colour, in one kept record (never an array made for it).
   const reading = { v: '', u: '', d: '', col: null };
   // The panel's words for the tissue canvas, as last said (what they were made from, to know when they have changed).
@@ -54,11 +61,14 @@ export function createLobuleLabels(st, live) {
     if (m.hide) { reading.v = '?'; reading.u = ''; reading.d = ''; reading.col = null; return; }
     // (Colored by oxygen: the station's oxygen saturation, the value the lens colours it by.)
     if (m.mode === 'oxygen' && m.oxy) { const sat = m.oxy[OXY_AT[key]]; badges[key] = null; reading.v = shown(stV[key], sat * 100, 0); reading.u = '% O₂'; reading.d = ''; reading.col = oxygenColor(sat); return; }
-    const d = r != null ? v - r : 0, on = m.cmp ? 1 : 5, off = m.cmp ? 0.7 : 4;
+    const d = r != null ? v - r : 0, on = badgeOn(m.cmp), off = badgeOff(m.cmp);
     const showD = Math.abs(d) >= on || (badges[key] === m.cmp && Math.abs(d) >= off);
     badges[key] = showD ? m.cmp : null;
     // (The unit is said once, in the pressure legend, as the anatomy's labels have it; looks review L2, 31 Oct.)
-    reading.v = shown(stV[key], v, 1); reading.u = ''; reading.d = showD ? shownDelta(stD[key], d) : '';
+    // (The number counts to a new value over COUNT_MS, as the figure's station labels, the data card's tiles and the sites do: count-roll.js. The badge and the colour read the model's own.)
+    const rl = rolls[key], vr = rollStep(rl, v, 0.5, performance.now(), reduce.matches);
+    if (rl.on) rollAsk();
+    reading.v = shown(stV[key], vr, 1); reading.u = ''; reading.d = showD ? shownDelta(stD[key], d) : '';
     reading.col = m.mode === 'delta' || m.mode === 'since' ? deltaColor(live.qP(d)) : pc(v);
   }
   function panel() {
@@ -122,11 +132,12 @@ export function createLobuleLabels(st, live) {
   // they are tabular; the pill's width limit), and kept. That frame leaves the labels as they are seen; the next one lays them out.
   const measQ = new Set();
   // (A label's key is made again only when the look (env), its classes or its content (L.ver, counted as pageRun writes it) changed.)
+  // (A label's key pads its digits (reading-text.js padDigits): a station ticking from 9.9 to 10.0 keeps its key, so its box is not measured and the labels not laid out again for it.)
   const labKey = (e, L) => {
     const cls = L.el.className;
     if (L.kEnv === e && L.kCls === cls && L.kVer === L.ver && L.kKey !== undefined) return L.kKey;
     L.kEnv = e; L.kCls = cls; L.kVer = L.ver;
-    L.kKey = `${e}|${cls.replace(/(^| )(stack|lz-off)(?= |$)/g, '')}|${L.el.innerHTML.replace(/\d/g, '0')}`;
+    L.kKey = `${e}|${cls.replace(/(^| )(stack|lz-off)(?= |$)/g, '')}|${padDigits(L.el.innerHTML)}`;
     return L.kKey;
   };
   // (Whether a label shows is held on the label (_hid) the moment it changes, and written as the `hidden` attribute between frames
@@ -183,10 +194,12 @@ export function createLobuleLabels(st, live) {
         L.rows = inkRows(L.el, L.rows);   // (each line's own box: a leader stops on the line it runs to, not on the corner a longer line makes)
       }
       shown.forEach((L, i) => {
-        const was = L.sz, k = stack[i] ? 's1' : 's0', key = labKey(env, L);
-        if (!was || was.w0 !== w0[i] || was.u2 !== u2[i] || `${was[k]}` !== `${sizes[i]}` || `${was.pad}` !== `${L.pad}`) moved = true;
-        const sz = was?.key === key ? was : (L.sz = { key, w0: w0[i], u2: u2[i] });
-        sz.w0 = w0[i]; sz.u2 = u2[i]; sz[k] = sizes[i]; sz.pad = L.pad;
+        const was = L.sz, k = stack[i] ? 's1' : 's0', key = labKey(env, L), same = was?.key === key;
+        // (The box keeps the widest the key has been: 9.9 then 10.0 widens it once, 10.0 then 9.9 leaves it, and neither lays the labels out again.)
+        const wd = same ? Math.max(was.w0 || 0, w0[i]) : w0[i], sw = same && was[k] ? [Math.max(was[k][0], sizes[i][0]), sizes[i][1]] : sizes[i];
+        if (!was || was.w0 !== wd || was.u2 !== u2[i] || `${was[k]}` !== `${sw}` || `${was.pad}` !== `${L.pad}`) moved = true;
+        const sz = same ? was : (L.sz = { key, w0: wd, u2: u2[i] });
+        sz.w0 = wd; sz.u2 = u2[i]; sz[k] = sw; sz.pad = L.pad;
       });
       shown.forEach((L, i) => { L.el.hidden = peek[i]; L.el.classList.toggle('stack', had[i]); });
     }

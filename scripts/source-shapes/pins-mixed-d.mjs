@@ -99,7 +99,7 @@ export default [
   { file: 'src/ui/presenter-proc.js', need: [/stage\.fitSlow\(ms, opt\)/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ... (a whole-figure refit takes it)'] },   // (was a slice of the file)
   { file: 'src/ui/stage-glide.js', need: [/\{ steady: !!opt\.steady, scale: !opt\.steady, slide \}/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ... (and a region\'s)'] },   // (was a slice of the file)
   { file: 'src/ui/stage*', need: [/fitSlow\(ms = 1300, opt = \{\}\) \{[^\n]*animateVT\(to, ms, opt\.steady \? \{ steady: true \} : \{ scale: true, slide: !!opt\.slide \}\)/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ...'] },
-  { file: 'src/ui/stage-cath.js', need: [/\{ both = false, near = false, steady = false, scale = false \}/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ...'] },   // (was a slice of the file)
+  { file: 'src/ui/stage-cath.js', need: [/\{ both = false, near = false, steady = false, scale = false[,\s]/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ...'] },   // (was a slice of the file)
   { file: 'src/ui/proc-anim.js', need: [/refit\(ms = 700\) \{[^\n]*stage\.cathFocus\(shot, ms, \{ steady: true \}\)/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ...'] },
   { file: 'src/ui/stage*', need: [/const OPT_STEADY = \{ steady: true \};[\s\S]*animateVT\(d, 400, OPT_STEADY\)/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ... (the home look)'] },
   { file: 'src/ui/stage-fit.js', need: [/animateVT\(to, 420, \{ steady: true \}\)/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ... (the Tests card\'s refit)'] },   // (was a slice of the file)

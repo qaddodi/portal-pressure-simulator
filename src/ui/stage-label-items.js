@@ -10,6 +10,7 @@ import { explainText } from './label-explain.js';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js';
 import { D_SURFACE } from './ease.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
+import { badgeOff, badgeOn } from './change-badge.js';
 import { labelRoll } from './count-roll.js';
 import { blockerEls, blockerRects } from './blockers.js';
 import { restPass } from './rest-pass.js';
@@ -83,7 +84,6 @@ export function createLabelItems(st, live) {
   // A change badge (+3) appears at `on` and goes only below `off`: a value hovering at the
   // threshold would otherwise add and drop the badge every beat, and its label would jump.
   const badges = new Map();
-  const DELTA_MIN = 5;
   function badge(key, v, on, off) {
     const shown = v >= on || (badges.get(key) && v >= off);
     badges.set(key, shown);
@@ -98,7 +98,7 @@ export function createLabelItems(st, live) {
     // of a normal HVPG); while comparing, every change from the pinned moment is shown. Deltas
     // are neutral ink: red is kept for crossed thresholds.
     const ref = REF()?.[NI[id]], cmp = !!store.get().compareSnap;
-    if (ref != null && deltaHere(id) && badge((cmp ? 'pc:' : 'p:') + id, Math.abs(P - ref), cmp ? 1 : DELTA_MIN, cmp ? 0.7 : DELTA_MIN - 1)) runs.push({ t: signed(P - ref, fmt(Math.abs(P - ref), 1)), size: 10.5, weight: 650, cls: 'lb-delta ' + (P > ref ? 'up' : 'down'), gap: 6 });
+    if (ref != null && deltaHere(id) && badge((cmp ? 'pc:' : 'p:') + id, Math.abs(P - ref), badgeOn(cmp), badgeOff(cmp))) runs.push({ t: signed(P - ref, fmt(Math.abs(P - ref), 1)), size: 10.5, weight: 650, cls: 'lb-delta ' + (P > ref ? 'up' : 'down'), gap: 6 });
     return runs;
   }
   // A change reads "+7.9" or "−7.9", in the reading's own colour (17 Oct design review: an arrowed change beside every reading doubled the

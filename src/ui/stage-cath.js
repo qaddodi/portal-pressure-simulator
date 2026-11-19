@@ -763,7 +763,13 @@ export function createCath(st, live) {
       // and the other order's do not). It is written as a class on the box; the rows are measured again after it changes, and the plan below
       // works from the rows' sizes, so it is the same on that frame as on the next.
       const pl = planStack(cathLeadPts(A, l), R, x, y, bw, bh, box._swap, !!l.mid);
-      if (box._swap !== pl.swap) { box._swap = pl.swap; box.classList.toggle('swap', pl.swap); }
+      // (A flip of the order after the stack was shown is a soft dip and rise of the box and its leaders, not a snap: the two classes take turns so the
+      // animation restarts with no reflow. The first order is just set. A stack whose leaders cross either way is marked on its root, for the checks: bible review STG-9.)
+      if (box._swap !== pl.swap) {
+        if (box._swap !== undefined && !reduceMotion.matches) { const on = box._swapDip = !box._swapDip, lead = el.querySelector('.cath-leads'); for (const t of lead ? [box, lead] : [box]) { t.classList.toggle('sw-a', on); t.classList.toggle('sw-b', !on); } }
+        box._swap = pl.swap; box.classList.toggle('swap', pl.swap);
+      }
+      if (el._unclean !== !pl.clean) { el._unclean = !pl.clean; if (el._unclean) el.dataset.leadsUnclean = '1'; else delete el.dataset.leadsUnclean; }
       // The bracket, from the middle of one reading to the middle of the other.
       const brace = box.querySelector('.cath-brace'), path = box.querySelector('.cath-brace path');
       const ys0 = pl.m0, ys1 = pl.m1;
