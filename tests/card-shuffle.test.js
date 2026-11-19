@@ -29,6 +29,8 @@ test('the card in front is centred with room for the strip below it and the same
   assert.equal(shufMaxH(393), 393 - 2 * (SHUF.strip + SHUF.gap));
   assert.ok(shufMaxH(393) >= 266 && shufMaxH(393) <= 270, 'about 268 px on an iPhone on its side');
   assert.equal(shufMaxH(100), 0);
+  assert.ok(shufMaxH(393, true) >= 282 && shufMaxH(393, true) > shufMaxH(393), 'the tight room (a slide no column fits at the usual gap) holds the 282 px cards of the gallery');
+  assert.equal(shufMaxH(393, true), 393 - 2 * (SHUF.strip + SHUF.gapTight));
   // (the tallest card stands with its foot a gap above the strip: top + h + gap = H - strip)
   const h = shufMaxH(393), top = (393 - h) / 2;
   assert.equal(top + h + SHUF.gap, 393 - SHUF.strip);
@@ -96,7 +98,7 @@ test('the layout gives every pair on a phone on its side the wallet, centred, an
   assert.match(s, /shift = shuf \? Math\.max\(4 \* k - top0, \(H - \(t\.height \+ 2 \* pad\)\) \/ 2 - top0\)/, 'the words\' glass is centred by its own height');
   assert.match(s, /ddTop = Math\.max\(4 \* k, \(H - hd\) \/ 2\)/, 'and the instrument by its own');
   assert.match(s, /!shuf && !wideSheet\(dd\)\) rise = pairRise/, 'a wallet does not rise');
-  assert.match(s, /textLock = \{ key: lockKey, below, shuf, col: colIx,/, 'the wallet and its column are part of what a slide keeps');
+  assert.match(s, /textLock = \{ key: lockKey, below, shuf, tight, col: colIx,/, 'the wallet and its column are part of what a slide keeps');
   assert.match(s, /'--pz-sx'/, 'the pair is shifted to the middle by the one left margin');
   const css = src('styles/app-04-presenter.css');
   assert.match(css, /left: calc\(var\(--pz-cm\) \+ var\(--pz-sx, 0px\)\)/);
@@ -108,7 +110,8 @@ test('the column is 400 px first and widens only when a slide needs it; the type
   for (const c of SHUF.cols) assert.match(c, /^min\(\d+px, \d+vw\)$/);
   const l = src('src/ui/presenter-ladders.js');
   assert.match(l, /for \(colIx = 0; colIx < SHUF\.cols\.length; colIx\+\+\) \{/);
-  assert.match(l, /if \(\(fits && dataFits\) \|\| colIx === SHUF\.cols\.length - 1\) break;/);
+  assert.match(l, /both = fits && dataFits;\n\s*if \(both \|\| colIx === SHUF\.cols\.length - 1\) break;/);
+  assert.match(l, /for \(tight of \[false, true\]\) \{\n\s*foot = top0 \+ shufMaxH\(H \/ k, tight\) \* k;/, 'no column fits at the usual gap: the tight room is tried before the widest column is kept');
 });
 
 test('the data card goes back to the 12 px floor on a short sideways phone: the Shuffle\'s 10 px allowance is gone', () => {

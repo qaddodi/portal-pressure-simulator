@@ -24,6 +24,7 @@ import { setThrowPose } from './card-throw.js';
 
 export const SHUF = Object.freeze({
   strip: 48,      // px of the card behind that show at the foot of the screen: its grab bar and its name (a finger's height, never a piece of a line)
+  gapTight: 6,    // px least under the card in front when the slide has no column that fits it with the usual gap
   gap: 14,        // px least between the foot of the card in front and the top of the strip
   cols: ['min(400px, 62vw)', 'min(460px, 62vw)', 'min(520px, 62vw)'],   // the wallet's card widths (--pz-cw), one for both cards, centred on the screen: 400 first; a slide whose words or instrument need more height takes a wider column (fewer lines), never a smaller type
   drag: 190,      // px of finger travel for the whole change
@@ -35,7 +36,7 @@ export const SHUF = Object.freeze({
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 /** The tallest a card in front can be: centred, with the strip and its gap below it (and the same above, so it stays centred). H: the screen's height. */
-export const shufMaxH = (H) => Math.max(0, H - 2 * (SHUF.strip + SHUF.gap));
+export const shufMaxH = (H, tight = false) => Math.max(0, H - 2 * (SHUF.strip + (tight ? SHUF.gapTight : SHUF.gap)));
 
 // The screen's height and the padding of the words' glass, in the page's px: written by sync() after each layout, read by every pose (module state: the throw composes the same pose).
 const geom = { H: 390, pad: 0 };
