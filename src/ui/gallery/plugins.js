@@ -4,5 +4,6 @@
 import './fit-rules-panel.js';   // the Check button (shared fit rules)
 import './benches/index.js';   // the debug benches (camera, slow motion, procedures, memory loop, flags, looks, words, model, glyphs)
 import './sweep-panel.js';   // the Sweep button (every or the affected specimens, one report)
+import './phone-check-panel.js';   // the Phone check (?check: a 3-minute walk of the crash-prone paths, one report)
 import './packet-panel.js';   // the What's-wrong-here button (the bug packet)
 export {};

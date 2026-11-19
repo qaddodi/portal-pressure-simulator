@@ -26,7 +26,7 @@ import { tableRoles } from './table-roles.js';
 import { focusOf, sidesEl } from './teach-extras.js';
 import { titleParts } from './title-units.js';
 import { chartScale, createProfileStrip, createProfileTool, pillReadings } from './tool-profile.js';
-import { traceWhen } from './trace-labels.js';
+import { talkChain } from './talk-chain.js';
 import { fadeShown, fmt, h, swapFade, swapText, themeChanged } from './util.js';
 import { bpText } from './vital-read.js';
 import { animRunning } from './glass-clock.js';   // (a fade held on the glass's clock is still under way)
@@ -85,17 +85,8 @@ export function createQuestion(st, live) {
   };
   // (A unit in a title keeps its own case, in a span the style leaves alone: "mL/day", not "ML/DAY".)
   const unitSpans = (el) => { const p = titleParts(el.textContent); if (p.length < 2) return; el.textContent = ''; p.forEach((t, i) => { if (t) el.append(i % 2 ? h('span', { class: 'pz-unit' }, t) : t); }); };
-  // The talk so far, for a pressure trace: every state up to slide i, once each.
-  // Each carries its time point (the deck's days so far) and what happened there (the first tick among its slides, else its title),
-  // and its slide's id and its state's params (for a deck visuals package's chart).
-  // (since: a slide's id, the trace's tool.since: the chart starts at that slide's state and counts its days from there, so a
-  // deck that moves on to a new patient charts only that patient's course.)
-  const whenOf = (k, f0 = -1) => {
-    const d = live.slides.slice(f0 + 1, k + 1).reduce((a, s) => a + (s.days || 0), 0);
-    return d && d % 365 === 0 ? `Year ${d / 365}` : d <= 200 ? `Day ${d}` : `Month ${Math.round(d / 30.4)}`;
-  };
-  // (A state on the same day as the one before it, as a drug started at that visit, says so instead of repeating the day; a slide's `when` words it.)
-  const chainTo = (i, since) => { let before = null; const f0 = since ? live.slides.findIndex((x, j) => j <= i && x.id === since) : -1, k0 = f0 >= 0 ? live.stateOf[f0] : -1; return [...new Set(live.stateOf.slice(0, i + 1))].filter((k) => k >= k0 && live.slides[k]?.visual !== 'outline').map((k) => { const w = whenOf(k, k0), p = { n: k + 1, title: live.slides[k].title, tick: live.slides.find((x, j) => live.stateOf[j] === k && x.tick)?.tick || live.slides[k].title, mile: live.slides.find((x, j) => live.stateOf[j] === k && x.milestone)?.milestone, when: traceWhen(live.slides[k].when, w, before), day: w, fp: live.states[k]?.fp, id: live.slides[k].id, params: live.states[k]?.params }; before = w; return p; }); };
+  // The talk so far, for a pressure trace: every state up to slide i, once each (talk-chain.js, which the chart's fit test builds for every deck too).
+  const chainTo = (i, since) => talkChain(live.slides, live.stateOf, live.states, i, since);
   // The deck's short name in a tab at the card's top right corner (decks.js TOPICS; your own deck, its title when short):
   // a darker patch of the card's own glass, flush with its top and right edges, only its bottom left corner rounded. It sits in
   // the card's top padding, so it never meets the title. (Not read out on every slide: the outline and the slide list name the talk.)

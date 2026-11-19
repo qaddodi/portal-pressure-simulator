@@ -471,8 +471,8 @@ async function main() {
   window.pps.decks = async () => (await import('./decks.js')).DECKS.map((d, n) => ({ n: n + 1, id: d.id, title: d.title }));   // (the deck ids pps.cameraGate takes)
   window.pps.screen = Object.assign((o) => import('./screen/index.js').then((m) => m.screen(o)), { text: (r) => import('./screen/index.js').then((m) => m.text(r)) });   // (what is on the screen as data and text, from the app's own records: screen/index.js, read in only when called)
   window.pps.lookNow = (id) => applyLookAttrs(document.documentElement, knownLook(id));   // (a look on the page's attributes with nothing saved: the gallery page's looks, which must not change the look this browser keeps for the live site)
-  // ?gallery on the preview copy only: the card gallery and debug page (gallery/page.js). The live site never reads it.
-  { const g = new URLSearchParams(location.search).get('gallery'); if (g !== null && g !== 'frame' && /\/preview\//.test(location.pathname)) import('./gallery/page.js').then(({ startGallery }) => startGallery({ pps: window.pps })).catch((e) => caught('main:gallery', e)); }
+  // ?gallery on the preview copy only: the card gallery and debug page (gallery/page.js). The live site never reads it. ?check loads the same page (its Phone check panel starts the walk).
+  { const q = new URLSearchParams(location.search), g = q.get('gallery'); if ((g !== null || q.has('check')) && g !== 'frame' && /\/preview\//.test(location.pathname)) import('./gallery/page.js').then(({ startGallery }) => startGallery({ pps: window.pps })).catch((e) => caught('main:gallery', e)); }
   // The bug packet ("What's wrong here?": a key chord, a long press on the preview pill, pps.packet) and a state link's extras (the `x` of its #s= payload), on the preview copy and a local run only: the live site never reads them.
   if (/\/preview\//.test(location.pathname) || /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) import('./packet/trigger.js').then(({ installPacketTrigger }) => installPacketTrigger({ pps: window.pps })).catch((e) => caught('main:packet', e));
   const linked = await presenter.readLink();
@@ -1409,6 +1409,8 @@ function openSettings(anchor, withSearch = false) {
     // (From the thumb dock's Settings tab, History (Search is a tab of its own there) and Help follow it: the dock has no More menu, and a touch keyboard has no ?. Enter full screen acts once, so it sits with them.)
     menuSection(null,
       ...(FEEDBACK_EMAIL ? [menuItem('Send feedback', { icon: 'mail', onClick: () => { closePopover(); sendFeedback(); } })] : []),
+      // (Preview copy only, where packet/trigger.js has loaded: the same sheet as holding the orange PREVIEW pill, for a person who does not know the hold.)
+      ...(window.pps?.packet?.open ? [menuItem("What's wrong here?", { icon: 'help', onClick: () => { closePopover(); window.pps.packet.open(); } })] : []),
       // (History and Help are pages inside this sheet, menu recs P4: they slide in over Settings with a back row, and the sheet stays open.)
       ...(withSearch ? [menuItem('History', { icon: 'clock', kb: $('#timeline .tl-hc')?.textContent || null, onClick: () => menuPush('Settings', 'History', timeline.historyList()) }),
         menuItem('Help', { icon: 'help', onClick: () => menuPush('Settings', 'Help', helpRows()) })] : []),

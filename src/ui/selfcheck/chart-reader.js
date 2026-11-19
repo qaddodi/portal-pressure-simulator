@@ -109,13 +109,21 @@ function shown(el, io) {
   return true;
 }
 
-/** The legend of a chart: a key written in the page beside it (html), else one drawn inside it (a key row of its own: chart), else none. */
-function legendOf(box, texts, io) {
-  let card = box;
-  for (let i = 0; i < 6 && card.parentElement; i++) { card = card.parentElement; if (card.matches?.(CARD_ROOT)) break; }
-  const keys = [...card.querySelectorAll(LEGEND_SELECTOR)].filter((k) => !k.contains(box) && !box.contains(k) && shown(k, io));
-  const entries = keys.flatMap(legendEntries);
-  if (entries.length) return { entries, where: 'html', zones: keys.some((k) => k.matches(ZONE_KEY_SELECTOR)) };
+/** The card a picture box stands in (the presenter's cards, a structure card, the Tests dock), or null: a picture outside every card is not a card's chart. */
+const cardOf = (box) => { for (let n = box.parentElement; n; n = n.parentElement) if (n.matches?.(CARD_ROOT)) return n; return null; };
+
+/**
+ * The legend of a chart: the key nearest to it, written in the page (html: the first ancestor of the box, up to its card, that holds a key the box is not in), else
+ * one drawn inside it (chart), else none. The search stops at the box's card: a key elsewhere on the page is no legend of this chart (a bug packet of 19 Nov 2026
+ * listed every picture on the screen with the SAAG quadrant's "Protein" key, which the search had found six levels up).
+ */
+function legendOf(box, card, texts, io) {
+  for (let n = box.parentElement; n; n = n.parentElement) {
+    const keys = [...n.querySelectorAll(LEGEND_SELECTOR)].filter((k) => !k.contains(box) && !box.contains(k) && shown(k, io));
+    const entries = keys.flatMap(legendEntries);
+    if (entries.length) return { entries, where: 'html', zones: keys.some((k) => k.matches(ZONE_KEY_SELECTOR)) };
+    if (n === card) break;
+  }
   const own = texts.filter((t) => t.role === 'legend').map((t) => t.text);
   return own.length ? { entries: own, where: 'chart', zones: false } : { entries: [], where: 'none', zones: false };
 }
@@ -170,7 +178,7 @@ export function readChart(svg, box, io = null, index = 0) {
     aria: box?.getAttribute?.('aria-label') || svg.getAttribute('aria-label') || box?.querySelector?.('canvas')?.getAttribute('aria-label') || box?.parentElement?.getAttribute?.('aria-label') || '',
     viewBox: vb.length === 4 && vb.every(Number.isFinite) ? vb : null, size: b && b.width > 0 ? [r1(b.width), r1(b.height)] : null,
     fit: svg.getAttribute('data-fit') === 'on', axes: svg.getAttribute('data-axes') === 'on', keys,
-    texts, lines, rects, dots, legend: box ? legendOf(box, texts, io) : { entries: [], where: 'none', zones: false },
+    texts, lines, rects, dots, legend: box ? legendOf(box, cardOf(box), texts, io) : { entries: [], where: 'none', zones: false },
   };
 }
 
@@ -180,6 +188,9 @@ export function readCharts(root = document, io = null) {
   if (!P) return { charts };
   const counts = new Map();
   for (const box of root.querySelectorAll('.svg-gl-box')) {
+    // (Only a card's chart: not a readout's GPU words (still), a picture that rides the figure (callout glass, the lobule's leaders: follows), nor one outside every card.)
+    const g = box._svgGL;
+    if (g?.still || g?.follows || !cardOf(box)) continue;
     for (const svg of box.children) {
       if (!svg.hasAttribute?.('data-svg-model') || !svg.firstElementChild) continue;
       const c = readChart(svg, box, io, 0);
