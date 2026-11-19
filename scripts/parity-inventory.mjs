@@ -125,6 +125,19 @@ const shortcuts = [];
 const presentKeys = pairs(between(mainJs, 'const PRESENT_KEYS = [', '];\nfunction openHelp'));
 for (const p of presentKeys) shortcuts.push({ group: 'While presenting', ...p });
 
+// the Guide page's prose (Help › Guide): its lede, the three entries, "Reading the figure", the thresholds line and the disclaimer
+const guideSrc = between(mainJs, 'function openHelp(', 'scrollToSection(section);');
+const str = (t) => unescape(t);
+const guide = {
+  lede: str((guideSrc.match(/class: 'lede' \}, '((?:[^'\\]|\\.)*)'/) || [])[1] ?? ''),
+  entries: [...guideSrc.matchAll(/\['(explore|settle|bulb)', '((?:[^'\\]|\\.)*)', '((?:[^'\\]|\\.)*)'\]/g)].map((m) => ({ title: str(m[2]), text: str(m[3]) })),
+  presentIntro: str((guideSrc.match(/class: 'sub' \}, '(A presentation clicker[^']*)'/) || [])[1] ?? ''),
+  reading: [...between(guideSrc, "h3', {}, 'Reading the figure'", "h3', {}, 'Thresholds").matchAll(/h\('li', \{\}, '((?:[^'\\]|\\.)*)'\)/g)].map((m) => str(m[1])),
+  thresholds: str((between(guideSrc, "h3', {}, 'Thresholds & references'", 'disclaimer').match(/class: 'sub' \}, '((?:[^'\\]|\\.)*)'/) || [])[1] ?? ''),
+  disclaimer: str((guideSrc.match(/class: 'disclaimer' \}, '((?:[^'\\]|\\.)*)'/) || [])[1] ?? ''),
+};
+if (!guide.lede || guide.entries.length !== 3 || guide.reading.length < 4 || !guide.thresholds || !guide.disclaimer) throw new Error('parity-inventory: the Guide page moved; update the script');
+
 // play bar: the buttons and the jump and speed tables
 const tl = read('src/ui/timeline.js');
 const playbar = {
@@ -288,7 +301,7 @@ const inventory = {
   rows,
   presets, looks, decks: sortBy(decks, (d) => d.id), topics: TOPICS.map(([topic, label, list]) => ({ topic, label, decks: list.map(([id, short, head]) => ({ id, short, head })) })), kinds,
   lenses,
-  shell: { menus: { blood: bloodRows, lobule: lobuleRows, layersPhone, lensGrid: lenses.map((l) => ({ label: l.name, hint: l.note })), thumbTabs, mainMenu, behaviours },
+  shell: { guide, menus: { blood: bloodRows, lobule: lobuleRows, layersPhone, lensGrid: lenses.map((l) => ({ label: l.name, hint: l.note })), thumbTabs, mainMenu, behaviours },
     topbar, views, zoomGroup, playbar, settings, helpPages, shortcuts, palette, controls, platform },
   treat, tests, gallery, chartLooks,
 };
