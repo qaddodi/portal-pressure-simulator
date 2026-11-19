@@ -131,3 +131,15 @@ test('R06: the heartbeat runs only while a notes window is open, and the window 
     ch.close(); talk.close();
   } finally { globalThis.window = had; globalThis.location = hadLoc; }
 });
+
+test('the notes window prints a slide\'s own numbers where the slide has {tokens}, never the token name (bible CRD-10, 19 Nov 2026)', async () => {
+  const { lineText } = await import('../src/ui/handout.js');
+  const s = { title: 'T', line: 'Her HVPG is {hvpg}, which is {>=10 mmHg}.', ask: ['Why is the PPG {ppg}?', 'Because of {hvpg}.'] };
+  const fp = { hvpg: 12.4, ppg: 14.1 };
+  const said = (t) => lineText(t, fp);
+  const v = slideView(s, said);
+  assert.ok(!/\bhvpg\b|\bppg\b/.test(`${v.line} ${v.ask.join(' ')}`), `no token names: ${v.line} / ${v.ask}`);
+  assert.match(v.line, /12\.4/);
+  assert.match(v.ask[0], /14\.1/);
+  assert.match(slideView(s).line, /hvpg/, 'without the numbers the old text is what it was (the talk always passes them)');
+});

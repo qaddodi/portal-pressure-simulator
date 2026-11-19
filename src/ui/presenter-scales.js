@@ -9,6 +9,7 @@ import { slideCount, slideCountLabel, slideSaid, slideSay } from './slide-say.js
 import { store } from './store.js';
 import { dataSoon } from './class-soon.js';
 import { clamp, h, icon } from './util.js';
+import { lineText } from './handout.js';
 import { animRunning } from './glass-clock.js';   // (a fade held on the glass's clock is still under way)
 
 export function createScales(st, live) {
@@ -363,10 +364,13 @@ export function createScales(st, live) {
     const moving = String(live.busy && !landedNow());
     for (const e of [live.ui.text, live.ui.data]) if (e.getAttribute('aria-busy') !== moving) e.setAttribute('aria-busy', moving);
   }
+  // (The notes window's words with this slide's own numbers in, as the handout prints them: {hvpg} is a value, never the word "hvpg", CRD-10.)
+  const fpOf = (k) => live.states[live.stateOf[k]]?.fp ?? null;
+  const said = (k) => (t) => lineText(t, fpOf(k), (id) => fpOf(live.slides.findIndex((x) => x.id === id)));
   function paintChrome() {
     if (!live.ui) return;
     const n = live.slides.length, i = live.want;
-    pview.publish(live.deck, live.slides, i, live.beat, lastBeat(i) + 1);
+    pview.publish(live.deck, live.slides, i, live.beat, lastBeat(i) + 1, said);
     live.ui.prog.style.setProperty('--p', String((i + 1) / n));
     announce();
     const views = lastBeat(i) + 1;
