@@ -82,11 +82,14 @@ test('every floating piece of the chrome is also a stage blocker: the labels, th
 });
 
 test('the labels\' boxes and the observer\'s targets come from one list of what is over the figure, which holds the view switcher\'s holder', () => {
-  const sel = /const BLOCKER_SEL = '([^']+)';/.exec(stage)?.[1];
+  // (One module since 19 Nov 2026, STG-2: src/ui/blockers.js; the stage, the lobule, the sinusoid and the probe read it: tests/blockers.test.js.)
+  const mod = readFileSync(new URL('../src/ui/blockers.js', import.meta.url), 'utf8');
+  const sel = /export const BLOCKER_SEL = '([^']+)';/.exec(mod)?.[1];
   assert.ok(sel, 'one shared selector');
   for (const part of ['.stage-blocker:not([hidden])', '.pz-shade', '#nbViews', '.stage-clock']) assert.ok(sel.includes(part), part);
   assert.equal((stage.match(/querySelectorAll\('\.stage-blocker:not\(\[hidden\]\), \.pz-shade, #nbViews, \.stage-clock'\)/g) || []).length, 0, 'no second copy of the list');
-  assert.equal((stage.match(/querySelectorAll\(BLOCKER_SEL\)/g) || []).length, 2, 'the targets and the boxes both read it');
+  assert.match(stage, /blockerEls\(\)/, 'the targets read it');
+  assert.match(stage, /blockerRects\(rectOf, els\)/, 'the boxes read it');
   // (#nbViews holds the view switcher and sits outside its parent dock's box: only its own box keeps a label from under Circuit / Anatomy / Lobule.)
   assert.match(readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8'), /id: 'nbViews'/);
   assert.match(css, /\.app:not\(\.presenting\) \.vdock:not\(\.mini\) > \.nb-views \{ display: flex; position: absolute;/);

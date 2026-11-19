@@ -44,6 +44,7 @@ import { surface } from './gpu-surfaces.js';
 import { restPass, restClass, restAttr } from './rest-pass.js';
 import { hitLabel, DIM_ALPHA } from './label-explain.js';
 import { readBox as boxOf } from './layout-snap.js';
+import { blockerRects } from './blockers.js';
 import { reduceMotionMQ } from './motion.js';
 import { washProgress } from './sinusoid-wash.js';
 import { darkMQ } from './look.js';
@@ -904,10 +905,10 @@ export function createSinusoidView({ host, before = null, share = null }) {
     bkAt = performance.now();
     const hr = boxOf(host), out = [];
     let k = '';
-    for (const c of document.querySelectorAll('.stage-blocker:not([hidden])')) {
-      const r = boxOf(c);
-      if (r.width) k += `${r.left | 0},${r.top | 0},${r.right | 0},${r.bottom | 0};`;
-      if (r.width && r.height && readStyle(c).visibility !== 'hidden') out.push({ l: r.left - hr.left, r: r.right - hr.left, t: r.top - hr.top, b: r.bottom - hr.top });
+    // (What covers the figure: src/ui/blockers.js, the one list the stage and the lobule read too.)
+    for (const r of blockerRects(boxOf)) {
+      k += `${r.left | 0},${r.top | 0},${r.right | 0},${r.bottom | 0};`;
+      out.push({ l: r.left - hr.left, r: r.right - hr.left, t: r.top - hr.top, b: r.bottom - hr.top });
     }
     bkRects = out;
     if (k === bk) return false;

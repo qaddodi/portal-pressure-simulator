@@ -70,6 +70,7 @@ import { diveMapInto } from './dive-map.js';
 import { createWheelGlide, isPadWheel } from './wheel-glide.js';
 import { createCaptions, composeView } from './label-captions.js';
 import { readBox as boxOf } from './layout-snap.js';
+import { blockerRects } from './blockers.js';
 import { hitLabel } from './label-explain.js';
 import { reduceMotionMQ, createReversible, smooth01, VIEW_STALL_MAX } from './motion.js';
 import { darkMQ } from './look.js';
@@ -390,10 +391,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // Open cards over the figure (a presenter slide's numbers, notices), in the lobule's own coordinates, 6 px wider all round.
   function readCards() {
     const hr = el.getBoundingClientRect(), cards = [];
-    for (const c of document.querySelectorAll('.stage-blocker:not([hidden])')) {
-      const r = c.getBoundingClientRect();
-      if (r.width && getComputedStyle(c).visibility !== 'hidden') cards.push({ l: r.left - hr.left - 6, r: r.right - hr.left + 6, t: r.top - hr.top - 6, b: r.bottom - hr.top + 6 });
-    }
+    // (What covers the figure: src/ui/blockers.js, the one list the stage and the sinusoid read too: the teaching card's glass and the clock count here as well.)
+    for (const r of blockerRects(boxOf)) cards.push({ l: r.left - hr.left - 6, r: r.right - hr.left + 6, t: r.top - hr.top - 6, b: r.bottom - hr.top + 6 });
     const key = cards.map((c) => `${c.l},${c.t},${c.r},${c.b}`).join(';');
     if (key === snap.cardKey) return false;
     snap.cards = cards; snap.cardKey = key;

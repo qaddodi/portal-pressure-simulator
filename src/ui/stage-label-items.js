@@ -11,6 +11,7 @@ import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end
 import { D_SURFACE } from './ease.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { labelRoll } from './count-roll.js';
+import { blockerEls, blockerRects } from './blockers.js';
 import { restPass } from './rest-pass.js';
 import { sceneBegin, sceneStyle } from './scene-store.js';
 import { shownVel, store, varicesPresent } from './store.js';
@@ -400,7 +401,7 @@ const unitNow = () => !!store.get().presenting;
   const BLOCK_IO = typeof IntersectionObserver === 'function';
   function blockersRead() {
     if (!BLOCK_IO) { live.blockersAsk = 0; blockersGot(readBlockersRead((el) => el.getBoundingClientRect(), stageBox())); return; }
-    const els = [wrap, ...blockerEls()];
+    const els = [wrap, ...observedEls()];
     const io = new IntersectionObserver((es) => {
       io.disconnect();
       const rects = new Map(es.map((e) => [e.target, e.boundingClientRect]));
@@ -414,31 +415,16 @@ const unitNow = () => !!store.get().presenting;
     nextFrame(() => { if (live.F && !live.camMove && !live.lz?.isOpen()) updateLabels(live.F); });   // (a new list: the labels' key changes with it)
   }
   // (Everything whose box the labels keep clear of: the credit, the presenter's pill, the cards and the clock.)
-  // (One list of what is chrome over the figure, read by both the observer's targets and the boxes made from them: they must never differ,
-  // or a piece one of them forgets, like the view switcher that sits outside its holder's box, is drawn under by a label. 3 Nov 2026.)
-  const BLOCKER_SEL = '.stage-blocker:not([hidden]), .pz-shade, #nbViews, .stage-clock';
-  const blockerEls = () => [document.querySelector('.stage-credit'), store.get().presenting && document.querySelector('.pz-bar.pzb-pill'),
-    ...document.querySelectorAll(BLOCKER_SEL)].filter(Boolean);
+  // (The one list of what is chrome over the figure is src/ui/blockers.js, read by both the observer's targets and the boxes made from them.)
+  const observedEls = () => [document.querySelector('.stage-credit'), store.get().presenting && document.querySelector('.pz-bar.pzb-pill'),
+    ...blockerEls()].filter(Boolean);
   function readBlockersRead(rectOf, wr, els = null) {
     { const el = document.querySelector('.stage-credit'), r = el && (!els || els.includes(el)) ? rectOf(el) : null;
       live.creditKept = r?.width && getComputedStyle(el).opacity !== '0' ? { x0: r.left - wr.left - 10, y0: r.top - wr.top - 10, x1: r.right - wr.left + 10, y1: r.bottom - wr.top + 10 } : null; }
     { const el = store.get().presenting && document.querySelector('.pz-bar.pzb-pill'), r = el && (!els || els.includes(el)) ? rectOf(el) : null;
       live.pillEdge = r?.width ? { m: Math.max(6, Math.round(wr.right - r.right)), top: r.top - wr.top } : null; }
-    // (The teaching card's glass, .pz-shade, too: on a phone it reaches 16 px above the words, and a label kept off only the words
-    // tucked its top under the glass, SMALL BOWEL on PVT 5 and STOMACH on Variceal bleed 3.)
-    // (And the view switcher's holder over the play bar while it holds the switcher: reading labels sat under Circuit / Anatomy /
-    // Lobule. By id, not the .stage-blocker class, which the credit and pan starts also read; round 2 review, G3-7.)
-    // (And the phone's clock at the bottom left, "Day 30": a label there sat under it. It is display: none off the phone, so no box.)
-    return [...document.querySelectorAll(BLOCKER_SEL)].map((el) => {
-      if (el.id === 'nbViews' && !el.querySelector('#viewSeg')) return null;
-      // A closed card can stay in place, invisible (the patient chart does): it hides nothing. (So does a glass with no words on it.)
-      // (Nor does a card on its way out, a panel included: 2 Nov, the organs' names went off for half a second as a slide's panel left,
-      // and came back once it had gone.)
-      if (getComputedStyle(el).visibility === 'hidden' || (el.classList.contains('pz-shade') && (el.style.opacity === '0' || el.classList.contains('pz-leave'))) || el.classList.contains('pz-leave')) return null;
-      if (els && !els.includes(el)) return null;   // (come in since the boxes were asked for: read with the next ask)
-      const r = rectOf(el);
-      return r.width ? { x0: r.left - wr.left - 4, y0: r.top - wr.top - 4, x1: r.right - wr.left + 4, y1: r.bottom - wr.top + 4 } : null;
-    }).filter(Boolean);
+    // (The pieces over the figure, their list, their rules and their rest boxes, are src/ui/blockers.js: the stage, the lobule and the sinusoid read one.)
+    return blockerRects(rectOf, els).map((c) => ({ x0: c.left - wr.left - 4, y0: c.top - wr.top - 4, x1: c.right - wr.left + 4, y1: c.bottom - wr.top + 4 }));
   }
   // Where a station's callout attaches: the middle of the vessel it names when that vessel is drawn
   // (see LABEL_VESSEL), else the station itself. `tan` is the vessel's direction there, on screen.

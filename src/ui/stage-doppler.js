@@ -1,5 +1,6 @@
 // The Doppler probe on the figure: its stand-off, line of sight, sample bars, cards, monitor and paint.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
+import { BLOCKER_SEL } from './blockers.js';
 import { STENT_SITES } from '../engine/topology.js';
 import { ORGANS } from './anatomy.js';
 import { NONE_MS, PROBE, PROBE_MODEL, SLACK, awayFromProbe, beamBoxes, createProbeMind, fitPoseInto, gateBoxes, gateFrac, probeFade, probeGeomInto, probeSwing, probeTurn, wedgeBoxes } from './dop-probe.js';
@@ -48,7 +49,7 @@ export function createDoppler(st, live) {
     dprCardsAsk = 0;
     live.dprCardsAt = performance.now();
     const wr = stageBox();
-    live.dprCardsList = [...scanCardsRead(), ...[...document.querySelectorAll('[data-safe], .stage-blocker:not([hidden])')].map((el) => {
+    live.dprCardsList = [...scanCardsRead(), ...[...document.querySelectorAll(`[data-safe], ${BLOCKER_SEL}`)].map((el) => {
       // (A card hidden by visibility is not there, as the framing reads it (unseenCard): the closed Details sheet stays in place on
       // a phone, invisible, as tall as it was last opened, and kept the probe off the whole figure in Tests › Doppler, 20 Oct.)
       if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving') || el.classList.contains('vd-out') || unseenCard(el)) return null;

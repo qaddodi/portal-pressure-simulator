@@ -118,7 +118,7 @@ export function createFit(st, live) {
   function cardSpaceFrom(list) {
     if (gpuProbe.on) gpuProbe.note(COUNTED.safe);
     const wr = insWrap(), W = wr.width, H = wr.height, sp = { t: 0, b: 0 };
-    for (const { el, q, edge: pedge, part } of list) {
+    for (const { el, rest: q, edge: pedge, part } of list) {
       const y0 = ((el.classList.contains('mini') || el.dataset.folding) && +el.dataset.fullH ? q.bottom - +el.dataset.fullH : q.top) - wr.top - (+el.dataset.safePad || 0), y1 = q.bottom - wr.top;
       if (y1 <= 0 || y0 >= H) continue;
       const edge = pedge || el.dataset.safe;
