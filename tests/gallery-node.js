@@ -50,6 +50,8 @@ export async function boot() {
   const win = page.dom.window, g = globalThis;
   g.AbortController = win.AbortController;
   g.WebGL2RenderingContext ??= function WebGL2RenderingContext() {};
+  // (A browser has ImageData; the drawers that the context cap sends to the 2D canvas (trace-gl.js OWN_MAX, where no chart pool can be made, as in this page) use it: GPU-3, 19 Nov 2026.)
+  g.ImageData ??= class ImageData { constructor(w, h) { this.width = w; this.height = h; this.data = new Uint8ClampedArray(Math.max(1, w * h * 4)); } };
   for (const k of ['dispatchEvent', 'addEventListener', 'removeEventListener']) if (!g[k]) g[k] = win[k].bind(win);
   const ctx2d = (canvas) => new Proxy({ canvas, measureText: (s) => ({ width: String(s).length * 7, actualBoundingBoxLeft: 0, actualBoundingBoxRight: String(s).length * 7, actualBoundingBoxAscent: 9, actualBoundingBoxDescent: 3, fontBoundingBoxAscent: 10, fontBoundingBoxDescent: 3 }),
     getImageData: (x, y, w, h) => ({ data: new Uint8ClampedArray(Math.max(1, w * h * 4)), width: w, height: h }), createImageData: (w, h) => ({ data: new Uint8ClampedArray(Math.max(1, w * h * 4)), width: w, height: h }) },
