@@ -1,0 +1,1 @@
+var t=new Set;function n(e){return t.add(e),()=>{t.delete(e)}}function r(){for(let e of t)e.theme()}function f(){for(let e of t)e.ride()}function i(e){if(e)for(let o of t)o.dirty?.(e)}function u(){for(let e of t)if(e.busy?.())return!0;return!1}export{n as a,r as b,f as c,i as d,u as e};

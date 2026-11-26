@@ -1,0 +1,1 @@
+import{i as e}from"./chunk-MH6GHJSR.js";var p=e("perf"),s=new Map;function i(t,n){let o=s.get(t);o||(o={n:0,last:""},s.set(t,o),p&&console.warn(`caught (${t}):`,n)),o.n++,o.last=n?.message??String(n)}var c=()=>Object.fromEntries([...s].map(([t,n])=>[t,{...n}]));if(typeof window<"u"){let t=window;t.pps=t.pps||{},t.pps.caught=c}export{i as a,c as b};

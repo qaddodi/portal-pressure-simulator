@@ -1,0 +1,1 @@
+var o=4,M=3,a=.5;function h(t){return t>4*1e6?Math.max(.5,Math.sqrt(3*1e6/t)):0}function i(t,e,n,r){return r[0]=Math.min(t,Math.max(1,Math.ceil(t*n))),r[1]=Math.min(e,Math.max(1,Math.ceil(e*n))),r}export{o as a,M as b,a as c,h as d,i as e};

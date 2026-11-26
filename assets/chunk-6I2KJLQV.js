@@ -1,0 +1,1 @@
+var a=[.299,.587,.114],o=new Array(20).fill(0),i=NaN,s=NaN,l="",c=e=>+e.toFixed(5);function u(e,r){if(e===i&&r===s)return l;let x=1-r;for(let n=0;n<3;n++)for(let t=0;t<3;t++)o[n*5+t]=c(x*a[t]+(n===t?r:0));return o[18]=c(e),i=e,s=r,l=o.join(" ")}var d={sat:.12,dim:.72},f=e=>e!=="pressure"&&e!=="neutral";export{a,u as b,d as c,f as d};

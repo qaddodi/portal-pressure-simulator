@@ -1,0 +1,1 @@
+var t=await fetch(new URL("./glyph-data-68fb7600ca.json",import.meta.url));if(!t.ok)throw new Error("glyph-data-68fb7600ca.json: "+t.status);var{GLYPHS:a,UPM:o}=await t.json();export{a as GLYPHS,o as UPM};

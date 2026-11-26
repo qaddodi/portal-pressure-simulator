@@ -1,0 +1,1 @@
+var t=await fetch(new URL("./organ-art-lite-7481fcf0d6.json",import.meta.url));if(!t.ok)throw new Error("organ-art-lite-7481fcf0d6.json: "+t.status);var{LITE_ART:o,LITE_D:r}=await t.json();export{o as LITE_ART,r as LITE_D};
