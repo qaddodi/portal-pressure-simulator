@@ -362,7 +362,7 @@
    The answer's left edge is the question words' own, 1.8em + .8em + .2em on a phone, so the revealed answer is as wide as its question. The chevron and the answer's edge are
    chosen by place in the quick check, not by their class names: those names count against the criteria chart's look allowance, which only goes down.) */
 .pz.stack .pzc-q { grid-template-columns: 1.8em minmax(0, 1fr) auto; }
-.pz.stack .pz-check li > button > span:last-child { font-size: 0; line-height: 0; width: 1.9em; height: 1.9em; padding: 0; display: grid; place-items: center; align-self: center; }
+.pz.stack .pz-check li > button > span:last-child { font-size: 0; line-height: 0; width: calc(1.9 * var(--s-cap)); height: calc(1.9 * var(--s-cap)); padding: 0; display: grid; place-items: center; align-self: center; }
 .pz.stack .pz-check li > button > span:last-child::before { content: ''; width: .5em; height: .5em; margin-top: -.18em; border: solid currentColor; border-width: 0 2px 2px 0; transform: rotate(45deg); font-size: var(--s-cap); }
 .pz.stack .pz-check li > div > p { padding-left: calc(1.8em + .8em + .2em); }
 .pz.stack .pzc-a > p { padding-left: calc(1.8em + .8em + .2em); }
