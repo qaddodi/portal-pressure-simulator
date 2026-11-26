@@ -503,7 +503,17 @@ export function gapSegs(segs, boxes, pad = 4) {
 // dot sat tight against "Both normal" and "Heart failure" at 12 px, deck inspector 31 Oct).
 export const DOT_CLEAR = 16;
 const WORD_PAD = 4;
-export function placeNames(pts, fr, fs, r = 8, avoid = [], cross = [], pad = 0) {
+// (Whether a name crossing a cut-off line must read on its point's side of it: on, and off only for the second try of a plot so crowded that a patient is left with no name at all, where a name
+// across the line on the far side still beats none.)
+let SIDE = true;
+export function placeNames(pts, fr, fs, r = 8, avoid = [], cross = [], pad = 0, { sideFallback = true } = {}) {
+  SIDE = true;
+  const a = placeNamesOnce(pts, fr, fs, r, avoid, cross, pad);
+  if (!sideFallback || !a.some((o) => !o)) return a;
+  SIDE = false;
+  try { const b = placeNamesOnce(pts, fr, fs, r, avoid, cross, pad); return b.filter((o) => !o).length < a.filter((o) => !o).length ? b : a; } finally { SIDE = true; }
+}
+function placeNamesOnce(pts, fr, fs, r = 8, avoid = [], cross = [], pad = 0) {
   // (When a round leaves a name out or sends one out on a line, others are tried: the round that names the most wins, then
   // the one with the fewest lines, then the one whose names sit closest to their points, then the fewest across a cut-off.)
   const score = (res) => [res.filter((o) => !o).length, res.filter((o) => o?.lead).length, res.reduce((s, o, i) => s + (o ? Math.hypot(...near2(o.box, pts[i])) : 0), 0), res.filter((o) => o?.across).length];
@@ -568,6 +578,15 @@ function placeOnce(pts, fr, fs, r, avoid, first, cross = [], pad = 0, strict = t
     if (o[3] - o[1] > o[2] - o[0]) return b[3] <= o[1] || b[1] >= o[3] || (p.x < (o[0] + o[2]) / 2 ? b[2] <= o[0] : b[0] >= o[2]);
     return b[2] <= o[0] || b[0] >= o[2] || (p.y < (o[1] + o[3]) / 2 ? b[3] <= o[1] : b[1] >= o[3]);
   });
+  // (A name that must cross a cut-off line is read against the line: its middle stays on its point's side of every line it crosses, or the point sits on the line itself. A name whose
+  // letters stand wholly below the PPG 12 line for a point above it says the wrong thing, as Portal vein thrombosis did on an iPhone, capture 36b7deac slide 12: it takes a leader on its own side instead.)
+  const lineBoxes$ = [...new Set([...cutLines, ...cross.filter((o) => Math.min(o[2] - o[0], o[3] - o[1]) <= 8)])];   // (the last, tight try leaves the lines out of the boxes it avoids, never out of what it reads a name against)
+  const readsRight = (b, p) => !SIDE || lineBoxes$.every((o) => {
+    if (!meets(b, o)) return true;
+    if (o[3] - o[1] > o[2] - o[0]) { const lx = (o[0] + o[2]) / 2; return Math.abs(p.x - lx) < fs || ((b[0] + b[2]) / 2 < lx) === (p.x < lx); }
+    const ly = (o[1] + o[3]) / 2;
+    return Math.abs(p.y - ly) < fs || ((b[1] + b[3]) / 2 < ly) === (p.y < ly);
+  });
   // (The most crowded points choose first, so a point with little room is not hemmed in by its neighbours' names.)
   const near = (p) => pts.filter((q) => q !== p && Math.hypot(q.x - p.x, q.y - p.y) < 8 * fs).length;
   const order = first ? first.map((i) => [pts[i], i]) : pts.map((p, i) => [p, i, near(p)]).sort((a, b) => b[2] - a[2] || a[1] - b[1]);
@@ -598,10 +617,10 @@ function placeOnce(pts, fr, fs, r, avoid, first, cross = [], pad = 0, strict = t
           else top = clamp(top, fr.T, fr.B - 2 - hgt);
           const x0 = anchor === 'start' ? x : anchor === 'end' ? x - w : x - w / 2, b = [x0, top, x0 + w, top + hgt];
           if (own && !owns(b)) continue;
-          if (!over) { if (inside(b) && !hit(b) && sameSide(b, p)) { done = { x, y: top + fs * 0.85, anchor, lines, box: b }; break; } continue; }
+          if (!over) { if (inside(b) && !hit(b) && (tight ? readsRight(b, p) : sameSide(b, p))) { done = { x, y: top + fs * 0.85, anchor, lines, box: b }; break; } continue; }
           // (Across a cut-off, or on its point's side of every one: never clear of a line but on the wrong side of it.)
           const n = cross.filter((o) => meets(b, o)).length;
-          if (n < fewest && inside(b) && !hitBut(b) && (n > 0 || sameSide(b, p))) fewest = n, done = { x, y: top + fs * 0.85, anchor, lines, box: b, across: n > 0 };
+          if (n < fewest && inside(b) && !hitBut(b) && (n > 0 ? readsRight(b, p) : sameSide(b, p))) fewest = n, done = { x, y: top + fs * 0.85, anchor, lines, box: b, across: n > 0 };
         }
         if (done) break;
       }
@@ -618,6 +637,7 @@ function placeOnce(pts, fr, fs, r, avoid, first, cross = [], pad = 0, strict = t
             const b = [x0, top, x0 + w, top + hgt];
             const lx = clamp(p.x, b[0], b[2]), ly = clamp(p.y, b[1], b[3]), d = Math.hypot(lx - p.x, ly - p.y) + ls.length * 6;
             if ((best && d >= best.d) || (over ? hitBut(b) : hit(b))) continue;
+            if (tight && !readsRight(b, p)) continue;   // (the tight try leaves the lines out of what it avoids: a name still reads against them)
             if (pts.some((q) => q !== p && crosses(p.x, p.y, lx, ly, [q.x - r - 2, q.y - r - 2, q.x + r + 2, q.y + r + 2]))) continue;
             if (named.some((o) => crosses(p.x, p.y, lx, ly, o))) continue;
             // (15 and B22, play-test 16 Nov 2026: leaders crossed the lines' own names ("R = 8") and each other. A leader crosses no word box of the plot (a line's name, a zone's words) and no other leader: as the callouts' leaders, 9719188b.)
@@ -629,6 +649,7 @@ function placeOnce(pts, fr, fs, r, avoid, first, cross = [], pad = 0, strict = t
             if (best && dd >= best.d) continue;
             // (A place right by its point needs no line.)
             const across = over && cross.some((o) => meets(b, o));
+            if (across && !readsRight(b, p)) continue;
             best = { d: dd, x: x0, y: top + fs * 0.85, anchor: 'start', lines: ls, box: b, across, lead: Math.hypot(lx - p.x, ly - p.y) > gap + 2 || (!across && !sameSide(b, p)) ? [lx, ly] : null };
           }
         }

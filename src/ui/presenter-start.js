@@ -5,7 +5,7 @@ import { createCardZoom, tapTracker } from './card-zoom.js';
 import { caught } from './caught.js';
 import { DECK_ALIAS, withOverview } from './decks.js';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, easeIn } from './ease.js';
-import { createFigureKey } from './figure-key.js';
+import { createFigureKey, figureKeyReady } from './figure-key.js';
 import { cancelFrame } from './frame.js';
 import { readAnims, readBox, readMetric, readRects, readStyle } from './layout-snap.js';
 import { fadeMs as fadeLen, reduceMotionMQ as reduce } from './motion.js';
@@ -194,7 +194,7 @@ export function createStart(st, live) {
     // The scope view on the figure (scope-lens.js): the ring on the varices of a slide that shows them, and its lens, kept clear of the cards.
     const scope = createScopeLens({ stage, store, root, avoid: () => [text, shade, data, lip, panel, vcase, prog, scl, bar, fk] });
     // (It comes in with the teaching card, in the card's own fade, once the card is fitted (pz-prep gone), and leaves with it.)
-    const figKey = createFigureKey({ el: fk, app, watch: [text, root], ready: () => !text.hidden && !text.classList.contains('pz-leave') && !root.classList.contains('pz-prep') });
+    const figKey = createFigureKey({ el: fk, app, watch: [text, root, vcase], ready: () => figureKeyReady(text, root, vcase) });   // (figure-key.js: with the teaching card, and while the case card holds the slide)
     // The cards' frosted glass drawn on the GPU under them while it can be (stage.cardGlass, glass-gl.js); else the browser's.
     // (The split readings sheet's glass is its two pseudo-elements', read by sheetPanes; every other card's is its own box.)
     // (Not the teaching card's shade: on an iPhone, moved between the browser's blur and the GPU's as the figure came and went (a fade, the

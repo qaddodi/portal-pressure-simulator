@@ -6,6 +6,10 @@ import { frameFor } from './frame.js';
 import { restPass, cancelRest } from './rest-pass.js';
 const nextFrame = frameFor('figkey');
 
+/** Whether the key may be on now: with the teaching card (in, not leaving, fitted), and also while the case or question card holds the slide in front of it (the case card stays unhidden through its
+ *  lift and its fade, so the key does not blink between the two). Capture 36b7deac: slides 4 to 9 of Sites and causes wore the lens colours behind their case cards with no key. */
+export const figureKeyReady = (text, root, vcase) => (!text.hidden && !text.classList.contains('pz-leave') && !root.classList.contains('pz-prep')) || !vcase.hidden;
+
 // el: the key's element (inside the presenter's layer, beside the nav pill); app: the app's root (its data-pz-moving attribute marks a slide change).
 // ready (optional): whether the teaching card is in, or coming in; the key then comes and goes with that card, in its fade (Mohammad,
 // 17 Oct: the key had popped in after the card), and watch lists the elements whose classes say so.
@@ -42,7 +46,7 @@ export function createFigureKey({ el, app, ready = null, watch = [] }) {
   addEventListener('resize', onEvent);
   const mo = new MutationObserver(onEvent);
   mo.observe(app, { attributes: true, attributeFilter: ['class', 'data-pz-moving'] });
-  for (const w of watch) mo.observe(w, { attributes: true, attributeFilter: ['class'] });
+  for (const w of watch) mo.observe(w, { attributes: true, attributeFilter: ['class', 'hidden'] });   // (hidden: a card that leaves by being hidden, the case card, says so too)
   return {
     // The key's words changed (a new slide, or another lens), or it has none.
     // fill() writes the new words: at once when the key is out of sight, else once it has faded.

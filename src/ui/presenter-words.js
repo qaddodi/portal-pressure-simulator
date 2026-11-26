@@ -47,6 +47,12 @@ export const slideLens = (s) => (!s?.visual && LENS_KEY[s?.lens] ? s.lens : 'pre
 // Pressure's key shows only on a slide with lens buttons (the default needs none).
 export const PRESSURE_KEY = ['pressure', () => gradientCss('to right', 30), 'Low', 'High'];
 export const lensButtons = (s) => !!s.compare?.some((o) => o.lens);
+/** The lens whose key a slide shows on the figure, or null (the ONE rule for every deck and screen size; tests/legend-wherever-lens.test.js).
+ *  A slide that colours the figure by anything but the plain pressure default shows that lens's key, and so does a slide that reads the pressure
+ *  itself: a lens button row, an explicit `lens: 'pressure'`, or the pressure profile (tool kind 'profile'), whose line IS the colour the figure wears.
+ *  A full-panel visual has no figure to key. (Capture 36b7deac, 25 Nov 2026: slides 4 to 9 of Sites and causes wore the pressure-drop colours with no key, and slide 10
+ *  the pressure colours with none: the key waited behind a case card, and the pressure lens counted as "needs none" even where the slide teaches by it.) */
+export const keyLens = (s) => (!s || s.visual ? null : slideLens(s) !== 'pressure' || lensButtons(s) || s.lens === 'pressure' || s.tool?.kind === 'profile' ? slideLens(s) : null);
 export const gateButtons = (s) => !!s.compare?.some((o) => o.gate);
 export const toolButtons = (s) => !!s.compare?.some((o) => o.tool);
 /** What a compare slide's button k does. A lens button ({ label, lens }) crossfades the figure to that lens and a gate
@@ -193,6 +199,9 @@ function termList(s) {
   // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
   return [...own, ...AUTO_TERMS.filter((k) => !have.has(k)).map((k) => [TARGETS[k].words, k])].filter(([w, k]) => w && TARGETS[k]);
 }
+/** The lobule's three pressure stations, in the order the blood meets them, and the callout places (`callout.at`) that stand at one of them. */
+export const LOBULE_STATIONS = ['lobule:triad', 'lobule:sinusoid', 'lobule:central'];
+export const LOBULE_STATION_AT = new Set(['triad', 'sin', 'cv']);
 /** Everything a slide points at on the figure: its terms (as the line names them) and its glow field. */
 // On a Doppler slide the vessel being read glows the Doppler's green (as in Explore), over the colour its word would give it.
 const isDop = (s) => s?.tool?.kind === 'doppler';
@@ -220,6 +229,10 @@ export function slideTargets(s, line = shownLine(s, s.revealed)) {   // (a revea
   // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
   for (const m of [].concat(s.marks || s.mark || [])) if (m?.organ === 'caudate' && !organs.has('caudate') && !organs.has('caudate-lobe')) organs.set('caudate', TARGETS.caudate.tone);
   for (const k of s.tint || []) { const t = TARGETS[k]; if (t?.node) terms[t.node] = t.tone; }   // (a label the line does not name, in its colour all the same)
+  // A KEY READING is never the dimmest label on the screen (capture 36b7deac: Budd–Chiari's RHV 25.0, the number the slide is about, stood dimmed to --label-dim beside the right
+  // atrium the line happened to name). A slide whose key lists a reading that stands at a station (key: ['fhvp', 'ra'], TARGETS[k].node) lights that station in its colour as a term
+  // does, so only the stations the slide neither names nor reads step back. Only on a slide that lights terms: with none, nothing is dimmed and nothing needs lighting.
+  if (Object.keys(terms).length) for (const k of s.key || []) { const t = TARGETS[k]; if (t?.node && !terms[t.node]) terms[t.node] = t.tone; }
   // glowSeq (ms): the glow field lights in its order, one step apart (pressure passing back from the heart, D6).
   // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
   const at = new Map();
@@ -239,6 +252,10 @@ export function slideTargets(s, line = shownLine(s, s.revealed)) {   // (a revea
   // A lobule slide that lights the portal venule's or the central vein's reading lights the sinusoids' as well: the
   // sinusoidal pressure sits between the two, and the other labels are faded out (Mohammad, 16 Oct).
   if (lit.has('lobule:central') || lit.has('lobule:triad')) lit.add('lobule:sinusoid');
+  // A "Resistance" callout in the lobule says WHERE the resistance sits, which only reads against the other two stations: the portal venule, the sinusoids and the central vein are
+  // lit together on every such slide, whatever words the line happens to use (capture 36b7deac: Sites and causes' three lobule slides showed three different label sets, Resistance
+  // alone, plus the central vein, plus the sinusoids). The arteriole, ductule and lymph names stay unlit.
+  if (/^lobule:/.test(s.cam || '') && LOBULE_STATION_AT.has(s.callout?.at)) for (const k of LOBULE_STATIONS) lit.add(k);
   if (isDop(s)) { const v = s.tool.vessel || 'PV_TRUNK'; if (glow.has(v)) glow.set(v, '--dop-glow'); }
   // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
   return { labels, terms, glow: [...glow].map(([id, tone]) => ({ id, tone, at: at.get(id) || 0, soft: soft.has(id) || undefined })), organs: [...organs].map(([id, tone]) => ({ id, tone })), res: [...res].map(([id, tone]) => ({ id, tone })), lit: [...lit], sites: [...sites], groups };

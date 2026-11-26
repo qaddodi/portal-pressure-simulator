@@ -89,7 +89,7 @@ import { createCase } from './presenter-case.js';
 import { createLapse } from './presenter-lapse.js';
 import { createProc } from './presenter-proc.js';
 import { createOverlays } from './presenter-overlays.js';
-export { slideLens, abChoice, SITE_NODE, slideTargets, camOn, LENS_WORDS, LENS_TONE } from './presenter-words.js';
+export { slideLens, keyLens, abChoice, SITE_NODE, slideTargets, camOn, LENS_WORDS, LENS_TONE } from './presenter-words.js';
 const ease = easeMove;   // (the tweens and glides of the data card: the one in-out curve, motion.js)
 // Waits a newer press can cut (wait-cut.js): waitCut(ms, cut) ends at ms or the first frame in which cut() holds; until(fn, ms) is the same asked the other way.
 // Looked at by frame (a hidden tab, which runs none, by a slow poll and the timer), no longer by a 40 ms timer that made every wait about 20 ms late.

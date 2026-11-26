@@ -50,5 +50,6 @@ test('a phone key on the pill\'s row is the pill\'s twin, and comes in with the 
   // (Two lines beside the pill try the name and swatches flowing together, then the swatches' short names, before a row of their own.)
   assert.match(presenter, /if \(two\(false, false\) \|\| two\(true, false\) \|\| \(sh && \(two\(false, true\) \|\| two\(true, true\)\)\)\) \{/);
   assert.match(presenter, /\['--origin-spleen', 'Spleen', 'SV'\], \['--origin-artery', 'Artery', 'HA'\], \['--origin-systemic', 'Systemic', 'Sys'\]/);
-  assert.match(presenter, /createFigureKey\(\{ el: fk, app, watch: \[text, root\], ready: \(\) => !text\.hidden && !text\.classList\.contains\('pz-leave'\) && !root\.classList\.contains\('pz-prep'\) \}\)/);
+  // (it comes in with the teaching card, and also while the case or question card holds the slide in front of it: tests/legend-wherever-lens.test.js)
+  assert.match(presenter, /createFigureKey\(\{ el: fk, app, watch: \[text, root, vcase\], ready: \(\) => figureKeyReady\(text, root, vcase\) \}\)/);
 });

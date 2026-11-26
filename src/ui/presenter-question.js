@@ -17,7 +17,7 @@ import { readAnims, readBox, readMetric, readStyle, readTiming } from './layout-
 import { afterMs, reduceMotionMQ as reduce } from './motion.js';
 import { toggleLabels } from './variant-toggle.js';
 import { dropCharts, liveFp, rail, tileVal, wedgeColumn } from './presenter-cards.js';
-import { citeEl, diseaseNodes, equation, lensButtons, revealLine, rich, setFpAt, slideLens } from './presenter-words.js';
+import { citeEl, diseaseNodes, equation, keyLens, revealLine, rich, setFpAt } from './presenter-words.js';
 import { revealCount } from './reveal.js';
 import { EXT, safe } from './slide-ext.js';
 import { store } from './store.js';
@@ -213,7 +213,7 @@ export function createQuestion(st, live) {
           s.lapse && i > 0 ? lapseRow(s) : null,
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
           s.causes?.length ? h('p', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), nb(listCase(s.causes))) : null]);
-      paintKey((slideLens(s) !== 'pressure' || lensButtons(s)) ? slideLens(s) : null, s);
+      paintKey(keyLens(s), s);
       markLong(text, live.gen !== live.redrawn);   // (drawn again for a new text size: judged at its full size, as a fresh load does)
       [...text.children].forEach((c, k) => c.style.setProperty('--i', k));
       text.dataset.turn = live.turnNow || live.throwDir;   // (the way the new words come in: app.css; '' comes in from the card's edge with the glass, as before)
